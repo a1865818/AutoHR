@@ -51,6 +51,11 @@ coverage.xml
 .pytest_cache/
 cover/
 
+.cursorignore
+
+*.pickle
+*.pckl
+
 # Translations
 *.mo
 *.pot
