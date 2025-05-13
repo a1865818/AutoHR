@@ -13,8 +13,6 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Add TestComponent to verify Tailwind is working */}
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold text-gray-800 mb-4">

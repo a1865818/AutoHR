@@ -1,15 +1,6 @@
 "use client";
 
-import {
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  Home,
-  Menu,
-  Settings,
-  Users,
-  X,
-} from "lucide-react";
+import { FileText, Home, Menu, Settings, Users, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -37,17 +28,6 @@ export default function Sidebar() {
     { name: "Settings", href: "/settings", icon: Settings },
   ];
 
-  //   const isCategoryActive = (categoryHref: string) => {
-  //     const [catPath, catQuery] = categoryHref.split("?");
-  //     if (pathname !== catPath) return false;
-  //     if (!catQuery) return searchParams.toString() === "";
-
-  //     const categorySearchParams = new URLSearchParams(catQuery);
-  //     for (const [key, value] of categorySearchParams.entries()) {
-  //       if (searchParams.get(key) !== value) return false;
-  //     }
-  //     return true;
-  //   };
   if (isCollapsed === null) return null;
 
   return (
@@ -78,9 +58,9 @@ export default function Sidebar() {
         >
           <span className="sr-only">Toggle sidebar</span>
           {isCollapsed ? (
-            <ChevronRight className="h-6 w-6" />
+            <Menu className="h-6 w-4" />
           ) : (
-            <ChevronLeft className="h-6 w-6" />
+            <Menu className="h-6 w-4" />
           )}
         </button>
       </div>
@@ -90,14 +70,14 @@ export default function Sidebar() {
           className="fixed inset-0 z-20 bg-gray-900 bg-opacity-50 lg:hidden"
           onClick={() => setIsOpen(false)}
         />
-      )}
+      )}{" "}
       {/* Sidebar */}
       <div
         className={`fixed inset-y-0 left-0 z-30 bg-white shadow-lg transition-all duration-300 ease-in-out
           lg:static lg:h-screen lg:overflow-y-auto
-          ${isOpen ? "translate-x-0 w-64" : "-translate-x-full w-64"}
+          ${isOpen ? "translate-x-0 w-sidebar" : "-translate-x-full w-sidebar"}
           lg:translate-x-0
-          ${isCollapsed ? "lg:w-20" : "lg:w-64"}`}
+          ${isCollapsed ? "lg:w-sidebar-collapsed" : "lg:w-sidebar"}`}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
