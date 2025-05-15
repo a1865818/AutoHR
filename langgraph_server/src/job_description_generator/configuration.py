@@ -28,14 +28,6 @@ class BaseConfiguration:
 class Configuration(BaseConfiguration):
     """The configuration for the agent."""
 
-    system_prompt: str = field(
-        default=prompts.SYSTEM_PROMPT,
-        metadata={
-            "description": "The system prompt to use for the agent's interactions. "
-            "This prompt sets the context and behavior for the agent."
-        },
-    )
-
     model: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
         default="anthropic/claude-3-5-sonnet-20240620",
         metadata={

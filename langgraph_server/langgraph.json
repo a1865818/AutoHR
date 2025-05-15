@@ -1,7 +1,8 @@
 {
   "dependencies": ["."],
   "graphs": {
-    "job_description_generator": "./src/job_description_generator/graph.py:graph"
+    "job_description_generator": "./src/job_description_generator/graph.py:graph",
+    "business_context_scraper": "./src/business_context_scraper/graph.py:graph"
   },
   "env": "./.env"
 }
