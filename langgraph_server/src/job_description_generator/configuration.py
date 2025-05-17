@@ -28,7 +28,7 @@ class BaseConfiguration:
 class Configuration(BaseConfiguration):
     """The configuration for the agent."""
 
-    model: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
+    model: str = field(
         default="anthropic/claude-3-5-sonnet-20240620",
         metadata={
             "description": "The name of the language model to use for the agent's main interactions. "
@@ -61,4 +61,11 @@ class Configuration(BaseConfiguration):
         metadata={
             "description": "The maximum number of retries for the agent's interactions."
         },
-    )
+    ),
+    max_revisions: int = field(
+        default=3,
+        metadata={
+            "description": "The maximum number of revisions allowed for the job description."
+        }
+    ),
+

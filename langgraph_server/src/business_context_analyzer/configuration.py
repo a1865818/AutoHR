@@ -28,14 +28,6 @@ class BaseConfiguration:
 class Configuration(BaseConfiguration):
     """The configuration for the agent."""
 
-    system_prompt: str = field(
-        default=prompts.SYSTEM_PROMPT,
-        metadata={
-            "description": "The system prompt to use for the agent's interactions. "
-            "This prompt sets the context and behavior for the agent."
-        },
-    )
-
     model: Annotated[str, {"__template_metadata__": {"kind": "llm"}}] = field(
         default="anthropic/claude-3-5-sonnet-20240620",
         metadata={
@@ -52,7 +44,7 @@ class Configuration(BaseConfiguration):
     )
 
     max_search_results: int = field(
-        default=10,
+        default=5,
         metadata={
             "description": "The maximum number of search results to return for each search query."
         },
@@ -68,5 +60,11 @@ class Configuration(BaseConfiguration):
         default=3,
         metadata={
             "description": "The maximum number of retries for the agent's interactions."
+        },
+    )
+    search_engine: str = field(
+        default="tavily",
+        metadata={
+            "description": "The search engine to use for the agent's search queries."
         },
     )

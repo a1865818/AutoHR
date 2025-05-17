@@ -21,6 +21,8 @@ import src.job_description_generator.prompts as prompts
 config_manager = ConfigManager("src/configs/gpt_4.1_nano.json")
 configuration = Configuration.from_runnable_config(config_manager.get("job_description_generator"))
 
+MAX_REVISIONS = configuration.max_revisions
+
 logger = logging.getLogger(__file__.split("langgraph_server")[1])
 
 json_schema = {
@@ -58,8 +60,8 @@ tools_by_name = {tool.name: tool for tool in tools}
 base_model = load_chat_model(configuration.model, configuration.provider, configuration.temperature, configuration.max_retries)
 job_title_analyzer_model = base_model.bind(stop=None)
 job_description_gen_model = base_model.bind(stop=None)
-evaluator_model = base_model.bind(stop=None)
-post_processor_model = base_model.with_structured_output(json_schema)
+evaluator_model = base_model.with_structured_output(json_schema)
+post_processor_model = base_model
 
 # Tool-enabled model for general use
 tool_enabled_model = base_model.bind_tools(tools)
@@ -111,14 +113,15 @@ async def job_title_analyzer(state: State) -> Dict[str, Any]:
         soft_skills=soft_skills,
         working_conditions=working_conditions,
         education_requirements=education_requirements,
-        key_responsibilities=key_responsibilities,
+        key_responsibilities=key_responsibilities
     )
     
     # Get the model's response
     response = cast(
         AIMessage,
         await job_title_analyzer_model.ainvoke(
-            [{"role": "system", "content": system_message}, {"role": "user", "content": user_input}]
+            [{"role": "system", "content": system_message}, 
+             {"role": "user", "content": user_input}]
         ),
     )
     
@@ -126,7 +129,7 @@ async def job_title_analyzer(state: State) -> Dict[str, Any]:
         "full_analysis": response.content,
         "original_input": user_input
     }
-    
+
     # Update state with analysis
     return {
         "messages": [response],
@@ -140,24 +143,16 @@ async def job_description_gen(state: State) -> Dict[str, Any]:
     """
     # Format the system prompt
     system_message = prompts.JOB_DESCRIPTION_GEN_PROMPT.format(
-        system_time=datetime.now(tz=UTC).isoformat()
+        job_analysis=state.analysis["full_analysis"],
+        evaluation=state.evaluation
     )
-    
-    # Create a prompt with the analyzed information
-    user_content = f"""
-    Please generate a job description based on the following analysis:
-    
-    {state.analysis["full_analysis"]}
-    
-    Create a well-structured, professional job description that addresses all the requirements and criteria.
-    """
+
     
     # Get the model's response
     response = cast(
         AIMessage,
         await job_description_gen_model.ainvoke(
-            [{"role": "system", "content": system_message}, 
-             {"role": "user", "content": user_content}]
+            [{"role": "system", "content": system_message}]
         ),
     )
     
@@ -174,50 +169,19 @@ async def evaluator(state: State) -> Dict[str, Any]:
     """
     # Format the system prompt
     system_message = prompts.EVALUATOR_PROMPT.format(
-        system_time=datetime.now(tz=UTC).isoformat()
+        job_description=state.job_description
     )
-    
-    # Create a prompt with the job description and original requirements
-    user_content = f"""
-    Please evaluate the following job description against the original requirements:
-    
-    ORIGINAL ANALYSIS:
-    {state.analysis["full_analysis"]}
-    
-    GENERATED JOB DESCRIPTION:
-    {state.job_description}
-    
-    Provide your evaluation and clearly state if this description PASSES or NEEDS_REVISION.
-    """
     
     # Get the model's response
-    response = cast(
-        AIMessage,
-        await evaluator_model.ainvoke(
-            [{"role": "system", "content": system_message}, {"role": "user", "content": user_content}]
-        ),
+    response = await evaluator_model.ainvoke(
+        [{"role": "system", "content": system_message}]
     )
-    
-    # Extract the decision (PASS or NEEDS_REVISION)
-    decision = "NEEDS_REVISION"  # Default to revision if we can't clearly detect
-    if "PASS" in response.content:
-        decision = "PASS"
-    
-    # Calculate new revision count
-    revision_count = state.revision_count
-    if decision == "NEEDS_REVISION":
-        revision_count += 1
-    
-    # If we've reached max revisions, force a PASS
-    if revision_count >= state.max_revisions:
-        decision = "PASS"
         
     # Return the evaluation and decision
     return {
-        "messages": [response],
-        "evaluation": {"full_evaluation": response.content},
-        "evaluation_decision": decision,
-        "revision_count": revision_count
+        "evaluation_decision": response["decision"],
+        "revision_count": state.revision_count + 1,
+        "evaluation": str(response)
     }
 
 async def post_processor(state: State) -> Dict[str, Any]:
@@ -227,7 +191,6 @@ async def post_processor(state: State) -> Dict[str, Any]:
     """
     # Format the system prompt
     system_message = prompts.POST_PROCESSOR_PROMPT.format(
-        system_time=datetime.now(tz=UTC).isoformat()
     )
     
     # Create a prompt with the approved job description
@@ -247,20 +210,18 @@ async def post_processor(state: State) -> Dict[str, Any]:
         ),
     )
     
-    # Return the formatted job description and a final message to the user
-    final_message = AIMessage(content=f"Here is your professionally formatted job description:\n\n{response.content}")
-    
     return {
-        "messages": [final_message],
-        "formatted_job_description": response.content
+        "messages": [response],
+        "formatted_job_description": response
     }
 
 def decide_after_evaluation(state: State) -> Literal["job_description_gen", "post_processor"]:
     """Determine whether to revise the job description or move to post-processing.
     
     This function routes the workflow based on the evaluator's decision.
+    If max revisions are reached, it will force a PASS.
     """
-    if state.evaluation_decision == "PASS":
+    if state.evaluation_decision == "PASS" or state.revision_count >= MAX_REVISIONS:
         return "post_processor"
     else:
         return "job_description_gen"
