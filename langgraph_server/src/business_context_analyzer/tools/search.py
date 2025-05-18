@@ -6,41 +6,55 @@ These tools are intended as free examples to get started. For production use,
 consider implementing more robust and specialized tools tailored to your needs.
 """
 
-from typing import Any, Callable, Dict, List, Optional, cast
-import json
-
-from langchain_tavily import TavilySearch  
-from langchain_community.tools import BraveSearch
-from langchain_core.tools import tool
 
 from src.business_context_analyzer.configuration import Configuration
 from src.business_context_analyzer.utils import ConfigManager
 
+import logging
+import os
+
+from langchain_community.tools import BraveSearch, DuckDuckGoSearchResults, TavilySearchResults
+from langchain_community.tools.arxiv import ArxivQueryRun
+from langchain_community.utilities import ArxivAPIWrapper, BraveSearchWrapper
+
 config_manager = ConfigManager("src/configs/gpt_4.1_nano.json")
 configuration = Configuration.from_runnable_config(config_manager.get("business_context_analyzer"))
 
+SEARCH_MAX_RESULTS = configuration.max_search_results
 
-@tool
-async def search(query: str, include_domains: Optional[List[str]] = None) -> str:
-    """Search for general web results.
+logger = logging.getLogger(__file__.split("langgraph_server")[1])
 
-    This function performs a search using the Tavily search engine, which is designed
-    to provide comprehensive, accurate, and trusted results. It's particularly useful
-    for answering questions about current events.
-    """
+tavily_search_tool = TavilySearchResults(
+    name="web_search",
+    max_results=SEARCH_MAX_RESULTS,
+    include_raw_content=True,
+    include_images=True,
+    include_image_descriptions=True
+)
 
-    if configuration.search_engine == "tavily":
-        search_engine = TavilySearch(
-            max_results=configuration.max_search_results, 
-            include_raw_content=True,
-            include_domains=include_domains
-        )
-    else:
-        pass
-        # search_engine = BraveSearch(
-        #     max_results=configuration.max_search_results, 
-        #     include_raw_content=True,
-        #     include_domains=include_domains
-        # )
-    
-    return cast(dict[str, Any], await search_engine.ainvoke({"query": query}))
+duckduckgo_search_tool = DuckDuckGoSearchResults(
+    name="web_search", max_results=SEARCH_MAX_RESULTS
+)
+
+brave_search_tool = BraveSearch(
+    name="web_search",
+    search_wrapper=BraveSearchWrapper(
+        api_key=os.getenv("BRAVE_SEARCH_API_KEY", ""),
+        search_kwargs={"count": SEARCH_MAX_RESULTS},
+    ),
+)
+
+arxiv_search_tool = ArxivQueryRun(
+    name="web_search",
+    api_wrapper=ArxivAPIWrapper(
+        top_k_results=SEARCH_MAX_RESULTS,
+        load_max_docs=SEARCH_MAX_RESULTS,
+        load_all_available_meta=True,
+    ),
+)
+
+# if __name__ == "__main__":
+#     results = LoggedDuckDuckGoSearch(
+#         name="web_search", max_results=SEARCH_MAX_RESULTS, output_format="list"
+#     ).invoke("cute panda")
+#     print(json.dumps(results, indent=2, ensure_ascii=False))
