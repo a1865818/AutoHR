@@ -59,12 +59,34 @@ class Configuration(BaseConfiguration):
     max_retries: int = field(
         default=3,
         metadata={
-            "description": "The maximum number of retries for the agent's interactions."
+            "description": "The maximum number of RETRIES for model retries."
         },
     )
+
     search_engine: str = field(
         default="tavily",
         metadata={
             "description": "The search engine to use for the agent's search queries."
+        },
+    )
+
+    max_plan_iterations: int = field(
+        default=2,
+        metadata={
+            "description": "The maximum number of plan iterations for the agent's interactions."
+        },
+    )
+
+    mcp_settings: dict = field(
+        default=None,
+        metadata={
+            "description": "The settings for the MCP servers."
+        },
+    )
+
+    max_step_num: int = field(
+        default=2,
+        metadata={
+            "description": "The maximum number of steps in the plan."
         },
     )

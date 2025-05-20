@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, fields
-from typing import Annotated, Type, TypeVar
+from typing import Type, TypeVar
 
 from langchain_core.runnables import ensure_config
-from langgraph.config import get_config
 from langchain_core.runnables import RunnableConfig
-import src.job_description_generator.prompts as prompts
 
 T = TypeVar("T", bound="BaseConfiguration")
 
@@ -61,11 +59,12 @@ class Configuration(BaseConfiguration):
         metadata={
             "description": "The maximum number of retries for the agent's interactions."
         },
-    ),
+    )
+
     max_revisions: int = field(
         default=3,
         metadata={
             "description": "The maximum number of revisions allowed for the job description."
         }
-    ),
+    )
 

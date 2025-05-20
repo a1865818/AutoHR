@@ -7,7 +7,6 @@ from typing import Sequence, Dict, Any, Literal
 
 from langchain_core.messages import AnyMessage
 from langgraph.graph import add_messages
-from langgraph.managed import IsLastStep
 from typing_extensions import Annotated
 
 

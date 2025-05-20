@@ -5,182 +5,502 @@ Works with a chat model with tool calling support.
 import logging
 import json
 
-from typing import Dict, List, Literal, cast, Any
-from pydantic import BaseModel, Field
-
-from langchain_core.messages import AIMessage, ToolMessage, HumanMessage
+from typing import Annotated, Literal
+from datetime import datetime
+from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
-from langgraph.prebuilt import ToolNode
+from langchain_mcp_adapters.client import MultiServerMCPClient
 
 from src.business_context_analyzer.configuration import Configuration
-from src.business_context_analyzer.state import InputState, State
-from src.business_context_analyzer.utils import load_chat_model, ConfigManager
-from src.business_context_analyzer.tools import search
-import src.business_context_analyzer.prompts as prompt
 from dotenv import load_dotenv
 load_dotenv()
+
+from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.runnables import RunnableConfig
+from langchain_core.tools import tool
+from langgraph.types import Command, interrupt
+
+from src.business_context_analyzer.agents import research_agent, create_agent
+
+from src.business_context_analyzer.tools.search import tavily_search_tool
+from src.business_context_analyzer.tools import (
+    crawl_tool,
+    web_search_tool
+)
+
+from src.business_context_analyzer.prompts.planner_model import Plan, StepType
+import src.business_context_analyzer.prompts as prompts
+from src.business_context_analyzer.utils import repair_json_output, ConfigManager, load_chat_model
+
+from src.business_context_analyzer.state import State, InputState
+from src.business_context_analyzer.configuration import Configuration
+
+logger = logging.getLogger(__file__.split("langgraph_server")[1])
 
 config_manager = ConfigManager("src/configs/gpt_4.1_nano.json")
 configuration = Configuration.from_runnable_config(config_manager.get("business_context_analyzer"))
 
-logger = logging.getLogger(__file__.split("langgraph_server")[1])
-
-json_schema = {
-    "title": "BusinessContext",
-    "description": "A concise description of the company",
-    "type": "object",
-    "properties": {
-        "company_name": {"type": "string", "description": "The name of the company"},
-        "company_description": {"type": "string", "description": "A concise description of the company"}
-    },
-    "required": ["company_description"]
-}
-
-
-# Create separate model instances for each node with different system prompts
-tools = [search]
-tools_by_name = {tool.name: tool for tool in tools}
+SELECTED_SEARCH_ENGINE = configuration.search_engine
+SEARCH_MAX_RESULTS = configuration.max_search_results
 
 base_model = load_chat_model(configuration.model, configuration.provider, configuration.temperature, configuration.max_retries)
-business_context_analyzer = base_model.bind_tools(tools)
-json_schema_model = base_model.with_structured_output(json_schema)
 
-async def tool_node(state: State): 
-    outputs = []
-    for tool_call in state.messages[-1].tool_calls:
-        tool_result = await tools_by_name[tool_call["name"]].ainvoke(tool_call["args"])
+@tool
+def handoff_to_planner(
+    task_title: Annotated[str, "The title of the task to be handed off."],
+    locale: Annotated[str, "The user's detected language locale (e.g., en-US, zh-CN)."],
+):
+    """Handoff to planner agent to do plan."""
+    # This tool is not returning anything: we're just using it
+    # as a way for LLM to signal that it needs to hand off to planner agent
+    return
+
+
+def background_investigation_node(state: State) -> Command[Literal["planner"]]:
+    logger.info("background investigation node is running.")
+
+    company_name = state.company_name
+    company_url = state.company_url
+
+    query = f"""
+    Please research and gather information about this company named {company_name} and here is the company's website: {company_url}
+
+    Please create an analysis about {state.company_name} and includes the following categories:
+
+    1. COMPANY BASICS:
+    2. BUSINESS OVERVIEW:
+    3. PRODUCTS AND SERVICES:
+    4. CUSTOMER RELATIONSHIPS:
+    """
+
+    query_msg = HumanMessage(content=query)
+
+    if SELECTED_SEARCH_ENGINE == "tavily":
+        searched_content = tavily_search_tool.invoke(
+            {"query": query}
+        )
+        background_investigation_results = None
+        if isinstance(searched_content, list):
+            background_investigation_results = [
+                {"title": elem["title"], "content": elem["content"]}
+                for elem in searched_content
+            ]
+        else:
+            logger.error(
+                f"Tavily search returned malformed response: {searched_content}"
+            )
+    else:
+        background_investigation_results = web_search_tool.invoke(query)
+    return Command(
+        update={
+            "background_investigation_results": json.dumps(
+                background_investigation_results, ensure_ascii=False
+            ),
+            "messages": [query_msg]
+        },
+        goto="planner",
+    )
+
+
+def planner_node(
+    state: State, config: RunnableConfig
+) -> Command[Literal["human_feedback", "reporter"]]:
+    """Planner node that generate the full plan."""
+    logger.info("Planner generating full plan")
+    plan_iterations = state.plan_iterations
+    prompt = prompts.PLANNER_PROMPT.format(
+        CURRENT_TIME=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        max_step_num=configuration.max_step_num,
+        locale=state.locale
+    )
+
+    # messages = prompt + all messages from the state
+    messages = [
+        {"role": "system", "content": prompt}
+    ]
+    for message in state.messages:
+        messages.append({"role": message.type, "content": message.content})
+
+    if (
+        plan_iterations == 0
+        and state.enable_background_investigation
+        and state.background_investigation_results
+    ):
+        messages += [
+            {
+                "role": "user",
+                "content": (
+                    "background investigation results of user query:\n"
+                    + state.background_investigation_results
+                    + "\n"
+                ),
+            }
+        ]
+
+    llm = base_model.with_structured_output(Plan, method="json_mode")
+
+    # if the plan iterations is greater than the max plan iterations, return the reporter node
+    if plan_iterations >= configuration.max_plan_iterations:
+        return Command(goto="reporter")
+
+    response = llm.invoke(messages)
+    full_response = response.model_dump_json(indent=4, exclude_none=True)
+    logger.debug(f"Current state messages: {state.messages}")
+    logger.info(f"Planner response: {full_response}")
+
+    try:
+        curr_plan = json.loads(repair_json_output(full_response))
+    except json.JSONDecodeError:
+        logger.warning("Planner response is not a valid JSON")
+        if plan_iterations > 0:
+            return Command(
+                update={
+                    "plan_iterations": plan_iterations + 1,
+                },
+                goto="reporter"
+            )
+        else:
+            return Command(goto="__end__")
+    if curr_plan.get("has_enough_context"):
+        logger.info("Planner response has enough context.")
+        new_plan = Plan.model_validate(curr_plan)
+        return Command(
+            update={
+                "messages": [
+                    AIMessage(content=full_response, name="planner").model_dump()
+                ],
+                "current_plan": new_plan,
+                "plan_iterations": plan_iterations + 1,
+            },
+            goto="reporter",
+        )
+    return Command(
+        update={
+            "messages": [AIMessage(content=full_response, name="planner").model_dump()],
+            "current_plan": full_response,
+            "plan_iterations": plan_iterations + 1,
+        },
+        goto="human_feedback",
+    )
+
+
+def human_feedback_node(
+    state: State,
+) -> Command[Literal["planner", "research_team", "reporter", "__end__"]]:
+    current_plan = state.current_plan
+    # check if the plan is auto accepted
+    auto_accepted_plan = state.auto_accepted_plan
+    if not auto_accepted_plan:
+        feedback = interrupt("Please Review the Plan.")
+
+        # if the feedback is not accepted, return the planner node
+        if feedback and str(feedback).upper().startswith("[EDIT_PLAN]"):
+            return Command(
+                update={
+                    "messages": [
+                        HumanMessage(content=feedback, name="feedback").model_dump(),
+                    ],
+                },
+                goto="planner",
+            )
+        elif feedback and str(feedback).upper().startswith("[ACCEPTED]"):
+            logger.info("Plan is accepted by user.")
+        else:
+            raise TypeError(f"Interrupt value of {feedback} is not supported.")
+
+    # if the plan is accepted, run the following node
+    plan_iterations = state.plan_iterations
+    goto = "research_team"
+    try:
+        current_plan = repair_json_output(current_plan)
+        # increment the plan iterations
+        plan_iterations += 1
+        # parse the plan
+        new_plan = json.loads(current_plan)
+        if new_plan["has_enough_context"]:
+            goto = "reporter"
+    except json.JSONDecodeError:
+        logger.warning("Planner response is not a valid JSON")
+        if plan_iterations > 0:
+            return Command(goto="reporter")
+        else:
+            return Command(goto="__end__")
+
+    return Command(
+        update={
+            "current_plan": Plan.model_validate(new_plan),
+            "plan_iterations": plan_iterations,
+            "locale": new_plan["locale"],
+        },
+        goto=goto,
+    )
+
+
+def coordinator_node(
+    state: State,
+) -> Command[Literal["planner", "background_investigator", "__end__"]]:
+    """Coordinator node that communicate with customers."""
+    logger.info("Coordinator talking.")
+    prompt = prompts.COORDINATOR_PROMPT.format(
+        CURRENT_TIME=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        locale=state.locale
+    )
+    messages = [
+        {"role": "system", "content": prompt}
+    ]
+    for message in state.messages:
+        messages.append({"role": message.type, "content": message.content})
+
+    coordinator_llm = base_model.bind_tools([handoff_to_planner])
+    response = coordinator_llm.invoke(messages)
+
+    logger.debug(f"Current state messages: {state.messages}")
+
+    goto = "__end__"
+    locale = state.locale  # This reads the current locale
+    print("Current state locale: ", state.locale)
+
+    if len(response.tool_calls) > 0:
+        goto = "planner"
+        if state.enable_background_investigation:
+            # if the search_before_planning is True, add the web search tool to the planner agent
+            goto = "background_investigator"
+    else:
+        logger.warning(
+            "Coordinator response contains no tool calls. Terminating workflow execution."
+        )
+        logger.debug(f"Coordinator response: {response}")
+    
+    return Command(
+        update={"locale": locale},
+        goto=goto,
+    )
+
+
+def reporter_node(state: State):
+    """Reporter node that write a final report."""
+    logger.info("Reporter write final report")
+    current_plan = state.current_plan
+    input_ = {
+        "messages": [
+            HumanMessage(
+                f"# Research Requirements\n\n## Task\n\n{current_plan.title}\n\n## Description\n\n{current_plan.thought}"
+            ).model_dump()
+        ],
+        "locale": state.locale,
+    }
+    prompt = prompts.REPORTER_PROMPT.format(
+        CURRENT_TIME=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        locale=state.locale
+    )
+    messages = [
+        {"role": "system", "content": prompt}
+    ]
+
+    messages.append(HumanMessage(content=json.dumps(input_)))
+    for message in state.messages:
+        messages.append(HumanMessage(content=message.content))
         
-        # Ensure the result is serializable
-        if isinstance(tool_result, set):
-            tool_result = list(tool_result)
+    observations = state.observations
 
-        outputs.append(ToolMessage(
-            tool_call_id=tool_call["id"],
-            content=tool_result,
-            tool_calls=[tool_call]
+    # Add a reminder about the new report format, citation style, and table usage
+    messages.append(
+        HumanMessage(
+            content="IMPORTANT: Structure your report according to the format in the prompt. Remember to include:\n\n1. Key Points - A bulleted list of the most important findings\n2. Overview - A brief introduction to the topic\n3. Detailed Analysis - Organized into logical sections\n4. Survey Note (optional) - For more comprehensive reports\n5. Key Citations - List all references at the end\n\nFor citations, DO NOT include inline citations in the text. Instead, place all citations in the 'Key Citations' section at the end using the format: `- [Source Title](URL)`. Include an empty line between each citation for better readability.\n\nPRIORITIZE USING MARKDOWN TABLES for data presentation and comparison. Use tables whenever presenting comparative data, statistics, features, or options. Structure tables with clear headers and aligned columns. Example table format:\n\n| Feature | Description | Pros | Cons |\n|---------|-------------|------|------|\n| Feature 1 | Description 1 | Pros 1 | Cons 1 |\n| Feature 2 | Description 2 | Pros 2 | Cons 2 |"
+        )
+    )
+
+    for observation in observations:
+        messages.append(
+            HumanMessage(
+                content=f"Below are some observations for the research task:\n\n{observation}"
             )
         )
-    return {"messages": outputs}
+    logger.debug(f"Current messages: {messages}")
+    response = base_model.invoke(messages)
+    response_content = response.content
+    logger.info(f"reporter response: {response_content}")
 
-async def call_model(state: State) -> Dict[str, Any]:
-    """
-    Generate a response using the model based on the current state.
-    
-    This function processes the input and generates a response that can either 
-    use tools or provide a final analysis.
-    """
-    # Extract input information
-    input_msg = state.messages[0].content
-    input_content = json.loads(input_msg)
-    company_name = input_content.get("company_name", "")
-    company_website = input_content.get("company_website", "")
-    
-    # Format the system prompt
-    system_message = prompt.BUSINESS_CONTEXT_ANALYZER_PROMPT.format(
-        company_name=company_name,
-        company_website=company_website
-    )
-    
-    # Collect all messages for the model
-    messages = [
-        {"role": "system", "content": system_message}
-    ]
-    
-    # Get the model's response
-    response = cast(
-        AIMessage,
-        await business_context_analyzer.ainvoke(messages + state.messages)
-    )
+    return {"final_report": response_content}
 
-    return {
-        "messages": [response],
-        "company_name": company_name,
-        "company_website": company_website
+
+def research_team_node(
+    state: State,
+) -> Command[Literal["planner", "researcher"]]:
+    """Research team node that collaborates on tasks."""
+    logger.info("Research team is collaborating on tasks.")
+    current_plan = state.current_plan
+    if not current_plan or not current_plan.steps:
+        return Command(goto="planner")
+    if all(step.execution_res for step in current_plan.steps):
+        return Command(goto="planner")
+    for step in current_plan.steps:
+        if not step.execution_res:
+            break
+    if step.step_type and step.step_type == StepType.RESEARCH:
+        return Command(goto="researcher")
+    return Command(goto="planner")
+
+
+async def _execute_agent_step(
+    state: State, agent, agent_name: str
+) -> Command[Literal["research_team"]]:
+    """Helper function to execute a step using the specified agent."""
+    current_plan = state.current_plan
+    observations = state.observations
+
+    # Find the first unexecuted step
+    current_step = None
+    completed_steps = []
+    for step in current_plan.steps:
+        if not step.execution_res:
+            current_step = step
+            break
+        else:
+            completed_steps.append(step)
+
+    if not current_step:
+        logger.warning("No unexecuted step found")
+        return Command(goto="research_team")
+
+    logger.info(f"Executing step: {current_step.title}")
+
+    # Format completed steps information
+    completed_steps_info = ""
+    if completed_steps:
+        completed_steps_info = "# Existing Research Findings\n\n"
+        for i, step in enumerate(completed_steps):
+            completed_steps_info += f"## Existing Finding {i+1}: {step.title}\n\n"
+            completed_steps_info += f"<finding>\n{step.execution_res}\n</finding>\n\n"
+
+    # Prepare the input for the agent with completed steps info
+    agent_input = {
+        "messages": [
+            HumanMessage(
+                content=f"{completed_steps_info}# Current Task\n\n## Title\n\n{current_step.title}\n\n## Description\n\n{current_step.description}\n\n## Locale\n\n{state.locale}"
+            ).model_dump()
+        ]
     }
 
-async def response(state: State) -> Dict[str, Any]:
-    """
-    Generate a simplified JSON schema with company name and description.
-    
-    This node takes the final analysis from the conversation and formats it according to
-    the expected schema.
-    """
-    # Format the system prompt
-    system_prompt = prompt.BUSINESS_CONTEXT_FORMATTER_PROMPT.format(
-        company_name=state.company_name
+    # Add citation reminder for researcher agent
+    if agent_name == "researcher":
+        agent_input["messages"].append(
+            HumanMessage(
+                content="IMPORTANT: DO NOT include inline citations in the text. Instead, track all sources and include a References section at the end using link reference format. Include an empty line between each citation for better readability. Use this format for each reference:\n- [Source Title](URL)\n\n- [Another Source](URL)",
+                name="system",
+            ).model_dump()
+        )
+
+    # Invoke the agent
+    result = await agent.ainvoke(input=agent_input)
+
+    # Process the result
+    response_content = result["messages"][-1].content
+    logger.debug(f"{agent_name.capitalize()} full response: {response_content}")
+
+    # Update the step with the execution result
+    current_step.execution_res = response_content
+    logger.info(f"Step '{current_step.title}' execution completed by {agent_name}")
+
+    return Command(
+        update={
+            "messages": [
+                HumanMessage(
+                    content=response_content,
+                    name=agent_name,
+                ).model_dump(),
+            ],
+            "observations": observations + [response_content],
+        },
+        goto="research_team",
     )
 
-    # messages = [{"role": "system", "content": system_prompt}]
-    
-    # Get the model's response
-    messages = [{"role": "system", "content": system_prompt}] + state.messages  # append the existing list of messages
 
-    # now pass the list directly to ainvoke()
-    response = await json_schema_model.ainvoke(messages)
-    
-    # Parse the JSON response
-    try:
-        schema_data = response
-        
-        # Validate expected fields exist
-        if "company_name" not in schema_data or "company_description" not in schema_data:
-            raise ValueError("Response missing required fields")
-            
-        # Create a final message for the user
-        final_message = AIMessage(content=json.dumps(schema_data, indent=2))
-        
-        return {
-            "messages": state.messages + [final_message],
-            "business_context": schema_data
-        }
-        
-    except (json.JSONDecodeError, ValueError) as e:
-        # If JSON parsing failed, return an error
-        error_message = AIMessage(content=f"Error extracting business context: {str(e)}")
-        return {
-            "messages": state.messages + [error_message],
-            "business_context": {
-                "company_name": "Unknown",
-                "company_description": "Could not extract valid business context."
-            }
-        }
+async def _setup_and_execute_agent_step(
+    state: State,
+    config: RunnableConfig,
+    agent_type: str,
+    default_agent,
+    default_tools: list,
+) -> Command[Literal["research_team"]]:
+    """Helper function to set up an agent with appropriate tools and execute a step.
 
-def route_model_output(state: State) -> Literal["response", "tool_node"]:
-    """Determine the next node based on the model's output.
-
-    This function checks if the model's last message contains tool calls.
+    This function handles the common logic for researcher_node:
+    1. Configures MCP servers and tools based on agent type
+    2. Creates an agent with the appropriate tools or uses the default agent
+    3. Executes the agent on the current step
 
     Args:
-        state (State): The current state of the conversation.
+        state: The current state
+        config: The runnable config
+        agent_type: The type of agent ("researcher")
+        default_agent: The default agent to use if no MCP servers are configured
+        default_tools: The default tools to add to the agent
 
     Returns:
-        str: The name of the next node to call.
+        Command to update state and go to research_team
     """
-    last_message = state.messages[-1]
-    if not last_message.tool_calls:
-        return "response"
-    
-    # Otherwise go to the response formatter
-    return "tool_node"
+    configurable = Configuration.from_runnable_config(config)
+    mcp_servers = {}
+    enabled_tools = {}
 
-# Define the graph
+    # Extract MCP server configuration for this agent type
+    if configurable.mcp_settings:
+        for server_name, server_config in configurable.mcp_settings["servers"].items():
+            if (
+                server_config["enabled_tools"]
+                and agent_type in server_config["add_to_agents"]
+            ):
+                mcp_servers[server_name] = {
+                    k: v
+                    for k, v in server_config.items()
+                    if k in ("transport", "command", "args", "url", "env")
+                }
+                for tool_name in server_config["enabled_tools"]:
+                    enabled_tools[tool_name] = server_name
+
+    # Create and execute agent with MCP tools if available
+    if mcp_servers:
+        async with MultiServerMCPClient(mcp_servers) as client:
+            loaded_tools = default_tools[:]
+            for tool in client.get_tools():
+                if tool.name in enabled_tools:
+                    tool.description = (
+                        f"Powered by '{enabled_tools[tool.name]}'.\n{tool.description}"
+                    )
+                    loaded_tools.append(tool)
+            agent = create_agent(agent_type, agent_type, loaded_tools, agent_type)
+            return await _execute_agent_step(state, agent, agent_type)
+    else:
+        # Use default agent if no MCP servers are configured
+        return await _execute_agent_step(state, default_agent, agent_type)
+
+
+async def researcher_node(
+    state: State, config: RunnableConfig
+) -> Command[Literal["research_team"]]:
+    """Researcher node that do research"""
+    logger.info("Researcher node is researching.")
+    return await _setup_and_execute_agent_step(
+        state,
+        config,
+        "researcher",
+        research_agent,
+        [web_search_tool, crawl_tool],
+    )
+
+
 builder = StateGraph(State, input=InputState)
-
-# Add all our nodes
-# Add nodes for business context analysis
-builder.add_node("tool_node", tool_node)
-builder.add_node("agent", call_model)
-builder.add_node("response", response)
-
-# Define the edges
-builder.add_edge(START, "agent")
-builder.add_conditional_edges("agent", route_model_output,
-                              {"tool_node": "tool_node",
-                               "response": "response"})
-builder.add_edge("tool_node", "agent")
-builder.add_edge("response", END)
+builder.add_edge(START, "coordinator")
+builder.add_node("coordinator", coordinator_node)
+builder.add_node("background_investigator", background_investigation_node)
+builder.add_node("planner", planner_node)
+builder.add_node("reporter", reporter_node)
+builder.add_node("research_team", research_team_node)
+builder.add_node("researcher", researcher_node)
+builder.add_node("human_feedback", human_feedback_node)
+builder.add_edge("reporter", END) 
 
 # Compile the graph
 graph = builder.compile(name="business_context_analyzer")
-
