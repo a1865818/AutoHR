@@ -6,11 +6,10 @@ import logging
 import json
 
 from typing import Annotated, Literal
-
+from datetime import datetime
 from langchain_core.messages import AIMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
-from langgraph.checkpoint.memory import MemorySaver
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
 from src.business_context_analyzer.configuration import Configuration
@@ -31,10 +30,10 @@ from src.business_context_analyzer.tools import (
 )
 
 from src.business_context_analyzer.prompts.planner_model import Plan, StepType
-from src.business_context_analyzer.prompts.template import apply_prompt_template
+import src.business_context_analyzer.prompts as prompts
 from src.business_context_analyzer.utils import repair_json_output, ConfigManager, load_chat_model
 
-from src.business_context_analyzer.state import State
+from src.business_context_analyzer.state import State, InputState
 from src.business_context_analyzer.configuration import Configuration
 
 logger = logging.getLogger(__file__.split("langgraph_server")[1])
@@ -60,9 +59,25 @@ def handoff_to_planner(
 
 def background_investigation_node(state: State) -> Command[Literal["planner"]]:
     logger.info("background investigation node is running.")
-    query = state["messages"][-1].content
+
+    company_name = state.company_name
+    company_url = state.company_url
+
+    query = f"""
+    Please research and gather information about this company named {company_name} and here is the company's website: {company_url}
+
+    Please create an analysis about {state.company_name} and includes the following categories:
+
+    1. COMPANY BASICS:
+    2. BUSINESS OVERVIEW:
+    3. PRODUCTS AND SERVICES:
+    4. CUSTOMER RELATIONSHIPS:
+    """
+
+    query_msg = HumanMessage(content=query)
+
     if SELECTED_SEARCH_ENGINE == "tavily":
-        searched_content = tavily_search_tool(max_results=SEARCH_MAX_RESULTS).invoke(
+        searched_content = tavily_search_tool.invoke(
             {"query": query}
         )
         background_investigation_results = None
@@ -81,7 +96,8 @@ def background_investigation_node(state: State) -> Command[Literal["planner"]]:
         update={
             "background_investigation_results": json.dumps(
                 background_investigation_results, ensure_ascii=False
-            )
+            ),
+            "messages": [query_msg]
         },
         goto="planner",
     )
@@ -92,21 +108,31 @@ def planner_node(
 ) -> Command[Literal["human_feedback", "reporter"]]:
     """Planner node that generate the full plan."""
     logger.info("Planner generating full plan")
-    configurable = Configuration.from_runnable_config(config)
-    plan_iterations = state["plan_iterations"] if state.get("plan_iterations", 0) else 0
-    messages = apply_prompt_template("planner", state, configurable)
+    plan_iterations = state.plan_iterations
+    prompt = prompts.PLANNER_PROMPT.format(
+        CURRENT_TIME=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        max_step_num=configuration.max_step_num,
+        locale=state.locale
+    )
+
+    # messages = prompt + all messages from the state
+    messages = [
+        {"role": "system", "content": prompt}
+    ]
+    for message in state.messages:
+        messages.append({"role": message.type, "content": message.content})
 
     if (
         plan_iterations == 0
-        and state.get("enable_background_investigation")
-        and state.get("background_investigation_results")
+        and state.enable_background_investigation
+        and state.background_investigation_results
     ):
         messages += [
             {
                 "role": "user",
                 "content": (
                     "background investigation results of user query:\n"
-                    + state["background_investigation_results"]
+                    + state.background_investigation_results
                     + "\n"
                 ),
             }
@@ -120,7 +146,7 @@ def planner_node(
 
     response = llm.invoke(messages)
     full_response = response.model_dump_json(indent=4, exclude_none=True)
-    logger.debug(f"Current state messages: {state['messages']}")
+    logger.debug(f"Current state messages: {state.messages}")
     logger.info(f"Planner response: {full_response}")
 
     try:
@@ -128,7 +154,12 @@ def planner_node(
     except json.JSONDecodeError:
         logger.warning("Planner response is not a valid JSON")
         if plan_iterations > 0:
-            return Command(goto="reporter")
+            return Command(
+                update={
+                    "plan_iterations": plan_iterations + 1,
+                },
+                goto="reporter"
+            )
         else:
             return Command(goto="__end__")
     if curr_plan.get("has_enough_context"):
@@ -140,6 +171,7 @@ def planner_node(
                     AIMessage(content=full_response, name="planner").model_dump()
                 ],
                 "current_plan": new_plan,
+                "plan_iterations": plan_iterations + 1,
             },
             goto="reporter",
         )
@@ -147,17 +179,18 @@ def planner_node(
         update={
             "messages": [AIMessage(content=full_response, name="planner").model_dump()],
             "current_plan": full_response,
+            "plan_iterations": plan_iterations + 1,
         },
         goto="human_feedback",
     )
 
 
 def human_feedback_node(
-    state,
+    state: State,
 ) -> Command[Literal["planner", "research_team", "reporter", "__end__"]]:
-    current_plan = state.get("current_plan", "")
+    current_plan = state.current_plan
     # check if the plan is auto accepted
-    auto_accepted_plan = state.get("auto_accepted_plan", False)
+    auto_accepted_plan = state.auto_accepted_plan
     if not auto_accepted_plan:
         feedback = interrupt("Please Review the Plan.")
 
@@ -177,7 +210,7 @@ def human_feedback_node(
             raise TypeError(f"Interrupt value of {feedback} is not supported.")
 
     # if the plan is accepted, run the following node
-    plan_iterations = state["plan_iterations"] if state.get("plan_iterations", 0) else 0
+    plan_iterations = state.plan_iterations
     goto = "research_team"
     try:
         current_plan = repair_json_output(current_plan)
@@ -209,35 +242,36 @@ def coordinator_node(
 ) -> Command[Literal["planner", "background_investigator", "__end__"]]:
     """Coordinator node that communicate with customers."""
     logger.info("Coordinator talking.")
-    messages = apply_prompt_template("coordinator", state)
+    prompt = prompts.COORDINATOR_PROMPT.format(
+        CURRENT_TIME=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        locale=state.locale
+    )
+    messages = [
+        {"role": "system", "content": prompt}
+    ]
+    for message in state.messages:
+        messages.append({"role": message.type, "content": message.content})
+
     coordinator_llm = base_model.bind_tools([handoff_to_planner])
     response = coordinator_llm.invoke(messages)
 
-    logger.debug(f"Current state messages: {state['messages']}")
+    logger.debug(f"Current state messages: {state.messages}")
 
     goto = "__end__"
-    locale = state.get("locale", "en-US")  # Default locale if not specified
+    locale = state.locale  # This reads the current locale
+    print("Current state locale: ", state.locale)
 
     if len(response.tool_calls) > 0:
         goto = "planner"
-        if state.get("enable_background_investigation"):
+        if state.enable_background_investigation:
             # if the search_before_planning is True, add the web search tool to the planner agent
             goto = "background_investigator"
-        try:
-            for tool_call in response.tool_calls:
-                if tool_call.get("name", "") != "handoff_to_planner":
-                    continue
-                if tool_locale := tool_call.get("args", {}).get("locale"):
-                    locale = tool_locale
-                    break
-        except Exception as e:
-            logger.error(f"Error processing tool calls: {e}")
     else:
         logger.warning(
             "Coordinator response contains no tool calls. Terminating workflow execution."
         )
         logger.debug(f"Coordinator response: {response}")
-
+    
     return Command(
         update={"locale": locale},
         goto=goto,
@@ -247,35 +281,44 @@ def coordinator_node(
 def reporter_node(state: State):
     """Reporter node that write a final report."""
     logger.info("Reporter write final report")
-    current_plan = state.get("current_plan")
+    current_plan = state.current_plan
     input_ = {
         "messages": [
             HumanMessage(
                 f"# Research Requirements\n\n## Task\n\n{current_plan.title}\n\n## Description\n\n{current_plan.thought}"
             ).model_dump()
         ],
-        "locale": state.get("locale", "en-US"),
+        "locale": state.locale,
     }
-    invoke_messages = apply_prompt_template("reporter", input_)
-    observations = state.get("observations", [])
+    prompt = prompts.REPORTER_PROMPT.format(
+        CURRENT_TIME=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        locale=state.locale
+    )
+    messages = [
+        {"role": "system", "content": prompt}
+    ]
+
+    messages.append(HumanMessage(content=json.dumps(input_)))
+    for message in state.messages:
+        messages.append(HumanMessage(content=message.content))
+        
+    observations = state.observations
 
     # Add a reminder about the new report format, citation style, and table usage
-    invoke_messages.append(
+    messages.append(
         HumanMessage(
-            content="IMPORTANT: Structure your report according to the format in the prompt. Remember to include:\n\n1. Key Points - A bulleted list of the most important findings\n2. Overview - A brief introduction to the topic\n3. Detailed Analysis - Organized into logical sections\n4. Survey Note (optional) - For more comprehensive reports\n5. Key Citations - List all references at the end\n\nFor citations, DO NOT include inline citations in the text. Instead, place all citations in the 'Key Citations' section at the end using the format: `- [Source Title](URL)`. Include an empty line between each citation for better readability.\n\nPRIORITIZE USING MARKDOWN TABLES for data presentation and comparison. Use tables whenever presenting comparative data, statistics, features, or options. Structure tables with clear headers and aligned columns. Example table format:\n\n| Feature | Description | Pros | Cons |\n|---------|-------------|------|------|\n| Feature 1 | Description 1 | Pros 1 | Cons 1 |\n| Feature 2 | Description 2 | Pros 2 | Cons 2 |",
-            name="system",
-        ).model_dump()
+            content="IMPORTANT: Structure your report according to the format in the prompt. Remember to include:\n\n1. Key Points - A bulleted list of the most important findings\n2. Overview - A brief introduction to the topic\n3. Detailed Analysis - Organized into logical sections\n4. Survey Note (optional) - For more comprehensive reports\n5. Key Citations - List all references at the end\n\nFor citations, DO NOT include inline citations in the text. Instead, place all citations in the 'Key Citations' section at the end using the format: `- [Source Title](URL)`. Include an empty line between each citation for better readability.\n\nPRIORITIZE USING MARKDOWN TABLES for data presentation and comparison. Use tables whenever presenting comparative data, statistics, features, or options. Structure tables with clear headers and aligned columns. Example table format:\n\n| Feature | Description | Pros | Cons |\n|---------|-------------|------|------|\n| Feature 1 | Description 1 | Pros 1 | Cons 1 |\n| Feature 2 | Description 2 | Pros 2 | Cons 2 |"
+        )
     )
 
     for observation in observations:
-        invoke_messages.append(
+        messages.append(
             HumanMessage(
-                content=f"Below are some observations for the research task:\n\n{observation}",
-                name="observation",
-            ).model_dump()
+                content=f"Below are some observations for the research task:\n\n{observation}"
+            )
         )
-    logger.debug(f"Current invoke messages: {invoke_messages}")
-    response = base_model.invoke(invoke_messages)
+    logger.debug(f"Current messages: {messages}")
+    response = base_model.invoke(messages)
     response_content = response.content
     logger.info(f"reporter response: {response_content}")
 
@@ -287,7 +330,7 @@ def research_team_node(
 ) -> Command[Literal["planner", "researcher"]]:
     """Research team node that collaborates on tasks."""
     logger.info("Research team is collaborating on tasks.")
-    current_plan = state.get("current_plan")
+    current_plan = state.current_plan
     if not current_plan or not current_plan.steps:
         return Command(goto="planner")
     if all(step.execution_res for step in current_plan.steps):
@@ -304,8 +347,8 @@ async def _execute_agent_step(
     state: State, agent, agent_name: str
 ) -> Command[Literal["research_team"]]:
     """Helper function to execute a step using the specified agent."""
-    current_plan = state.get("current_plan")
-    observations = state.get("observations", [])
+    current_plan = state.current_plan
+    observations = state.observations
 
     # Find the first unexecuted step
     current_step = None
@@ -335,7 +378,7 @@ async def _execute_agent_step(
     agent_input = {
         "messages": [
             HumanMessage(
-                content=f"{completed_steps_info}# Current Task\n\n## Title\n\n{current_step.title}\n\n## Description\n\n{current_step.description}\n\n## Locale\n\n{state.get('locale', 'en-US')}"
+                content=f"{completed_steps_info}# Current Task\n\n## Title\n\n{current_step.title}\n\n## Description\n\n{current_step.description}\n\n## Locale\n\n{state.locale}"
             ).model_dump()
         ]
     }
@@ -448,7 +491,7 @@ async def researcher_node(
     )
 
 
-builder = StateGraph(State)
+builder = StateGraph(State, input=InputState)
 builder.add_edge(START, "coordinator")
 builder.add_node("coordinator", coordinator_node)
 builder.add_node("background_investigator", background_investigation_node)
