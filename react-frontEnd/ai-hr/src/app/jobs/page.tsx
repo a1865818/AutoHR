@@ -1,5 +1,5 @@
-const page = () => {
-  return <div>page</div>;
-};
+import { JobsPage } from "@/components/jobs/JobsPage";
 
-export default page;
+export default function Jobs() {
+  return <JobsPage />;
+}
