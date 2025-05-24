@@ -22,3 +22,6 @@ export interface FilterOptionJobs {
   count: number;
   active?: boolean;
 }
+
+// Export settings interfaces
+export * from "./settings";

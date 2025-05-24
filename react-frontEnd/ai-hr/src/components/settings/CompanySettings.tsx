@@ -1,0 +1,263 @@
+import { useState, useEffect } from "react";
+import { Save, X, Edit3, Building2 } from "lucide-react";
+
+interface CompanyData {
+  name: string;
+  website: string;
+  industry: string;
+  size: string;
+  description: string;
+  logo: string;
+}
+
+interface CompanySettingsProps {
+  companyData: CompanyData;
+  onChange: (data: CompanyData) => void;
+}
+
+export function CompanySettings({
+  companyData,
+  onChange,
+}: CompanySettingsProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [tempData, setTempData] = useState<CompanyData>(companyData);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    setTempData(companyData);
+  }, [companyData]);
+
+  useEffect(() => {
+    if (isEditing) {
+      const dataChanged =
+        tempData.name !== companyData.name ||
+        tempData.website !== companyData.website ||
+        tempData.industry !== companyData.industry ||
+        tempData.size !== companyData.size ||
+        tempData.description !== companyData.description;
+      setHasChanges(dataChanged);
+    }
+  }, [tempData, companyData, isEditing]);
+
+  const handleTempChange = (field: keyof CompanyData, value: string) => {
+    setTempData({ ...tempData, [field]: value });
+  };
+
+  const handleStartEdit = () => {
+    setTempData(companyData);
+    setIsEditing(true);
+    setHasChanges(false);
+  };
+
+  const handleSaveChanges = () => {
+    onChange(tempData);
+    setIsEditing(false);
+    setHasChanges(false);
+  };
+
+  const handleCancelEdit = () => {
+    setTempData(companyData);
+    setIsEditing(false);
+    setHasChanges(false);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-blue-100 rounded-lg">
+            <Building2 className="h-6 w-6 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-medium text-gray-900">
+              Company Information
+            </h3>
+            <p className="text-sm text-gray-600">
+              Manage your company details and profile information
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <h4 className="font-semibold text-gray-900 flex items-center">
+              <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+              Company Details
+            </h4>
+            {!isEditing && (
+              <button
+                onClick={handleStartEdit}
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+              >
+                <Edit3 className="h-4 w-4" />
+                Edit Information
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Company Name
+              </label>
+              <input
+                type="text"
+                value={isEditing ? tempData.name : companyData.name}
+                onChange={(e) => {
+                  if (isEditing) {
+                    handleTempChange("name", e.target.value);
+                  }
+                }}
+                disabled={!isEditing}
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-colors ${
+                  isEditing
+                    ? "border-blue-300 focus:ring-blue-500 bg-white"
+                    : "border-gray-200 bg-gray-50 text-gray-600 cursor-not-allowed"
+                }`}
+                placeholder="Enter company name"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Website
+              </label>
+              <input
+                type="url"
+                value={isEditing ? tempData.website : companyData.website}
+                onChange={(e) => {
+                  if (isEditing) {
+                    handleTempChange("website", e.target.value);
+                  }
+                }}
+                disabled={!isEditing}
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-colors ${
+                  isEditing
+                    ? "border-blue-300 focus:ring-blue-500 bg-white"
+                    : "border-gray-200 bg-gray-50 text-gray-600 cursor-not-allowed"
+                }`}
+                placeholder="https://yourcompany.com"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Industry
+              </label>
+              <select
+                value={isEditing ? tempData.industry : companyData.industry}
+                onChange={(e) => {
+                  if (isEditing) {
+                    handleTempChange("industry", e.target.value);
+                  }
+                }}
+                disabled={!isEditing}
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-colors ${
+                  isEditing
+                    ? "border-blue-300 focus:ring-blue-500 bg-white"
+                    : "border-gray-200 bg-gray-50 text-gray-600 cursor-not-allowed"
+                }`}
+              >
+                <option value="Technology">Technology</option>
+                <option value="Finance">Finance</option>
+                <option value="Healthcare">Healthcare</option>
+                <option value="Manufacturing">Manufacturing</option>
+                <option value="Retail">Retail</option>
+                <option value="Education">Education</option>
+                <option value="Consulting">Consulting</option>
+                <option value="Media">Media & Entertainment</option>
+                <option value="Non-profit">Non-profit</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Company Size
+              </label>
+              <select
+                value={isEditing ? tempData.size : companyData.size}
+                onChange={(e) => {
+                  if (isEditing) {
+                    handleTempChange("size", e.target.value);
+                  }
+                }}
+                disabled={!isEditing}
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-colors ${
+                  isEditing
+                    ? "border-blue-300 focus:ring-blue-500 bg-white"
+                    : "border-gray-200 bg-gray-50 text-gray-600 cursor-not-allowed"
+                }`}
+              >
+                <option value="1-10">1-10 employees</option>
+                <option value="11-50">11-50 employees</option>
+                <option value="51-200">51-200 employees</option>
+                <option value="201-500">201-500 employees</option>
+                <option value="501-1000">501-1000 employees</option>
+                <option value="1000+">1000+ employees</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-6 space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Company Description
+            </label>
+            <textarea
+              rows={4}
+              value={isEditing ? tempData.description : companyData.description}
+              onChange={(e) => {
+                if (isEditing) {
+                  handleTempChange("description", e.target.value);
+                }
+              }}
+              disabled={!isEditing}
+              className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-colors resize-none ${
+                isEditing
+                  ? "border-blue-300 focus:ring-blue-500 bg-white"
+                  : "border-gray-200 bg-gray-50 text-gray-600 cursor-not-allowed"
+              }`}
+              placeholder="Describe your company, its mission, and what makes it unique..."
+            />
+            <p className="text-xs text-gray-500">
+              This description will be visible to candidates on job postings
+            </p>
+          </div>
+
+          {/* Edit Mode Controls */}
+          {isEditing && (
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {hasChanges && (
+                    <div className="flex items-center gap-2 text-sm text-orange-600">
+                      <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                      Unsaved changes
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCancelEdit}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 hover:text-gray-700 hover:bg-gray-100 rounded-lg border border-gray-300 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSaveChanges}
+                    disabled={!hasChanges}
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
+                  >
+                    <Save className="h-4 w-4" />
+                    Save Changes
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
