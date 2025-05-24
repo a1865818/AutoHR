@@ -16,7 +16,7 @@ namespace ai_hr.Models
         public string FirstName { get; set; }
         [Column("LastName")]
         public string LastName { get; set; }
-        [Column("created_at")]
+        [Column("CreatedAt")]
         public DateTime CreatedAt { get; set; }
     }
 }

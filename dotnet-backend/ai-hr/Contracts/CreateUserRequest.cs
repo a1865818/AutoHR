@@ -4,6 +4,7 @@ public class CreateUserRequest
     public string Password { get; set; }
     public string FirstName { get; set; }
     public string LastName { get; set; }
+    public DateTime CreatedAt {get; set; }
 }
 
 public class UserResponse
@@ -13,6 +14,6 @@ public class UserResponse
     public string Password { get; set; }
     public string FirstName { get; set; }
     public string LastName { get; set; }
-    public DateTime created_at { get; set; }
+    public DateTime CreatedAt { get; set; }
 
 }

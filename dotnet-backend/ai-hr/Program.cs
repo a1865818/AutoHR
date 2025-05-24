@@ -40,7 +40,8 @@ app.MapPost("/users/create", async (CreateUserRequest request, Supabase.Client c
             Email = request.Email,
             Password = request.Password,
             FirstName = request.FirstName,
-            LastName = request.LastName
+            LastName = request.LastName,
+            CreatedAt = DateTime.UtcNow.AddHours(7)
         };
 
         Console.WriteLine($"User object created - Email: {user.Email}, Name: {user.FirstName} {user.LastName}");
@@ -57,7 +58,7 @@ app.MapPost("/users/create", async (CreateUserRequest request, Supabase.Client c
             Email = newUser.Email,
             FirstName = newUser.FirstName,
             LastName = newUser.LastName,
-            created_at = newUser.CreatedAt
+            CreatedAt = newUser.CreatedAt
         };
 
         return Results.Ok(userResponse);
@@ -83,7 +84,7 @@ app.MapGet("/users/{id}", async (int id, Supabase.Client client) =>
         Email = user.Email,
         FirstName = user.FirstName,
         LastName = user.LastName,
-        created_at = user.CreatedAt
+        CreatedAt = user.CreatedAt
     };
     return Results.Ok(user_response);
 });
