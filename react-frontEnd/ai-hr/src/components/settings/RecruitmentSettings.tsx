@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { Save, X, Edit3, Settings } from "lucide-react";
 import { ToggleSwitch } from "./ToggleSwitch";

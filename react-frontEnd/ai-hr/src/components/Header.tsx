@@ -2,8 +2,9 @@
 
 import { Bell, ChevronDown, Search } from "lucide-react";
 import { useState } from "react";
+import Link from "next/link";
 
-export default function Header() {
+export function Header() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
 
   return (
@@ -61,20 +62,22 @@ export default function Header() {
                 aria-labelledby="user-menu"
               >
                 <div className="py-1" role="none">
-                  <a
-                    href="#"
+                  <Link
+                    href="/profile"
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     role="menuitem"
+                    onClick={() => setIsProfileMenuOpen(false)}
                   >
                     Your Profile
-                  </a>
-                  <a
-                    href="#"
+                  </Link>
+                  <Link
+                    href="/settings"
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     role="menuitem"
+                    onClick={() => setIsProfileMenuOpen(false)}
                   >
                     Settings
-                  </a>
+                  </Link>
                   <a
                     href="#"
                     className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

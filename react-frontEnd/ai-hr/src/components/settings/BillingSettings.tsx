@@ -1,3 +1,5 @@
+"use client";
+
 import { useState } from "react";
 import { Calendar, CreditCard, Download, TrendingUp } from "lucide-react";
 import { PlanSelectionModal } from "./PlanSelectionModal";
