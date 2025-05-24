@@ -2,6 +2,9 @@
 export { Header } from "./Header";
 export { Sidebar } from "./Sidebar";
 
+// Export job components
+export { CreateJobForm } from "./jobs/CreateJobForm";
+
 // Settings Components
 export * from "./settings";
 

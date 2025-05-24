@@ -28,3 +28,6 @@ export * from "./settings";
 
 // Export profile interfaces
 export * from "./profile";
+
+// Export job interfaces
+export * from "./job";
