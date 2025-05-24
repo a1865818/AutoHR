@@ -25,3 +25,6 @@ export interface FilterOptionJobs {
 
 // Export settings interfaces
 export * from "./settings";
+
+// Export profile interfaces
+export * from "./profile";

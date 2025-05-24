@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { Save, X, Edit3, Building2 } from "lucide-react";
 

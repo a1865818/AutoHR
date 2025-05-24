@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
-export default function Sidebar() {
+export function Sidebar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [isOpen, setIsOpen] = useState(false);
@@ -141,19 +141,19 @@ export default function Sidebar() {
                     href={item.href}
                     prefetch={false}
                     title={isCollapsed ? item.name : undefined}
-                    className={`flex items-center py-2 rounded-md text-sm font-medium transition-colors duration-150
+                    className={`flex items-center py-2 rounded-md text-sm font-medium transition-colors duration-150 relative
                       ${isCollapsed ? "px-2 justify-center" : "px-3"}
                       ${
                         isActive
                           ? isCollapsed
-                            ? "bg-blue-100"
-                            : "bg-gray-100 text-gray-700"
-                          : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                            ? "bg-indigo-100 text-indigo-700"
+                            : "bg-indigo-100 text-indigo-700 border-l-4 border-indigo-600"
+                          : "text-gray-700 hover:bg-indigo-50 hover:text-indigo-600"
                       }`}
                   >
                     <item.icon
                       className={`h-5 w-5 ${isCollapsed ? "" : "mr-3"} ${
-                        isActive ? "text-primary" : "text-gray-500"
+                        isActive ? "text-indigo-600" : "text-gray-500"
                       }`}
                     />
                     <span className={`${isCollapsed ? "lg:hidden" : ""}`}>
