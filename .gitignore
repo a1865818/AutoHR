@@ -133,6 +133,11 @@ __pypackages__/
 celerybeat-schedule
 celerybeat.pid
 
+node_modules/
+
+.backend.pid
+.frontend.pid
+
 # SageMath parsed files
 *.sage.py
 
