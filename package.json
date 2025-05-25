@@ -1,0 +1,29 @@
+{
+  "name": "autohr",
+  "version": "1.0.0",
+  "description": "AutoHR - AI-powered HR management system",
+  "scripts": {
+    "dev": "npm run load-env && concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd dotnet-backend/ai-hr && dotnet run",
+    "dev:frontend": "npm run load-env && cd react-frontEnd/ai-hr && npm run dev -- -p ${FRONTEND_PORT:-3000}",
+    "dev:custom": "npm run load-env && concurrently \"npm run dev:backend:custom\" \"npm run dev:frontend:custom\"",
+    "dev:backend:custom": "npm run load-env && cd dotnet-backend/ai-hr && dotnet run --urls=$ASPNETCORE_URLS",
+    "dev:frontend:custom": "npm run load-env && cd react-frontEnd/ai-hr && npm run dev -- -p ${FRONTEND_PORT:-3000}",
+    "load-env": "[ -f .env ] && export $(cat .env | grep -v '^#' | xargs) || true",
+    "install:frontend": "cd react-frontEnd/ai-hr && npm install",
+    "build": "npm run build:frontend",
+    "build:frontend": "cd react-frontEnd/ai-hr && npm run build",
+    "start": "npm run dev",
+    "status": "./start-dev.sh status",
+    "stop": "./start-dev.sh stop",
+    "env:setup": "echo 'Setting up environment files...' && npm run env:setup:backend && npm run env:setup:frontend",
+    "env:setup:backend": "cp dotnet-backend/ai-hr/.env.example dotnet-backend/ai-hr/.env 2>/dev/null || echo 'Backend .env.example not found'",
+    "env:setup:frontend": "cp react-frontEnd/ai-hr/.env.local.example react-frontEnd/ai-hr/.env.local 2>/dev/null || echo 'Frontend .env.local.example not found'"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  },
+  "keywords": ["hr", "ai", "dotnet", "nextjs", "react"],
+  "author": "AutoHR Team",
+  "license": "MIT"
+} 
