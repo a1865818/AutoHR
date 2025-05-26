@@ -208,37 +208,28 @@ CREATE INDEX idx_skills_popularity ON skills(popularity_score DESC);
 
 ### 5. **Applications & Candidates**
 
-#### `applications`
+#### `ApplicationDetails`
 
 ```sql
-CREATE TABLE applications (
+CREATE TABLE ApplicationDetails (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     job_id UUID NOT NULL REFERENCES jobs(id),
-    candidate_user_id VARCHAR(450) NOT NULL REFERENCES AspNetUsers(Id),
+    candidate_user_id uuid NOT NULL REFERENCES "ApplicationUser"(id),
 
     -- Application Data
     resume_url VARCHAR(500),
     cover_letter_text TEXT,
-    portfolio_url VARCHAR(500),
     expected_salary DECIMAL(15,2),
     availability_date DATE,
 
     -- Status Tracking
-    status VARCHAR(50) DEFAULT 'applied' CHECK (status IN ('applied', 'screening', 'interview', 'assessment', 'offer', 'hired', 'rejected', 'withdrawn')),
+    status VARCHAR(50) DEFAULT 'applied',
     stage VARCHAR(50) DEFAULT 'initial_review',
-    source VARCHAR(100), -- 'website', 'referral', 'linkedin', etc.
+    job_source VARCHAR(100), -- 'website', 'referral', 'linkedin', etc
 
     -- AI Scoring
-    ai_resume_score DECIMAL(5,2), -- 0-100 AI compatibility score
-    ai_skill_match_score DECIMAL(5,2), -- 0-100 skill matching score
-    ai_cultural_fit_score DECIMAL(5,2), -- 0-100 cultural fit score
     overall_ai_score DECIMAL(5,2), -- Combined AI score
     ai_analysis JSONB, -- Detailed AI analysis results
-
-    -- Tracking
-    viewed_by_recruiter BOOLEAN DEFAULT FALSE,
-    first_viewed_at TIMESTAMP,
-    last_activity_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
     -- Timestamps
     applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -248,11 +239,11 @@ CREATE TABLE applications (
 );
 
 -- Indexes for applications
-CREATE INDEX idx_applications_job_status ON applications(job_id, status);
-CREATE INDEX idx_applications_candidate ON applications(candidate_user_id);
-CREATE INDEX idx_applications_status ON applications(status);
-CREATE INDEX idx_applications_ai_score ON applications(overall_ai_score DESC);
-CREATE INDEX idx_applications_applied_at ON applications(applied_at DESC);
+CREATE INDEX idx_applications_job_status ON ApplicationDetails(job_id, status);
+CREATE INDEX idx_applications_candidate ON ApplicationDetails(candidate_user_id);
+CREATE INDEX idx_applications_status ON ApplicationDetails(status);
+CREATE INDEX idx_applications_ai_score ON ApplicationDetails(overall_ai_score DESC);
+CREATE INDEX idx_applications_applied_at ON ApplicationDetails(applied_at DESC);
 ```
 
 #### `application_answers`
