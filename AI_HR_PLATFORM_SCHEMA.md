@@ -36,12 +36,10 @@ ALTER TABLE AspNetUsers ADD COLUMN language_preference VARCHAR(10) DEFAULT 'en';
 #### `user_profiles`
 
 ```sql
-CREATE TABLE user_profiles (
+CREATE TABLE hiring_user_profiles (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id VARCHAR(450) NOT NULL REFERENCES AspNetUsers(Id) ON DELETE CASCADE,
     user_type VARCHAR(20) NOT NULL CHECK (user_type IN ('recruiter', 'candidate', 'admin', 'hiring_manager')),
-    job_title VARCHAR(200),
-    department_id UUID REFERENCES departments(id),
     company_id UUID REFERENCES companies(id),
     bio TEXT,
     website_url VARCHAR(500),
@@ -51,7 +49,6 @@ CREATE TABLE user_profiles (
     preferences JSONB, -- notification, privacy, etc.
     metadata JSONB, -- extensible for future features
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
 

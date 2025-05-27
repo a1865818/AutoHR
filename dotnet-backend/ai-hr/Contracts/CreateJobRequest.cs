@@ -26,7 +26,7 @@ namespace ai_hr.Contracts
         
         public string LocationType { get; set; }
         
-        public List<Dictionary<string, object>> Locations { get; set; }
+        public Dictionary<string, object> Locations { get; set; }
         
         public decimal? SalaryMin { get; set; }
         public decimal? SalaryMax { get; set; }
