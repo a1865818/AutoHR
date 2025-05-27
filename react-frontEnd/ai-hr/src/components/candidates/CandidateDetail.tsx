@@ -1,12 +1,461 @@
 import { Candidate } from "@/interfaces";
 import { Edit, Plus, X } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface CandidateDetailProps {
   candidate: Candidate;
   onClose: () => void;
+  onAction: (candidateId: string, action: "approve" | "decline") => void;
+  note: string;
+  onSaveNote: (candidateId: string, note: string) => void;
 }
 
-export function CandidateDetail({ candidate, onClose }: CandidateDetailProps) {
+export function CandidateDetail({
+  candidate,
+  onClose,
+  onAction,
+  note,
+  onSaveNote,
+}: CandidateDetailProps) {
+  const [activeTab, setActiveTab] = useState<
+    "info" | "interview" | "assessment" | "files" | "notes"
+  >("interview");
+  const [interviewData, setInterviewData] = useState({
+    step1: { evaluation: 4, interviewer: "Caroline Robertson" },
+    step2: { evaluation: 3, interviewer: "Matthew Curry" },
+  });
+  const [currentNote, setCurrentNote] = useState(note);
+  const [isEditingNote, setIsEditingNote] = useState(false);
+
+  const handleTabChange = (
+    tab: "info" | "interview" | "assessment" | "files" | "notes"
+  ) => {
+    setActiveTab(tab);
+  };
+
+  const handleSaveNote = () => {
+    onSaveNote(candidate.id, currentNote);
+    setIsEditingNote(false);
+  };
+
+  const handleCancelNote = () => {
+    setCurrentNote(note);
+    setIsEditingNote(false);
+  };
+
+  // Update current note when prop changes
+  useEffect(() => {
+    setCurrentNote(note);
+  }, [note]);
+
+  const handleEvaluationChange = (
+    step: "step1" | "step2",
+    newEvaluation: number
+  ) => {
+    setInterviewData((prev) => ({
+      ...prev,
+      [step]: { ...prev[step], evaluation: newEvaluation },
+    }));
+  };
+
+  const handleAddSpecialist = () => {
+    alert(
+      "Add specialist functionality would open a modal to select additional interviewers"
+    );
+  };
+
+  const handleEditInterview = (step: string) => {
+    alert(
+      `Edit ${step} functionality would open a modal to modify interview details`
+    );
+  };
+
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case "info":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 mb-2">
+                Contact Information
+              </h4>
+              <p className="text-sm text-gray-700">email@example.com</p>
+              <p className="text-sm text-gray-700">+1 (555) 123-4567</p>
+            </div>
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 mb-2">
+                Experience
+              </h4>
+              <p className="text-sm text-gray-700">5+ years in UI/UX Design</p>
+              <p className="text-sm text-gray-700">
+                Previously at {candidate.company}
+              </p>
+            </div>
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 mb-2">Skills</h4>
+              <div className="flex flex-wrap gap-1">
+                {[
+                  "Figma",
+                  "Sketch",
+                  "Adobe XD",
+                  "Prototyping",
+                  "User Research",
+                ].map((skill) => (
+                  <span
+                    key={skill}
+                    className="px-2 py-1 bg-gray-100 text-xs rounded"
+                  >
+                    {skill}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case "assessment":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 mb-2">
+                Overall Score
+              </h4>
+              <div className="flex items-center">
+                <span className="text-2xl font-bold text-green-500">
+                  {candidate.assessment}%
+                </span>
+                <div className="ml-4 flex-1 h-3 bg-gray-200 rounded">
+                  <div
+                    className="h-3 bg-green-500 rounded"
+                    style={{ width: `${candidate.assessment}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 mb-2">
+                Skills Assessment
+              </h4>
+              <div className="space-y-2">
+                {[
+                  { skill: "Design Thinking", score: 95 },
+                  { skill: "Technical Skills", score: 88 },
+                  { skill: "Communication", score: 92 },
+                  { skill: "Problem Solving", score: 85 },
+                ].map((item) => (
+                  <div
+                    key={item.skill}
+                    className="flex items-center justify-between"
+                  >
+                    <span className="text-sm text-gray-700">{item.skill}</span>
+                    <div className="flex items-center w-24">
+                      <div className="flex-1 h-2 bg-gray-200 rounded mr-2">
+                        <div
+                          className="h-2 bg-blue-500 rounded"
+                          style={{ width: `${item.score}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-xs text-gray-500">
+                        {item.score}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case "files":
+        return (
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 mb-2">
+                Resume & Portfolio
+              </h4>
+              <div className="space-y-2">
+                {[
+                  { name: "Resume.pdf", size: "245 KB", type: "PDF" },
+                  { name: "Portfolio.zip", size: "12.3 MB", type: "ZIP" },
+                  { name: "Cover_Letter.pdf", size: "156 KB", type: "PDF" },
+                ].map((file) => (
+                  <div
+                    key={file.name}
+                    className="flex items-center justify-between p-2 border rounded hover:bg-gray-50"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {file.size} • {file.type}
+                      </p>
+                    </div>
+                    <button className="text-blue-500 text-xs hover:text-blue-700">
+                      Download
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+
+      case "notes":
+        return (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-medium text-gray-500">
+                Candidate Notes
+              </h4>
+              {!isEditingNote && (
+                <button
+                  onClick={() => setIsEditingNote(true)}
+                  className="text-blue-500 text-xs hover:text-blue-700 flex items-center"
+                >
+                  <Edit className="h-3 w-3 mr-1" />
+                  {currentNote ? "Edit" : "Add Note"}
+                </button>
+              )}
+            </div>
+
+            {isEditingNote ? (
+              <div className="space-y-3">
+                <textarea
+                  value={currentNote}
+                  onChange={(e) => setCurrentNote(e.target.value)}
+                  placeholder="Add your notes about this candidate..."
+                  className="w-full h-32 p-3 border border-gray-300 rounded-md text-sm resize-none focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  autoFocus
+                />
+                <div className="flex space-x-2">
+                  <button
+                    onClick={handleSaveNote}
+                    className="px-3 py-1.5 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                  >
+                    Save Note
+                  </button>
+                  <button
+                    onClick={handleCancelNote}
+                    className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs rounded hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                {currentNote ? (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-gray-50 rounded-md">
+                      <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                        {currentNote}
+                      </p>
+                    </div>
+                    <div className="flex items-center text-xs text-gray-500">
+                      <span>{currentNote.length} characters</span>
+                      <span className="mx-2">•</span>
+                      <span>Last updated 2 days ago</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="text-gray-400 mb-2">
+                      <svg
+                        className="h-8 w-8 mx-auto"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                    </div>
+                    <p className="text-sm text-gray-500">No notes yet</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Click &quot;Add Note&quot; to get started
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
+
+      default: // interview
+        return (
+          <div>
+            {/* Step 1 */}
+            <div className="mb-6">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-medium text-sm">
+                  15
+                </div>
+                <div className="ml-3">
+                  <div className="flex items-center">
+                    <h3 className="font-medium text-sm">
+                      1 Step - HR interview
+                    </h3>
+                    <button
+                      onClick={() => handleEditInterview("Step 1")}
+                      className="ml-2 text-gray-400 hover:text-gray-600"
+                    >
+                      <Edit className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500">11:30 AM - 12:30 PM</p>
+                </div>
+              </div>
+
+              <div className="mt-4 pl-11">
+                <h4 className="text-xs font-medium text-gray-500 mb-2">
+                  Interviewers
+                </h4>
+                <div className="flex items-center">
+                  <div className="w-6 h-6 rounded-full bg-gray-300 overflow-hidden">
+                    <img
+                      src="/api/placeholder/24/24"
+                      alt="Caroline Robertson"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <span className="ml-2 text-xs font-medium">
+                    {interviewData.step1.interviewer}
+                  </span>
+                  <span className="ml-1 text-xs text-gray-500">HR Manager</span>
+                </div>
+              </div>
+
+              <div className="mt-4 pl-11">
+                <h4 className="text-xs font-medium text-gray-500 mb-2">
+                  Evaluation
+                </h4>
+                <div className="flex items-center">
+                  <span className="text-sm font-medium mr-2">
+                    {interviewData.step1.evaluation}
+                  </span>
+                  <div className="flex-1 h-2 bg-gray-200 rounded">
+                    <div
+                      className="h-2 bg-green-500 rounded cursor-pointer"
+                      style={{
+                        width: `${(interviewData.step1.evaluation / 5) * 100}%`,
+                      }}
+                      onClick={() => {
+                        const newRating = Math.min(
+                          5,
+                          interviewData.step1.evaluation + 1
+                        );
+                        handleEvaluationChange("step1", newRating);
+                      }}
+                    ></div>
+                  </div>
+                  <div className="ml-2 flex space-x-1">
+                    {[1, 2, 3, 4, 5].map((rating) => (
+                      <button
+                        key={rating}
+                        onClick={() => handleEvaluationChange("step1", rating)}
+                        className={`w-4 h-4 rounded-full border ${
+                          rating <= interviewData.step1.evaluation
+                            ? "bg-green-500 border-green-500"
+                            : "border-gray-300 hover:border-green-400"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="mb-6">
+              <div className="flex items-center">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-medium text-sm">
+                  18
+                </div>
+                <div className="ml-3">
+                  <div className="flex items-center">
+                    <h3 className="font-medium text-sm">
+                      2 Step - Tech interview
+                    </h3>
+                    <button
+                      onClick={() => handleEditInterview("Step 2")}
+                      className="ml-2 text-gray-400 hover:text-gray-600"
+                    >
+                      <Edit className="h-3 w-3" />
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500">1:30 PM - 2:30 PM</p>
+                </div>
+              </div>
+
+              <div className="mt-4 pl-11">
+                <h4 className="text-xs font-medium text-gray-500 mb-2">
+                  Interviewers
+                </h4>
+                <div className="flex items-center">
+                  <div className="w-6 h-6 rounded-full bg-gray-300 overflow-hidden">
+                    <img
+                      src="/api/placeholder/24/24"
+                      alt="Matthew Curry"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <span className="ml-2 text-xs font-medium">
+                    {interviewData.step2.interviewer}
+                  </span>
+                  <span className="ml-1 text-xs text-gray-500">
+                    TL of Design Department
+                  </span>
+                </div>
+                <button
+                  onClick={handleAddSpecialist}
+                  className="mt-2 flex items-center text-blue-500 text-xs hover:text-blue-700"
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Add specialist
+                </button>
+              </div>
+
+              <div className="mt-4 pl-11">
+                <h4 className="text-xs font-medium text-gray-500 mb-2">
+                  Evaluation
+                </h4>
+                <div className="flex items-center">
+                  <span className="text-sm font-medium mr-2">
+                    {interviewData.step2.evaluation}
+                  </span>
+                  <div className="flex-1 h-2 bg-gray-200 rounded">
+                    <div
+                      className="h-2 bg-yellow-500 rounded cursor-pointer"
+                      style={{
+                        width: `${(interviewData.step2.evaluation / 5) * 100}%`,
+                      }}
+                    ></div>
+                  </div>
+                  <div className="ml-2 flex space-x-1">
+                    {[1, 2, 3, 4, 5].map((rating) => (
+                      <button
+                        key={rating}
+                        onClick={() => handleEvaluationChange("step2", rating)}
+                        className={`w-4 h-4 rounded-full border ${
+                          rating <= interviewData.step2.evaluation
+                            ? "bg-yellow-500 border-yellow-500"
+                            : "border-gray-300 hover:border-yellow-400"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+    }
+  };
+
   return (
     <div className="w-80 border-l bg-white overflow-hidden flex flex-col">
       {/* Header with close button */}
@@ -33,139 +482,64 @@ export function CandidateDetail({ candidate, onClose }: CandidateDetailProps) {
 
       {/* Tabs */}
       <div className="border-b flex">
-        <button className="px-3 py-2 text-xs text-gray-500 hover:text-gray-700">
-          Info
-        </button>
-        <button className="px-3 py-2 text-xs text-blue-500 border-b-2 border-blue-500 font-medium">
-          Interview
-        </button>
-        <button className="px-3 py-2 text-xs text-gray-500 hover:text-gray-700">
-          Assessment
-        </button>
-        <button className="px-3 py-2 text-xs text-gray-500 hover:text-gray-700">
-          Files
-        </button>
+        {[
+          { id: "info", label: "Info" },
+          { id: "interview", label: "Interview" },
+          { id: "assessment", label: "Assessment" },
+          { id: "files", label: "Files" },
+          { id: "notes", label: "Notes" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => handleTabChange(tab.id as typeof activeTab)}
+            className={`px-3 py-2 text-xs font-medium transition-colors relative ${
+              activeTab === tab.id
+                ? "text-blue-500 border-b-2 border-blue-500"
+                : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {tab.label}
+            {tab.id === "notes" && currentNote && (
+              <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-500 rounded-full"></div>
+            )}
+          </button>
+        ))}
       </div>
 
-      {/* Interview details */}
+      {/* Tab content */}
       <div className="flex-1 overflow-y-auto p-4">
-        {/* Step 1 */}
-        <div className="mb-6">
-          <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-medium text-sm">
-              15
-            </div>
-            <div className="ml-3">
-              <div className="flex items-center">
-                <h3 className="font-medium text-sm">1 Step - HR interview</h3>
-                <button className="ml-2 text-gray-400 hover:text-gray-600">
-                  <Edit className="h-3 w-3" />
-                </button>
-              </div>
-              <p className="text-xs text-gray-500">11:30 AM - 12:30 PM</p>
-            </div>
-          </div>
+        {renderTabContent()}
 
-          <div className="mt-4 pl-11">
-            <h4 className="text-xs font-medium text-gray-500 mb-2">
-              Interviewers
-            </h4>
-            <div className="flex items-center">
-              <div className="w-6 h-6 rounded-full bg-gray-300 overflow-hidden">
-                <img
-                  src="/api/placeholder/24/24"
-                  alt="Caroline Robertson"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <span className="ml-2 text-xs font-medium">
-                Caroline Robertson
-              </span>
-              <span className="ml-1 text-xs text-gray-500">HR Manager</span>
-            </div>
-          </div>
-
-          <div className="mt-4 pl-11">
-            <h4 className="text-xs font-medium text-gray-500 mb-2">
-              Evaluation
-            </h4>
-            <div className="flex items-center">
-              <span className="text-sm font-medium mr-2">4</span>
-              <div className="flex-1 h-2 bg-gray-200 rounded">
-                <div
-                  className="h-2 bg-green-500 rounded"
-                  style={{ width: "80%" }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Step 2 */}
-        <div className="mb-6">
-          <div className="flex items-center">
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-500 font-medium text-sm">
-              18
-            </div>
-            <div className="ml-3">
-              <div className="flex items-center">
-                <h3 className="font-medium text-sm">2 Step - Tech interview</h3>
-                <button className="ml-2 text-gray-400 hover:text-gray-600">
-                  <Edit className="h-3 w-3" />
-                </button>
-              </div>
-              <p className="text-xs text-gray-500">1:30 PM - 2:30 PM</p>
-            </div>
-          </div>
-
-          <div className="mt-4 pl-11">
-            <h4 className="text-xs font-medium text-gray-500 mb-2">
-              Interviewers
-            </h4>
-            <div className="flex items-center">
-              <div className="w-6 h-6 rounded-full bg-gray-300 overflow-hidden">
-                <img
-                  src="/api/placeholder/24/24"
-                  alt="Matthew Curry"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-              <span className="ml-2 text-xs font-medium">Matthew Curry</span>
-              <span className="ml-1 text-xs text-gray-500">
-                TL of Design Department
-              </span>
-            </div>
-            <button className="mt-2 flex items-center text-blue-500 text-xs">
-              <Plus className="h-3 w-3 mr-1" /> Add specialist
+        {/* Action buttons - only show on interview tab */}
+        {activeTab === "interview" && (
+          <div className="flex space-x-2 mt-8 pt-4 border-t">
+            <button
+              onClick={() => onAction(candidate.id, "decline")}
+              className="flex-1 bg-white border border-gray-300 text-gray-700 rounded-md py-2 text-sm font-medium hover:bg-gray-50 transition-colors"
+            >
+              Decline
+            </button>
+            <button
+              onClick={() => onAction(candidate.id, "approve")}
+              className="flex-1 bg-blue-500 text-white rounded-md py-2 text-sm font-medium hover:bg-blue-600 transition-colors"
+            >
+              Approve
             </button>
           </div>
+        )}
 
-          <div className="mt-4 pl-11">
-            <h4 className="text-xs font-medium text-gray-500 mb-2">
-              Evaluation
-            </h4>
-            <div className="flex items-center">
-              <span className="text-sm font-medium mr-2">3</span>
-              <div className="flex-1 h-2 bg-gray-200 rounded">
-                <div
-                  className="h-2 bg-yellow-500 rounded"
-                  style={{ width: "60%" }}
-                ></div>
-              </div>
+        {/* Save note button - only show on notes tab when editing */}
+        {activeTab === "notes" && isEditingNote && (
+          <div className="mt-4 pt-4 border-t">
+            <div className="text-xs text-gray-500 mb-2">
+              💡 Tip: Use notes to track interview feedback, candidate
+              strengths, or follow-up actions
             </div>
           </div>
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex space-x-2 mt-8">
-          <button className="flex-1 bg-white border border-gray-300 text-gray-700 rounded-md py-2 text-sm font-medium hover:bg-gray-50">
-            Decline
-          </button>
-          <button className="flex-1 bg-blue-500 text-white rounded-md py-2 text-sm font-medium hover:bg-blue-600">
-            Approve
-          </button>
-        </div>
+        )}
       </div>
     </div>
   );
 }
+
+export default CandidateDetail;

@@ -2,11 +2,18 @@ export interface Candidate {
   id: string;
   name: string;
   photo: string;
+  role?: string;
   company: string;
   companyLogo: string;
   assessment: number;
-  stage: string;
-  role?: string;
+  stage:
+    | "Applied"
+    | "Interview"
+    | "Phone Interview"
+    | "Offer"
+    | "Hired"
+    | "Evaluation";
+  status?: "Qualified" | "New" | "Disqualified";
 }
 
 export interface FilterOption {
