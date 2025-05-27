@@ -216,15 +216,6 @@ export function FilterSidebar({
               <p className="text-xs text-gray-400">Click settings to add</p>
             </li>
           )}
-
-          {favoriteFilters.length > 0 &&
-            !favoriteFilters.some((f) => isFavoriteActive(f.id, f.type)) && (
-              <li className="text-center py-2">
-                <p className="text-xs text-gray-400 italic">
-                  Click a favorite to filter candidates
-                </p>
-              </li>
-            )}
         </ul>
       </div>
 

@@ -471,7 +471,7 @@ export default function CandidatesPage() {
       />
 
       {/* Main content area */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 overflow-hidden flex flex-col">
         <CandidateHeader
           activeTab={activeTab}
           onTabChange={setActiveTab}
