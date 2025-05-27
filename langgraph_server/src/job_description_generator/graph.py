@@ -3,11 +3,12 @@
 Works with a chat model with tool calling support.
 """
 import logging
+import json
 
 from datetime import UTC, datetime
-from typing import Dict, List, Literal, cast
+from typing import Dict, List, Literal, cast, Any
 
-from langchain_core.messages import AIMessage, ToolMessage
+from langchain_core.messages import AIMessage, ToolMessage, HumanMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph import StateGraph, START, END
 
@@ -15,16 +16,55 @@ from src.job_description_generator.configuration import Configuration
 from src.job_description_generator.state import InputState, State
 from src.job_description_generator.utils import load_chat_model, ConfigManager
 from src.job_description_generator.tools import search
+import src.job_description_generator.prompts as prompts
 
 config_manager = ConfigManager("src/configs/gpt_4.1_nano.json")
 configuration = Configuration.from_runnable_config(config_manager.get("job_description_generator"))
 
+MAX_REVISIONS = configuration.max_revisions
+
 logger = logging.getLogger(__file__.split("langgraph_server")[1])
+
+json_schema = {
+    "name": "evaluate_job_description",
+    "description": "Assess a job description and return a verdict, score, and detailed comments.",
+    "parameters": {
+        "title": "JobDescriptionEvaluation",
+        "description": "Schema for the evaluation result of a job description",
+        "type": "object",
+        "properties": {
+        "decision": {
+            "type": "string",
+            "enum": ["PASS", "NEEDS_REVISION"],
+            "description": "The decision of the evaluator when assessing the job description"
+        },
+        "overall_score": {
+            "type": "integer",
+            "enum": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            "description": "The overall score of the evaluator when assessing the job description"
+        },
+        "comments": {
+            "type": "string",
+            "description": "Detailed feedback on different criteria of the job description"
+        }
+        },
+        "required": ["decision", "overall_score", "comments"]
+    }
+}
+
 
 tools = [search]
 tools_by_name = {tool.name: tool for tool in tools}
-model = load_chat_model(configuration.model, configuration.provider, configuration.temperature, configuration.max_retries)
-model = model.bind_tools(tools)
+
+# Create separate model instances for each node with different system prompts
+base_model = load_chat_model(configuration.model, configuration.provider, configuration.temperature, configuration.max_retries)
+job_title_analyzer_model = base_model.bind(stop=None)
+job_description_gen_model = base_model.bind(stop=None)
+evaluator_model = base_model.with_structured_output(json_schema)
+post_processor_model = base_model
+
+# Tool-enabled model for general use
+tool_enabled_model = base_model.bind_tools(tools)
 
 def tool_node(state: State): 
     outputs = []
@@ -41,91 +81,174 @@ def tool_node(state: State):
         )
     return {"messages": outputs}
 
-async def call_model(state: State) -> Dict[str, List[AIMessage]]:
-    """Call the LLM powering our "agent".
-
-    This function prepares the prompt, initializes the model, and processes the response.
-
-    Args:
-        state (State): The current state of the conversation.
-        config (RunnableConfig): Configuration for the model run.
-
-    Returns:
-        dict: A dictionary containing the model's response message.
+async def job_title_analyzer(state: State) -> Dict[str, Any]:
+    """Analyze the job title and requirements.
+    
+    This node extracts and analyzes the key components of the job request.
     """
-
-    # Format the system prompt. Customize this to change the agent's behavior.
-    system_message = configuration.system_prompt.format(
-        system_time=datetime.now(tz=UTC).isoformat()
+    
+    user_input = state.messages[0].content
+    
+    try:
+        input_data = json.loads(user_input)
+        company_name = input_data.get("company_name", "")
+        company_description = input_data.get("company_description", "")
+        job_title = input_data.get("job_title", "")
+        job_requirements = input_data.get("required_experience", "")
+        job_criteria = input_data.get("required_technical_skills", "")
+        soft_skills = input_data.get("soft_skills", "")
+        working_conditions = input_data.get("working_conditions", "")
+        education_requirements = input_data.get("education_requirements", "")
+        key_responsibilities = input_data.get("key_responsibilities", "")
+    except json.JSONDecodeError:
+        raise ValueError("Failed to parse user input as JSON, please try again.")
+    
+    # Format the system prompt
+    system_message = prompts.JOB_TITLE_ANALYZER_PROMPT.format(
+        company_name=company_name,
+        company_description=company_description,
+        job_title=job_title,
+        required_experience=job_requirements,
+        required_technical_skills=job_criteria,
+        soft_skills=soft_skills,
+        working_conditions=working_conditions,
+        education_requirements=education_requirements,
+        key_responsibilities=key_responsibilities
     )
-
+    
     # Get the model's response
     response = cast(
         AIMessage,
-        await model.ainvoke(
-            [{"role": "system", "content": system_message}, *state.messages]
+        await job_title_analyzer_model.ainvoke(
+            [{"role": "system", "content": system_message}, 
+             {"role": "user", "content": user_input}]
         ),
     )
+    
+    analysis = {
+        "full_analysis": response.content,
+        "original_input": user_input
+    }
 
-    # Handle the case when it's the last step and the model still wants to use a tool
-    if state.is_last_step and response.tool_calls:
-        return {
-            "messages": [
-                AIMessage(
-                    id=response.id,
-                    content="Sorry, I could not find an answer to your question in the specified number of steps.",
-                )
-            ]
-        }
+    # Update state with analysis
+    return {
+        "messages": [response],
+        "analysis": analysis
+    }
 
-    # Return the model's response as a list to be added to existing messages
-    return {"messages": [response]}
-
-
-
-def route_model_output(state: State) -> Literal["__end__", "tools"]:
-    """Determine the next node based on the model's output.
-
-    This function checks if the model's last message contains tool calls.
-
-    Args:
-        state (State): The current state of the conversation.
-
-    Returns:
-        str: The name of the next node to call ("__end__" or "tools").
+async def job_description_gen(state: State) -> Dict[str, Any]:
+    """Generate a job description based on the analysis.
+    
+    This node creates a structured job description using the analysis from the previous node.
     """
-    last_message = state.messages[-1]
-    if not isinstance(last_message, AIMessage):
-        raise ValueError(
-            f"Expected AIMessage in output edges, but got {type(last_message).__name__}"
-        )
-    # If there is no tool call, then we finish
-    if not last_message.tool_calls:
-        return "__end__"
-    # Otherwise we execute the requested actions
-    return "tools"
+    # Format the system prompt
+    system_message = prompts.JOB_DESCRIPTION_GEN_PROMPT.format(
+        job_analysis=state.analysis["full_analysis"],
+        evaluation=state.evaluation
+    )
 
+    
+    # Get the model's response
+    response = cast(
+        AIMessage,
+        await job_description_gen_model.ainvoke(
+            [{"role": "system", "content": system_message}]
+        ),
+    )
+    
+    # Return the generated job description
+    return {
+        "messages": [response],
+        "job_description": response.content
+    }
 
+async def evaluator(state: State) -> Dict[str, Any]:
+    """Evaluate the generated job description.
+    
+    This node assesses the quality of the job description and decides if it needs revision.
+    """
+    # Format the system prompt
+    system_message = prompts.EVALUATOR_PROMPT.format(
+        job_description=state.job_description
+    )
+    
+    # Get the model's response
+    response = await evaluator_model.ainvoke(
+        [{"role": "system", "content": system_message}]
+    )
+        
+    # Return the evaluation and decision
+    return {
+        "evaluation_decision": response["decision"],
+        "revision_count": state.revision_count + 1,
+        "evaluation": str(response)
+    }
+
+async def post_processor(state: State) -> Dict[str, Any]:
+    """Format the final job description.
+    
+    This node prepares the job description for presentation by applying final formatting.
+    """
+    # Format the system prompt
+    system_message = prompts.POST_PROCESSOR_PROMPT.format(
+    )
+    
+    # Create a prompt with the approved job description
+    user_content = f"""
+    Please format the following approved job description according to professional standards:
+    
+    {state.job_description}
+    
+    Apply professional formatting while preserving all content.
+    """
+    
+    # Get the model's response
+    response = cast(
+        AIMessage,
+        await post_processor_model.ainvoke(
+            [{"role": "system", "content": system_message}, {"role": "user", "content": user_content}]
+        ),
+    )
+    
+    return {
+        "messages": [response],
+        "formatted_job_description": response
+    }
+
+def decide_after_evaluation(state: State) -> Literal["job_description_gen", "post_processor"]:
+    """Determine whether to revise the job description or move to post-processing.
+    
+    This function routes the workflow based on the evaluator's decision.
+    If max revisions are reached, it will force a PASS.
+    """
+    if state.evaluation_decision == "PASS" or state.revision_count >= MAX_REVISIONS:
+        return "post_processor"
+    else:
+        return "job_description_gen"
+
+# Define the graph
 builder = StateGraph(State, input=InputState, config_schema=Configuration)
 
-# Define the two nodes we will cycle between
-builder.add_node(call_model)
-# Set the entrypoint as `call_model`
-# This means that this node is the first one called
-builder.add_edge(START, "call_model")
+# Add all our nodes
+builder.add_node("job_title_analyzer", job_title_analyzer)
+builder.add_node("job_description_gen", job_description_gen)
+builder.add_node("evaluator", evaluator)
+builder.add_node("post_processor", post_processor)
 
+# Define the edges
+builder.add_edge(START, "job_title_analyzer")
+builder.add_edge("job_title_analyzer", "job_description_gen")
+builder.add_edge("job_description_gen", "evaluator")
 
-# # Add a conditional edge to determine the next step after `call_model`
-# builder.add_conditional_edges(
-#     "call_model",
-#     # After call_model finishes running, the next node(s) are scheduled
-#     # based on the output from route_model_output
-#     route_model_output,
-# )
+# Add conditional edge from evaluator
+builder.add_conditional_edges(
+    "evaluator",
+    decide_after_evaluation
+)
 
-# Add a normal edge from `tools` to `call_model`
-# This creates a cycle: after using tools, we always return to the model
-builder.add_edge("call_model", END)
+# Add the final edge
+builder.add_edge("post_processor", END)
 
-# Compile the builder into an executable graph
+# Compile the graph
 graph = builder.compile(name="job_description_generator")
+
