@@ -1,13 +1,13 @@
 "use client";
 
+import { JobCreationStep, JobFormData } from "@/interfaces";
+import { Check, ChevronRight, Save } from "lucide-react";
 import { useState } from "react";
-import { JobFormData, JobCreationStep } from "@/interfaces";
-import { Check, ChevronRight, Sparkles, Save, Eye, Send } from "lucide-react";
+import { ApplicationSettingsStep } from "./CreateJobForm/ApplicationSettingsStep";
 import { BasicInfoStep } from "./CreateJobForm/BasicInfoStep";
 import { JobDescriptionStep } from "./CreateJobForm/JobDescriptionStep";
-import { RequirementsStep } from "./CreateJobForm/RequirementsStep";
-import { ApplicationSettingsStep } from "./CreateJobForm/ApplicationSettingsStep";
 import { PreviewStep } from "./CreateJobForm/PreviewStep";
+import { RequirementsStep } from "./CreateJobForm/RequirementsStep";
 
 const steps: JobCreationStep[] = [
   {
@@ -143,27 +143,27 @@ We offer a dynamic work environment where creativity and innovation are valued, 
     console.log("Publishing job:", formData);
   };
 
-  const isStepValid = (stepId: number): boolean => {
-    switch (stepId) {
-      case 1:
-        return !!(
-          formData.title &&
-          formData.company &&
-          formData.location &&
-          formData.department
-        );
-      case 2:
-        return !!(formData.description && formData.responsibilities.length > 0);
-      case 3:
-        return !!(
-          formData.requirements.length > 0 && formData.qualifications.length > 0
-        );
-      case 4:
-        return !!formData.applicationSettings.deadline;
-      default:
-        return true;
-    }
-  };
+  //   const isStepValid = (stepId: number): boolean => {
+  //     switch (stepId) {
+  //       case 1:
+  //         return !!(
+  //           formData.title &&
+  //           formData.company &&
+  //           formData.location &&
+  //           formData.department
+  //         );
+  //       case 2:
+  //         return !!(formData.description && formData.responsibilities.length > 0);
+  //       case 3:
+  //         return !!(
+  //           formData.requirements.length > 0 && formData.qualifications.length > 0
+  //         );
+  //       case 4:
+  //         return !!formData.applicationSettings.deadline;
+  //       default:
+  //         return true;
+  //     }
+  //   };
 
   const renderStepContent = () => {
     switch (currentStep) {
