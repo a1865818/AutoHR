@@ -83,9 +83,7 @@ export function NotesList({
                         <span className="mx-2">•</span>
                         <span
                           className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                            candidate.stage === "Hired"
-                              ? "bg-purple-100 text-purple-700"
-                              : candidate.stage === "Offer"
+                            candidate.stage === "Offer"
                               ? "bg-blue-100 text-blue-700"
                               : candidate.stage === "Interview"
                               ? "bg-yellow-100 text-yellow-700"
