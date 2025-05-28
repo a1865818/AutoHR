@@ -1,17 +1,15 @@
 interface StageTagProps {
-  stage: string;
+  stage: "Applied" | "Interview" | "Offer";
 }
 
 export function StageTag({ stage }: StageTagProps) {
   const getStageColor = (stage: string) => {
     switch (stage) {
       case "Applied":
-        return "bg-green-500 text-white";
+        return "bg-gray-500 text-white";
       case "Interview":
         return "bg-yellow-500 text-white";
       case "Offer":
-        return "bg-blue-500 text-white";
-      case "Hired":
         return "bg-purple-500 text-white";
       default:
         return "bg-gray-200 text-gray-800";

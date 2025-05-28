@@ -6,14 +6,8 @@ export interface Candidate {
   company: string;
   companyLogo: string;
   assessment: number;
-  stage:
-    | "Applied"
-    | "Interview"
-    | "Phone Interview"
-    | "Offer"
-    | "Hired"
-    | "Evaluation";
-  status?: "Qualified" | "New" | "Disqualified";
+  stage: "Applied" | "Interview" | "Offer";
+  status?: "In Progress" | "Hired" | "Disqualified";
 }
 
 export interface FilterOption {

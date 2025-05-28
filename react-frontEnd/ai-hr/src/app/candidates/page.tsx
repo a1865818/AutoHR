@@ -8,7 +8,7 @@ import { NotesList } from "@/components/candidates/NotesList";
 import { Candidate } from "@/interfaces";
 import { useMemo, useState } from "react";
 
-// Sample candidate data
+// Sample candidate data with updated status system
 const initialCandidates: Candidate[] = [
   {
     id: "1",
@@ -18,7 +18,7 @@ const initialCandidates: Candidate[] = [
     companyLogo: "/api/placeholder/24/24",
     assessment: 100,
     stage: "Applied",
-    status: "Qualified",
+    status: "In Progress",
   },
   {
     id: "2",
@@ -29,7 +29,7 @@ const initialCandidates: Candidate[] = [
     companyLogo: "/api/placeholder/24/24",
     assessment: 80,
     stage: "Interview",
-    status: "Qualified",
+    status: "In Progress",
   },
   {
     id: "3",
@@ -39,7 +39,7 @@ const initialCandidates: Candidate[] = [
     companyLogo: "/api/placeholder/24/24",
     assessment: 50,
     stage: "Interview",
-    status: "Qualified",
+    status: "In Progress",
   },
   {
     id: "4",
@@ -48,8 +48,8 @@ const initialCandidates: Candidate[] = [
     company: "Stripe",
     companyLogo: "/api/placeholder/24/24",
     assessment: 80,
-    stage: "Hired",
-    status: "Qualified",
+    stage: "Offer",
+    status: "Hired",
   },
   {
     id: "5",
@@ -58,8 +58,8 @@ const initialCandidates: Candidate[] = [
     company: "Microsoft",
     companyLogo: "/api/placeholder/24/24",
     assessment: 25,
-    stage: "Hired",
-    status: "Qualified",
+    stage: "Applied",
+    status: "Disqualified",
   },
   {
     id: "6",
@@ -69,7 +69,7 @@ const initialCandidates: Candidate[] = [
     companyLogo: "/api/placeholder/24/24",
     assessment: 80,
     stage: "Interview",
-    status: "Qualified",
+    status: "In Progress",
   },
   {
     id: "7",
@@ -79,7 +79,7 @@ const initialCandidates: Candidate[] = [
     companyLogo: "/api/placeholder/24/24",
     assessment: 100,
     stage: "Offer",
-    status: "Qualified",
+    status: "In Progress",
   },
   {
     id: "8",
@@ -89,7 +89,7 @@ const initialCandidates: Candidate[] = [
     companyLogo: "/api/placeholder/24/24",
     assessment: 72,
     stage: "Applied",
-    status: "Qualified",
+    status: "In Progress",
   },
   {
     id: "9",
@@ -98,8 +98,8 @@ const initialCandidates: Candidate[] = [
     company: "Amazon",
     companyLogo: "/api/placeholder/24/24",
     assessment: 64,
-    stage: "Hired",
-    status: "Qualified",
+    stage: "Applied",
+    status: "Hired",
   },
   {
     id: "10",
@@ -109,7 +109,7 @@ const initialCandidates: Candidate[] = [
     companyLogo: "/api/placeholder/24/24",
     assessment: 100,
     stage: "Applied",
-    status: "Qualified",
+    status: "In Progress",
   },
 ];
 
@@ -123,7 +123,7 @@ export default function CandidatesPage() {
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<{
-    field: "name" | "company" | "assessment" | "stage";
+    field: "name" | "company" | "assessment" | "stage" | "status";
     direction: "asc" | "desc";
   }>({ field: "name", direction: "asc" });
 
@@ -135,14 +135,20 @@ export default function CandidatesPage() {
 
   const [activeFilters, setActiveFilters] = useState({
     favorites: [] as string[], // Will only hold max 1 item
-    status: ["qualified"],
-    stage: ["hired", "applied", "interview", "offer"],
+    status: ["in-progress"],
+    stage: ["applied", "interview", "offer"],
   });
 
   // Customizable favorites - users can add/remove these
-  const [favoriteFilters, setFavoriteFilters] = useState([
-    { id: "qualified", label: "Qualified", type: "status" as const },
-    { id: "hired", label: "Hired", type: "stage" as const },
+  const [favoriteFilters, setFavoriteFilters] = useState<
+    Array<{
+      id: string;
+      label: string;
+      type: "status" | "stage";
+    }>
+  >([
+    { id: "in-progress", label: "In Progress", type: "status" as const },
+    { id: "hired", label: "Hired", type: "status" as const },
     { id: "disqualified", label: "Disqualified", type: "status" as const },
   ]);
 
@@ -160,25 +166,22 @@ export default function CandidatesPage() {
     const counts = {
       favorites: {} as Record<string, number>,
       status: {
-        qualified: 0,
-        new: 0,
+        "in-progress": 0,
+        hired: 0,
         disqualified: 0,
       },
       stage: {
-        hired: 0,
         applied: 0,
         interview: 0,
-        "phone-interview": 0,
         offer: 0,
-        evaluation: 0,
       },
     };
 
     // Count by status and stage
     candidates.forEach((candidate) => {
       // Count for status filters
-      const status = (candidate.status?.toLowerCase() ||
-        "qualified") as keyof typeof counts.status;
+      const status = (candidate.status?.toLowerCase().replace(" ", "-") ||
+        "in-progress") as keyof typeof counts.status;
       if (counts.status[status] !== undefined) {
         counts.status[status]++;
       }
@@ -304,7 +307,9 @@ export default function CandidatesPage() {
     });
   };
 
-  const handleSort = (field: "name" | "company" | "assessment" | "stage") => {
+  const handleSort = (
+    field: "name" | "company" | "assessment" | "stage" | "status"
+  ) => {
     setSortBy((prev) => ({
       field,
       direction:
@@ -320,19 +325,17 @@ export default function CandidatesPage() {
       prev.map((candidate) => {
         if (candidate.id === candidateId) {
           if (action === "approve") {
-            // Move to next stage or hire
-            const nextStage =
-              candidate.stage === "Applied"
-                ? "Interview"
-                : candidate.stage === "Interview"
-                ? "Offer"
-                : candidate.stage === "Offer"
-                ? "Hired"
-                : "Hired";
-            return { ...candidate, stage: nextStage };
+            // For approve: move to next stage or hire
+            if (candidate.stage === "Applied") {
+              return { ...candidate, stage: "Interview" as const };
+            } else if (candidate.stage === "Interview") {
+              return { ...candidate, stage: "Offer" as const };
+            } else if (candidate.stage === "Offer") {
+              return { ...candidate, status: "Hired" as const };
+            }
           } else {
-            // Decline candidate
-            return { ...candidate, status: "Disqualified" };
+            // For decline: set status to Disqualified
+            return { ...candidate, status: "Disqualified" as const };
           }
         }
         return candidate;
@@ -396,7 +399,7 @@ export default function CandidatesPage() {
     if (activeFilters.status.length > 0) {
       filtered = filtered.filter((candidate) =>
         activeFilters.status.includes(
-          candidate.status?.toLowerCase() || "qualified"
+          candidate.status?.toLowerCase().replace(" ", "-") || "in-progress"
         )
       );
     }
@@ -429,6 +432,10 @@ export default function CandidatesPage() {
         case "stage":
           aValue = a.stage;
           bValue = b.stage;
+          break;
+        case "status":
+          aValue = a.status || "In Progress";
+          bValue = b.status || "In Progress";
           break;
         default:
           aValue = a.name;
