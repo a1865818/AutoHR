@@ -16,9 +16,15 @@ interface PreviewStepProps {
   formData: JobFormData;
   onPrev: () => void;
   onPublish: () => void;
+  isPublishing?: boolean;
 }
 
-export function PreviewStep({ formData, onPrev, onPublish }: PreviewStepProps) {
+export function PreviewStep({
+  formData,
+  onPrev,
+  onPublish,
+  isPublishing = false,
+}: PreviewStepProps) {
   const hasSalaryInfo = () => {
     const { min, max } = formData.salary;
     return !!(min || max);
@@ -367,17 +373,19 @@ export function PreviewStep({ formData, onPrev, onPublish }: PreviewStepProps) {
       <div className="flex justify-between pt-6 border-t">
         <button
           onClick={onPrev}
-          className="inline-flex items-center px-6 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
+          disabled={isPublishing}
+          className="inline-flex items-center px-6 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="mr-2 h-4 w-4" />
           Previous
         </button>
         <button
           onClick={onPublish}
-          className="inline-flex items-center px-8 py-3 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 shadow-lg"
+          disabled={isPublishing}
+          className="inline-flex items-center px-8 py-3 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Send className="mr-2 h-4 w-4" />
-          Publish Job
+          {isPublishing ? "Publishing..." : "Publish Job"}
         </button>
       </div>
     </div>
