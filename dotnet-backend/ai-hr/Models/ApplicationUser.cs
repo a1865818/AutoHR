@@ -7,7 +7,7 @@ namespace ai_hr.Models
     public class ApplicationUser : BaseModel
     {
         [PrimaryKey("id", false)]
-        public int Id { get; set; }
+        public string Id { get; set; }
         [Column("Email")]
         public string Email { get; set; }
         [Column("Password")]
