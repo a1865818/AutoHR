@@ -36,32 +36,31 @@ export interface Job {
 
 export interface JobFormData {
   title: string;
-  company: string;
+  company?: string;
+  department?: string;
+  description: string;
   location: string;
   locationType: "On-site" | "Remote" | "Hybrid";
-  type: "Full-Time" | "Part-Time" | "Contract" | "Internship";
-  department: string;
+  type: string;
   experience: string;
-  salary: {
-    min: number | null;
-    max: number | null;
-    currency: string;
-    period: "per hour" | "per month" | "per year";
-  };
-  description: string;
+  responsibilities: string[];
   requirements: string[];
   qualifications: string[];
-  responsibilities: string[];
   benefits: string[];
-  skills: string[];
-  applicationSettings: {
-    deadline: string;
-    questionsRequired: boolean;
-    resumeRequired: boolean;
-    coverLetterRequired: boolean;
-    portfolioRequired: boolean;
+  skills?: string[];
+  salary: {
+    min?: number;
+    max?: number;
+    currency: string;
+    period?: string;
   };
-  urgency?: "Urgent" | "High Priority" | null;
+  applicationSettings: {
+    deadline?: string;
+    questionsRequired?: boolean;
+    resumeRequired?: boolean;
+    coverLetterRequired?: boolean;
+    portfolioRequired?: boolean;
+  };
 }
 
 export interface JobCreationStep {
@@ -70,3 +69,35 @@ export interface JobCreationStep {
   description: string;
   completed: boolean;
 }
+
+export interface CreateJobRequest {
+  title: string;
+  companyId: string; // GUID as string
+  createdBy: string; // GUID as string
+  description: string;
+  responsibilities: string[];
+  requirements: string[];
+  qualifications: string[];
+  benefits: string[];
+  employmentType: string;
+  seniorityLevel?: string;
+  experienceYearsMin?: number;
+  locationType: string;
+  locations: Record<string, unknown>; // Dictionary<string, object>
+  salaryMin?: number;
+  salaryMax?: number;
+  salaryCurrency: string;
+  applicationDeadline?: string; // ISO date string
+  status: string;
+  aiGeneratedDescription?: boolean;
+  skillMatchThreshold?: number;
+}
+
+export interface CreateJobResponse {
+  id?: string;
+  message?: string;
+}
+
+export interface JobData {
+  [key: string]: unknown;
+} 

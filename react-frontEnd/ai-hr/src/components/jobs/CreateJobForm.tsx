@@ -1,13 +1,21 @@
 "use client";
 
-import { JobCreationStep, JobFormData } from "@/interfaces";
-import { Check, ChevronRight, Save } from "lucide-react";
 import { useState } from "react";
-import { ApplicationSettingsStep } from "./CreateJobForm/ApplicationSettingsStep";
+import { useRouter } from "next/navigation";
+import { JobFormData, JobCreationStep } from "@/interfaces";
+import { Check, ChevronRight, Save } from "lucide-react";
 import { BasicInfoStep } from "./CreateJobForm/BasicInfoStep";
 import { JobDescriptionStep } from "./CreateJobForm/JobDescriptionStep";
-import { PreviewStep } from "./CreateJobForm/PreviewStep";
 import { RequirementsStep } from "./CreateJobForm/RequirementsStep";
+import { ApplicationSettingsStep } from "./CreateJobForm/ApplicationSettingsStep";
+import { PreviewStep } from "./CreateJobForm/PreviewStep";
+import { jobApi } from "@/services/api";
+import {
+  mapFormDataToCreateJobRequest,
+  validateFormDataForSubmission,
+  validateFormDataForDraft,
+} from "@/services/api";
+import { notifications } from "@/services/api";
 
 const steps: JobCreationStep[] = [
   {
@@ -45,39 +53,40 @@ const steps: JobCreationStep[] = [
 const initialFormData: JobFormData = {
   title: "",
   company: "",
+  department: "",
+  description: "",
   location: "",
   locationType: "On-site",
   type: "Full-Time",
-  department: "",
   experience: "",
+  responsibilities: [],
+  requirements: [],
+  qualifications: [],
+  benefits: [],
+  skills: [],
   salary: {
-    min: null,
-    max: null,
+    min: undefined,
+    max: undefined,
     currency: "USD",
     period: "per year",
   },
-  description: "",
-  requirements: [],
-  qualifications: [],
-  responsibilities: [],
-  benefits: [],
-  skills: [],
   applicationSettings: {
-    deadline: "",
+    deadline: undefined,
     questionsRequired: false,
     resumeRequired: true,
     coverLetterRequired: false,
     portfolioRequired: false,
   },
-  urgency: null,
 };
 
 export function CreateJobForm() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<JobFormData>(initialFormData);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
 
   const updateFormData = (newData: Partial<JobFormData>) => {
     setFormData((prev) => ({ ...prev, ...newData }));
@@ -113,9 +122,7 @@ export function CreateJobForm() {
 
     const generatedDescription = `We are seeking a talented ${
       formData.title
-    } to join our ${
-      formData.department
-    } team. In this ${formData.type.toLowerCase()} position, you will play a crucial role in driving our company's success through innovative solutions and collaborative teamwork.
+    } to join our team. In this ${formData.type.toLowerCase()} position, you will play a crucial role in driving our company's success through innovative solutions and collaborative teamwork.
 
 Key Responsibilities:
 • Lead and execute strategic initiatives aligned with business objectives
@@ -131,39 +138,123 @@ We offer a dynamic work environment where creativity and innovation are valued, 
   };
 
   const handleSaveDraft = async () => {
+    // Validate form data for draft (less strict validation)
+    const validation = validateFormDataForDraft(formData);
+    if (!validation.isValid) {
+      notifications.error(
+        "Cannot save draft",
+        `Please fill in: ${validation.missingFields.join(", ")}`
+      );
+      return;
+    }
+
     setIsSaving(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsSaving(false);
-    // Show success message
+    try {
+      // Map form data to API format with draft status
+      const jobRequest = mapFormDataToCreateJobRequest(
+        formData,
+        "b78cf45f-e78e-4a73-8539-8eb15deb408f", // Use default company ID for now
+        "ad389a8b-44ff-43cf-8f39-276e109cba17", // Use default user ID for now
+        "Draft", // Set status as draft
+        false // Not AI generated (unless description was AI generated)
+      );
+
+      const response = await jobApi.createJob(jobRequest);
+
+      if (response.success) {
+        notifications.success(
+          "Draft saved successfully!",
+          "Your job draft has been saved and can be published later."
+        );
+
+        // Optionally redirect to jobs list or stay on form
+        // router.push("/jobs");
+      } else {
+        notifications.error(
+          "Failed to save draft",
+          response.error || "Please try again."
+        );
+      }
+    } catch (error) {
+      notifications.error(
+        "Failed to save draft",
+        "An unexpected error occurred. Please try again."
+      );
+      console.error("Error saving draft:", error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handlePublish = async () => {
-    // Handle job publishing
-    console.log("Publishing job:", formData);
+    // Validate form data for publication (strict validation)
+    const validation = validateFormDataForSubmission(formData);
+    if (!validation.isValid) {
+      notifications.error(
+        "Cannot publish job",
+        `Please complete: ${validation.missingFields.join(", ")}`
+      );
+      return;
+    }
+
+    setIsPublishing(true);
+    try {
+      // Map form data to API format with active status
+      const jobRequest = mapFormDataToCreateJobRequest(
+        formData,
+        "b78cf45f-e78e-4a73-8539-8eb15deb408f", // Use default company ID for now
+        "ad389a8b-44ff-43cf-8f39-276e109cba17", // Use default user ID for now
+        "Open", // Set status as active/published
+        false // Track if description was AI generated
+      );
+
+      const response = await jobApi.createJob(jobRequest);
+
+      if (response.success) {
+        notifications.success(
+          "Job published successfully!",
+          "Your job posting is now live and accepting applications."
+        );
+
+        // Redirect to job detail page if ID is available, otherwise to jobs list
+        if (response.data?.id) {
+          router.push(`/jobs/${response.data.id}`);
+        } else {
+          router.push("/jobs");
+        }
+      } else {
+        notifications.error(
+          "Failed to publish job",
+          response.error || "Please try again."
+        );
+      }
+    } catch (error) {
+      notifications.error(
+        "Failed to publish job",
+        "An unexpected error occurred. Please try again."
+      );
+      console.error("Error publishing job:", error);
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
-  //   const isStepValid = (stepId: number): boolean => {
-  //     switch (stepId) {
-  //       case 1:
-  //         return !!(
-  //           formData.title &&
-  //           formData.company &&
-  //           formData.location &&
-  //           formData.department
-  //         );
-  //       case 2:
-  //         return !!(formData.description && formData.responsibilities.length > 0);
-  //       case 3:
-  //         return !!(
-  //           formData.requirements.length > 0 && formData.qualifications.length > 0
-  //         );
-  //       case 4:
-  //         return !!formData.applicationSettings.deadline;
-  //       default:
-  //         return true;
-  //     }
-  //   };
+  const isStepValid = (stepId: number): boolean => {
+    switch (stepId) {
+      case 1:
+        return !!(formData.title && formData.location);
+      case 2:
+        return !!(formData.description && formData.responsibilities.length > 0);
+      case 3:
+        return !!(
+          formData.requirements.length > 0 && formData.qualifications.length > 0
+        );
+      case 4:
+        return !!formData.applicationSettings.deadline;
+      default:
+        return true;
+    }
+  };
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -210,6 +301,7 @@ We offer a dynamic work environment where creativity and innovation are valued, 
             formData={formData}
             onPrev={prevStep}
             onPublish={handlePublish}
+            isPublishing={isPublishing}
           />
         );
       default:

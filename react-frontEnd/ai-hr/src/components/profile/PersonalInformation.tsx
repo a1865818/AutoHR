@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, X, Edit3, User } from "lucide-react";
+import { Save, X, Edit3, User, Linkedin } from "lucide-react";
 import { PersonalInfo } from "@/interfaces";
 
 interface PersonalInformationProps {
@@ -29,7 +29,7 @@ export function PersonalInformation({
         tempInfo.firstName !== personalInfo.firstName ||
         tempInfo.lastName !== personalInfo.lastName ||
         tempInfo.email !== personalInfo.email ||
-        tempInfo.phone !== personalInfo.phone ||
+        tempInfo.linkedinUrl !== personalInfo.linkedinUrl ||
         tempInfo.jobTitle !== personalInfo.jobTitle ||
         tempInfo.department !== personalInfo.department ||
         tempInfo.bio !== personalInfo.bio ||
@@ -197,15 +197,18 @@ export function PersonalInformation({
             </div>
 
             <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">
-                Phone Number
+              <label className="block text-sm font-medium text-gray-700 flex items-center gap-2">
+                <Linkedin className="h-4 w-4 text-blue-600" />
+                LinkedIn URL
               </label>
               <input
-                type="tel"
-                value={isEditing ? tempInfo.phone : personalInfo.phone}
+                type="text"
+                value={
+                  isEditing ? tempInfo.linkedinUrl : personalInfo.linkedinUrl
+                }
                 onChange={(e) => {
                   if (isEditing) {
-                    handleTempChange("phone", e.target.value);
+                    handleTempChange("linkedinUrl", e.target.value);
                   }
                 }}
                 disabled={!isEditing}
@@ -214,7 +217,7 @@ export function PersonalInformation({
                     ? "border-blue-300 focus:ring-blue-500 bg-white"
                     : "border-gray-200 bg-gray-50 text-gray-600 cursor-not-allowed"
                 }`}
-                placeholder="Enter phone number"
+                placeholder="https://www.linkedin.com/in/your-profile"
               />
             </div>
           </div>

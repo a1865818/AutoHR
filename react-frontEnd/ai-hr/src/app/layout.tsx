@@ -1,5 +1,5 @@
-import { Header, Sidebar } from "@/components";
 import { Inter } from "next/font/google";
+import { AuthProvider } from "@/contexts/AuthContext";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -17,15 +17,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <div className="flex h-screen bg-gray-50">
-          <Sidebar />
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <Header />
-            <main className="flex-1 overflow-y-auto p-4 sm:p-6">
-              {children}
-            </main>
-          </div>
-        </div>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

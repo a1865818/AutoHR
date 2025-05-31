@@ -16,9 +16,15 @@ interface PreviewStepProps {
   formData: JobFormData;
   onPrev: () => void;
   onPublish: () => void;
+  isPublishing?: boolean;
 }
 
-export function PreviewStep({ formData, onPrev, onPublish }: PreviewStepProps) {
+export function PreviewStep({
+  formData,
+  onPrev,
+  onPublish,
+  isPublishing = false,
+}: PreviewStepProps) {
   const hasSalaryInfo = () => {
     const { min, max } = formData.salary;
     return !!(min || max);
@@ -40,25 +46,6 @@ export function PreviewStep({ formData, onPrev, onPublish }: PreviewStepProps) {
     return "";
   };
 
-  const getUrgencyBadge = () => {
-    if (!formData.urgency) return null;
-
-    const colors = {
-      "High Priority": "bg-yellow-100 text-yellow-800 border-yellow-200",
-      Urgent: "bg-red-100 text-red-800 border-red-200",
-    };
-
-    return (
-      <span
-        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-          colors[formData.urgency]
-        }`}
-      >
-        {formData.urgency}
-      </span>
-    );
-  };
-
   const getWorkTypeBadge = () => {
     const colors = {
       "On-site": "bg-blue-100 text-blue-800",
@@ -78,7 +65,7 @@ export function PreviewStep({ formData, onPrev, onPublish }: PreviewStepProps) {
   };
 
   const getJobTypeBadge = () => {
-    const colors = {
+    const colors: Record<string, string> = {
       "Full-Time": "bg-blue-100 text-blue-800",
       "Part-Time": "bg-purple-100 text-purple-800",
       Contract: "bg-orange-100 text-orange-800",
@@ -88,7 +75,7 @@ export function PreviewStep({ formData, onPrev, onPublish }: PreviewStepProps) {
     return (
       <span
         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          colors[formData.type]
+          colors[formData.type] || "bg-gray-100 text-gray-800"
         }`}
       >
         {formData.type}
@@ -106,7 +93,6 @@ export function PreviewStep({ formData, onPrev, onPublish }: PreviewStepProps) {
               <h1 className="text-2xl font-bold text-gray-900">
                 {formData.title}
               </h1>
-              {getUrgencyBadge()}
             </div>
             <p className="text-lg text-gray-600 font-medium mb-2">
               {formData.company}
@@ -217,7 +203,7 @@ export function PreviewStep({ formData, onPrev, onPublish }: PreviewStepProps) {
         )}
 
         {/* Skills */}
-        {formData.skills.length > 0 && (
+        {formData.skills && formData.skills.length > 0 && (
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-3">
               Required Skills
@@ -367,17 +353,19 @@ export function PreviewStep({ formData, onPrev, onPublish }: PreviewStepProps) {
       <div className="flex justify-between pt-6 border-t">
         <button
           onClick={onPrev}
-          className="inline-flex items-center px-6 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50"
+          disabled={isPublishing}
+          className="inline-flex items-center px-6 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ChevronLeft className="mr-2 h-4 w-4" />
           Previous
         </button>
         <button
           onClick={onPublish}
-          className="inline-flex items-center px-8 py-3 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 shadow-lg"
+          disabled={isPublishing}
+          className="inline-flex items-center px-8 py-3 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Send className="mr-2 h-4 w-4" />
-          Publish Job
+          {isPublishing ? "Publishing..." : "Publish Job"}
         </button>
       </div>
     </div>

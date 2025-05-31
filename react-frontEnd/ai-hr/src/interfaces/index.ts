@@ -32,3 +32,9 @@ export * from "./profile";
 
 // Export job interfaces
 export * from "./job";
+
+// Export API interfaces
+export * from "./api";
+
+// Export notification interfaces
+export * from "./notifications";

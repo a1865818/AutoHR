@@ -260,13 +260,8 @@ export function BasicInfoStep({
             </label>
             <select
               id="period"
-              value={formData.salary.period}
-              onChange={(e) =>
-                handleSalaryChange(
-                  "period",
-                  e.target.value as JobFormData["salary"]["period"]
-                )
-              }
+              value={formData.salary.period || "per year"}
+              onChange={(e) => handleSalaryChange("period", e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             >
               <option value="per hour">Per Hour</option>
@@ -274,33 +269,6 @@ export function BasicInfoStep({
               <option value="per year">Per Year</option>
             </select>
           </div>
-        </div>
-      </div>
-
-      {/* Urgency */}
-      <div className="border-t pt-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Priority</h3>
-        <div>
-          <label
-            htmlFor="urgency"
-            className="block text-sm font-medium text-gray-700 mb-2"
-          >
-            Job Priority
-          </label>
-          <select
-            id="urgency"
-            value={formData.urgency || ""}
-            onChange={(e) =>
-              updateFormData({
-                urgency: (e.target.value || null) as JobFormData["urgency"],
-              })
-            }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          >
-            <option value="">Normal Priority</option>
-            <option value="High Priority">High Priority</option>
-            <option value="Urgent">Urgent</option>
-          </select>
         </div>
       </div>
 

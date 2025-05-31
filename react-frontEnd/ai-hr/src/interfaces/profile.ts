@@ -2,7 +2,7 @@ export interface PersonalInfo {
   firstName: string;
   lastName: string;
   email: string;
-  phone: string;
+  linkedinUrl: string;
   jobTitle: string;
   department: string;
   bio: string;

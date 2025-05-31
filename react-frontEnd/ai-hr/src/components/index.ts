@@ -2,6 +2,11 @@
 export { Header } from "./Header";
 export { Sidebar } from "./Sidebar";
 
+// Auth Components
+export { default as UserDropdown } from "./auth/UserDropdown";
+export { default as LogoutModal } from "./auth/LogoutModal";
+export { default as ProtectedRoute } from "./auth/ProtectedRoute";
+
 // Export job components
 export { CreateJobForm } from "./jobs/CreateJobForm";
 
