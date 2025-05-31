@@ -140,6 +140,8 @@ node_modules/
 .backend.pid
 .frontend.pid
 
+.vs
+
 # SageMath parsed files
 *.sage.py
 
