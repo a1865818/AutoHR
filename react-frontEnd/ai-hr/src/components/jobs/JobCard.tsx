@@ -45,17 +45,6 @@ export function JobCard({ job }: JobCardProps) {
     }
   };
 
-  const getUrgencyColor = (urgency?: string) => {
-    switch (urgency) {
-      case "Urgent":
-        return "bg-red-500 text-white";
-      case "High Priority":
-        return "bg-yellow-500 text-white";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
-
   const handleStatusChange = (newStatus: string) => {
     console.log(`Changing job ${job.id} status to ${newStatus}`);
     // Here you would update the job status in your state management or API
@@ -90,15 +79,6 @@ export function JobCard({ job }: JobCardProps) {
                     {job.title}
                   </h3>
                 </Link>
-                {job.urgency && (
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getUrgencyColor(
-                      job.urgency
-                    )}`}
-                  >
-                    {job.urgency}
-                  </span>
-                )}
               </div>
               <p className="text-sm text-gray-600 font-medium">{job.company}</p>
             </div>

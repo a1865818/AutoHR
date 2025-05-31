@@ -106,11 +106,11 @@ interface JobDetailsPageProps {
 
 export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
   // In a real application, you would fetch job data based on jobId
-  // For now, we'll use mock data but you could do:
-  // const [job, setJob] = useState<JobDetails | null>(null);
-  // useEffect(() => {
-  //   fetchJobById(jobId).then(setJob);
-  // }, [jobId]);
+
+  //   const [job, setJob] = useState<JobDetails | null>(null);
+  //   useEffect(() => {
+  //     fetchJobById(jobId).then(setJob);
+  //   }, [jobId]);
 
   const [job] = useState<JobDetails>({
     ...mockJobDetails,

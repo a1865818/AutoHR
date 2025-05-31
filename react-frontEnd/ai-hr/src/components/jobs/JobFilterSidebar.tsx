@@ -52,8 +52,6 @@ export function JobFilterSidebar({
   // Define the filter options (without hardcoded counts)
   const favorites: Omit<FilterOption, "count">[] = [
     { id: "Active", label: "Active" },
-    { id: "Urgent", label: "Urgent" },
-    { id: "High Priority", label: "High Priority" },
     { id: "Draft", label: "Draft" },
   ];
 
