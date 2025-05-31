@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Camera, Mail, Phone } from "lucide-react";
+import { Camera, Mail, Linkedin, ExternalLink } from "lucide-react";
 import { PersonalInfo } from "@/interfaces";
 
 interface ProfileHeaderProps {
@@ -155,16 +155,28 @@ export function ProfileHeader({ personalInfo }: ProfileHeaderProps) {
 
           <div className="bg-white rounded-lg p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-100 rounded-xl">
-                <Phone className="h-5 w-5 text-green-600" />
+              <div className="p-3 bg-blue-100 rounded-xl">
+                <Linkedin className="h-5 w-5 text-blue-600" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
-                  Phone Number
+                  LinkedIn Profile
                 </div>
-                <div className="text-sm font-medium text-gray-900">
-                  {personalInfo.phone}
-                </div>
+                {personalInfo.linkedinUrl ? (
+                  <a
+                    href={personalInfo.linkedinUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-blue-600 hover:text-blue-800 underline flex items-center gap-1 transition-colors"
+                  >
+                    View LinkedIn Profile
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                ) : (
+                  <div className="text-sm text-gray-400">
+                    No LinkedIn profile added
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -18,5 +18,13 @@ namespace ai_hr.Models
         public string LastName { get; set; }
         [Column("CreatedAt")]
         public DateTime CreatedAt { get; set; }
+        [Column("RefreshToken")]
+        public string? RefreshToken { get; set; }
+        [Column("RefreshTokenExpiry")]
+        public DateTime? RefreshTokenExpiry { get; set; }
+        [Column("IsActive")]
+        public bool IsActive { get; set; } = true;
+        [Column("Roles")]
+        public string Roles { get; set; } = "User";
     }
 }

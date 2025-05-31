@@ -21,6 +21,9 @@ namespace ai_hr.Models
         [Column("Email")]
         public string Email { get; set; }
 
+        [Column("Password")]
+        public string? Password { get; set; }
+
         [Column("user_type")]
         public string UserType { get; set; }
 
@@ -41,5 +44,18 @@ namespace ai_hr.Models
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        // Authentication fields
+        [Column("RefreshToken")]
+        public string? RefreshToken { get; set; }
+
+        [Column("RefreshTokenExpiry")]
+        public DateTime? RefreshTokenExpiry { get; set; }
+
+        [Column("IsActive")]
+        public bool IsActive { get; set; } = true;
+
+        [Column("Roles")]
+        public string Roles { get; set; } = "HiringUser";
     }
 }

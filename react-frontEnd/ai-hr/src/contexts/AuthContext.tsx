@@ -7,12 +7,18 @@ import React, {
   useEffect,
   ReactNode,
 } from "react";
+import { apiService } from "../services/api";
 
 interface User {
   id: string;
   email: string;
+  firstName: string;
+  lastName: string;
   name: string;
   role: string;
+  userType?: string;
+  userCategory: string;
+  companyId?: string;
   avatar?: string;
 }
 
@@ -23,9 +29,19 @@ interface AuthContextType {
   login: (
     email: string,
     password: string,
-    rememberMe?: boolean
+    rememberMe?: boolean,
+    userType?: "application" | "hiring"
   ) => Promise<boolean>;
-  logout: () => void;
+  register: (userData: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    company?: string;
+    role?: string;
+    userType?: "application" | "hiring";
+  }) => Promise<boolean>;
+  logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
   checkAuthStatus: () => void;
 }
@@ -44,22 +60,49 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAuthStatus();
   }, []);
 
-  const checkAuthStatus = () => {
+  const checkAuthStatus = async () => {
     setIsLoading(true);
 
-    // Check for stored user session
     try {
-      const storedUser = localStorage.getItem("currentUser");
-      const token = localStorage.getItem("authToken");
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+      const userCategory =
+        localStorage.getItem("userCategory") ||
+        sessionStorage.getItem("userCategory");
 
-      if (storedUser && token) {
-        setUser(JSON.parse(storedUser));
+      if (token && userCategory) {
+        // Verify token with backend based on user category
+        const userData =
+          userCategory === "ApplicationUser"
+            ? await apiService.getCurrentApplicationUser()
+            : await apiService.getCurrentUser();
+
+        const user: User = {
+          id: userData.id,
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName,
+          name: `${userData.firstName} ${userData.lastName}`,
+          role: userData.userType || userData.roles,
+          userType: userData.userType,
+          userCategory: userData.userCategory || userCategory,
+          companyId: userData.companyId,
+        };
+
+        setUser(user);
       }
     } catch (error) {
       console.error("Error checking auth status:", error);
       // Clear invalid stored data
       localStorage.removeItem("currentUser");
       localStorage.removeItem("authToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("userCategory");
+      sessionStorage.removeItem("currentUser");
+      sessionStorage.removeItem("authToken");
+      sessionStorage.removeItem("refreshToken");
+      sessionStorage.removeItem("userCategory");
     }
 
     setIsLoading(false);
@@ -68,65 +111,48 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (
     email: string,
     password: string,
-    rememberMe = false
+    rememberMe = false,
+    userType: "application" | "hiring" = "hiring"
   ): Promise<boolean> => {
     setIsLoading(true);
 
     try {
-      // TODO: Replace with actual API call to backend
-      // For now, using mock data for demo
-      if (email === "admin@autohr.com" && password === "admin123") {
-        const mockUser: User = {
-          id: "1",
-          email: "admin@autohr.com",
-          name: "HR Admin",
-          role: "Administrator",
-          avatar: "/api/placeholder/32/32",
-        };
+      const response =
+        userType === "application"
+          ? await apiService.applicationUserLogin({ email, password })
+          : await apiService.login({ email, password });
 
-        const mockToken = "mock-jwt-token-" + Date.now();
+      const user: User = {
+        id: response.userId,
+        email: response.email,
+        firstName: response.firstName,
+        lastName: response.lastName,
+        name: `${response.firstName} ${response.lastName}`,
+        role:
+          userType === "application"
+            ? "User"
+            : (response as any).userType || "User",
+        userType:
+          userType === "application" ? undefined : (response as any).userType,
+        userCategory:
+          userType === "application"
+            ? "ApplicationUser"
+            : (response as any).userCategory,
+        companyId:
+          userType === "application" ? undefined : (response as any).companyId,
+      };
 
-        setUser(mockUser);
+      setUser(user);
 
-        // Store in localStorage if remember me is checked
-        if (rememberMe) {
-          localStorage.setItem("currentUser", JSON.stringify(mockUser));
-          localStorage.setItem("authToken", mockToken);
-        } else {
-          // Store in sessionStorage for session-only persistence
-          sessionStorage.setItem("currentUser", JSON.stringify(mockUser));
-          sessionStorage.setItem("authToken", mockToken);
-        }
-
-        setIsLoading(false);
-        return true;
-      } else if (email === "user@autohr.com" && password === "user123") {
-        const mockUser: User = {
-          id: "2",
-          email: "user@autohr.com",
-          name: "HR User",
-          role: "HR Manager",
-          avatar: "/api/placeholder/32/32",
-        };
-
-        const mockToken = "mock-jwt-token-" + Date.now();
-
-        setUser(mockUser);
-
-        if (rememberMe) {
-          localStorage.setItem("currentUser", JSON.stringify(mockUser));
-          localStorage.setItem("authToken", mockToken);
-        } else {
-          sessionStorage.setItem("currentUser", JSON.stringify(mockUser));
-          sessionStorage.setItem("authToken", mockToken);
-        }
-
-        setIsLoading(false);
-        return true;
-      }
+      // Store tokens and user data
+      const storage = rememberMe ? localStorage : sessionStorage;
+      storage.setItem("currentUser", JSON.stringify(user));
+      storage.setItem("authToken", response.accessToken);
+      storage.setItem("refreshToken", response.refreshToken);
+      storage.setItem("userCategory", user.userCategory);
 
       setIsLoading(false);
-      return false;
+      return true;
     } catch (error) {
       console.error("Login error:", error);
       setIsLoading(false);
@@ -134,17 +160,112 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const register = async (userData: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    password: string;
+    company?: string;
+    role?: string;
+    userType?: "application" | "hiring";
+  }): Promise<boolean> => {
+    setIsLoading(true);
+
+    try {
+      const registerData = {
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        email: userData.email,
+        password: userData.password,
+        userCategory:
+          userData.userType === "application"
+            ? "ApplicationUser"
+            : "HiringUserProfile",
+        userType: userData.role?.toLowerCase().replace(" ", "_") || "recruiter",
+        bio: "",
+        linkedinUrl: "",
+        location: {},
+        preferences: {},
+      };
+
+      const response =
+        userData.userType === "application"
+          ? await apiService.applicationUserRegister(registerData)
+          : await apiService.register(registerData);
+
+      const user: User = {
+        id: response.userId,
+        email: response.email,
+        firstName: response.firstName,
+        lastName: response.lastName,
+        name: `${response.firstName} ${response.lastName}`,
+        role:
+          userData.userType === "application"
+            ? "User"
+            : (response as any).userType || "User",
+        userType:
+          userData.userType === "application"
+            ? undefined
+            : (response as any).userType,
+        userCategory:
+          userData.userType === "application"
+            ? "ApplicationUser"
+            : (response as any).userCategory,
+        companyId:
+          userData.userType === "application"
+            ? undefined
+            : (response as any).companyId,
+      };
+
+      setUser(user);
+
+      // Store tokens and user data in session
+      sessionStorage.setItem("currentUser", JSON.stringify(user));
+      sessionStorage.setItem("authToken", response.accessToken);
+      sessionStorage.setItem("refreshToken", response.refreshToken);
+      sessionStorage.setItem("userCategory", user.userCategory);
+
+      setIsLoading(false);
+      return true;
+    } catch (error) {
+      console.error("Registration error:", error);
+      setIsLoading(false);
+      return false;
+    }
+  };
+
+  const logout = async () => {
+    try {
+      const token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+      const userCategory =
+        localStorage.getItem("userCategory") ||
+        sessionStorage.getItem("userCategory");
+
+      if (token) {
+        // Call appropriate logout endpoint based on user category
+        if (userCategory === "ApplicationUser") {
+          await apiService.applicationUserLogout();
+        } else {
+          await apiService.logout();
+        }
+      }
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+
     setUser(null);
 
     // Clear all stored auth data
     localStorage.removeItem("currentUser");
     localStorage.removeItem("authToken");
+    localStorage.removeItem("refreshToken");
+    localStorage.removeItem("userCategory");
     sessionStorage.removeItem("currentUser");
     sessionStorage.removeItem("authToken");
-
-    // TODO: Call backend logout API if needed
-    // await api.logout();
+    sessionStorage.removeItem("refreshToken");
+    sessionStorage.removeItem("userCategory");
   };
 
   const updateUser = (userData: Partial<User>) => {
@@ -170,6 +291,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isLoading,
     isAuthenticated: !!user,
     login,
+    register,
     logout,
     updateUser,
     checkAuthStatus,

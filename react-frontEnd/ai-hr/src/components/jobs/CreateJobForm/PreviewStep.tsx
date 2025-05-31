@@ -46,25 +46,6 @@ export function PreviewStep({
     return "";
   };
 
-  const getUrgencyBadge = () => {
-    if (!formData.urgency) return null;
-
-    const colors = {
-      "High Priority": "bg-yellow-100 text-yellow-800 border-yellow-200",
-      Urgent: "bg-red-100 text-red-800 border-red-200",
-    };
-
-    return (
-      <span
-        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-          colors[formData.urgency]
-        }`}
-      >
-        {formData.urgency}
-      </span>
-    );
-  };
-
   const getWorkTypeBadge = () => {
     const colors = {
       "On-site": "bg-blue-100 text-blue-800",
@@ -84,7 +65,7 @@ export function PreviewStep({
   };
 
   const getJobTypeBadge = () => {
-    const colors = {
+    const colors: Record<string, string> = {
       "Full-Time": "bg-blue-100 text-blue-800",
       "Part-Time": "bg-purple-100 text-purple-800",
       Contract: "bg-orange-100 text-orange-800",
@@ -94,7 +75,7 @@ export function PreviewStep({
     return (
       <span
         className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-          colors[formData.type]
+          colors[formData.type] || "bg-gray-100 text-gray-800"
         }`}
       >
         {formData.type}
@@ -112,7 +93,6 @@ export function PreviewStep({
               <h1 className="text-2xl font-bold text-gray-900">
                 {formData.title}
               </h1>
-              {getUrgencyBadge()}
             </div>
             <p className="text-lg text-gray-600 font-medium mb-2">
               {formData.company}
@@ -223,7 +203,7 @@ export function PreviewStep({
         )}
 
         {/* Skills */}
-        {formData.skills.length > 0 && (
+        {formData.skills && formData.skills.length > 0 && (
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-3">
               Required Skills

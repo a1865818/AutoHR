@@ -25,6 +25,7 @@ const SignupPage: React.FC = () => {
     confirmPassword: "",
     company: "",
     role: "HR Manager",
+    userType: "hiring" as "application" | "hiring",
     agreeToTerms: false,
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -34,7 +35,7 @@ const SignupPage: React.FC = () => {
   const [signupError, setSignupError] = useState("");
   const [signupSuccess, setSignupSuccess] = useState(false);
 
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, register } = useAuth();
   const router = useRouter();
 
   // Redirect if already authenticated
@@ -119,17 +120,28 @@ const SignupPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      // TODO: Replace with actual API call to backend
-      // For now, simulating signup process
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const registrationData = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+        company: formData.company,
+        role: formData.role,
+        userType: formData.userType,
+      };
 
-      // Mock success
-      setSignupSuccess(true);
-      setTimeout(() => {
-        router.push(
-          "/login?message=Account created successfully! Please log in."
+      const success = await register(registrationData);
+
+      if (success) {
+        setSignupSuccess(true);
+        setTimeout(() => {
+          router.push("/");
+        }, 2000);
+      } else {
+        setSignupError(
+          "Registration failed. Please check your information and try again."
         );
-      }, 2000);
+      }
     } catch (error) {
       setSignupError("An unexpected error occurred. Please try again.");
       console.error("Signup error:", error);
@@ -341,6 +353,33 @@ const SignupPage: React.FC = () => {
                 <option value="Administrator">Administrator</option>
                 <option value="Director">Director</option>
               </select>
+            </div>
+
+            {/* User Type Field */}
+            <div>
+              <label
+                htmlFor="userType"
+                className="block text-sm font-medium text-gray-700 mb-2"
+              >
+                Account Type
+              </label>
+              <select
+                id="userType"
+                name="userType"
+                value={formData.userType}
+                onChange={handleInputChange}
+                className="block w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white"
+              >
+                <option value="hiring">
+                  👔 Hiring User (HR, Recruiters, Hiring Managers)
+                </option>
+                <option value="application">👤 Job Applicant</option>
+              </select>
+              <p className="mt-1 text-xs text-gray-500">
+                {formData.userType === "hiring"
+                  ? "For HR professionals, recruiters, and hiring managers who post jobs and manage candidates"
+                  : "For job seekers who want to apply for positions"}
+              </p>
             </div>
 
             {/* Password Fields */}

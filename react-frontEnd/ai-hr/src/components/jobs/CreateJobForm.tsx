@@ -9,13 +9,13 @@ import { JobDescriptionStep } from "./CreateJobForm/JobDescriptionStep";
 import { RequirementsStep } from "./CreateJobForm/RequirementsStep";
 import { ApplicationSettingsStep } from "./CreateJobForm/ApplicationSettingsStep";
 import { PreviewStep } from "./CreateJobForm/PreviewStep";
-import { jobApi } from "@/utils/api";
+import { jobApi } from "@/services/api";
 import {
   mapFormDataToCreateJobRequest,
   validateFormDataForSubmission,
   validateFormDataForDraft,
-} from "@/utils/jobMapper";
-import { notifications } from "@/utils/notifications";
+} from "@/services/api";
+import { notifications } from "@/services/api";
 
 const steps: JobCreationStep[] = [
   {
@@ -53,31 +53,30 @@ const steps: JobCreationStep[] = [
 const initialFormData: JobFormData = {
   title: "",
   company: "",
+  department: "",
+  description: "",
   location: "",
   locationType: "On-site",
   type: "Full-Time",
-  department: "",
   experience: "",
+  responsibilities: [],
+  requirements: [],
+  qualifications: [],
+  benefits: [],
+  skills: [],
   salary: {
-    min: null,
-    max: null,
+    min: undefined,
+    max: undefined,
     currency: "USD",
     period: "per year",
   },
-  description: "",
-  requirements: [],
-  qualifications: [],
-  responsibilities: [],
-  benefits: [],
-  skills: [],
   applicationSettings: {
-    deadline: "",
+    deadline: undefined,
     questionsRequired: false,
     resumeRequired: true,
     coverLetterRequired: false,
     portfolioRequired: false,
   },
-  urgency: null,
 };
 
 export function CreateJobForm() {
@@ -123,9 +122,7 @@ export function CreateJobForm() {
 
     const generatedDescription = `We are seeking a talented ${
       formData.title
-    } to join our ${
-      formData.department
-    } team. In this ${formData.type.toLowerCase()} position, you will play a crucial role in driving our company's success through innovative solutions and collaborative teamwork.
+    } to join our team. In this ${formData.type.toLowerCase()} position, you will play a crucial role in driving our company's success through innovative solutions and collaborative teamwork.
 
 Key Responsibilities:
 • Lead and execute strategic initiatives aligned with business objectives
@@ -245,12 +242,7 @@ We offer a dynamic work environment where creativity and innovation are valued, 
   const isStepValid = (stepId: number): boolean => {
     switch (stepId) {
       case 1:
-        return !!(
-          formData.title &&
-          formData.company &&
-          formData.location &&
-          formData.department
-        );
+        return !!(formData.title && formData.location);
       case 2:
         return !!(formData.description && formData.responsibilities.length > 0);
       case 3:

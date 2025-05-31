@@ -30,7 +30,8 @@ public static class HiringUserProfileEndpoints
             .WithTags("Hiring User Profiles")
             .WithName("UpdateHiringUserProfile")
             .WithSummary("Update hiring user profile")
-            .WithDescription("Updates an existing hiring user profile's details and preferences");
+            .WithDescription("Updates an existing hiring user profile's details and preferences")
+            .RequireAuthorization();
 
         app.MapDelete("/hiring-user-profiles/{id}", DeleteHiringUserProfile)
             .WithTags("Hiring User Profiles")
@@ -152,23 +153,22 @@ public static class HiringUserProfileEndpoints
     {
         try
         {
-            // Validate user type if provided
-            if (!string.IsNullOrEmpty(request.UserType))
-            {
-                var validUserTypes = new[] { "recruiter", "candidate", "admin", "hiring_manager" };
-                if (!validUserTypes.Contains(request.UserType))
-                {
-                    return Results.BadRequest(new { error = "Invalid user type. Must be one of: recruiter, candidate, admin, hiring_manager" });
-                }
-            }
+            Console.WriteLine($"[DEBUG] UpdateHiringUserProfile called for ID: {id}");
+            Console.WriteLine($"[DEBUG] Request data: FirstName={request.FirstName}, LastName={request.LastName}, Email={request.Email}");
+            Console.WriteLine($"[DEBUG] LinkedinUrl={request.LinkedinUrl}, Bio={request.Bio}");
 
+            Console.WriteLine($"[DEBUG] Fetching profile from database...");
             var getResponse = await client.From<HiringUserProfile>().Get();
             var profile = getResponse.Models.FirstOrDefault(p => p.Id == id);
 
             if (profile == null)
             {
+                Console.WriteLine($"[DEBUG] Profile not found for ID: {id}");
                 return Results.NotFound(new { message = $"Hiring user profile with ID {id} not found" });
             }
+
+            Console.WriteLine($"[DEBUG] Profile found: {profile.Email}");
+            Console.WriteLine($"[DEBUG] Updating profile properties...");
 
             // Update properties if provided in the request
             if (request.FirstName != null) profile.FirstName = request.FirstName;
@@ -181,14 +181,21 @@ public static class HiringUserProfileEndpoints
             if (request.Location != null) profile.Location = request.Location;
             if (request.Preferences != null) profile.Preferences = request.Preferences;
 
+            Console.WriteLine($"[DEBUG] Calling Supabase update...");
             var response = await client.From<HiringUserProfile>().Update(profile);
 
-            return Results.Accepted($"/hiring-user-profiles/{id}");
+            Console.WriteLine($"[DEBUG] Update successful");
+            return Results.Ok(new
+            {
+                message = "Profile updated successfully",
+                id = id,
+                updatedAt = DateTime.UtcNow
+            });
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error updating hiring user profile: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            Console.WriteLine($"[DEBUG] Error updating hiring user profile: {ex.Message}");
+            Console.WriteLine($"[DEBUG] Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }
     }

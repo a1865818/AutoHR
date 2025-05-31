@@ -1,14 +1,96 @@
 using Supabase;
 using ai_hr.Models;
 using ai_hr.Contracts;
+using ai_hr.Services;
+using ai_hr.Endpoints;
 using DotNetEnv;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.Annotations;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
+using BCrypt.Net;
+using System.Security.Claims;
 
 // Load environment variables from .env file
 Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure JWT settings
+builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
+
+// Add authentication and authorization
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>();
+    var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? jwtSettings?.SecretKey;
+
+    Console.WriteLine($"[DEBUG] JWT Settings - Issuer: {jwtSettings?.Issuer}");
+    Console.WriteLine($"[DEBUG] JWT Settings - Audience: {jwtSettings?.Audience}");
+    Console.WriteLine($"[DEBUG] JWT Settings - SecretKey length: {secretKey}");
+
+
+    if (string.IsNullOrEmpty(secretKey))
+    {
+        throw new InvalidOperationException("JWT SecretKey not configured");
+    }
+
+    options.Events = new JwtBearerEvents
+    {
+        OnAuthenticationFailed = context =>
+        {
+            Console.WriteLine($"[DEBUG] JWT Authentication failed: {context.Exception.Message}");
+            Console.WriteLine($"[DEBUG] JWT Token: {context.Request.Headers.Authorization.ToString()}");
+            Console.WriteLine($"[DEBUG] Exception details: {context.Exception}");
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = context =>
+        {
+            Console.WriteLine($"[DEBUG] JWT Token validated successfully");
+            Console.WriteLine($"[DEBUG] User ID: {context.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value}");
+            Console.WriteLine($"[DEBUG] User Category: {context.Principal?.FindFirst("userCategory")?.Value}");
+            return Task.CompletedTask;
+        },
+        OnChallenge = context =>
+        {
+            Console.WriteLine($"[DEBUG] JWT Challenge: {context.Error}, {context.ErrorDescription}");
+            Console.WriteLine($"[DEBUG] Request path: {context.Request.Path}");
+            return Task.CompletedTask;
+        },
+        OnMessageReceived = context =>
+        {
+            Console.WriteLine($"[DEBUG] JWT OnMessageReceived - Token received for path: {context.Request.Path}");
+            var authHeader = context.Request.Headers.Authorization.ToString();
+            Console.WriteLine($"[DEBUG] Authorization header: {(string.IsNullOrEmpty(authHeader) ? "MISSING" : authHeader.Substring(0, Math.Min(50, authHeader.Length)) + "...")}");
+            return Task.CompletedTask;
+        }
+    };
+
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+        ValidateIssuer = true,
+        ValidIssuer = jwtSettings?.Issuer,
+        ValidateAudience = true,
+        ValidAudience = jwtSettings?.Audience,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+builder.Services.AddAuthorization();
+
+// Register JWT and Authentication services
+builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+builder.Services.AddScoped<IHiringUserProfileAuthenticationService, HiringUserProfileAuthenticationService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -19,6 +101,31 @@ builder.Services.AddSwaggerGen(c =>
         Title = "AI HR Platform API",
         Version = "v1",
         Description = "A comprehensive HR platform API with job management, candidate tracking, and recruitment features"
+    });
+
+    // Add JWT authentication to Swagger
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
     });
 
     // Define tags for grouping endpoints
@@ -62,19 +169,38 @@ if (app.Environment.IsDevelopment())
 // Use CORS
 app.UseCors("AllowNextJs");
 
+// Add authentication and authorization middleware
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.MapPost("/users/create", async (CreateUserRequest request, Supabase.Client client) =>
 {
     try
     {
         Console.WriteLine($"Creating user with email: {request.Email}");
 
+        // Check if user already exists
+        var existingUserResponse = await client.From<ApplicationUser>()
+            .Where(u => u.Email == request.Email)
+            .Get();
+
+        if (existingUserResponse.Models.Any())
+        {
+            return Results.BadRequest(new { error = "User with this email already exists" });
+        }
+
+        // Hash password
+        var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
+
         var user = new ApplicationUser
         {
             Email = request.Email,
-            Password = request.Password,
+            Password = hashedPassword, // Use hashed password
             FirstName = request.FirstName,
             LastName = request.LastName,
-            CreatedAt = DateTime.UtcNow.AddHours(7)
+            CreatedAt = DateTime.UtcNow.AddHours(7),
+            IsActive = true,
+            Roles = "User"
         };
 
         Console.WriteLine($"User object created - Email: {user.Email}, Name: {user.FirstName} {user.LastName}");
@@ -84,7 +210,14 @@ app.MapPost("/users/create", async (CreateUserRequest request, Supabase.Client c
 
         Console.WriteLine($"Insert successful - User ID: {newUser.Id}");
 
-        return Results.Ok(); // Return 202 Accepted with location header
+        return Results.Ok(new
+        {
+            id = newUser.Id,
+            email = newUser.Email,
+            firstName = newUser.FirstName,
+            lastName = newUser.LastName,
+            message = "User created successfully"
+        });
     }
     catch (Exception ex)
     {
@@ -1070,16 +1203,6 @@ app.MapPut("/hiring-user-profiles/{id}", async (Guid id, UpdateHiringUserProfile
 {
     try
     {
-        // Validate user type if provided
-        if (!string.IsNullOrEmpty(request.UserType))
-        {
-            var validUserTypes = new[] { "recruiter", "candidate", "admin", "hiring_manager" };
-            if (!validUserTypes.Contains(request.UserType))
-            {
-                return Results.BadRequest(new { error = "Invalid user type. Must be one of: recruiter, candidate, admin, hiring_manager" });
-            }
-        }
-
 
         var getResponse = await client.From<HiringUserProfile>().Get();
         var profile = getResponse.Models.FirstOrDefault(p => p.Id == id);
@@ -1142,6 +1265,10 @@ app.MapDelete("/hiring-user-profiles/{id}", async (Guid id, Supabase.Client clie
 .WithName("DeleteHiringUserProfile")
 .WithSummary("Delete hiring user profile")
 .WithDescription("Permanently removes a hiring user profile from the system");
+
+// Map authentication endpoints
+app.MapAuthenticationEndpoints();
+app.MapHiringUserProfileAuthenticationEndpoints();
 
 app.UseHttpsRedirection();
 

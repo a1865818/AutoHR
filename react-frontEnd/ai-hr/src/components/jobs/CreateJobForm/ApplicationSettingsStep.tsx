@@ -35,7 +35,7 @@ export function ApplicationSettingsStep({
   };
 
   // Format date for input field (YYYY-MM-DD)
-  const formatDateForInput = (dateString: string) => {
+  const formatDateForInput = (dateString: string | undefined) => {
     if (!dateString) return "";
     const date = new Date(dateString);
     return date.toISOString().split("T")[0];
