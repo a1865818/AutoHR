@@ -1,6 +1,7 @@
 import { Candidate } from "@/interfaces";
 import { AssessmentIcon } from "./AssessmentIcon";
 import { StageTag } from "./StageTag";
+import { StatusTag } from "./StatusTag";
 
 interface CandidateCardProps {
   candidate: Candidate;
@@ -13,15 +14,9 @@ export function CandidateCard({
   isSelected,
   onClick,
 }: CandidateCardProps) {
-  const getAssessmentColor = (score: number) => {
-    if (score >= 80) return "text-green-500";
-    if (score >= 50) return "text-yellow-500";
-    return "text-red-500";
-  };
-
   return (
     <div
-      className={`grid grid-cols-8 py-3 border-b hover:bg-gray-50 cursor-pointer ${
+      className={`grid grid-cols-9 py-3 border-b hover:bg-gray-50 cursor-pointer ${
         isSelected ? "bg-blue-50" : ""
       }`}
       onClick={() => onClick(candidate.id)}
@@ -51,14 +46,14 @@ export function CandidateCard({
         </div>
         <span className="ml-2 text-gray-700">{candidate.company}</span>
       </div>
-      <div className="col-span-2 flex items-center">
+      <div className="col-span-1 flex items-center ">
         <AssessmentIcon score={candidate.assessment} />
-        <span className={`ml-2 ${getAssessmentColor(candidate.assessment)}`}>
-          {candidate.assessment}%
-        </span>
       </div>
-      <div className="col-span-1">
+      <div className="col-span-1 flex items-center">
         <StageTag stage={candidate.stage} />
+      </div>
+      <div className="col-span-2 flex items-center">
+        <StatusTag status={candidate.status || "In Progress"} />
       </div>
     </div>
   );

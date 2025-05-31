@@ -1,27 +1,22 @@
-// components/jobs/JobCard.tsx
-import { Briefcase, Clock, DollarSign, MapPin, Users } from "lucide-react";
+import {
+  Briefcase,
+  Clock,
+  DollarSign,
+  MapPin,
+  MoreHorizontal,
+  Users,
+} from "lucide-react";
+import Link from "next/link";
+import { useState } from "react";
 
-interface Job {
-  id: string;
-  title: string;
-  company: string;
-  location: string;
-  type: "Full-Time" | "Part-Time" | "Contract" | "Internship";
-  experience: string;
-  salary: string;
-  description: string;
-  requirements: string[];
-  postedDate: string;
-  applicants: number;
-  status: "Active" | "Paused" | "Closed";
-  urgency?: "Urgent" | "High Priority";
-}
-
+import { Job } from "@/interfaces/job";
 interface JobCardProps {
   job: Job;
 }
 
 export function JobCard({ job }: JobCardProps) {
+  const [showDropdown, setShowDropdown] = useState(false);
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Active":
@@ -50,15 +45,25 @@ export function JobCard({ job }: JobCardProps) {
     }
   };
 
-  const getUrgencyColor = (urgency?: string) => {
-    switch (urgency) {
-      case "Urgent":
-        return "bg-red-500 text-white";
-      case "High Priority":
-        return "bg-yellow-500 text-white";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
+  const handleStatusChange = (newStatus: string) => {
+    console.log(`Changing job ${job.id} status to ${newStatus}`);
+    // Here you would update the job status in your state management or API
+    setShowDropdown(false);
+  };
+
+  const handleEdit = () => {
+    console.log(`Editing job ${job.id}`);
+    // Here you would navigate to edit page or open edit modal
+  };
+
+  const handleDuplicate = () => {
+    console.log(`Duplicating job ${job.id}`);
+    // Here you would duplicate the job
+  };
+
+  const handleDelete = () => {
+    console.log(`Deleting job ${job.id}`);
+    // Here you would show confirmation dialog and delete
   };
 
   return (
@@ -69,18 +74,11 @@ export function JobCard({ job }: JobCardProps) {
           <div className="flex items-start justify-between mb-2">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-lg font-semibold text-gray-900 hover:text-blue-600 cursor-pointer">
-                  {job.title}
-                </h3>
-                {job.urgency && (
-                  <span
-                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getUrgencyColor(
-                      job.urgency
-                    )}`}
-                  >
-                    {job.urgency}
-                  </span>
-                )}
+                <Link href={`/jobs/${job.id}`}>
+                  <h3 className="text-lg font-semibold text-gray-900 hover:text-blue-600 cursor-pointer transition-colors">
+                    {job.title}
+                  </h3>
+                </Link>
               </div>
               <p className="text-sm text-gray-600 font-medium">{job.company}</p>
             </div>
@@ -107,7 +105,7 @@ export function JobCard({ job }: JobCardProps) {
             </div>
             <div className="flex items-center">
               <DollarSign className="h-4 w-4 mr-1" />
-              {job.salary} per year
+              {job.salary.min} - {job.salary.max} per year
             </div>
             <div className="flex items-center">
               <Clock className="h-4 w-4 mr-1" />
@@ -154,13 +152,65 @@ export function JobCard({ job }: JobCardProps) {
         </div>
 
         {/* Right side - Actions */}
-        <div className="ml-6 flex flex-col gap-2">
-          <button className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors">
-            View Job
+        <div className="ml-6 flex flex-col gap-2 relative">
+          <button
+            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+            onClick={handleEdit}
+          >
+            Edit Job
           </button>
-          <button className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors">
-            Edit
-          </button>
+
+          <div className="relative">
+            <button
+              className="px-4 py-2 bg-white border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors flex items-center"
+              onClick={() => setShowDropdown(!showDropdown)}
+            >
+              <MoreHorizontal className="h-4 w-4 mr-1" />
+              More
+            </button>
+
+            {showDropdown && (
+              <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                <div className="py-1">
+                  <div className="px-3 py-2 text-xs font-medium text-gray-500 border-b">
+                    Change Status
+                  </div>
+                  <button
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={() => handleStatusChange("Active")}
+                  >
+                    Mark as Active
+                  </button>
+                  <button
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={() => handleStatusChange("Paused")}
+                  >
+                    Pause Job
+                  </button>
+                  <button
+                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={() => handleStatusChange("Closed")}
+                  >
+                    Close Job
+                  </button>
+                  <div className="border-t">
+                    <button
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={handleDuplicate}
+                    >
+                      Duplicate Job
+                    </button>
+                    <button
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                      onClick={handleDelete}
+                    >
+                      Delete Job
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

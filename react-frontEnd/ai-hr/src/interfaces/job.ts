@@ -29,7 +29,7 @@ export interface Job {
   postedDate: string;
   status: "Draft" | "Active" | "Paused" | "Closed";
   applicants: number;
-  urgency?: "Urgent" | "High Priority";
+  //   urgency?: "Urgent" | "High Priority";
   createdBy: string;
   updatedAt: string;
 }
