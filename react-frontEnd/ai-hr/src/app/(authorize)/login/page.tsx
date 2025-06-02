@@ -21,12 +21,7 @@ const LoginPage: React.FC = () => {
   const { login, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      router.push("/");
-    }
-  }, [isAuthenticated, isLoading, router]);
+  // Auth state is now handled by AuthContext - no manual redirects needed
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -85,11 +80,10 @@ const LoginPage: React.FC = () => {
         formData.userType
       );
 
-      if (success) {
-        router.push("/");
-      } else {
+      if (!success) {
         setLoginError("Invalid email or password. Please try again.");
       }
+      // AuthContext will handle navigation automatically on successful login
     } catch (error) {
       setLoginError("An unexpected error occurred. Please try again.");
       console.error("Login error:", error);
@@ -104,17 +98,17 @@ const LoginPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
         <div className="flex items-center space-x-2">
           <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-          <span className="text-gray-600">Loading...</span>
+          <span className="text-lg text-gray-600">Logging in...</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -228,10 +222,8 @@ const LoginPage: React.FC = () => {
                 onChange={handleInputChange}
                 className="block w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white"
               >
-                <option value="hiring">
-                  👔 Hiring User (HR, Recruiters, Hiring Managers)
-                </option>
-                <option value="application">👤 Job Applicant</option>
+                <option value="hiring">Hiring User</option>
+                <option value="application">Job Applicant</option>
               </select>
               <p className="mt-1 text-xs text-gray-500">
                 {formData.userType === "hiring"
@@ -306,21 +298,6 @@ const LoginPage: React.FC = () => {
                 Sign up here
               </Link>
             </p>
-          </div>
-
-          {/* Demo Credentials */}
-          <div className="mt-6 border-t border-gray-200 pt-6">
-            <div className="text-center">
-              <p className="text-xs text-gray-500 mb-3">Demo Credentials</p>
-              <div className="space-y-2 text-xs text-gray-600">
-                <div className="bg-gray-50 rounded p-2">
-                  <strong>Admin:</strong> admin@autohr.com / admin123
-                </div>
-                <div className="bg-gray-50 rounded p-2">
-                  <strong>User:</strong> user@autohr.com / user123
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>

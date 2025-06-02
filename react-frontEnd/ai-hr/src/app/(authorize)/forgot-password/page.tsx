@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import {
   Mail,
   AlertCircle,
@@ -20,14 +19,8 @@ const ForgotPasswordPage: React.FC = () => {
   const [resetSuccess, setResetSuccess] = useState(false);
 
   const { isAuthenticated, isLoading } = useAuth();
-  const router = useRouter();
 
-  // Redirect if already authenticated
-  useEffect(() => {
-    if (isAuthenticated && !isLoading) {
-      router.push("/");
-    }
-  }, [isAuthenticated, isLoading, router]);
+  // Auth state is now handled by AuthContext - no manual redirects needed
 
   const validateForm = () => {
     const newErrors: { [key: string]: string } = {};
@@ -76,13 +69,9 @@ const ForgotPasswordPage: React.FC = () => {
     }
   };
 
-  const handleBackToLogin = () => {
-    router.push("/login");
-  };
-
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
         <div className="flex items-center space-x-2">
           <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
           <span className="text-gray-600">Loading...</span>
@@ -93,7 +82,7 @@ const ForgotPasswordPage: React.FC = () => {
 
   if (resetSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
         <div className="max-w-md w-full space-y-8">
           <div className="bg-white rounded-lg shadow-lg p-8 text-center">
             <div className="mx-auto h-16 w-16 bg-green-100 rounded-full flex items-center justify-center mb-6">
@@ -108,12 +97,12 @@ const ForgotPasswordPage: React.FC = () => {
               password.
             </p>
             <div className="space-y-4">
-              <button
-                onClick={handleBackToLogin}
-                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              <Link
+                href="/login"
+                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 block text-center"
               >
                 Back to Login
-              </button>
+              </Link>
               <p className="text-sm text-gray-500">
                 Didn't receive the email? Check your spam folder or{" "}
                 <button
@@ -134,11 +123,11 @@ const ForgotPasswordPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-orange-600 rounded-full flex items-center justify-center">
+          <div className="mx-auto h-12 w-12 bg-blue-600 rounded-full flex items-center justify-center">
             <Mail className="h-6 w-6 text-white" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">

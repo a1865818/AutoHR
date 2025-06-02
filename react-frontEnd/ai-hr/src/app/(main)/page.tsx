@@ -8,11 +8,16 @@ import {
   TrendingUp,
   User,
   Building,
+  BarChart3,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  Eye,
 } from "lucide-react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 
-export default function HomePage() {
+export default function HiringDashboard() {
   const { user, isAuthenticated } = useAuth();
 
   if (!isAuthenticated || !user) {
@@ -23,23 +28,92 @@ export default function HomePage() {
             Welcome to AI HR Recruitment Platform
           </h2>
           <p className="mt-2 text-gray-600">
-            Please log in to access your dashboard
+            Please log in to access your recruitment dashboard
           </p>
         </div>
       </div>
     );
   }
 
-  const isHiringUser = user.userCategory === "HiringUserProfile";
+  const recentActivity = [
+    {
+      id: 1,
+      type: "application",
+      message: "New applicant for Frontend Developer",
+      time: "2 hours ago",
+      icon: Users,
+      iconColor: "text-blue-600",
+      bgColor: "bg-blue-100",
+    },
+    {
+      id: 2,
+      type: "job",
+      message: "Job description generated for UX Designer",
+      time: "Yesterday",
+      icon: PlusCircle,
+      iconColor: "text-green-600",
+      bgColor: "bg-green-100",
+    },
+    {
+      id: 3,
+      type: "interview",
+      message: "Interview scheduled with John Doe",
+      time: "2 days ago",
+      icon: Clock,
+      iconColor: "text-yellow-600",
+      bgColor: "bg-yellow-100",
+    },
+  ];
+
+  const recruitmentStats = {
+    activeJobs: 12,
+    totalCandidates: 124,
+    newApplications: 18,
+    interviewsScheduled: 6,
+  };
+
+  const urgentTasks = [
+    {
+      id: 1,
+      task: "Review 5 new applications for Senior Developer",
+      priority: "high",
+      dueDate: "Today",
+    },
+    {
+      id: 2,
+      task: "Schedule interview with Sarah Johnson",
+      priority: "medium",
+      dueDate: "Tomorrow",
+    },
+    {
+      id: 3,
+      task: "Update job description for Marketing Manager",
+      priority: "low",
+      dueDate: "This week",
+    },
+  ];
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "high":
+        return "bg-red-100 text-red-800";
+      case "medium":
+        return "bg-yellow-100 text-yellow-800";
+      case "low":
+        return "bg-green-100 text-green-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto">
       {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-8">
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 mb-8 text-white">
         <div className="flex items-center space-x-4">
-          <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center">
+          <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
             <span className="text-white text-xl font-bold">
-              {user.name
+              {user.firstName
                 .split(" ")
                 .map((n) => n[0])
                 .join("")
@@ -47,19 +121,19 @@ export default function HomePage() {
             </span>
           </div>
           <div>
-            <h2 className="text-3xl font-semibold text-gray-800">
+            <h2 className="text-2xl font-semibold">
               Welcome back, {user.firstName}!
             </h2>
-            <p className="mt-1 text-gray-600 flex items-center space-x-2">
+            <p className="mt-1 text-indigo-100 flex items-center space-x-2">
               <User className="w-4 h-4" />
               <span>{user.role}</span>
               <span>•</span>
-              <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                {isHiringUser ? "Hiring User" : "Job Applicant"}
+              <span className="px-2 py-1 bg-white bg-opacity-20 rounded-full text-xs font-medium">
+                Hiring Manager
               </span>
             </p>
             {user.companyId && (
-              <p className="mt-1 text-gray-500 flex items-center space-x-1">
+              <p className="mt-1 text-indigo-200 flex items-center space-x-1">
                 <Building className="w-4 h-4" />
                 <span>Company ID: {user.companyId}</span>
               </p>
@@ -68,206 +142,266 @@ export default function HomePage() {
         </div>
       </div>
 
-      {isHiringUser ? (
-        // Hiring User Dashboard
-        <>
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">
-                    Create New Job
-                  </h3>
-                  <p className="mt-2 text-gray-600 text-sm">
-                    Generate job descriptions and start accepting applications
-                  </p>
-                </div>
-                <PlusCircle className="w-8 h-8 text-blue-600" />
-              </div>
-              <Link
-                href="/create-job"
-                className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg flex items-center justify-center text-sm font-medium transition-colors"
-              >
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Create Job
-              </Link>
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Active Jobs</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {recruitmentStats.activeJobs}
+              </p>
             </div>
-
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">
-                    Manage Candidates
-                  </h3>
-                  <p className="mt-2 text-gray-600 text-sm">
-                    Review applications and select the best candidates
-                  </p>
-                </div>
-                <Users className="w-8 h-8 text-green-600" />
-              </div>
-              <Link
-                href="/candidates"
-                className="mt-4 w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg flex items-center justify-center text-sm font-medium transition-colors"
-              >
-                <Users className="mr-2 h-4 w-4" />
-                View Candidates
-              </Link>
-            </div>
-
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">
-                    Active Jobs
-                  </h3>
-                  <p className="mt-2 text-gray-600 text-sm">
-                    Monitor your current job postings and applications
-                  </p>
-                </div>
-                <Briefcase className="w-8 h-8 text-purple-600" />
-              </div>
-              <Link
-                href="/jobs"
-                className="mt-4 w-full bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg flex items-center justify-center text-sm font-medium transition-colors"
-              >
-                <Briefcase className="mr-2 h-4 w-4" />
-                View Jobs
-              </Link>
+            <div className="p-3 bg-blue-100 rounded-full">
+              <Briefcase className="w-6 h-6 text-blue-600" />
             </div>
           </div>
+          <div className="mt-4 flex items-center text-sm text-green-600">
+            <TrendingUp className="w-4 h-4 mr-1" />
+            <span>+2 this week</span>
+          </div>
+        </div>
 
-          <div className="mt-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-            <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">
+                Total Candidates
+              </p>
+              <p className="text-2xl font-bold text-gray-900">
+                {recruitmentStats.totalCandidates}
+              </p>
+            </div>
+            <div className="p-3 bg-green-100 rounded-full">
+              <Users className="w-6 h-6 text-green-600" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-sm text-green-600">
+            <TrendingUp className="w-4 h-4 mr-1" />
+            <span>+15 this week</span>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">
+                New Applications
+              </p>
+              <p className="text-2xl font-bold text-gray-900">
+                {recruitmentStats.newApplications}
+              </p>
+            </div>
+            <div className="p-3 bg-yellow-100 rounded-full">
+              <Eye className="w-6 h-6 text-yellow-600" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-sm text-orange-600">
+            <AlertCircle className="w-4 h-4 mr-1" />
+            <span>Needs review</span>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Interviews</p>
+              <p className="text-2xl font-bold text-gray-900">
+                {recruitmentStats.interviewsScheduled}
+              </p>
+            </div>
+            <div className="p-3 bg-purple-100 rounded-full">
+              <Clock className="w-6 h-6 text-purple-600" />
+            </div>
+          </div>
+          <div className="mt-4 flex items-center text-sm text-purple-600">
+            <CheckCircle className="w-4 h-4 mr-1" />
+            <span>This week</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <Link
+          href="/create-job"
+          className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow group flex flex-col h-full"
+        >
+          <div className="flex items-center justify-between flex-1">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 group-hover:text-indigo-600">
+                Create New Job
+              </h3>
+              <p className="mt-2 text-gray-600 text-sm">
+                Generate job descriptions and start accepting applications
+              </p>
+            </div>
+            <PlusCircle className="w-8 h-8 text-indigo-600" />
+          </div>
+          <div className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg flex items-center justify-center text-sm font-medium transition-colors">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Create Job
+          </div>
+        </Link>
+
+        <Link
+          href="/candidates"
+          className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow group flex flex-col h-full"
+        >
+          <div className="flex items-center justify-between flex-1">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 group-hover:text-green-600">
+                Manage Candidates
+              </h3>
+              <p className="mt-2 text-gray-600 text-sm">
+                Review applications and select the best candidates
+              </p>
+            </div>
+            <Users className="w-8 h-8 text-green-600" />
+          </div>
+          <div className="mt-4 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg flex items-center justify-center text-sm font-medium transition-colors">
+            <Users className="mr-2 h-4 w-4" />
+            View Candidates
+          </div>
+        </Link>
+
+        <Link
+          href="/jobs"
+          className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow group flex flex-col h-full"
+        >
+          <div className="flex items-center justify-between flex-1">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 group-hover:text-purple-600">
+                Active Jobs
+              </h3>
+              <p className="mt-2 text-gray-600 text-sm">
+                Monitor your current job postings and applications
+              </p>
+            </div>
+            <Briefcase className="w-8 h-8 text-purple-600" />
+          </div>
+          <div className="mt-4 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg flex items-center justify-center text-sm font-medium transition-colors">
+            <Briefcase className="mr-2 h-4 w-4" />
+            View Jobs
+          </div>
+        </Link>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Recent Activity */}
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 flex flex-col h-full">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-gray-800 flex items-center">
               <TrendingUp className="w-5 h-5 mr-2" />
-              Recent Hiring Activity
+              Recent Activity
             </h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-700">
-                    New applicant for Frontend Developer
-                  </p>
-                  <p className="text-sm text-gray-500">2 hours ago</p>
-                </div>
-                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                  New Application
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-700">
-                    Job description generated for UX Designer
-                  </p>
-                  <p className="text-sm text-gray-500">Yesterday</p>
-                </div>
-                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
-                  Job Created
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-700">
-                    Interview scheduled with John Doe
-                  </p>
-                  <p className="text-sm text-gray-500">2 days ago</p>
-                </div>
-                <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-                  Interview
-                </span>
-              </div>
-            </div>
+            <Link
+              href="/activity"
+              className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+            >
+              View all
+            </Link>
           </div>
-        </>
-      ) : (
-        // Job Applicant Dashboard
-        <>
-          <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">
-                    Browse Jobs
-                  </h3>
-                  <p className="mt-2 text-gray-600 text-sm">
-                    Find and apply for positions that match your skills
-                  </p>
+          <div className="space-y-4 flex-1">
+            {recentActivity.map((activity) => {
+              const IconComponent = activity.icon;
+              return (
+                <div
+                  key={activity.id}
+                  className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                >
+                  <div className={`p-2 rounded-full ${activity.bgColor}`}>
+                    <IconComponent
+                      className={`w-4 h-4 ${activity.iconColor}`}
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-gray-800 text-sm line-clamp-2">
+                      {activity.message}
+                    </p>
+                    <p className="text-xs text-gray-500 flex items-center mt-1">
+                      <Clock className="w-3 h-3 mr-1" />
+                      {activity.time}
+                    </p>
+                  </div>
                 </div>
-                <Briefcase className="w-8 h-8 text-blue-600" />
-              </div>
-              <Link
-                href="/jobs"
-                className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg flex items-center justify-center text-sm font-medium transition-colors"
-              >
-                <Briefcase className="mr-2 h-4 w-4" />
-                Browse Jobs
-              </Link>
-            </div>
+              );
+            })}
+          </div>
+        </div>
 
-            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">
-                    My Applications
-                  </h3>
-                  <p className="mt-2 text-gray-600 text-sm">
-                    Track the status of your job applications
-                  </p>
-                </div>
-                <TrendingUp className="w-8 h-8 text-green-600" />
-              </div>
-              <Link
-                href="/applications"
-                className="mt-4 w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg flex items-center justify-center text-sm font-medium transition-colors"
+        {/* Urgent Tasks */}
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 flex flex-col h-full">
+          <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+            <AlertCircle className="w-5 h-5 mr-2 text-orange-500" />
+            Urgent Tasks
+          </h4>
+          <div className="space-y-3 flex-1">
+            {urgentTasks.map((task) => (
+              <div
+                key={task.id}
+                className="border-l-4 border-orange-400 pl-3 py-2"
               >
-                <TrendingUp className="mr-2 h-4 w-4" />
-                View Applications
-              </Link>
-            </div>
+                <p className="text-sm font-medium text-gray-800 line-clamp-2">
+                  {task.task}
+                </p>
+                <div className="flex items-center justify-between mt-2">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
+                      task.priority
+                    )}`}
+                  >
+                    {task.priority.charAt(0).toUpperCase() +
+                      task.priority.slice(1)}
+                  </span>
+                  <span className="text-xs text-gray-500">{task.dueDate}</span>
+                </div>
+              </div>
+            ))}
           </div>
+          <Link
+            href="/tasks"
+            className="mt-4 w-full bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg flex items-center justify-center text-sm font-medium transition-colors"
+          >
+            <CheckCircle className="mr-2 h-4 w-4" />
+            View All Tasks
+          </Link>
+        </div>
 
-          <div className="mt-8 bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-            <h3 className="text-xl font-semibold text-gray-800 mb-6 flex items-center">
-              <TrendingUp className="w-5 h-5 mr-2" />
-              Your Application Activity
-            </h3>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-700">
-                    Applied for Frontend Developer at TechCorp
-                  </p>
-                  <p className="text-sm text-gray-500">2 hours ago</p>
-                </div>
-                <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                  Applied
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-700">
-                    Interview invitation for UX Designer role
-                  </p>
-                  <p className="text-sm text-gray-500">Yesterday</p>
-                </div>
-                <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
-                  Interview
-                </span>
-              </div>
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-                <div>
-                  <p className="font-medium text-gray-700">
-                    Application status updated for Backend Developer
-                  </p>
-                  <p className="text-sm text-gray-500">2 days ago</p>
-                </div>
-                <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-                  In Review
-                </span>
-              </div>
+        {/* Quick Analytics */}
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 flex flex-col h-full">
+          <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+            <BarChart3 className="w-5 h-5 mr-2" />
+            Quick Analytics
+          </h4>
+          <div className="space-y-4 flex-1">
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 text-sm">Avg. Time to Hire</span>
+              <span className="font-medium">18 days</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 text-sm">Application Rate</span>
+              <span className="font-medium text-green-600">+12%</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 text-sm">Interview Success</span>
+              <span className="font-medium">68%</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-600 text-sm">Offer Acceptance</span>
+              <span className="font-medium text-green-600">85%</span>
             </div>
           </div>
-        </>
-      )}
+          <Link
+            href="/analytics"
+            className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg flex items-center justify-center text-sm font-medium transition-colors"
+          >
+            <BarChart3 className="mr-2 h-4 w-4" />
+            View Full Analytics
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

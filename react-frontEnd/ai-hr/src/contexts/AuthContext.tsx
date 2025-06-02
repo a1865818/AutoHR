@@ -8,6 +8,7 @@ import React, {
   ReactNode,
 } from "react";
 import { apiService } from "../services/api";
+import { useRouter } from "next/navigation";
 
 interface User {
   id: string;
@@ -55,10 +56,33 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     checkAuthStatus();
   }, []);
+
+  // Handle automatic navigation on auth state changes
+  useEffect(() => {
+    if (!isLoading) {
+      const currentPath = window.location.pathname;
+      const isAuthPage = ["/login", "/signup", "/forgot-password"].includes(
+        currentPath
+      );
+
+      if (!user && !isAuthPage) {
+        // User is not authenticated and not on auth page - redirect to login
+        router.replace("/login");
+      } else if (user && isAuthPage) {
+        // User is authenticated and on auth page - redirect to appropriate dashboard
+        if (user.userCategory === "ApplicationUser") {
+          router.replace("/applicant");
+        } else {
+          router.replace("/");
+        }
+      }
+    }
+  }, [user, isLoading, router]);
 
   const checkAuthStatus = async () => {
     setIsLoading(true);
@@ -235,29 +259,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   const logout = async () => {
-    try {
-      const token =
-        localStorage.getItem("authToken") ||
-        sessionStorage.getItem("authToken");
-      const userCategory =
-        localStorage.getItem("userCategory") ||
-        sessionStorage.getItem("userCategory");
+    // Get token and userCategory before clearing storage
+    const token =
+      localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    const userCategory =
+      localStorage.getItem("userCategory") ||
+      sessionStorage.getItem("userCategory");
 
-      if (token) {
-        // Call appropriate logout endpoint based on user category
-        if (userCategory === "ApplicationUser") {
-          await apiService.applicationUserLogout();
-        } else {
-          await apiService.logout();
-        }
-      }
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-
+    // Immediately clear auth state and storage for smooth transition
     setUser(null);
 
-    // Clear all stored auth data
+    // Clear all stored auth data immediately
     localStorage.removeItem("currentUser");
     localStorage.removeItem("authToken");
     localStorage.removeItem("refreshToken");
@@ -266,6 +278,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     sessionStorage.removeItem("authToken");
     sessionStorage.removeItem("refreshToken");
     sessionStorage.removeItem("userCategory");
+
+    // Make API call in background (don't await to avoid delays)
+    if (token) {
+      // Call appropriate logout endpoint in background - don't block the UI
+      try {
+        if (userCategory === "ApplicationUser") {
+          apiService.applicationUserLogout().catch(console.error);
+        } else {
+          apiService.logout().catch(console.error);
+        }
+      } catch (error) {
+        // Silently handle errors since user is already logged out locally
+        console.error("Background logout error:", error);
+      }
+    }
   };
 
   const updateUser = (userData: Partial<User>) => {
