@@ -75,8 +75,8 @@ export default function ProfilePage() {
         // Fetch user data from appropriate endpoint based on user type
         const userData =
           user.userCategory === "ApplicationUser"
-            ? await apiService.getCurrentApplicationUser(token)
-            : await apiService.getCurrentUser(token);
+            ? await apiService.getCurrentApplicationUser()
+            : await apiService.getCurrentUser();
 
         setRawUserData(userData);
 
@@ -331,7 +331,7 @@ export default function ProfilePage() {
 
       // Call the real API endpoint
       if ((user.userCategory as string) === "HiringUserProfile") {
-        await apiService.updateHiringUserProfile(user.id, updateData, token);
+        await apiService.updateHiringUserProfile(user.id, updateData);
       } else if ((user.userCategory as string) === "ApplicationUser") {
         // For ApplicationUser, we'd need a similar endpoint
         console.log(
@@ -355,8 +355,8 @@ export default function ProfilePage() {
       // Refresh user data from backend
       const userData =
         (user.userCategory as string) === "ApplicationUser"
-          ? await apiService.getCurrentApplicationUser(token)
-          : await apiService.getCurrentUser(token);
+          ? await apiService.getCurrentApplicationUser()
+          : await apiService.getCurrentUser();
 
       setRawUserData(userData);
 
