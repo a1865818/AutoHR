@@ -38,3 +38,6 @@ export * from "./api";
 
 // Export notification interfaces
 export * from "./notifications";
+
+// Export apply form interfaces
+export * from "./apply";

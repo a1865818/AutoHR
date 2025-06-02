@@ -5,7 +5,7 @@ import { useState } from "react";
 // Available filters that can be added to favorites
 const availableStatusFilters = [
   { id: "qualified", label: "Qualified" },
-  { id: "new", label: "New" },
+  { id: "Hired", label: "Hired" },
   { id: "disqualified", label: "Disqualified" },
 ];
 
