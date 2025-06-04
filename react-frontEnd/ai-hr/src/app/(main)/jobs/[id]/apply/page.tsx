@@ -1,5 +1,5 @@
 // app/jobs/[id]/apply/page.tsx
-import JobApplicationForm from "@/components/apply/JobApplicationForm";
+import JobApplicationForm from "@/components/jobs/apply/JobApplicationForm";
 import { getJobById, jobToJobData } from "@/lib/data/mockJobs";
 
 // Function to get job data - in real app this would be an API call

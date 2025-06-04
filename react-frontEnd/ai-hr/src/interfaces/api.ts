@@ -53,4 +53,96 @@ export interface ApplicationUserLoginResponse {
   firstName: string;
   lastName: string;
   tokenExpiresAt: string;
-} 
+}
+
+//Job API interfaces
+
+// API Response types based on your backend models
+export interface ApiJob {
+  id: string;
+  title: string;
+  companyId: string;
+  createdBy: string;
+  description: string;
+  responsibilities: string[];
+  requirements: string[];
+  qualifications: string[];
+  benefits: string[];
+  employmentType: string;
+  seniorityLevel: string;
+  experienceYearsMin?: number;
+  locationType: string;
+  locations: Record<string, any>;
+  salaryMin?: number;
+  salaryMax?: number;
+  salaryCurrency: string;
+  applicationDeadline?: string;
+  status: string;
+  applicantCount: number;
+  viewCount: number;
+  aiGeneratedDescription: boolean;
+  skillMatchThreshold: number;
+  postedDate?: string;
+  closedDate?: string;
+  createdAt: string;
+}
+
+export interface ApiCompany {
+  id: string;
+  name: string;
+  description: string;
+  website: string;
+  logoUrl: string;
+  industry: string;
+  companySize: string;
+  headquarters: Record<string, string>;
+  foundedYear?: number;
+  isVerified: boolean;
+  createdAt: string;
+}
+
+export interface CreateJobRequest {
+  title: string;
+  companyId: string;
+  createdBy: string;
+  description: string;
+  responsibilities: string[];
+  requirements: string[];
+  qualifications: string[];
+  benefits: string[];
+  employmentType: string;
+  seniorityLevel: string;
+  experienceYearsMin?: number;
+  locationType: string;
+  locations: Record<string, any>;
+  salaryMin?: number;
+  salaryMax?: number;
+  salaryCurrency: string;
+  applicationDeadline?: string;
+  status: string;
+  aiGeneratedDescription: boolean;
+  skillMatchThreshold: number;
+}
+
+export interface UpdateJobRequest {
+  title?: string;
+  description?: string;
+  responsibilities?: string[];
+  requirements?: string[];
+  qualifications?: string[];
+  benefits?: string[];
+  employmentType?: string;
+  seniorityLevel?: string;
+  experienceYearsMin?: number;
+  locationType?: string;
+  locations?: Record<string, any>;
+  salaryMin?: number;
+  salaryMax?: number;
+  salaryCurrency?: string;
+  applicationDeadline?: string;
+  status?: string;
+  aiGeneratedDescription?: boolean;
+  skillMatchThreshold?: number;
+  postedDate?: string;
+  closedDate?: string;
+}

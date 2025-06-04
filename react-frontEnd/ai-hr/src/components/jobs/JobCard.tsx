@@ -1,3 +1,4 @@
+// import { Job } from "@/interfaces/job";
 // import {
 //   Briefcase,
 //   Clock,
@@ -9,7 +10,6 @@
 // import Link from "next/link";
 // import { useState } from "react";
 
-// import { Job } from "@/interfaces/job";
 // interface JobCardProps {
 //   job: Job;
 // }
@@ -45,6 +45,42 @@
 //     }
 //   };
 
+//   // 🔧 FIXED: Safe salary formatting function
+//   const formatSalary = (salary: any): string => {
+//     if (!salary || typeof salary !== "object") {
+//       return "Salary not specified";
+//     }
+
+//     const { min, max, currency = "USD", period = "per year" } = salary;
+
+//     // Handle cases where min/max might be null, undefined, or 0
+//     const hasMin = min !== null && min !== undefined && min > 0;
+//     const hasMax = max !== null && max !== undefined && max > 0;
+
+//     if (hasMin && hasMax) {
+//       return `${currency} ${min.toLocaleString()} - ${currency} ${max.toLocaleString()} ${period}`;
+//     } else if (hasMin) {
+//       return `${currency} ${min.toLocaleString()}+ ${period}`;
+//     } else if (hasMax) {
+//       return `Up to ${currency} ${max.toLocaleString()} ${period}`;
+//     }
+
+//     return "Salary not specified";
+//   };
+
+//   // 🔧 FIXED: Safe string rendering function
+//   const safeRender = (value: any): string => {
+//     if (value === null || value === undefined) return "";
+//     return String(value);
+//   };
+
+//   // 🔧 FIXED: Safe number rendering function
+//   const safeRenderNumber = (value: any): string => {
+//     if (value === null || value === undefined) return "0";
+//     if (typeof value === "number") return value.toString();
+//     return String(value);
+//   };
+
 //   const handleStatusChange = (newStatus: string) => {
 //     console.log(`Changing job ${job.id} status to ${newStatus}`);
 //     // Here you would update the job status in your state management or API
@@ -52,8 +88,7 @@
 //   };
 
 //   const handleEdit = () => {
-//     console.log(`Editing job ${job.id}`);
-//     // Here you would navigate to edit page or open edit modal
+//     window.location.href = `/jobs/${job.id}/edit`;
 //   };
 
 //   const handleDuplicate = () => {
@@ -74,13 +109,18 @@
 //           <div className="flex items-start justify-between mb-2">
 //             <div>
 //               <div className="flex items-center gap-2 mb-1">
-//                 <Link href={`/jobs/${job.id}`}>
-//                   <h3 className="text-lg font-semibold text-gray-900 hover:text-blue-600 cursor-pointer transition-colors">
-//                     {job.title}
+//                 <Link
+//                   href={`/jobs/${job.id}`}
+//                   className="hover:text-blue-600 transition-colors"
+//                 >
+//                   <h3 className="text-lg font-semibold text-gray-900 cursor-pointer">
+//                     {safeRender(job.title)}
 //                   </h3>
 //                 </Link>
 //               </div>
-//               <p className="text-sm text-gray-600 font-medium">{job.company}</p>
+//               <p className="text-sm text-gray-600 font-medium">
+//                 {safeRender(job.company)}
+//               </p>
 //             </div>
 
 //             {/* Status badge */}
@@ -89,7 +129,7 @@
 //                 job.status
 //               )}`}
 //             >
-//               {job.status}
+//               {safeRender(job.status)}
 //             </span>
 //           </div>
 
@@ -97,19 +137,20 @@
 //           <div className="flex flex-wrap items-center gap-4 mb-3 text-sm text-gray-600">
 //             <div className="flex items-center">
 //               <MapPin className="h-4 w-4 mr-1" />
-//               {job.location}
+//               {safeRender(job.location)}
 //             </div>
 //             <div className="flex items-center">
 //               <Briefcase className="h-4 w-4 mr-1" />
-//               {job.experience}
+//               {safeRender(job.experience)}
 //             </div>
 //             <div className="flex items-center">
 //               <DollarSign className="h-4 w-4 mr-1" />
-//               {job.salary.min} - {job.salary.max} per year
+//               {/* 🔧 FIXED: Use safe salary formatting instead of direct object access */}
+//               {formatSalary(job.salary)}
 //             </div>
 //             <div className="flex items-center">
 //               <Clock className="h-4 w-4 mr-1" />
-//               Posted {job.postedDate}
+//               Posted {safeRender(job.postedDate)}
 //             </div>
 //           </div>
 
@@ -120,30 +161,35 @@
 //                 job.type
 //               )}`}
 //             >
-//               {job.type}
+//               {safeRender(job.type)}
 //             </span>
 //             <div className="flex items-center text-sm text-gray-600">
 //               <Users className="h-4 w-4 mr-1" />
-//               {job.applicants} applicants
+//               {safeRenderNumber(job.applicants)} applicants
 //             </div>
 //           </div>
 
 //           {/* Description */}
 //           <p className="text-sm text-gray-700 mb-3 line-clamp-2">
-//             {job.description}
+//             {safeRender(job.description)}
 //           </p>
 
 //           {/* Requirements */}
 //           <div className="flex flex-wrap gap-1">
-//             {job.requirements.slice(0, 3).map((req, index) => (
-//               <span
-//                 key={index}
-//                 className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800"
-//               >
-//                 {req}
-//               </span>
-//             ))}
-//             {job.requirements.length > 3 && (
+//             {/* 🔧 FIXED: Safe array rendering with proper checks */}
+//             {Array.isArray(job.requirements) &&
+//               job.requirements
+//                 .filter((req) => req && typeof req === "string" && req.trim())
+//                 .slice(0, 3)
+//                 .map((req, index) => (
+//                   <span
+//                     key={index}
+//                     className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800"
+//                   >
+//                     {safeRender(req)}
+//                   </span>
+//                 ))}
+//             {Array.isArray(job.requirements) && job.requirements.length > 3 && (
 //               <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-600">
 //                 +{job.requirements.length - 3} more
 //               </span>
@@ -216,7 +262,6 @@
 //     </div>
 //   );
 // }
-// components/jobs/JobCard.tsx
 import { Job } from "@/interfaces/job";
 import {
   Briefcase,
@@ -236,8 +281,78 @@ interface JobCardProps {
 export function JobCard({ job }: JobCardProps) {
   const [showDropdown, setShowDropdown] = useState(false);
 
+  // Enhanced safe rendering functions to handle .NET objects
+  const safeRender = (value: any): string => {
+    if (value === null || value === undefined) return "";
+
+    // Handle .NET DateTime objects that might have ValueKind property
+    if (typeof value === "object") {
+      if (
+        value.ValueKind !== undefined ||
+        value.value !== undefined ||
+        value.Value !== undefined
+      ) {
+        const dateStr = value.value || value.Value || value.toString();
+        try {
+          const date = new Date(dateStr);
+          if (!isNaN(date.getTime())) {
+            return date.toLocaleDateString();
+          }
+        } catch (e) {
+          return "";
+        }
+        return "";
+      }
+
+      // Handle arrays
+      if (Array.isArray(value)) {
+        return value.map((item) => safeRender(item)).join(", ");
+      }
+
+      // Handle other objects - avoid rendering complex objects directly
+      try {
+        const str = JSON.stringify(value);
+        if (str.length < 100) {
+          return str;
+        }
+        return "[Complex Object]";
+      } catch (e) {
+        return "[Object]";
+      }
+    }
+
+    return String(value);
+  };
+
+  const safeRenderNumber = (value: any): number => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === "number") return value;
+
+    // Handle .NET numeric objects
+    if (
+      typeof value === "object" &&
+      (value.value !== undefined || value.Value !== undefined)
+    ) {
+      const numValue = value.value || value.Value;
+      const num = Number(numValue);
+      return isNaN(num) ? 0 : num;
+    }
+
+    const num = Number(value);
+    return isNaN(num) ? 0 : num;
+  };
+
+  const safeRenderArray = (value: any): any[] => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return value.filter((item) => item != null);
+    }
+    return [];
+  };
+
   const getStatusColor = (status: string) => {
-    switch (status) {
+    const safeStatus = safeRender(status);
+    switch (safeStatus) {
       case "Active":
         return "bg-green-100 text-green-800";
       case "Paused":
@@ -250,7 +365,8 @@ export function JobCard({ job }: JobCardProps) {
   };
 
   const getTypeColor = (type: string) => {
-    switch (type) {
+    const safeType = safeRender(type);
+    switch (safeType) {
       case "Full-Time":
         return "bg-blue-100 text-blue-800";
       case "Part-Time":
@@ -264,26 +380,58 @@ export function JobCard({ job }: JobCardProps) {
     }
   };
 
+  const formatSalary = (salary: any): string => {
+    if (!salary || typeof salary !== "object") {
+      return "Salary not specified";
+    }
+
+    const min = safeRenderNumber(salary.min);
+    const max = safeRenderNumber(salary.max);
+    const currency = safeRender(salary.currency) || "USD";
+    const period = safeRender(salary.period) || "per year";
+
+    const hasMin = min > 0;
+    const hasMax = max > 0;
+
+    if (hasMin && hasMax) {
+      return `${currency} ${min.toLocaleString()} - ${currency} ${max.toLocaleString()} ${period}`;
+    } else if (hasMin) {
+      return `${currency} ${min.toLocaleString()}+ ${period}`;
+    } else if (hasMax) {
+      return `Up to ${currency} ${max.toLocaleString()} ${period}`;
+    }
+
+    return "Salary not specified";
+  };
+
   const handleStatusChange = (newStatus: string) => {
     console.log(`Changing job ${job.id} status to ${newStatus}`);
-    // Here you would update the job status in your state management or API
     setShowDropdown(false);
   };
 
   const handleEdit = () => {
-    console.log(`Editing job ${job.id}`);
-    // Here you would navigate to edit page or open edit modal
+    window.location.href = `/jobs/${job.id}/edit`;
   };
 
   const handleDuplicate = () => {
     console.log(`Duplicating job ${job.id}`);
-    // Here you would duplicate the job
   };
 
   const handleDelete = () => {
     console.log(`Deleting job ${job.id}`);
-    // Here you would show confirmation dialog and delete
   };
+
+  // Safely extract values
+  const jobTitle = safeRender(job.title);
+  const companyName = safeRender(job.company);
+  const jobStatus = safeRender(job.status);
+  const jobType = safeRender(job.type);
+  const location = safeRender(job.location);
+  const experience = safeRender(job.experience);
+  const postedDate = safeRender(job.postedDate);
+  const description = safeRender(job.description);
+  const applicantCount = safeRenderNumber(job.applicants);
+  const requirements = safeRenderArray(job.requirements);
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 hover:border-gray-300 transition-colors">
@@ -298,20 +446,20 @@ export function JobCard({ job }: JobCardProps) {
                   className="hover:text-blue-600 transition-colors"
                 >
                   <h3 className="text-lg font-semibold text-gray-900 cursor-pointer">
-                    {job.title}
+                    {jobTitle}
                   </h3>
                 </Link>
               </div>
-              <p className="text-sm text-gray-600 font-medium">{job.company}</p>
+              <p className="text-sm text-gray-600 font-medium">{companyName}</p>
             </div>
 
             {/* Status badge */}
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                job.status
+                jobStatus
               )}`}
             >
-              {job.status}
+              {jobStatus}
             </span>
           </div>
 
@@ -319,20 +467,19 @@ export function JobCard({ job }: JobCardProps) {
           <div className="flex flex-wrap items-center gap-4 mb-3 text-sm text-gray-600">
             <div className="flex items-center">
               <MapPin className="h-4 w-4 mr-1" />
-              {job.location}
+              {location}
             </div>
             <div className="flex items-center">
               <Briefcase className="h-4 w-4 mr-1" />
-              {job.experience}
+              {experience}
             </div>
             <div className="flex items-center">
               <DollarSign className="h-4 w-4 mr-1" />
-              {job.salary.min} - {job.salary.max} {job.salary.currency}{" "}
-              {job.salary.period}
+              {formatSalary(job.salary)}
             </div>
             <div className="flex items-center">
               <Clock className="h-4 w-4 mr-1" />
-              Posted {job.postedDate}
+              Posted {postedDate}
             </div>
           </div>
 
@@ -340,35 +487,38 @@ export function JobCard({ job }: JobCardProps) {
           <div className="flex items-center gap-3 mb-3">
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(
-                job.type
+                jobType
               )}`}
             >
-              {job.type}
+              {jobType}
             </span>
             <div className="flex items-center text-sm text-gray-600">
               <Users className="h-4 w-4 mr-1" />
-              {job.applicants} applicants
+              {applicantCount} applicants
             </div>
           </div>
 
           {/* Description */}
           <p className="text-sm text-gray-700 mb-3 line-clamp-2">
-            {job.description}
+            {description}
           </p>
 
           {/* Requirements */}
           <div className="flex flex-wrap gap-1">
-            {job.requirements.slice(0, 3).map((req, index) => (
-              <span
-                key={index}
-                className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800"
-              >
-                {req}
-              </span>
-            ))}
-            {job.requirements.length > 3 && (
+            {requirements
+              .filter((req) => req && typeof req === "string" && req.trim())
+              .slice(0, 3)
+              .map((req, index) => (
+                <span
+                  key={index}
+                  className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-800"
+                >
+                  {safeRender(req)}
+                </span>
+              ))}
+            {requirements.length > 3 && (
               <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-600">
-                +{job.requirements.length - 3} more
+                +{requirements.length - 3} more
               </span>
             )}
           </div>
