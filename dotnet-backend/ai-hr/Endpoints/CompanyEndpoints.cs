@@ -20,6 +20,12 @@ public static class CompanyEndpoints
             .WithSummary("Get company by ID")
             .WithDescription("Retrieves a specific company's profile by its unique identifier");
 
+        app.MapGet("/companies", GetAllCompanies)
+            .WithTags("Companies")
+            .WithName("GetAllCompanies")
+            .WithSummary("Get all companies")
+            .WithDescription("Retrieves a list of all companies in the system");
+
         app.MapGet("/companies/filter", FilterCompanies)
             .WithTags("Companies")
             .WithName("FilterCompanies")
@@ -55,6 +61,18 @@ public static class CompanyEndpoints
     {
         try
         {
+            // Validate request object
+            if (request == null)
+            {
+                return Results.BadRequest(new { error = "Request object is null" });
+            }
+
+            // Validate required fields
+            if (string.IsNullOrEmpty(request.email))
+            {
+                return Results.BadRequest(new { error = "Email is required" });
+            }
+
             var company = new Company
             {
                 Name = request.Name,
@@ -65,12 +83,47 @@ public static class CompanyEndpoints
                 CompanySize = request.CompanySize,
                 Headquarters = request.Headquarters,
                 FoundedYear = request.FoundedYear,
+                email = request.email,
                 IsVerified = false,
                 CreatedAt = DateTime.UtcNow,
             };
 
             var response = await client.From<Company>().Insert(company);
-            return Results.Accepted($"/companies/{company.Id}");
+
+            Console.WriteLine($"[DEBUG] Company inserted successfully");
+
+            // Get the created company from the response
+            var createdCompany = response.Models.FirstOrDefault();
+
+            if (createdCompany == null)
+            {
+                Console.WriteLine($"[DEBUG] No company returned from insert operation");
+                return Results.BadRequest(new { error = "Failed to create company" });
+            }
+
+            Console.WriteLine($"[DEBUG] Created company ID: {createdCompany.Id}");
+
+            // Create a response DTO that matches the existing company structure
+            var companyResponse = new
+            {
+                id = createdCompany.Id,  // Use lowercase 'id' to match frontend expectations
+                name = createdCompany.Name,
+                description = createdCompany.Description,
+                website = createdCompany.Website,
+                logoUrl = createdCompany.LogoUrl,
+                industry = createdCompany.Industry,
+                companySize = createdCompany.CompanySize,
+                headquarters = createdCompany.Headquarters,
+                foundedYear = createdCompany.FoundedYear,
+                email = createdCompany.email,
+                isVerified = createdCompany.IsVerified,
+                createdAt = createdCompany.CreatedAt
+            };
+
+            Console.WriteLine($"[DEBUG] Returning company response with ID: {companyResponse.id}");
+
+            // Return 201 Created with the company data in the response body
+            return Results.Created($"/companies/{createdCompany.Id}", companyResponse);
         }
         catch (Exception ex)
         {
@@ -105,6 +158,7 @@ public static class CompanyEndpoints
                 CompanySize = company.CompanySize,
                 Headquarters = company.Headquarters,
                 FoundedYear = company.FoundedYear,
+                email = company.email,
                 IsVerified = company.IsVerified,
                 CreatedAt = company.CreatedAt
             };
@@ -119,7 +173,42 @@ public static class CompanyEndpoints
         }
     }
 
-    private static async Task<IResult> FilterCompanies(string industry, bool? isVerified, Supabase.Client client)
+    private static async Task<IResult> GetAllCompanies(Supabase.Client client)
+    {
+        try
+        {
+            // Get all companies
+            var response = await client.From<Company>().Get();
+            var companies = response.Models;
+
+            // Create DTOs to avoid serialization issues
+            var companyDtos = companies.Select(company => new
+            {
+                Id = company.Id,
+                Name = company.Name,
+                Description = company.Description,
+                Website = company.Website,
+                LogoUrl = company.LogoUrl,
+                Industry = company.Industry,
+                CompanySize = company.CompanySize,
+                Headquarters = company.Headquarters,
+                FoundedYear = company.FoundedYear,
+                email = company.email,
+                IsVerified = company.IsVerified,
+                CreatedAt = company.CreatedAt
+            }).ToList();
+
+            return Results.Ok(companyDtos);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error retrieving companies: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+    private static async Task<IResult> FilterCompanies(string? industry, bool? isVerified, Supabase.Client client)
     {
         try
         {
@@ -150,6 +239,7 @@ public static class CompanyEndpoints
                 CompanySize = company.CompanySize,
                 Headquarters = company.Headquarters,
                 FoundedYear = company.FoundedYear,
+                email = company.email,
                 IsVerified = company.IsVerified,
                 CreatedAt = company.CreatedAt
             }).ToList();
@@ -186,6 +276,7 @@ public static class CompanyEndpoints
             if (request.CompanySize != null) company.CompanySize = request.CompanySize;
             if (request.Headquarters != null) company.Headquarters = request.Headquarters;
             if (request.FoundedYear.HasValue) company.FoundedYear = request.FoundedYear;
+            if (request.email != null) company.email = request.email;
             if (request.IsVerified.HasValue) company.IsVerified = request.IsVerified.Value;
 
             // Update the record
@@ -249,6 +340,7 @@ public static class CompanyEndpoints
                 CompanySize = company.CompanySize,
                 Headquarters = company.Headquarters,
                 FoundedYear = company.FoundedYear,
+                email = company.email,
                 CreatedAt = company.CreatedAt
             }).ToList();
 

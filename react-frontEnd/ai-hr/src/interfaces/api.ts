@@ -53,4 +53,59 @@ export interface ApplicationUserLoginResponse {
   firstName: string;
   lastName: string;
   tokenExpiresAt: string;
+}
+
+// Company registration interfaces
+export interface CompanyRegisterRequest {
+  name: string;
+  industry: string;
+  companySize: string;
+  website: string;
+  headquarters: {
+    city: string;
+    state: string;
+    country: string;
+  };
+  email: string;
+  description: string;
+  logoUrl?: string;
+}
+
+export interface CompanyRegisterResponse {
+  id: string;
+  name: string;
+  industry: string;
+  companySize: string;
+  website: string;
+  headquarters: {
+    city: string;
+    state: string;
+    country: string;
+  };
+  email: string;
+  description: string;
+  logoUrl?: string;
+  createdAt: string;
+}
+
+// Enhanced user registration for hiring users with company data
+export interface HiringUserRegisterRequest {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  company: string;
+  role: string;
+  userType: "hiring";
+  companyId?: string | number;
+  companyData?: CompanyRegisterRequest;
+}
+
+// Application user registration (enhanced)
+export interface ApplicationUserRegisterRequestEnhanced {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  userType: "application";
 } 

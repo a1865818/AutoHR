@@ -4,7 +4,11 @@ import {
   RegisterRequest, 
   ApplicationUserRegisterRequest,
   LoginResponse, 
-  ApplicationUserLoginResponse 
+  ApplicationUserLoginResponse,
+  CompanyRegisterRequest,
+  CompanyRegisterResponse,
+  HiringUserRegisterRequest,
+  ApplicationUserRegisterRequestEnhanced
 } from "@/interfaces/api";
 import { 
   JobFormData, 
@@ -63,30 +67,65 @@ class ApiService {
     }
   }
 
+  // Unauthenticated request method (for registration, login, etc.)
+  private async makeUnauthenticatedRequest<T>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+
+    try {
+      const response = await fetch(`${this.baseURL}${endpoint}`, {
+        ...options,
+        headers,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`${response.status}: ${errorText || response.statusText}`);
+      }
+
+      // Check if response has content
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.includes("application/json")) {
+        const text = await response.text();
+        return text ? JSON.parse(text) : {};
+      }
+
+      return {} as T;
+    } catch (error) {
+      console.error('API request failed:', error);
+      throw error;
+    }
+  }
+
   // Authentication methods
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    return this.makeRequest<LoginResponse>('/hiring-auth/login', {
+    return this.makeUnauthenticatedRequest<LoginResponse>('/hiring-auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
   }
 
   async register(userData: RegisterRequest): Promise<LoginResponse> {
-    return this.makeRequest<LoginResponse>('/hiring-auth/register', {
+    return this.makeUnauthenticatedRequest<LoginResponse>('/hiring-auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
   }
 
   async applicationUserLogin(credentials: LoginRequest): Promise<ApplicationUserLoginResponse> {
-    return this.makeRequest<ApplicationUserLoginResponse>('/auth/login', {
+    return this.makeUnauthenticatedRequest<ApplicationUserLoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
   }
 
   async applicationUserRegister(userData: ApplicationUserRegisterRequest): Promise<ApplicationUserLoginResponse> {
-    return this.makeRequest<ApplicationUserLoginResponse>('/auth/register', {
+    return this.makeUnauthenticatedRequest<ApplicationUserLoginResponse>('/auth/register', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
@@ -135,10 +174,142 @@ class ApiService {
       body: JSON.stringify({ refreshToken }),
     });
   }
+
+  // Company registration method
+  async registerCompany(companyData: CompanyRegisterRequest): Promise<CompanyRegisterResponse> {
+    console.log('API Service - registerCompany called with:', companyData);
+    
+    const jsonPayload = JSON.stringify(companyData);
+    console.log('API Service - JSON payload being sent:', jsonPayload);
+    
+    // Parse it back to verify structure
+    const parsedPayload = JSON.parse(jsonPayload);
+    console.log('API Service - Parsed payload verification:', parsedPayload);
+    console.log('API Service - Email in parsed payload:', `"${parsedPayload.email}"`);
+    
+    return this.makeUnauthenticatedRequest<CompanyRegisterResponse>('/companies', {
+      method: 'POST',
+      body: jsonPayload,
+    });
+  }
+
+  // Get companies (for searching existing companies)
+  async getCompanies(industry?: string, isVerified?: boolean): Promise<any[]> {
+    if (industry || isVerified !== undefined) {
+      // Use filter endpoint when filters are provided
+      const params = new URLSearchParams();
+      if (industry) params.append('industry', industry);
+      if (isVerified !== undefined) params.append('isVerified', isVerified.toString());
+      
+      const queryString = params.toString();
+      const endpoint = `/companies/filter?${queryString}`;
+      
+      return this.makeUnauthenticatedRequest<any[]>(endpoint, {
+        method: 'GET',
+      });
+    } else {
+      // Use general endpoint for all companies
+      return this.makeUnauthenticatedRequest<any[]>('/companies', {
+        method: 'GET',
+      });
+    }
+  }
+
+  // Get company by ID
+  async getCompanyById(id: string): Promise<any> {
+    return this.makeUnauthenticatedRequest<any>(`/companies/${id}`, {
+      method: 'GET',
+    });
+  }
+
+  // Enhanced hiring user registration
+  async registerHiringUser(userData: HiringUserRegisterRequest): Promise<LoginResponse> {
+    console.log('API Service - registerHiringUser called with userData:', userData);
+    
+    // Convert companyId to proper format for backend
+    let companyIdForBackend: string | undefined = undefined;
+    
+    if (userData.companyId) {
+      if (typeof userData.companyId === 'string') {
+        // Validate it's a valid GUID format
+        const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (guidRegex.test(userData.companyId)) {
+          companyIdForBackend = userData.companyId;
+        } else {
+          console.log('⚠️ Invalid GUID format for companyId:', userData.companyId);
+        }
+      } else {
+        // Convert number or other types to string and validate
+        const stringId = String(userData.companyId);
+        const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (guidRegex.test(stringId)) {
+          companyIdForBackend = stringId;
+        } else {
+          console.log('⚠️ Invalid GUID format after conversion:', stringId);
+        }
+      }
+    }
+    
+    console.log('📋 Company ID processing:', {
+      original: userData.companyId,
+      processed: companyIdForBackend,
+      type: typeof userData.companyId
+    });
+    
+    // Transform HiringUserRegisterRequest to UnifiedRegisterRequest format
+    const unifiedRequest = {
+      email: userData.email,
+      password: userData.password,
+      firstName: userData.firstName,
+      lastName: userData.lastName,
+      userCategory: "HiringUserProfile", // Required by backend
+      userType: userData.role, // Map 'role' to 'userType'
+      companyId: companyIdForBackend, // Send as GUID string or undefined
+      bio: userData.company ? `Works at ${userData.company}` : undefined, // Use company name as bio if provided
+      linkedinUrl: undefined,
+      location: undefined,
+      preferences: undefined
+    };
+
+    console.log('API Service - registerHiringUser transformed request:', unifiedRequest);
+
+    return this.makeUnauthenticatedRequest<LoginResponse>('/hiring-auth/register', {
+      method: 'POST',
+      body: JSON.stringify(unifiedRequest),
+    });
+  }
+
+  // Enhanced application user registration
+  async registerApplicationUser(userData: ApplicationUserRegisterRequestEnhanced): Promise<ApplicationUserLoginResponse> {
+    // Transform ApplicationUserRegisterRequestEnhanced to RegisterRequest format
+    const registerRequest = {
+      email: userData.email,
+      password: userData.password,
+      firstName: userData.firstName,
+      lastName: userData.lastName
+    };
+
+    console.log('API Service - registerApplicationUser transformed request:', registerRequest);
+
+    return this.makeUnauthenticatedRequest<ApplicationUserLoginResponse>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(registerRequest),
+    });
+  }
 }
 
 export const apiService = new ApiService();
-export type { LoginRequest, RegisterRequest, LoginResponse, ApplicationUserRegisterRequest, ApplicationUserLoginResponse };
+export type { 
+  LoginRequest, 
+  RegisterRequest, 
+  LoginResponse, 
+  ApplicationUserRegisterRequest, 
+  ApplicationUserLoginResponse,
+  CompanyRegisterRequest,
+  CompanyRegisterResponse,
+  HiringUserRegisterRequest,
+  ApplicationUserRegisterRequestEnhanced
+};
 
 // API configuration
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5189';

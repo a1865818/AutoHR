@@ -1,55 +1,44 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState } from "react";
+import { Loader2 } from "lucide-react";
 import {
-  Eye,
-  EyeOff,
-  User,
-  Lock,
-  Mail,
-  AlertCircle,
-  Loader2,
-  UserPlus,
-  Building,
-  ArrowRight,
-  ArrowLeft,
-  Briefcase,
-  Search,
-  CheckCircle,
-} from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import Link from "next/link";
+  apiService,
+  CompanyRegisterRequest,
+  HiringUserRegisterRequest,
+  ApplicationUserRegisterRequestEnhanced,
+} from "@/services/api";
 
-// Types for form data
-interface JobApplicantFormData {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-  agreeToTerms: boolean;
-}
+// Import types and utils
+import {
+  JobApplicantFormData,
+  HiringUserFormData,
+  CompanyRegistrationData,
+  UserType,
+  SignupStep,
+} from "./types";
+import {
+  validateJobApplicantForm,
+  validateCompanyForm,
+  validateHiringUserForm,
+} from "./validation";
 
-interface HiringUserFormData {
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-  confirmPassword: string;
-  company: string;
-  role: string;
-  agreeToTerms: boolean;
-}
+// Import components
+import AccountTypeSelection from "./components/AccountTypeSelection";
+import CompanyCheck from "./components/CompanyCheck";
+import CompanyRegistrationForm from "./components/CompanyRegistrationForm";
+import UserRegistrationForm from "./components/UserRegistrationForm";
+import SuccessScreen from "./components/SuccessScreen";
 
 const SignupPage: React.FC = () => {
   // Step management
-  const [currentStep, setCurrentStep] = useState<"selection" | "form">(
-    "selection"
+  const [currentStep, setCurrentStep] = useState<SignupStep>("selection");
+  const [selectedUserType, setSelectedUserType] = useState<UserType | null>(
+    null
   );
-  const [selectedUserType, setSelectedUserType] = useState<
-    "application" | "hiring" | null
-  >(null);
+  const [hasExistingCompany, setHasExistingCompany] = useState<boolean | null>(
+    null
+  );
 
   // Form data for different user types
   const [jobApplicantData, setJobApplicantData] =
@@ -73,6 +62,20 @@ const SignupPage: React.FC = () => {
     agreeToTerms: false,
   });
 
+  const [companyData, setCompanyData] = useState<CompanyRegistrationData>({
+    companyName: "",
+    industry: "",
+    companySize: "",
+    website: "",
+    headquartersCity: "",
+    headquartersState: "",
+    headquartersCountry: "",
+    email: "",
+    description: "",
+    logoUrl: "",
+    agreeToTerms: false,
+  });
+
   // UI state
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [showPassword, setShowPassword] = useState(false);
@@ -81,111 +84,85 @@ const SignupPage: React.FC = () => {
   const [signupError, setSignupError] = useState("");
   const [signupSuccess, setSignupSuccess] = useState(false);
 
-  const { isAuthenticated, isLoading, register } = useAuth();
-  const router = useRouter();
-
-  // Auth state is now handled by AuthContext - no manual redirects needed
-
-  // Account type selection handlers
-  const handleUserTypeSelection = (type: "application" | "hiring") => {
+  // Navigation handlers
+  const handleUserTypeSelection = (type: UserType) => {
     setSelectedUserType(type);
-    setCurrentStep("form");
+    if (type === "hiring") {
+      setCurrentStep("companyCheck");
+    } else {
+      setCurrentStep("form");
+    }
   };
 
   const goBackToSelection = () => {
     setCurrentStep("selection");
     setSelectedUserType(null);
+    setHasExistingCompany(null);
     setErrors({});
     setSignupError("");
   };
 
-  // Validation functions
-  const validateJobApplicantForm = () => {
-    const newErrors: { [key: string]: string } = {};
-
-    if (!jobApplicantData.firstName.trim()) {
-      newErrors.firstName = "First name is required";
-    }
-
-    if (!jobApplicantData.lastName.trim()) {
-      newErrors.lastName = "Last name is required";
-    }
-
-    if (!jobApplicantData.email) {
-      newErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(jobApplicantData.email)) {
-      newErrors.email = "Please enter a valid email address";
-    }
-
-    if (!jobApplicantData.password) {
-      newErrors.password = "Password is required";
-    } else if (jobApplicantData.password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters";
-    } else if (
-      !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(jobApplicantData.password)
-    ) {
-      newErrors.password =
-        "Password must contain uppercase, lowercase, and number";
-    }
-
-    if (!jobApplicantData.confirmPassword) {
-      newErrors.confirmPassword = "Please confirm your password";
-    } else if (jobApplicantData.password !== jobApplicantData.confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match";
-    }
-
-    if (!jobApplicantData.agreeToTerms) {
-      newErrors.agreeToTerms = "You must agree to the terms and conditions";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const goBackToCompanyCheck = () => {
+    setCurrentStep("companyCheck");
+    setHasExistingCompany(null);
+    setErrors({});
+    setSignupError("");
   };
 
-  const validateHiringUserForm = () => {
-    const newErrors: { [key: string]: string } = {};
+  const handleCompanyCheckResponse = (
+    hasCompany: boolean,
+    selectedCompany?: any
+  ) => {
+    setHasExistingCompany(hasCompany);
 
-    if (!hiringUserData.firstName.trim()) {
-      newErrors.firstName = "First name is required";
+    if (hasCompany && selectedCompany) {
+      // User selected an existing company
+      console.log("Selected existing company:", selectedCompany);
+
+      // Store the selected company info
+      setCompanyData((prev) => ({
+        ...prev,
+        companyId: selectedCompany.id,
+        companyName: selectedCompany.name,
+        industry: selectedCompany.industry,
+        companySize: selectedCompany.companySize,
+        website: selectedCompany.website || "",
+        email: selectedCompany.email || "",
+        description: selectedCompany.description || "",
+        logoUrl: selectedCompany.logoUrl || "",
+        headquartersCity: selectedCompany.headquarters?.city || "",
+        headquartersState: selectedCompany.headquarters?.state || "",
+        headquartersCountry: selectedCompany.headquarters?.country || "",
+      }));
+
+      // Immediately set the company name in hiring user data as well
+      setHiringUserData((prev) => ({
+        ...prev,
+        company: selectedCompany.name,
+      }));
+
+      console.log("Company name set in hiringUserData:", selectedCompany.name);
+
+      // Skip company registration and go directly to user form
+      proceedToUserForm();
+    } else if (hasCompany && !selectedCompany) {
+      // This shouldn't happen with the new flow, but handle it
+      setCurrentStep("companyRegistration");
+    } else {
+      // User doesn't have an existing company, go to registration
+      setCurrentStep("companyRegistration");
     }
+  };
 
-    if (!hiringUserData.lastName.trim()) {
-      newErrors.lastName = "Last name is required";
+  const proceedToUserForm = () => {
+    setCurrentStep("form");
+    // Set the company name in hiring user data if we have a company (either new or existing)
+    if (companyData.companyName) {
+      setHiringUserData((prev) => ({
+        ...prev,
+        company: companyData.companyName,
+      }));
     }
-
-    if (!hiringUserData.email) {
-      newErrors.email = "Email is required";
-    } else if (!/\S+@\S+\.\S+/.test(hiringUserData.email)) {
-      newErrors.email = "Please enter a valid email address";
-    }
-
-    if (!hiringUserData.password) {
-      newErrors.password = "Password is required";
-    } else if (hiringUserData.password.length < 8) {
-      newErrors.password = "Password must be at least 8 characters";
-    } else if (
-      !/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(hiringUserData.password)
-    ) {
-      newErrors.password =
-        "Password must contain uppercase, lowercase, and number";
-    }
-
-    if (!hiringUserData.confirmPassword) {
-      newErrors.confirmPassword = "Please confirm your password";
-    } else if (hiringUserData.password !== hiringUserData.confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match";
-    }
-
-    if (!hiringUserData.company.trim()) {
-      newErrors.company = "Company name is required";
-    }
-
-    if (!hiringUserData.agreeToTerms) {
-      newErrors.agreeToTerms = "You must agree to the terms and conditions";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
   // Input change handlers
@@ -217,633 +194,372 @@ const SignupPage: React.FC = () => {
     }
   };
 
+  const handleCompanyChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    const { name, value } = e.target;
+    console.log(`Company field updated: ${name} = ${value}`);
+
+    // Special logging for email field
+    if (name === "email") {
+      console.log(`EMAIL FIELD UPDATE: "${value}" (length: ${value.length})`);
+    }
+
+    setCompanyData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const handleCompanyAgreeToTermsChange = (checked: boolean) => {
+    setCompanyData((prev) => ({
+      ...prev,
+      agreeToTerms: checked,
+    }));
+
+    if (errors.agreeToTerms) {
+      setErrors((prev) => ({ ...prev, agreeToTerms: "" }));
+    }
+  };
+
   // Form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignupError("");
 
-    const isValid =
-      selectedUserType === "application"
-        ? validateJobApplicantForm()
-        : validateHiringUserForm();
+    console.log("🚀 handleSubmit called - Current step:", currentStep);
+    console.log("📊 Form data state:", {
+      companyData,
+      currentStep,
+      isSubmitting,
+    });
 
-    if (!isValid) {
+    // Handle company registration step
+    if (currentStep === "companyRegistration") {
+      console.log("📝 Starting company registration validation");
+      console.log("🔍 Company data before validation:", companyData);
+
+      const validationErrors = validateCompanyForm(companyData);
+      console.log(
+        "✅ Validation completed, errors found:",
+        Object.keys(validationErrors).length
+      );
+      console.log("📋 Validation errors:", validationErrors);
+
+      if (Object.keys(validationErrors).length > 0) {
+        console.log("❌ Validation failed, setting errors and returning");
+        setErrors(validationErrors);
+        return;
+      }
+
+      console.log("🔄 Setting isSubmitting to true");
+      setIsSubmitting(true);
+
+      try {
+        console.log("🏗️ Creating company request object");
+
+        // Create company via API service
+        const companyRequest: CompanyRegisterRequest = {
+          name: companyData.companyName,
+          industry: companyData.industry,
+          companySize: companyData.companySize,
+          website: companyData.website,
+          headquarters: {
+            city: companyData.headquartersCity,
+            state: companyData.headquartersState,
+            country: companyData.headquartersCountry,
+          },
+          email: companyData.email.trim(),
+          description: companyData.description,
+          logoUrl: companyData.logoUrl || undefined,
+        };
+
+        console.log("📤 Company data being sent:", companyRequest);
+        console.log("📋 Original company form data:", companyData);
+        console.log("🔧 Individual field check:");
+        console.log("- Email:", `"${companyData.email}"`);
+        console.log("- Company Name:", `"${companyData.companyName}"`);
+        console.log(
+          "- Headquarters City:",
+          `"${companyData.headquartersCity}"`
+        );
+        console.log(
+          "- Headquarters State:",
+          `"${companyData.headquartersState}"`
+        );
+        console.log(
+          "- Headquarters Country:",
+          `"${companyData.headquartersCountry}"`
+        );
+
+        // Additional validation to ensure email is not empty
+        if (!companyRequest.email || companyRequest.email.trim() === "") {
+          console.log("❌ Email validation failed - email is empty");
+          setSignupError("Email is required and cannot be empty");
+          setIsSubmitting(false);
+          return;
+        }
+
+        console.log("🌐 About to call apiService.registerCompany...");
+        console.log("⏰ API call starting at:", new Date().toISOString());
+
+        const createdCompany = await apiService.registerCompany(companyRequest);
+
+        console.log("✅ Company created successfully:", createdCompany);
+        console.log("🆔 Company ID returned:", createdCompany.id);
+        console.log("🆔 Company ID type:", typeof createdCompany.id);
+        console.log("⏰ API call completed at:", new Date().toISOString());
+
+        console.log("💾 Updating company data with returned info");
+        // Update company data with the returned company info
+        setCompanyData((prev) => {
+          const updatedData = {
+            ...prev,
+            companyId: createdCompany.id,
+          };
+          console.log("📊 Updated company data:", updatedData);
+          console.log("🆔 Stored company ID:", updatedData.companyId);
+          console.log(
+            "🆔 Stored company ID type:",
+            typeof updatedData.companyId
+          );
+          return updatedData;
+        });
+
+        console.log("➡️ Proceeding to user form");
+        // Proceed to user form
+        proceedToUserForm();
+        console.log("🎯 proceedToUserForm completed");
+      } catch (error) {
+        console.log("❌ Company registration error caught:", error);
+        console.log("🔍 Error details:", {
+          message: error instanceof Error ? error.message : "Unknown error",
+          stack: error instanceof Error ? error.stack : "No stack trace",
+          type: typeof error,
+          error,
+        });
+
+        setSignupError(
+          error instanceof Error
+            ? error.message
+            : "Company registration failed. Please try again."
+        );
+        console.error("Company registration error:", error);
+      } finally {
+        console.log("🏁 Setting isSubmitting to false");
+        setIsSubmitting(false);
+        console.log("🏁 Finally block completed");
+      }
+      console.log("📤 Company registration flow completed, returning");
+      return;
+    }
+
+    // Handle user registration step
+    const validationErrors =
+      selectedUserType === "application"
+        ? validateJobApplicantForm(jobApplicantData)
+        : validateHiringUserForm(hiringUserData);
+
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      let registrationData;
-
       if (selectedUserType === "application") {
-        registrationData = {
+        // Application user registration
+        const applicationUserRequest: ApplicationUserRegisterRequestEnhanced = {
           firstName: jobApplicantData.firstName,
           lastName: jobApplicantData.lastName,
           email: jobApplicantData.email,
           password: jobApplicantData.password,
-          userType: "application" as const,
+          userType: "application",
         };
+
+        const response = await apiService.registerApplicationUser(
+          applicationUserRequest
+        );
+        console.log("Application user registered successfully:", response);
+
+        // Store authentication tokens
+        if (response.accessToken) {
+          localStorage.setItem("authToken", response.accessToken);
+          if (response.refreshToken) {
+            localStorage.setItem("refreshToken", response.refreshToken);
+          }
+
+          // Store user info
+          localStorage.setItem("userType", "application");
+          localStorage.setItem("userId", response.userId);
+          localStorage.setItem("userEmail", response.email);
+
+          // Show success briefly then redirect
+          setSignupSuccess(true);
+
+          // Redirect to application user dashboard after a short delay
+          setTimeout(() => {
+            window.location.href = "/login";
+          }, 2000);
+        } else {
+          setSignupSuccess(true);
+        }
       } else {
-        registrationData = {
+        // Hiring user registration
+        console.log("Hiring user registration - Company data:", companyData);
+        console.log(
+          "Hiring user registration - Has existing company:",
+          hasExistingCompany
+        );
+        console.log(
+          "Hiring user registration - Company ID:",
+          companyData.companyId
+        );
+
+        const hiringUserRequest: HiringUserRegisterRequest = {
           firstName: hiringUserData.firstName,
           lastName: hiringUserData.lastName,
           email: hiringUserData.email,
           password: hiringUserData.password,
           company: hiringUserData.company,
           role: hiringUserData.role,
-          userType: "hiring" as const,
+          userType: "hiring",
+          // Always include company ID if available (from either existing or newly registered company)
+          companyId: companyData.companyId,
+          // Include company data if we registered a new company
+          ...(companyData.companyName &&
+            !hasExistingCompany && {
+              companyData: {
+                name: companyData.companyName,
+                industry: companyData.industry,
+                companySize: companyData.companySize,
+                website: companyData.website,
+                headquarters: {
+                  city: companyData.headquartersCity,
+                  state: companyData.headquartersState,
+                  country: companyData.headquartersCountry,
+                },
+                email: companyData.email,
+                description: companyData.description,
+                logoUrl: companyData.logoUrl || undefined,
+              },
+            }),
         };
-      }
 
-      const success = await register(registrationData);
+        console.log("Final hiring user request:", hiringUserRequest);
 
-      if (success) {
-        setSignupSuccess(true);
-        // AuthContext will handle navigation automatically after successful registration
-      } else {
-        setSignupError(
-          "Registration failed. Please check your information and try again."
-        );
+        const response = await apiService.registerHiringUser(hiringUserRequest);
+        console.log("Hiring user registered successfully:", response);
+
+        // Store authentication tokens
+        if (response.accessToken) {
+          localStorage.setItem("authToken", response.accessToken);
+          if (response.refreshToken) {
+            localStorage.setItem("refreshToken", response.refreshToken);
+          }
+
+          // Store user info
+          localStorage.setItem("userType", "hiring");
+          localStorage.setItem("userId", response.userId);
+          localStorage.setItem("userEmail", response.email);
+          if (response.companyId) {
+            localStorage.setItem("companyId", response.companyId);
+          }
+
+          // Show success briefly then redirect
+          setSignupSuccess(true);
+
+          // Redirect to hiring user dashboard after a short delay
+          setTimeout(() => {
+            window.location.href = "/login";
+          }, 2000);
+        } else {
+          setSignupSuccess(true);
+        }
       }
     } catch (error) {
-      setSignupError("An unexpected error occurred. Please try again.");
-      console.error("Signup error:", error);
+      setSignupError(
+        error instanceof Error
+          ? error.message
+          : "Registration failed. Please check your information and try again."
+      );
+      console.error("Registration error:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
-        <div className="flex items-center space-x-2">
-          <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-          <span className="text-gray-600">Loading...</span>
-        </div>
-      </div>
-    );
-  }
-
+  // Loading state
   if (signupSuccess) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
-        <div className="max-w-md w-full text-center">
-          <div className="bg-white rounded-lg shadow-lg p-8">
-            <div className="mx-auto h-16 w-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
-              <CheckCircle className="h-8 w-8 text-green-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              Account Created!
-            </h2>
-            <p className="text-gray-600 mb-4">
-              Welcome to AutoHR! Your{" "}
-              {selectedUserType === "application" ? "job seeker" : "hiring"}{" "}
-              account has been successfully created. You'll be redirected to
-              your dashboard shortly.
-            </p>
-            <div className="flex items-center justify-center">
-              <Loader2 className="h-4 w-4 animate-spin text-blue-600 mr-2" />
-              <span className="text-sm text-gray-500">
-                Redirecting to your dashboard...
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+    return <SuccessScreen selectedUserType={selectedUserType} />;
   }
 
-  // Step 1: Account Type Selection
-  if (currentStep === "selection") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-2xl w-full space-y-8">
-          {/* Header */}
-          <div className="text-center">
-            <div className="mx-auto h-12 w-12 bg-blue-600 rounded-full flex items-center justify-center">
-              <UserPlus className="h-6 w-6 text-white" />
-            </div>
-            <h2 className="mt-6 text-3xl font-bold text-gray-900">
-              Choose Your Account Type
-            </h2>
-            <p className="mt-2 text-sm text-gray-600">
-              Select the type of account that best describes you
-            </p>
-          </div>
+  // Render appropriate step
+  switch (currentStep) {
+    case "selection":
+      return (
+        <AccountTypeSelection onUserTypeSelection={handleUserTypeSelection} />
+      );
 
-          {/* Account Type Selection Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Job Applicant Card */}
-            <div
-              onClick={() => handleUserTypeSelection("application")}
-              className="bg-white rounded-lg shadow-lg p-8 cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-blue-200"
-            >
-              <div className="text-center">
-                <div className="mx-auto h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                  <Search className="h-8 w-8 text-blue-600" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">
-                  Job Applicant
-                </h3>
-                <p className="text-gray-600 text-sm mb-4">
-                  I'm looking for job opportunities and want to apply for
-                  positions
-                </p>
-                <div className="text-left space-y-2 mb-6">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                    Browse and search for jobs
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                    Apply to positions
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                    Track application status
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                    Build professional profile
-                  </div>
-                </div>
-                <div className="flex items-center justify-center text-blue-600 font-medium">
-                  Get Started
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </div>
-              </div>
-            </div>
+    case "companyCheck":
+      return (
+        <CompanyCheck onCompanyCheckResponse={handleCompanyCheckResponse} />
+      );
 
-            {/* Hiring User Card */}
-            <div
-              onClick={() => handleUserTypeSelection("hiring")}
-              className="bg-white rounded-lg shadow-lg p-8 cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-blue-200"
-            >
-              <div className="text-center">
-                <div className="mx-auto h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                  <Briefcase className="h-8 w-8 text-blue-600" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-2">
-                  Hiring User
-                </h3>
-                <p className="text-gray-600 text-sm mb-4">
-                  I'm an HR professional, recruiter, or hiring manager looking
-                  to find talent
-                </p>
-                <div className="text-left space-y-2 mb-6">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                    Post and manage job listings
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                    Review candidates and applications
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                    AI-powered recruitment tools
-                  </div>
-                  <div className="flex items-center text-sm text-gray-600">
-                    <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                    Analytics and reporting
-                  </div>
-                </div>
-                <div className="flex items-center justify-center text-blue-600 font-medium">
-                  Get Started
-                  <ArrowRight className="h-4 w-4 ml-2" />
-                </div>
-              </div>
-            </div>
-          </div>
+    case "companyRegistration":
+      return (
+        <CompanyRegistrationForm
+          companyData={companyData}
+          onCompanyChange={handleCompanyChange}
+          onAgreeToTermsChange={handleCompanyAgreeToTermsChange}
+          onSubmit={handleSubmit}
+          onGoBack={goBackToCompanyCheck}
+          errors={errors}
+          isSubmitting={isSubmitting}
+          signupError={signupError}
+        />
+      );
 
-          {/* Login Link */}
-          <div className="text-center">
-            <p className="text-sm text-gray-600">
-              Already have an account?{" "}
-              <Link
-                href="/login"
-                className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
-              >
-                Sign in here
-              </Link>
-            </p>
-          </div>
-        </div>
-      </div>
-    );
+    case "form":
+      return (
+        <UserRegistrationForm
+          selectedUserType={selectedUserType!}
+          jobApplicantData={jobApplicantData}
+          hiringUserData={hiringUserData}
+          companyData={companyData}
+          hasExistingCompany={hasExistingCompany}
+          onJobApplicantChange={handleJobApplicantChange}
+          onHiringUserChange={handleHiringUserChange}
+          onSubmit={handleSubmit}
+          onGoBack={
+            selectedUserType === "hiring"
+              ? goBackToCompanyCheck
+              : goBackToSelection
+          }
+          errors={errors}
+          showPassword={showPassword}
+          showConfirmPassword={showConfirmPassword}
+          onTogglePassword={() => setShowPassword(!showPassword)}
+          onToggleConfirmPassword={() =>
+            setShowConfirmPassword(!showConfirmPassword)
+          }
+          isSubmitting={isSubmitting}
+          signupError={signupError}
+        />
+      );
+
+    default:
+      return (
+        <AccountTypeSelection onUserTypeSelection={handleUserTypeSelection} />
+      );
   }
-
-  // Step 2: Registration Form
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        {/* Header */}
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-blue-600 rounded-full flex items-center justify-center">
-            {selectedUserType === "application" ? (
-              <Search className="h-6 w-6 text-white" />
-            ) : (
-              <Briefcase className="h-6 w-6 text-white" />
-            )}
-          </div>
-          <h2 className="mt-6 text-3xl font-bold text-gray-900">
-            Create Your{" "}
-            {selectedUserType === "application" ? "Job Seeker" : "Hiring"}{" "}
-            Account
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            {selectedUserType === "application"
-              ? "Join thousands of job seekers finding their dream careers"
-              : "Join HR professionals streamlining their recruitment process"}
-          </p>
-
-          {/* Back button */}
-          <button
-            onClick={goBackToSelection}
-            className="mt-4 flex items-center text-sm text-gray-500 hover:text-gray-700 mx-auto"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Change account type
-          </button>
-        </div>
-
-        {/* Registration Form */}
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <form className="space-y-6" onSubmit={handleSubmit}>
-            {/* Name Fields */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label
-                  htmlFor="firstName"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  First Name
-                </label>
-                <input
-                  id="firstName"
-                  name="firstName"
-                  type="text"
-                  value={
-                    selectedUserType === "application"
-                      ? jobApplicantData.firstName
-                      : hiringUserData.firstName
-                  }
-                  onChange={
-                    selectedUserType === "application"
-                      ? handleJobApplicantChange
-                      : handleHiringUserChange
-                  }
-                  className={`block w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                    errors.firstName
-                      ? "border-red-300 bg-red-50"
-                      : "border-gray-300 bg-white hover:border-gray-400"
-                  }`}
-                  placeholder="John"
-                />
-                {errors.firstName && (
-                  <div className="mt-1 flex items-center text-sm text-red-600">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {errors.firstName}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label
-                  htmlFor="lastName"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Last Name
-                </label>
-                <input
-                  id="lastName"
-                  name="lastName"
-                  type="text"
-                  value={
-                    selectedUserType === "application"
-                      ? jobApplicantData.lastName
-                      : hiringUserData.lastName
-                  }
-                  onChange={
-                    selectedUserType === "application"
-                      ? handleJobApplicantChange
-                      : handleHiringUserChange
-                  }
-                  className={`block w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                    errors.lastName
-                      ? "border-red-300 bg-red-50"
-                      : "border-gray-300 bg-white hover:border-gray-400"
-                  }`}
-                  placeholder="Doe"
-                />
-                {errors.lastName && (
-                  <div className="mt-1 flex items-center text-sm text-red-600">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {errors.lastName}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Email Field */}
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Email address
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
-                  value={
-                    selectedUserType === "application"
-                      ? jobApplicantData.email
-                      : hiringUserData.email
-                  }
-                  onChange={
-                    selectedUserType === "application"
-                      ? handleJobApplicantChange
-                      : handleHiringUserChange
-                  }
-                  className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                    errors.email
-                      ? "border-red-300 bg-red-50"
-                      : "border-gray-300 bg-white hover:border-gray-400"
-                  }`}
-                  placeholder={
-                    selectedUserType === "application"
-                      ? "john@email.com"
-                      : "john@company.com"
-                  }
-                />
-              </div>
-              {errors.email && (
-                <div className="mt-1 flex items-center text-sm text-red-600">
-                  <AlertCircle className="h-4 w-4 mr-1" />
-                  {errors.email}
-                </div>
-              )}
-            </div>
-
-            {/* Company and Role Fields (Hiring Users Only) */}
-            {selectedUserType === "hiring" && (
-              <>
-                <div>
-                  <label
-                    htmlFor="company"
-                    className="block text-sm font-medium text-gray-700 mb-2"
-                  >
-                    Company
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Building className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                      id="company"
-                      name="company"
-                      type="text"
-                      value={hiringUserData.company}
-                      onChange={handleHiringUserChange}
-                      className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                        errors.company
-                          ? "border-red-300 bg-red-50"
-                          : "border-gray-300 bg-white hover:border-gray-400"
-                      }`}
-                      placeholder="Your Company Name"
-                    />
-                  </div>
-                  {errors.company && (
-                    <div className="mt-1 flex items-center text-sm text-red-600">
-                      <AlertCircle className="h-4 w-4 mr-1" />
-                      {errors.company}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="role"
-                    className="block text-sm font-medium text-gray-700 mb-2"
-                  >
-                    Role
-                  </label>
-                  <select
-                    id="role"
-                    name="role"
-                    value={hiringUserData.role}
-                    onChange={handleHiringUserChange}
-                    className="block w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white"
-                  >
-                    <option value="HR Manager">HR Manager</option>
-                    <option value="Recruiter">Recruiter</option>
-                    <option value="Hiring Manager">Hiring Manager</option>
-                    <option value="Director">Director</option>
-                    <option value="Administrator">Administrator</option>
-                  </select>
-                </div>
-              </>
-            )}
-
-            {/* Password Fields */}
-            <div className="space-y-4">
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Password
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    value={
-                      selectedUserType === "application"
-                        ? jobApplicantData.password
-                        : hiringUserData.password
-                    }
-                    onChange={
-                      selectedUserType === "application"
-                        ? handleJobApplicantChange
-                        : handleHiringUserChange
-                    }
-                    className={`block w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                      errors.password
-                        ? "border-red-300 bg-red-50"
-                        : "border-gray-300 bg-white hover:border-gray-400"
-                    }`}
-                    placeholder="Create a strong password"
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                    ) : (
-                      <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                    )}
-                  </button>
-                </div>
-                {errors.password && (
-                  <div className="mt-1 flex items-center text-sm text-red-600">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {errors.password}
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label
-                  htmlFor="confirmPassword"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={
-                      selectedUserType === "application"
-                        ? jobApplicantData.confirmPassword
-                        : hiringUserData.confirmPassword
-                    }
-                    onChange={
-                      selectedUserType === "application"
-                        ? handleJobApplicantChange
-                        : handleHiringUserChange
-                    }
-                    className={`block w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
-                      errors.confirmPassword
-                        ? "border-red-300 bg-red-50"
-                        : "border-gray-300 bg-white hover:border-gray-400"
-                    }`}
-                    placeholder="Confirm your password"
-                  />
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                    ) : (
-                      <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
-                    )}
-                  </button>
-                </div>
-                {errors.confirmPassword && (
-                  <div className="mt-1 flex items-center text-sm text-red-600">
-                    <AlertCircle className="h-4 w-4 mr-1" />
-                    {errors.confirmPassword}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Terms and Conditions */}
-            <div className="flex items-start">
-              <input
-                id="agreeToTerms"
-                name="agreeToTerms"
-                type="checkbox"
-                checked={
-                  selectedUserType === "application"
-                    ? jobApplicantData.agreeToTerms
-                    : hiringUserData.agreeToTerms
-                }
-                onChange={
-                  selectedUserType === "application"
-                    ? handleJobApplicantChange
-                    : handleHiringUserChange
-                }
-                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-              />
-              <label
-                htmlFor="agreeToTerms"
-                className="ml-2 block text-sm text-gray-700"
-              >
-                I agree to the{" "}
-                <a href="#" className="text-blue-600 hover:text-blue-500">
-                  Terms and Conditions
-                </a>{" "}
-                and{" "}
-                <a href="#" className="text-blue-600 hover:text-blue-500">
-                  Privacy Policy
-                </a>
-              </label>
-            </div>
-            {errors.agreeToTerms && (
-              <div className="flex items-center text-sm text-red-600">
-                <AlertCircle className="h-4 w-4 mr-1" />
-                {errors.agreeToTerms}
-              </div>
-            )}
-
-            {/* Signup Error */}
-            {signupError && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-                <div className="flex items-center">
-                  <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
-                  <span className="text-sm text-red-700">{signupError}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {isSubmitting ? (
-                <div className="flex items-center">
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  Creating account...
-                </div>
-              ) : (
-                `Create ${
-                  selectedUserType === "application" ? "Job Seeker" : "Hiring"
-                } Account`
-              )}
-            </button>
-          </form>
-
-          {/* Login Link */}
-          <div className="mt-6 text-center">
-            <p className="text-sm text-gray-600">
-              Already have an account?{" "}
-              <Link
-                href="/login"
-                className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
-              >
-                Sign in here
-              </Link>
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 };
 
 export default SignupPage;
