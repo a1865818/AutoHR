@@ -231,6 +231,8 @@ app.MapPost("/users/create", async (CreateUserRequest request, Supabase.Client c
 .WithSummary("Create a new user")
 .WithDescription("Creates a new user account with email, password, and personal details");
 
+
+
 app.MapGet("/users/{id}", async (string id, Supabase.Client client) =>
 {
     try
@@ -1268,6 +1270,7 @@ app.MapDelete("/hiring-user-profiles/{id}", async (Guid id, Supabase.Client clie
 
 // Map authentication endpoints
 app.MapAuthenticationEndpoints();
+app.MapCandidateEndpoints();
 app.MapHiringUserProfileAuthenticationEndpoints();
 
 app.UseHttpsRedirection();

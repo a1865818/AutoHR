@@ -1,316 +1,32 @@
-// "use client";
-// import {
-//   Education,
-//   Experience,
-//   PersonalInfoAppliedForm,
-//   SocialProfiles,
-// } from "@/interfaces";
-// import React, { useState } from "react";
-// import { CoverLetterForm } from "./CoverLetterForm";
-// import { EasyApplySection } from "./EasyApplySection";
-// import { EducationSection } from "./EducationSection";
-// import { ExperienceSection } from "./ExperienceSection";
-// import { FileUpload } from "./FileUpload";
-// import { PersonalInfoForm } from "./PersonalInfoForm";
-// import { SocialProfilesForm } from "./SocialProfilesForm";
 
-// interface JobData {
-//   id: string;
-//   title: string;
-//   company: string;
-//   location: string;
-//   type: string;
-//   experience: string;
-//   salary: {
-//     min: number;
-//     max: number;
-//     currency: string;
-//     period: string;
-//   };
-//   department: string;
-//   applicants: number;
-//   postedDate: string;
-//   status: string;
-// }
-
-// interface JobApplicationFormProps {
-//   jobData?: JobData;
-// }
-
-// export default function JobApplicationForm({
-//   jobData,
-// }: JobApplicationFormProps) {
-//   const [applicationMethod, setApplicationMethod] = useState<
-//     "upload" | "manual"
-//   >("upload");
-//   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-//   const [resumeFile, setResumeFile] = useState<File | null>(null);
-//   const [profileImage, setProfileImage] = useState<string | null>(null);
-
-//   // Form data states
-//   const [personalInfo, setPersonalInfo] = useState<PersonalInfoAppliedForm>({
-//     firstName: "",
-//     lastName: "",
-//     email: "",
-//     confirmEmail: "",
-//     city: "",
-//     phoneNumber: "",
-//     countryCode: "+61",
-//   });
-
-//   const [experiences, setExperiences] = useState<Experience[]>([]);
-//   const [education, setEducation] = useState<Education[]>([]);
-//   const [profiles, setProfiles] = useState<SocialProfiles>({
-//     linkedin: "",
-//     facebook: "",
-//     twitter: "",
-//     website: "",
-//   });
-//   const [coverLetter, setCoverLetter] = useState("");
-
-//   // Show forms by default
-//   const [showExperienceForm, setShowExperienceForm] = useState(true);
-//   const [showEducationForm, setShowEducationForm] = useState(true);
-//   const [editingExperience, setEditingExperience] = useState<Experience | null>(
-//     null
-//   );
-//   const [editingEducation, setEditingEducation] = useState<Education | null>(
-//     null
-//   );
-
-//   const handleAutoFillUpload = (file: File) => {
-//     setUploadedFile(file);
-//     // Simulate auto-fill after upload
-//     setTimeout(() => {
-//       setPersonalInfo({
-//         firstName: "John",
-//         lastName: "Doe",
-//         email: "john.doe@email.com",
-//         confirmEmail: "john.doe@email.com",
-//         city: "Chicago",
-//         phoneNumber: "555-0123",
-//         countryCode: "+1",
-//       });
-//       // Add sample experience and education
-//       setExperiences([
-//         {
-//           id: "1",
-//           title: "Senior Frontend Developer",
-//           company: "Tech Corp",
-//           location: "Chicago, IL",
-//           description: "Led development of React applications...",
-//           startDate: "2022-01",
-//           endDate: "",
-//           isCurrent: true,
-//         },
-//       ]);
-//       setEducation([
-//         {
-//           id: "1",
-//           institution: "University of Chicago",
-//           major: "Computer Science",
-//           degree: "Bachelor of Science",
-//           location: "Chicago, IL",
-//           description: "Focused on software engineering and algorithms",
-//           startDate: "2018-09",
-//           endDate: "2022-05",
-//           isCurrentlyAttending: false,
-//         },
-//       ]);
-//       // Hide the default forms after auto-fill
-//       setShowExperienceForm(false);
-//       setShowEducationForm(false);
-//     }, 1500);
-//   };
-
-//   const handleResumeUpload = (file: File) => {
-//     setResumeFile(file);
-//   };
-
-//   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-//     const file = event.target.files?.[0];
-//     if (file) {
-//       const reader = new FileReader();
-//       reader.onload = (e) => {
-//         setProfileImage(e.target?.result as string);
-//       };
-//       reader.readAsDataURL(file);
-//     }
-//   };
-
-//   const addExperience = (experience: Omit<Experience, "id">) => {
-//     const newExperience = { ...experience, id: Date.now().toString() };
-//     setExperiences([...experiences, newExperience]);
-//     setShowExperienceForm(false);
-//   };
-
-//   const updateExperience = (experience: Experience) => {
-//     setExperiences(
-//       experiences.map((exp) => (exp.id === experience.id ? experience : exp))
-//     );
-//     setEditingExperience(null);
-//     setShowExperienceForm(false);
-//   };
-
-//   const removeExperience = (id: string) => {
-//     setExperiences(experiences.filter((exp) => exp.id !== id));
-//   };
-
-//   const addEducation = (educationItem: Omit<Education, "id">) => {
-//     const newEducation = { ...educationItem, id: Date.now().toString() };
-//     setEducation([...education, newEducation]);
-//     setShowEducationForm(false);
-//   };
-
-//   const updateEducation = (educationItem: Education) => {
-//     setEducation(
-//       education.map((edu) =>
-//         edu.id === educationItem.id ? educationItem : edu
-//       )
-//     );
-//     setEditingEducation(null);
-//     setShowEducationForm(false);
-//   };
-
-//   const removeEducation = (id: string) => {
-//     setEducation(education.filter((edu) => edu.id !== id));
-//   };
-
-//   const handleSubmit = (e: React.FormEvent) => {
-//     e.preventDefault();
-//     console.log("Application submitted:", {
-//       method: applicationMethod,
-//       personalInfo,
-//       experiences,
-//       education,
-//       profiles,
-//       coverLetter,
-//       files: { uploadedFile, resumeFile },
-//     });
-//     // Handle form submission
-//   };
-
-//   return (
-//     <div className="min-h-screen bg-gray-50">
-//       {/* Header */}
-//       <div className="bg-white border-b">
-//         <div className="max-w-4xl mx-auto px-6 py-4">
-//           <h1 className="text-2xl font-semibold text-gray-900">
-//             Apply for Senior Frontend Developer
-//           </h1>
-//           <p className="text-sm text-gray-600 mt-1">Figma • Chicago, IL</p>
-//         </div>
-//       </div>
-
-//       {/* Main Content */}
-//       <div className="max-w-4xl mx-auto px-6 py-8">
-//         <form onSubmit={handleSubmit} className="space-y-8">
-//           {/* Easy Apply Section */}
-//           <EasyApplySection
-//             applicationMethod={applicationMethod}
-//             setApplicationMethod={setApplicationMethod}
-//             uploadedFile={uploadedFile}
-//             onFileUpload={handleAutoFillUpload}
-//           />
-
-//           {/* Personal Information */}
-//           <PersonalInfoForm
-//             personalInfo={personalInfo}
-//             setPersonalInfo={setPersonalInfo}
-//             profileImage={profileImage}
-//             onImageUpload={handleImageUpload}
-//           />
-
-//           {/* Experience Section */}
-//           <ExperienceSection
-//             experiences={experiences}
-//             showExperienceForm={showExperienceForm}
-//             editingExperience={editingExperience}
-//             setShowExperienceForm={setShowExperienceForm}
-//             setEditingExperience={setEditingExperience}
-//             addExperience={addExperience}
-//             updateExperience={updateExperience}
-//             removeExperience={removeExperience}
-//           />
-
-//           {/* Education Section */}
-//           <EducationSection
-//             education={education}
-//             showEducationForm={showEducationForm}
-//             editingEducation={editingEducation}
-//             setShowEducationForm={setShowEducationForm}
-//             setEditingEducation={setEditingEducation}
-//             addEducation={addEducation}
-//             updateEducation={updateEducation}
-//             removeEducation={removeEducation}
-//           />
-
-//           {/* Social Profiles */}
-//           <SocialProfilesForm profiles={profiles} setProfiles={setProfiles} />
-
-//           {/* Resume Upload (for manual method) */}
-//           {applicationMethod === "manual" && (
-//             <div className="bg-white rounded-lg border p-8">
-//               <h2 className="text-xl font-semibold text-gray-900 mb-4">
-//                 Resume <span className="text-red-500">*</span>
-//               </h2>
-
-//               <FileUpload
-//                 onFileSelect={handleResumeUpload}
-//                 uploadedFile={resumeFile}
-//                 title="Choose a file or drop it here"
-//                 description="10MB size limit"
-//                 required={true}
-//               />
-//             </div>
-//           )}
-
-//           {/* Cover Letter */}
-//           <CoverLetterForm
-//             coverLetter={coverLetter}
-//             setCoverLetter={setCoverLetter}
-//           />
-
-//           {/* Submit Button */}
-//           <div className="flex justify-end space-x-4">
-//             <button
-//               type="button"
-//               className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-//             >
-//               Save Draft
-//             </button>
-//             <button
-//               type="submit"
-//               className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-//             >
-//               Submit Application
-//             </button>
-//           </div>
-//         </form>
-//       </div>
-//     </div>
-//   );
-// }
 "use client";
+import { useAuth } from "@/contexts/AuthContext";
 import {
+  ApplicationData,
   Education,
   Experience,
   PersonalInfoAppliedForm,
   PreliminaryData,
   SocialProfiles,
 } from "@/interfaces";
+import { applicationService } from "@/services/applyService";
+import { jobService } from "@/services/jobService";
 import {
+  AlertCircle,
   ArrowLeft,
   Briefcase,
   Building2,
+  CheckCircle,
   Clock,
   DollarSign,
+  Loader2,
   MapPin,
   Star,
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
 import { CoverLetterForm } from "./CoverLetterForm";
 import { EasyApplySection } from "./EasyApplySection";
 import { EducationSection } from "./EducationSection";
@@ -340,18 +56,35 @@ interface JobData {
 }
 
 interface JobApplicationFormProps {
+  jobId?: string;
   jobData?: JobData;
 }
 
 export default function JobApplicationForm({
+  jobId,
   jobData,
 }: JobApplicationFormProps) {
+  const router = useRouter();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+
+  // Loading and error states
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [hasAlreadyApplied, setHasAlreadyApplied] = useState(false);
+
+  // Success state
+  const [isSubmitted, setIsSubmitted] = useState(false);
+  const [applicationId, setApplicationId] = useState<string | null>(null);
+
   // Track application step
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
 
+  // File upload states
   const [applicationMethod, setApplicationMethod] = useState<
     "upload" | "manual"
-  >("upload");
+  >("manual");
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
@@ -364,7 +97,7 @@ export default function JobApplicationForm({
     confirmEmail: "",
     city: "",
     phoneNumber: "",
-    countryCode: "+61",
+    countryCode: "+1",
   });
 
   const [experiences, setExperiences] = useState<Experience[]>([]);
@@ -378,7 +111,6 @@ export default function JobApplicationForm({
   const [coverLetter, setCoverLetter] = useState("");
 
   // Preliminary questions state
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [preliminaryData, setPreliminaryData] = useState<PreliminaryData>({
     preferredName: "",
     pronouns: "",
@@ -389,7 +121,7 @@ export default function JobApplicationForm({
     privacyConsent: false,
   });
 
-  // Show forms by default
+  // Show forms states
   const [showExperienceForm, setShowExperienceForm] = useState(true);
   const [showEducationForm, setShowEducationForm] = useState(true);
   const [editingExperience, setEditingExperience] = useState<Experience | null>(
@@ -399,119 +131,208 @@ export default function JobApplicationForm({
     null
   );
 
-  // Default job data if none provided
-  const defaultJobData: JobData = {
-    id: "1",
-    title: "Senior Frontend Developer",
-    company: "Figma",
-    location: "Chicago, IL",
-    type: "Full-Time",
-    experience: "5-7 Years",
-    salary: {
-      min: 90000,
-      max: 120000,
-      currency: "USD",
-      period: "per year",
-    },
-    department: "Engineering",
-    applicants: 24,
-    postedDate: "2024-05-26",
-    status: "Active",
-  };
+  // Real job data state
+  const [job, setJob] = useState<JobData | null>(jobData || null);
 
-  const job = jobData || defaultJobData;
+  // Pre-fill personal info from authenticated user
+  useEffect(() => {
+    if (user && personalInfo.firstName === "" && personalInfo.lastName === "") {
+      console.log("🔄 Pre-filling personal info from user data:", user);
+      setPersonalInfo((prev) => ({
+        ...prev,
+        firstName: user.firstName || "",
+        lastName: user.lastName || "",
+        email: user.email || "",
+        confirmEmail: user.email || "",
+      }));
+    }
+  }, [user, personalInfo.firstName, personalInfo.lastName]);
 
-  const formatSalary = (salary: JobData["salary"]) => {
-    const formatter = new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: salary.currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
+  // Check authentication and load job data
+  useEffect(() => {
+    console.log("🔄 JobApplicationForm mounted");
+    console.log("🔑 Auth state:", {
+      isAuthenticated,
+      authLoading,
+      user: user ? { id: user.id, userCategory: user.userCategory } : null,
     });
-    return `${formatter.format(salary.min)} - ${formatter.format(salary.max)} ${
-      salary.period
-    }`;
-  };
 
-  const getDaysAgo = (dateString: string) => {
-    const posted = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - posted.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (authLoading) {
+      console.log("⏳ Waiting for auth to load...");
+      return;
+    }
 
-    if (diffDays === 1) return "1 day ago";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 14) return "1 week ago";
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-    return `${Math.floor(diffDays / 30)} months ago`;
-  };
+    if (!isAuthenticated) {
+      console.log("❌ User not authenticated, redirecting to login");
+      router.push(
+        `/login?returnUrl=${encodeURIComponent(window.location.pathname)}`
+      );
+      return;
+    }
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case "Full-Time":
-        return "bg-blue-100 text-blue-800";
-      case "Part-Time":
-        return "bg-purple-100 text-purple-800";
-      case "Contract":
-        return "bg-orange-100 text-orange-800";
-      case "Internship":
-        return "bg-pink-100 text-pink-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+    if (user?.userCategory !== "ApplicationUser") {
+      console.log("❌ Wrong user type:", user?.userCategory);
+      setError(
+        "Only application users can apply for jobs. Please log in with an application user account."
+      );
+      setIsLoading(false);
+      return;
+    }
+
+    console.log("✅ User authenticated as ApplicationUser, loading job data");
+    loadJobAndCheckApplication();
+  }, [isAuthenticated, authLoading, user, router]);
+
+  // Load job data and check if user has already applied
+  const loadJobAndCheckApplication = async () => {
+    if (!jobId) {
+      setJob(jobData || null);
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log("📊 Loading job data for ID:", jobId);
+
+      // Load job data if not provided
+      if (!job) {
+        console.log("🔄 Fetching job data from backend...");
+        const jobResponse = await jobService.getJobById(jobId);
+        console.log("✅ Job data loaded:", jobResponse);
+
+        // Get company data
+        console.log("🔄 Fetching company data...");
+        const company = await jobService.getCompanyById(jobResponse.companyId);
+        console.log("✅ Company data loaded:", company);
+
+        // Transform to JobData format
+        const transformedJob: JobData = {
+          id: jobResponse.id,
+          title: jobResponse.title,
+          company: company.name,
+          location:
+            typeof jobResponse.locations === "object"
+              ? `${jobResponse.locations.city || ""}, ${
+                  jobResponse.locations.state || ""
+                }`.trim()
+              : "Location not specified",
+          type: jobResponse.employmentType,
+          experience: `${jobResponse.experienceYearsMin || 0}+ years`,
+          salary: {
+            min: jobResponse.salaryMin || 0,
+            max: jobResponse.salaryMax || 0,
+            currency: jobResponse.salaryCurrency || "USD",
+            period: "per year",
+          },
+          department: company.industry || "Not specified",
+          applicants: jobResponse.applicantCount || 0,
+          postedDate: jobResponse.postedDate || jobResponse.createdAt,
+          status: jobResponse.status,
+        };
+
+        console.log("✅ Job transformed:", transformedJob);
+        setJob(transformedJob);
+      }
+
+      // Check if user has already applied
+      console.log("🔍 Checking if user has already applied...");
+      const hasApplied = await applicationService.hasAppliedToJob(jobId);
+      console.log(
+        "📝 Application status:",
+        hasApplied ? "Already applied" : "Not applied yet"
+      );
+      setHasAlreadyApplied(hasApplied);
+
+      // Load saved draft if exists
+      console.log("💾 Loading saved draft...");
+      const draft = await applicationService.getApplicationDraft(jobId);
+      if (draft) {
+        console.log("✅ Draft found, populating form");
+        // Populate form with draft data
+        if (draft.personalInfo) setPersonalInfo(draft.personalInfo);
+        if (draft.experiences) setExperiences(draft.experiences);
+        if (draft.education) setEducation(draft.education);
+        if (draft.profiles) setProfiles(draft.profiles);
+        if (draft.coverLetter) setCoverLetter(draft.coverLetter);
+      } else {
+        console.log("ℹ️ No draft found");
+      }
+    } catch (error) {
+      console.error("❌ Error loading job or checking application:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to load job data"
+      );
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleAutoFillUpload = (file: File, shouldAutoFill = true) => {
+  // Auto-save draft periodically
+  useEffect(() => {
+    if (!jobId || isLoading || hasAlreadyApplied || !isAuthenticated) return;
+
+    const autoSave = setTimeout(() => {
+      saveDraft();
+    }, 30000); // Save every 30 seconds
+
+    return () => clearTimeout(autoSave);
+  }, [
+    personalInfo,
+    experiences,
+    education,
+    profiles,
+    coverLetter,
+    jobId,
+    isLoading,
+    hasAlreadyApplied,
+    isAuthenticated,
+  ]);
+
+  const saveDraft = async () => {
+    if (!jobId || isSaving || !isAuthenticated) return;
+
+    try {
+      setIsSaving(true);
+      const applicationData: Partial<ApplicationData> = {
+        personalInfo,
+        experiences,
+        education,
+        profiles,
+        coverLetter,
+        method: applicationMethod,
+      };
+
+      await applicationService.saveApplicationDraft(jobId, applicationData);
+      console.log("💾 Draft saved successfully");
+    } catch (error) {
+      console.warn("Failed to save draft:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Rest of your component methods remain the same...
+  const handleAutoFillUpload = async (file: File) => {
     setUploadedFile(file);
+    setResumeFile(file);
 
-    // Only auto-fill if using the upload method with auto-fill enabled
-    if (applicationMethod === "upload" && shouldAutoFill) {
-      // Simulate auto-fill after upload
-      setTimeout(() => {
-        setPersonalInfo({
-          firstName: "John",
-          lastName: "Doe",
-          email: "john.doe@email.com",
-          confirmEmail: "john.doe@email.com",
-          city: "Chicago",
-          phoneNumber: "555-0123",
-          countryCode: "+1",
-        });
-        // Add sample experience and education
-        setExperiences([
-          {
-            id: "1",
-            title: "Senior Frontend Developer",
-            company: "Tech Corp",
-            location: "Chicago, IL",
-            description: "Led development of React applications...",
-            startDate: "2022-01",
-            endDate: "",
-            isCurrent: true,
-          },
-        ]);
-        setEducation([
-          {
-            id: "1",
-            institution: "University of Chicago",
-            major: "Computer Science",
-            degree: "Bachelor of Science",
-            location: "Chicago, IL",
-            description: "Focused on software engineering and algorithms",
-            startDate: "2018-09",
-            endDate: "2022-05",
-            isCurrentlyAttending: false,
-          },
-        ]);
-        // Hide the default forms after auto-fill
-        setShowExperienceForm(false);
-        setShowEducationForm(false);
-      }, 1500);
+    if (applicationMethod === "upload") {
+      console.log(
+        "Auto-fill feature will be implemented when backend AI parsing is ready"
+      );
+      setError(
+        "Auto-fill from resume will be available soon. Please fill the form manually for now."
+      );
+      setTimeout(() => setError(null), 5000);
     }
   };
 
-  const handleResumeUpload = (file: File) => {
+  const handleResumeUpload = async (file: File) => {
     setResumeFile(file);
+    console.log("Resume file selected:", file.name);
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -525,6 +346,7 @@ export default function JobApplicationForm({
     }
   };
 
+  // Experience handlers
   const addExperience = (experience: Omit<Experience, "id">) => {
     const newExperience = { ...experience, id: Date.now().toString() };
     setExperiences([...experiences, newExperience]);
@@ -543,6 +365,7 @@ export default function JobApplicationForm({
     setExperiences(experiences.filter((exp) => exp.id !== id));
   };
 
+  // Education handlers
   const addEducation = (educationItem: Omit<Education, "id">) => {
     const newEducation = { ...educationItem, id: Date.now().toString() };
     setEducation([...education, newEducation]);
@@ -563,41 +386,380 @@ export default function JobApplicationForm({
     setEducation(education.filter((edu) => edu.id !== id));
   };
 
-  // Go to preliminary questions step
+  // Step navigation
   const handleNextStep = () => {
-    // Validate first step if needed
     setCurrentStep(2);
   };
 
-  // Go back to first step
   const handlePrevStep = () => {
     setCurrentStep(1);
   };
 
-  // Handle preliminary questions submission
-  const handlePreliminarySubmit = (data: PreliminaryData) => {
-    setPreliminaryData(data);
+  // Form validation
+  const validateFirstStep = (): string | null => {
+    if (!personalInfo.firstName.trim()) return "First name is required";
+    if (!personalInfo.lastName.trim()) return "Last name is required";
+    if (!personalInfo.email.trim()) return "Email is required";
+    if (personalInfo.email !== personalInfo.confirmEmail)
+      return "Emails do not match";
+    if (!personalInfo.phoneNumber.trim()) return "Phone number is required";
+    if (!personalInfo.city.trim()) return "City is required";
 
-    // Here you would submit the complete application
-    console.log("Final application submitted:", {
-      jobId: job.id,
-      method: applicationMethod,
-      personalInfo,
-      experiences,
-      education,
-      profiles,
-      coverLetter,
-      files: { uploadedFile, resumeFile },
-      preliminaryData: data,
-    });
+    if (applicationMethod === "manual" && !resumeFile) {
+      return "Resume is required";
+    }
 
-    // Redirect or show success message
+    return null;
   };
 
-  const handleSubmitFirstStep = (e: React.FormEvent) => {
+  // Handle first step submission
+  const handleSubmitFirstStep = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const validationError = validateFirstStep();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    setError(null);
+
+    // Save current progress
+    await saveDraft();
+
     handleNextStep();
   };
+
+  // Handle final submission
+  const handlePreliminarySubmit = async (data: PreliminaryData) => {
+    if (!jobId || !job) {
+      setError("Job information is missing");
+      return;
+    }
+
+    if (!isAuthenticated || !user) {
+      setError("Please log in to submit your application");
+      return;
+    }
+
+    setPreliminaryData(data);
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      const applicationData: ApplicationData = {
+        method: applicationMethod,
+        personalInfo,
+        experiences,
+        education,
+        profiles,
+        coverLetter,
+        files: {
+          uploadedFile,
+          resumeFile,
+        },
+        profileImage,
+      };
+
+      console.log("🚀 Submitting application...");
+      const response = await applicationService.submitApplication(
+        jobId,
+        applicationData,
+        data
+      );
+
+      console.log("✅ Application submitted successfully:", response);
+
+      // Success!
+      setApplicationId(response.applicationId);
+      setIsSubmitted(true);
+
+      // Clear draft since application was submitted
+      if (typeof window !== "undefined") {
+        localStorage.removeItem(`application_draft_${jobId}_${user.id}`);
+      }
+
+      // Redirect to success page after a delay
+      setTimeout(() => {
+        router.push(
+          `/jobs/${jobId}/application-success?applicationId=${response.applicationId}`
+        );
+      }, 2000);
+    } catch (error) {
+      console.error("❌ Application submission failed:", error);
+      setError(
+        error instanceof Error ? error.message : "Failed to submit application"
+      );
+      setIsSubmitting(false);
+    }
+  };
+
+  // Format salary display
+  const formatSalary = (salary: JobData["salary"]) => {
+    if (!salary.min && !salary.max) return "Salary not specified";
+
+    const formatter = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: salary.currency,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    });
+
+    if (salary.min && salary.max) {
+      return `${formatter.format(salary.min)} - ${formatter.format(
+        salary.max
+      )} ${salary.period}`;
+    } else if (salary.min) {
+      return `${formatter.format(salary.min)}+ ${salary.period}`;
+    } else if (salary.max) {
+      return `Up to ${formatter.format(salary.max)} ${salary.period}`;
+    }
+
+    return "Salary not specified";
+  };
+
+  // Calculate days ago
+  const getDaysAgo = (dateString: string) => {
+    const posted = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - posted.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 1) return "1 day ago";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    if (diffDays < 14) return "1 week ago";
+    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+    return `${Math.floor(diffDays / 30)} months ago`;
+  };
+
+  // Get type color
+  const getTypeColor = (type: string) => {
+    switch (type?.toLowerCase()) {
+      case "full-time":
+        return "bg-blue-100 text-blue-800";
+      case "part-time":
+        return "bg-purple-100 text-purple-800";
+      case "contract":
+        return "bg-orange-100 text-orange-800";
+      case "internship":
+        return "bg-pink-100 text-pink-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  };
+
+  // Loading state - show while auth is loading or job data is loading
+  if (authLoading || isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">
+            {authLoading
+              ? "Checking authentication..."
+              : "Loading job details..."}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Authentication required state
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <AlertCircle className="h-8 w-8 text-yellow-600 mx-auto mb-4" />
+            <h2 className="text-lg font-semibold text-yellow-900 mb-2">
+              Authentication Required
+            </h2>
+            <p className="text-yellow-700 mb-4">
+              Please log in with an application user account to apply for jobs.
+            </p>
+            <div className="space-y-2">
+              <Link
+                href={`/login?returnUrl=${encodeURIComponent(
+                  window.location.pathname
+                )}`}
+                className="block w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Go to Login
+              </Link>
+              <Link
+                href="/jobs"
+                className="block w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+              >
+                Browse Jobs
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Wrong user type state
+  if (user?.userCategory !== "ApplicationUser") {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-4" />
+            <h2 className="text-lg font-semibold text-red-900 mb-2">
+              Wrong Account Type
+            </h2>
+            <p className="text-red-700 mb-4">
+              Only application users can apply for jobs. You are currently
+              logged in as a {user?.userCategory} user.
+            </p>
+            <div className="space-y-2">
+              <Link
+                href="/login?userType=application"
+                className="block w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Login as Application User
+              </Link>
+              <Link
+                href="/jobs"
+                className="block w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+              >
+                Browse Jobs
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (!job && error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-4" />
+            <h2 className="text-lg font-semibold text-red-900 mb-2">
+              Error Loading Job
+            </h2>
+            <p className="text-red-700 mb-4">{error}</p>
+            <div className="space-y-2">
+              <button
+                onClick={loadJobAndCheckApplication}
+                className="block w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+              >
+                Try Again
+              </button>
+              <Link
+                href="/jobs"
+                className="block w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+              >
+                Browse Jobs
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Job not found state
+  if (!job) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-4" />
+            <h2 className="text-lg font-semibold text-red-900 mb-2">
+              Job Not Found
+            </h2>
+            <p className="text-red-700 mb-4">
+              The job you are trying to apply for could not be found.
+            </p>
+            <Link
+              href="/jobs"
+              className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            >
+              Browse Jobs
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Already applied state
+  if (hasAlreadyApplied) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <CheckCircle className="h-8 w-8 text-yellow-600 mx-auto mb-4" />
+            <h2 className="text-lg font-semibold text-yellow-900 mb-2">
+              Already Applied
+            </h2>
+            <p className="text-yellow-700 mb-4">
+              You have already submitted an application for this position.
+            </p>
+            <div className="space-y-2">
+              <Link
+                href={`/jobs/${jobId}`}
+                className="block w-full px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors"
+              >
+                View Job Details
+              </Link>
+              <Link
+                href="/applications"
+                className="block w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+              >
+                View My Applications
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Success state
+  if (isSubmitted) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+            <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-green-900 mb-2">
+              Application Submitted!
+            </h2>
+            <p className="text-green-700 mb-4">
+              Your application for <strong>{job.title}</strong> at{" "}
+              <strong>{job.company}</strong> has been successfully submitted.
+            </p>
+            {applicationId && (
+              <p className="text-sm text-green-600 mb-4">
+                Application ID: {applicationId}
+              </p>
+            )}
+            <div className="space-y-2">
+              <Link
+                href={`/jobs/${jobId}`}
+                className="block w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+              >
+                View Job Details
+              </Link>
+              <Link
+                href="/jobs"
+                className="block w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+              >
+                Browse More Jobs
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -644,6 +806,15 @@ export default function JobApplicationForm({
                     </p>
                   </div>
                 </div>
+
+                {/* User Info Display */}
+                {user && (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      Applying as: <strong>{user.name}</strong> ({user.email})
+                    </p>
+                  </div>
+                )}
 
                 {/* Job Details Grid */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
@@ -719,6 +890,26 @@ export default function JobApplicationForm({
         </div>
       </div>
 
+      {/* Error Display */}
+      {error && (
+        <div className="max-w-4xl mx-auto px-6 pt-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+            <div className="flex">
+              <AlertCircle className="h-5 w-5 text-red-400 mr-2 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-red-800">{error}</p>
+                <button
+                  onClick={() => setError(null)}
+                  className="text-red-600 hover:text-red-800 text-sm underline mt-1"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-6 py-8">
         {currentStep === 1 ? (
@@ -790,16 +981,26 @@ export default function JobApplicationForm({
             />
 
             {/* Submit Button */}
-            <div className="flex justify-end space-x-4">
+            <div className="flex justify-between space-x-4">
               <button
                 type="button"
-                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                onClick={saveDraft}
+                disabled={isSaving}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
               >
-                Save Draft
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Draft"
+                )}
               </button>
               <button
                 type="submit"
-                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-md hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl"
+                disabled={isSubmitting}
+                className="px-6 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-md hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50"
               >
                 Next
               </button>
@@ -815,6 +1016,23 @@ export default function JobApplicationForm({
             onBack={handlePrevStep}
             onSubmit={handlePreliminarySubmit}
           />
+        )}
+
+        {/* Submitting Overlay */}
+        {isSubmitting && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-sm mx-4">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Submitting Application
+                </h3>
+                <p className="text-gray-600">
+                  Please wait while we process your application...
+                </p>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

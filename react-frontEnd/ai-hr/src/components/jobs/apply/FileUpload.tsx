@@ -34,7 +34,10 @@ export function FileUpload({
         accept=".pdf,.doc,.docx"
         onChange={handleFileChange}
         className="hidden"
-        required={required}
+
+        // Note: The `required` prop is commented out because file inputs cannot be required in the same way as text inputs.
+        // We need to implement file upload logic.
+        // required={required}
       />
       <label htmlFor={inputId} className="cursor-pointer">
         {title.includes("Resume") ? (

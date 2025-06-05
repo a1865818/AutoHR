@@ -17,7 +17,6 @@ interface Filters {
   type: string[];
   experience: string[];
   location: string[];
-  favorites: string[];
 }
 
 // Helper functions moved outside component to avoid hoisting issues
@@ -139,7 +138,7 @@ const formatPostedDate = (dateString: string): string => {
 export function JobsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [jobs, setJobs] = useState<ApiJob[]>([]);
+  const [allJobs, setAllJobs] = useState<ApiJob[]>([]);
   const [companies, setCompanies] = useState<Map<string, ApiCompany>>(
     new Map()
   );
@@ -161,19 +160,14 @@ export function JobsPage() {
     type: [],
     experience: [],
     location: [],
-    favorites: [],
   });
 
   useEffect(() => {
-    loadJobsData();
+    loadAllJobsData();
   }, []);
 
-  useEffect(() => {
-    loadJobsData();
-  }, [viewMode]);
-
-  const loadJobsData = async () => {
-    console.log("🔄 Loading jobs data...");
+  const loadAllJobsData = async () => {
+    console.log("🔄 Loading all jobs data...");
     setIsLoading(true);
     setError(null);
 
@@ -182,32 +176,33 @@ export function JobsPage() {
         throw new Error("Please log in to view jobs");
       }
 
-      let jobsData: ApiJob[];
+      // Load all jobs regardless of status
+      console.log("📊 Loading all jobs...");
+      const [activeJobs, draftJobs] = await Promise.all([
+        jobService.getAllJobs("Open"),
+        jobService.getAllJobs("Draft"),
+      ]);
 
-      if (viewMode === "drafts") {
-        console.log("📝 Loading draft jobs...");
-        jobsData = await jobService.getAllJobs("Draft");
-      } else {
-        console.log("✅ Loading active jobs...");
-        jobsData = await jobService.getAllJobs("Open");
-      }
+      const allJobsData = [...(activeJobs || []), ...(draftJobs || [])];
 
-      console.log("📊 Raw API jobs data:", jobsData);
-      console.log("📊 Number of jobs received:", jobsData?.length || 0);
+      console.log("📊 Raw API jobs data:", allJobsData);
+      console.log("📊 Number of jobs received:", allJobsData?.length || 0);
+      console.log("📊 Active jobs:", activeJobs?.length || 0);
+      console.log("📊 Draft jobs:", draftJobs?.length || 0);
 
       // Log first job for structure analysis
-      if (jobsData && jobsData.length > 0) {
+      if (allJobsData && allJobsData.length > 0) {
         console.log(
           "🔍 First job structure:",
-          JSON.stringify(jobsData[0], null, 2)
+          JSON.stringify(allJobsData[0], null, 2)
         );
       }
 
-      setJobs(jobsData || []);
+      setAllJobs(allJobsData || []);
 
       // Load companies
       const companyIds = [
-        ...new Set((jobsData || []).map((job) => job.companyId)),
+        ...new Set((allJobsData || []).map((job) => job.companyId)),
       ];
       console.log("🏢 Loading companies for IDs:", companyIds);
 
@@ -239,11 +234,11 @@ export function JobsPage() {
   // Transform API jobs to your existing Job interface format
   const transformedJobs = useMemo(() => {
     console.log("🔄 Starting job transformation...");
-    console.log("📊 Raw jobs to transform:", jobs.length);
+    console.log("📊 Raw jobs to transform:", allJobs.length);
 
-    const transformed = jobs.map((apiJob, index): Job => {
+    const transformed = allJobs.map((apiJob, index): Job => {
       console.log(
-        `🔄 Transforming job ${index + 1}/${jobs.length}:`,
+        `🔄 Transforming job ${index + 1}/${allJobs.length}:`,
         apiJob.title
       );
       console.log(`📊 Original status: "${apiJob.status}"`);
@@ -309,7 +304,29 @@ export function JobsPage() {
     console.log("✅ Total transformed jobs:", transformed.length);
 
     return transformed;
-  }, [jobs, companies]);
+  }, [allJobs, companies]);
+
+  // Calculate tab counts - always show total counts regardless of current view
+  const tabCounts = useMemo(() => {
+    const activeJobsCount = transformedJobs.filter(
+      (job) => job.status !== "Draft"
+    ).length;
+    const draftJobsCount = transformedJobs.filter(
+      (job) => job.status === "Draft"
+    ).length;
+
+    console.log(
+      "📊 Tab counts - Active:",
+      activeJobsCount,
+      "Draft:",
+      draftJobsCount
+    );
+
+    return {
+      activeJobs: activeJobsCount,
+      draftJobs: draftJobsCount,
+    };
+  }, [transformedJobs]);
 
   // Calculate filter counts
   const filterCounts = useMemo(() => {
@@ -320,7 +337,6 @@ export function JobsPage() {
       type: {} as Record<string, number>,
       experience: {} as Record<string, number>,
       location: {} as Record<string, number>,
-      favorites: {} as Record<string, number>,
     };
 
     transformedJobs.forEach((job) => {
@@ -337,7 +353,6 @@ export function JobsPage() {
         (counts.experience[expCategory] || 0) + 1;
       counts.location[job.locationType] =
         (counts.location[job.locationType] || 0) + 1;
-      counts.favorites[job.status] = (counts.favorites[job.status] || 0) + 1;
     });
 
     console.log("📊 Filter counts:", counts);
@@ -370,7 +385,6 @@ export function JobsPage() {
       type: [],
       experience: [],
       location: [],
-      favorites: [],
     });
   };
 
@@ -397,6 +411,13 @@ export function JobsPage() {
     console.log("📈 Sort by:", sortBy);
 
     let filtered = transformedJobs;
+
+    // Filter by view mode first
+    if (viewMode === "jobs") {
+      filtered = filtered.filter((job) => job.status !== "Draft");
+    } else {
+      filtered = filtered.filter((job) => job.status === "Draft");
+    }
 
     // Search filter
     if (searchQuery) {
@@ -467,15 +488,6 @@ export function JobsPage() {
       console.log("📍 After location filter:", filtered.length, "jobs");
     }
 
-    // Favorites filter
-    if (activeFilters.favorites.length > 0) {
-      console.log("⭐ Applying favorites filter:", activeFilters.favorites);
-      filtered = filtered.filter((job) => {
-        return activeFilters.favorites.includes(job.status);
-      });
-      console.log("⭐ After favorites filter:", filtered.length, "jobs");
-    }
-
     // Sorting
     const sorted = [...filtered].sort((a, b) => {
       switch (sortBy) {
@@ -498,20 +510,16 @@ export function JobsPage() {
 
     console.log("✅ Final filtered and sorted jobs:", sorted);
     return sorted;
-  }, [transformedJobs, searchQuery, activeFilters, sortBy]);
-
-  const draftJobs = transformedJobs.filter(
-    (job) => job.status === "Draft"
-  ).length;
+  }, [transformedJobs, searchQuery, activeFilters, sortBy, viewMode]);
 
   console.log("🎯 Current state:");
   console.log("- isLoading:", isLoading);
   console.log("- error:", error);
-  console.log("- jobs.length:", jobs.length);
+  console.log("- allJobs.length:", allJobs.length);
   console.log("- transformedJobs.length:", transformedJobs.length);
   console.log("- filteredAndSortedJobs.length:", filteredAndSortedJobs.length);
   console.log("- viewMode:", viewMode);
-  console.log("- draftJobs:", draftJobs);
+  console.log("- tabCounts:", tabCounts);
 
   // Loading state
   if (isLoading) {
@@ -541,7 +549,7 @@ export function JobsPage() {
               <p className="text-red-700 mb-4">{error}</p>
               <div className="space-y-2">
                 <button
-                  onClick={loadJobsData}
+                  onClick={loadAllJobsData}
                   className="block w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
                 >
                   Try Again
@@ -590,15 +598,6 @@ export function JobsPage() {
             </Link>
           </div>
 
-          {/* Debug Info */}
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-            <p className="text-xs text-yellow-800">
-              <strong>Debug:</strong> Raw jobs: {jobs.length}, Transformed:{" "}
-              {transformedJobs.length}, Filtered: {filteredAndSortedJobs.length}
-              , View: {viewMode}
-            </p>
-          </div>
-
           {/* Tabs */}
           <div className="flex space-x-8 mb-4">
             <button
@@ -617,12 +616,7 @@ export function JobsPage() {
                     : "bg-gray-100 text-gray-600"
                 }`}
               >
-                {viewMode === "jobs"
-                  ? filteredAndSortedJobs.filter(
-                      (job) => job.status !== "Draft"
-                    ).length
-                  : transformedJobs.filter((job) => job.status !== "Draft")
-                      .length}
+                {tabCounts.activeJobs}
               </span>
             </button>
             <button
@@ -641,7 +635,7 @@ export function JobsPage() {
                     : "bg-gray-100 text-gray-600"
                 }`}
               >
-                {draftJobs}
+                {tabCounts.draftJobs}
               </span>
             </button>
           </div>
@@ -705,95 +699,41 @@ export function JobsPage() {
 
         {/* Job List */}
         <div className="flex-1 overflow-y-auto p-6">
-          {viewMode === "jobs" ? (
-            <div className="space-y-4">
-              {/* Debug: Show what we're rendering */}
-              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-                <p className="text-xs text-blue-800">
-                  <strong>Rendering:</strong>{" "}
-                  {
-                    filteredAndSortedJobs.filter(
-                      (job) => job.status !== "Draft"
-                    ).length
-                  }{" "}
-                  active jobs
+          <div className="space-y-4">
+            {filteredAndSortedJobs.map((job) => (
+              <JobCard key={job.id} job={job} />
+            ))}
+
+            {filteredAndSortedJobs.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-gray-500">
+                  {searchQuery
+                    ? "No jobs found matching your search."
+                    : viewMode === "drafts"
+                    ? "No draft jobs found."
+                    : "No active jobs found."}
                 </p>
-              </div>
-
-              {filteredAndSortedJobs
-                .filter((job) => job.status !== "Draft")
-                .map((job) => {
-                  console.log("🎯 Rendering job:", job);
-                  return <JobCard key={job.id} job={job} />;
-                })}
-
-              {filteredAndSortedJobs.filter((job) => job.status !== "Draft")
-                .length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">
-                    {searchQuery
-                      ? "No jobs found matching your search."
-                      : "No jobs match your current filters."}
-                  </p>
-                  {Object.values(activeFilters).some(
-                    (arr) => arr.length > 0
-                  ) && (
-                    <button
-                      onClick={clearAllFilters}
-                      className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
-                    >
-                      Clear all filters
-                    </button>
-                  )}
-
-                  {/* Debug info for empty state */}
-                  <div className="mt-4 p-3 bg-gray-100 rounded-md text-xs text-gray-600">
-                    <p>
-                      <strong>Debug Info:</strong>
-                    </p>
-                    <p>Total transformed jobs: {transformedJobs.length}</p>
-                    <p>
-                      Active jobs:{" "}
-                      {
-                        transformedJobs.filter((job) => job.status === "Active")
-                          .length
-                      }
-                    </p>
-                    <p>
-                      Draft jobs:{" "}
-                      {
-                        transformedJobs.filter((job) => job.status === "Draft")
-                          .length
-                      }
-                    </p>
-                    <p>Search query: "{searchQuery}"</p>
-                    <p>Active filters: {JSON.stringify(activeFilters)}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {filteredAndSortedJobs
-                .filter((job) => job.status === "Draft")
-                .map((job) => (
-                  <JobCard key={job.id} job={job} />
-                ))}
-
-              {filteredAndSortedJobs.filter((job) => job.status === "Draft")
-                .length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">No draft jobs found.</p>
-                  <Link
-                    href="create-job"
-                    className="mt-2 inline-block text-blue-600 hover:text-blue-800 text-sm font-medium"
+                {Object.values(activeFilters).some((arr) => arr.length > 0) && (
+                  <button
+                    onClick={clearAllFilters}
+                    className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
                   >
-                    Create your first job
-                  </Link>
-                </div>
-              )}
-            </div>
-          )}
+                    Clear all filters
+                  </button>
+                )}
+                {viewMode === "drafts" &&
+                  filteredAndSortedJobs.length === 0 &&
+                  !searchQuery && (
+                    <Link
+                      href="create-job"
+                      className="mt-2 inline-block text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    >
+                      Create your first job
+                    </Link>
+                  )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

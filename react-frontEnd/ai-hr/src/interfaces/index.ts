@@ -1,13 +1,37 @@
 export interface Candidate {
   id: string;
+  applicationId: string; // Link to ApplicationDetail
+  candidateUserId: string;
+  jobId: string;
   name: string;
-  photo: string;
+  email: string;
+  photo?: string;
   role?: string;
   company: string;
-  companyLogo: string;
+  companyLogo?: string;
   assessment: number;
   stage: "Applied" | "Interview" | "Offer";
-  status?: "In Progress" | "Hired" | "Disqualified";
+  status: "In Progress" | "Hired" | "Disqualified";
+  appliedAt: string;
+  resumeUrl?: string;
+  coverLetterText?: string;
+  expectedSalary?: number;
+  availabilityDate?: string;
+  jobSource?: string;
+  overallAiScore?: number;
+}
+
+export interface CandidateWithJobDetails extends Candidate {
+  jobTitle: string;
+  jobDepartment?: string;
+  jobLocationType: string;
+  jobEmploymentType: string;
+}
+
+export interface CandidatesResponse {
+  candidates: CandidateWithJobDetails[];
+  totalCount: number;
+  companyName: string;
 }
 
 export interface FilterOption {

@@ -49,8 +49,12 @@ public static class ApplicationDetailEndpoints
     {
         try
         {
+            // Generate the ID first
+            var applicationId = Guid.NewGuid();
+
             var applicationDetail = new ApplicationDetail
             {
+                Id = applicationId,
                 JobId = request.JobId,
                 CandidateUserId = request.CandidateUserId,
                 ResumeUrl = request.ResumeUrl,
@@ -59,26 +63,55 @@ public static class ApplicationDetailEndpoints
                 AvailabilityDate = request.AvailabilityDate,
                 JobSource = request.JobSource,
                 AiAnalysis = request.AiAnalysis,
-                AppliedAt = DateTime.UtcNow.AddHours(7), // Consistent with User creation
+                Status = "applied", // Explicitly set default status
+                Stage = "initial_review", // Explicitly set default stage
+                AppliedAt = DateTime.UtcNow.AddHours(7),
                 StatusChangedAt = DateTime.UtcNow.AddHours(7)
             };
 
-            var response = await client.From<ApplicationDetail>().Insert(applicationDetail);
+            Console.WriteLine($"Creating application detail with ID: {applicationId}");
+            Console.WriteLine($"JobId: {request.JobId}, CandidateUserId: {request.CandidateUserId}");
+
+            // Use Upsert instead of Insert to handle potential ID conflicts better
+            var response = await client.From<ApplicationDetail>()
+                .Upsert(applicationDetail);
+
             var newApplicationDetail = response.Models.FirstOrDefault();
 
             if (newApplicationDetail == null)
             {
+                Console.WriteLine("Failed to create application detail - no model returned");
                 return Results.BadRequest(new { error = "Failed to create application detail." });
             }
 
-            // Return 200 OK with no response body
-            return Results.Ok();
+            Console.WriteLine($"Application detail created successfully with ID: {newApplicationDetail.Id}");
+
+            // Return the created application with relevant details
+            return Results.Ok(new
+            {
+                applicationId = newApplicationDetail.Id,
+                status = newApplicationDetail.Status,
+                submittedAt = newApplicationDetail.AppliedAt,
+                message = "Application submitted successfully"
+            });
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error creating application detail: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+
+            // Log the inner exception if it exists
+            if (ex.InnerException != null)
+            {
+                Console.WriteLine($"Inner exception: {ex.InnerException.Message}");
+            }
+
+            return Results.BadRequest(new
+            {
+                error = ex.Message,
+                details = ex.ToString(),
+                innerException = ex.InnerException?.Message
+            });
         }
     }
 

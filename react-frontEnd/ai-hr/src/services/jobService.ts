@@ -36,14 +36,6 @@ class JobService {
       headers["Authorization"] = `Bearer ${token}`;
     }
 
-    // Debug logging
-    console.log("🔍 API Request:", {
-      url,
-      method: options?.method || "GET",
-      hasToken: !!token,
-      hasBody: !!options?.body,
-    });
-
     try {
       const response = await fetch(url, {
         headers: {
@@ -51,15 +43,6 @@ class JobService {
           ...options?.headers,
         },
         ...options,
-      });
-
-      // Debug logging
-      console.log("📡 API Response:", {
-        url,
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries()),
       });
 
       if (!response.ok) {
@@ -75,13 +58,6 @@ class JobService {
           };
         }
 
-        console.error("❌ API Error:", {
-          url,
-          status: response.status,
-          errorData,
-          hasToken: !!token,
-        });
-
         // Handle specific error cases
         if (response.status === 401) {
           console.error("🚫 Unauthorized - Token may be invalid or expired");
@@ -96,8 +72,6 @@ class JobService {
           errorData.error || `HTTP error! status: ${response.status}`
         );
       }
-
-      // 🔧 FIXED: Handle different response types properly
 
       // Handle 204 No Content
       if (response.status === 204) {
@@ -121,16 +95,12 @@ class JobService {
 
         // Handle empty JSON responses
         if (!text || text.trim() === "") {
-          console.log("✅ API Success: Empty JSON response");
           return null;
         }
 
         try {
           const data = JSON.parse(text);
-          console.log("✅ API Success:", {
-            url,
-            dataType: Array.isArray(data) ? `Array(${data.length})` : "Object",
-          });
+
           return data;
         } catch (parseError) {
           console.error("❌ JSON Parse Error:", parseError);
@@ -143,7 +113,6 @@ class JobService {
 
       // If it's not JSON, try to get text response
       const text = await response.text();
-      console.log("✅ API Success: Text response");
 
       // If the text looks like JSON, try to parse it
       if (text.trim().startsWith("{") || text.trim().startsWith("[")) {
@@ -189,8 +158,6 @@ class JobService {
       throw new Error("Authentication required to view job details");
     }
 
-    console.log("🔍 Loading job by ID:", id);
-
     try {
       const job = await this.fetchApi(`/jobs/${id}`);
 
@@ -198,7 +165,6 @@ class JobService {
         throw new Error("Job not found");
       }
 
-      console.log("✅ Job loaded:", job.title);
       return job;
     } catch (error) {
       console.error("❌ Failed to load job:", error);
@@ -233,10 +199,6 @@ class JobService {
     const queryString = params.toString();
     const endpoint = `/jobs${queryString ? `?${queryString}` : ""}`;
 
-    console.log(
-      `📡 Loading jobs with backend status: "${backendStatus}" (frontend requested: "${status}")`
-    );
-
     return this.fetchApi(endpoint);
   }
 
@@ -255,17 +217,11 @@ class JobService {
       throw new Error("Authentication required to update jobs");
     }
 
-    console.log("🔄 Updating job:", id);
-    console.log("📝 Update data:", data);
-
     try {
       const response = await this.fetchApi(`/jobs/${id}`, {
         method: "PUT",
         body: JSON.stringify(data),
       });
-
-      // The response might be null for successful updates (204 No Content)
-      console.log("✅ Job update response:", response);
 
       // No need to return anything for successful updates
       return;

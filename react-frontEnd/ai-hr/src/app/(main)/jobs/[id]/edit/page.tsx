@@ -1,4 +1,3 @@
-// app/jobs/[id]/edit/page.tsx
 import { JobEditPage } from "@/components/jobs/edit/JobEditPage";
 interface JobEditRouteProps {
   params: {
@@ -6,6 +5,7 @@ interface JobEditRouteProps {
   };
 }
 
-export default function JobEdit({ params }: JobEditRouteProps) {
-  return <JobEditPage jobId={params.id} />;
+export default async function JobEdit({ params }: JobEditRouteProps) {
+  const { id } = await params;
+  return <JobEditPage jobId={id} />;
 }

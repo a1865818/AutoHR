@@ -1,4 +1,3 @@
-// app/jobs/[id]/page.tsx
 import { JobDetailsPage } from "@/components/jobs/JobDetailPage";
 interface JobDetailPageProps {
   params: {
@@ -6,6 +5,7 @@ interface JobDetailPageProps {
   };
 }
 
-export default function JobDetail({ params }: JobDetailPageProps) {
-  return <JobDetailsPage jobId={params.id} />;
+export default async function JobDetail({ params }: JobDetailPageProps) {
+  const { id } = await params;
+  return <JobDetailsPage jobId={id} />;
 }
