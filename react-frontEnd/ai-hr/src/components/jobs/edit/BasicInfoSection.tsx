@@ -1,4 +1,3 @@
-// components/jobs/edit/BasicInfoSection.tsx
 import { JobFormData, JobFormErrors } from "@/interfaces";
 
 interface BasicInfoSectionProps {

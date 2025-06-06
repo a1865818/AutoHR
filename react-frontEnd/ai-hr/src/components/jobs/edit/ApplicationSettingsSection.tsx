@@ -1,4 +1,3 @@
-// components/jobs/edit/ApplicationSettingsSection.tsx
 import { JobFormData } from "@/interfaces";
 import { Calendar, FileText, HelpCircle, Image } from "lucide-react";
 

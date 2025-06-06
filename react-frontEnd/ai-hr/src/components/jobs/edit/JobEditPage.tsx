@@ -1,397 +1,3 @@
-// // components/jobs/JobEditPage.tsx
-// "use client";
-
-// import { JobFormData, JobFormErrors } from "@/interfaces";
-// import {
-//   ArrowLeft,
-//   Briefcase,
-//   DollarSign,
-//   Eye,
-//   MapPin,
-//   Save,
-//   Settings,
-// } from "lucide-react";
-// import Link from "next/link";
-// import { useRouter } from "next/navigation";
-// import { useEffect, useState } from "react";
-// import { ApplicationSettingsSection } from "./ApplicationSettingsSection";
-// import { BasicInfoSection } from "./BasicInfoSection";
-// import { CompensationSection } from "./CompensationSection";
-// import { JobDetailsSection } from "./JobDetailsSection";
-// import { JobPreviewModal } from "./JobPreviewModal";
-
-// interface JobEditPageProps {
-//   jobId: string;
-// }
-
-// export function JobEditPage({ jobId }: JobEditPageProps) {
-//   const router = useRouter();
-//   const [isLoading, setIsLoading] = useState(false);
-//   const [isSaving, setIsSaving] = useState(false);
-//   const [showPreview, setShowPreview] = useState(false);
-//   const [activeSection, setActiveSection] = useState("basic");
-//   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-
-//   // Initialize form data with the updated interface
-//   const [formData, setFormData] = useState<JobFormData>({
-//     title: "Senior Frontend Developer",
-//     company: "Figma",
-//     department: "Engineering",
-//     description:
-//       "We're looking for a senior frontend developer to join our design tools team. You'll be working on the core interface that millions of designers use daily to bring their ideas to life.",
-//     location: "Chicago, IL",
-//     locationType: "Hybrid",
-//     type: "Full-Time",
-//     experience: "5-8 years",
-//     responsibilities: [
-//       "Build and maintain high-performance React components",
-//       "Collaborate with designers and product managers",
-//       "Optimize application performance",
-//     ],
-//     requirements: [
-//       "5+ years of experience in frontend development",
-//       "Expert knowledge of React, TypeScript, and modern JavaScript",
-//       "Experience with canvas-based applications",
-//     ],
-//     qualifications: [
-//       "Bachelor's degree in Computer Science or equivalent experience",
-//       "Strong problem-solving and analytical skills",
-//     ],
-//     benefits: [
-//       "Competitive salary and equity package",
-//       "Comprehensive health, dental, and vision insurance",
-//       "Flexible work arrangements",
-//     ],
-//     skills: ["React", "TypeScript", "JavaScript", "HTML/CSS", "Git"],
-//     salary: {
-//       min: 90000,
-//       max: 120000,
-//       currency: "USD",
-//       period: "per year",
-//     },
-//     applicationSettings: {
-//       deadline: "",
-//       questionsRequired: false,
-//       resumeRequired: true,
-//       coverLetterRequired: false,
-//       portfolioRequired: false,
-//     },
-//   });
-
-//   const [errors, setErrors] = useState<JobFormErrors>({});
-
-//   // Auto-save functionality
-//   useEffect(() => {
-//     const autoSave = setTimeout(() => {
-//       handleAutoSave();
-//     }, 2000);
-
-//     return () => clearTimeout(autoSave);
-//   }, [formData]);
-
-//   const handleAutoSave = async () => {
-//     // Simulate auto-save API call
-//     setLastSaved(new Date());
-//   };
-
-//   const updateFormData = (field: keyof JobFormData, value: any) => {
-//     setFormData((prev) => ({
-//       ...prev,
-//       [field]: value,
-//     }));
-//   };
-
-//   const updateNestedFormData = (
-//     parentField: string,
-//     childField: string,
-//     value: any
-//   ) => {
-//     setFormData((prev) => ({
-//       ...prev,
-//       [parentField]: {
-//         ...(prev[parentField as keyof JobFormData] as any),
-//         [childField]: value,
-//       },
-//     }));
-//   };
-
-//   const addListItem = (field: keyof JobFormData) => {
-//     const currentArray = formData[field] as string[];
-//     setFormData((prev) => ({
-//       ...prev,
-//       [field]: [...(currentArray || []), ""],
-//     }));
-//   };
-
-//   const updateListItem = (
-//     field: keyof JobFormData,
-//     index: number,
-//     value: string
-//   ) => {
-//     const currentArray = formData[field] as string[];
-//     setFormData((prev) => ({
-//       ...prev,
-//       [field]: currentArray.map((item, i) => (i === index ? value : item)),
-//     }));
-//   };
-
-//   const removeListItem = (field: keyof JobFormData, index: number) => {
-//     const currentArray = formData[field] as string[];
-//     setFormData((prev) => ({
-//       ...prev,
-//       [field]: currentArray.filter((_, i) => i !== index),
-//     }));
-//   };
-
-//   const validateForm = () => {
-//     const newErrors: JobFormErrors = {};
-
-//     if (!formData.title.trim()) newErrors.title = "Job title is required";
-//     if (!formData.description.trim())
-//       newErrors.description = "Job description is required";
-//     if (!formData.location.trim()) newErrors.location = "Location is required";
-
-//     if (
-//       formData.salary.min &&
-//       formData.salary.max &&
-//       formData.salary.min >= formData.salary.max
-//     ) {
-//       newErrors.salary = "Minimum salary must be less than maximum salary";
-//     }
-
-//     setErrors(newErrors);
-//     return Object.keys(newErrors).length === 0;
-//   };
-
-//   const handleSave = async () => {
-//     if (!validateForm()) return;
-
-//     setIsSaving(true);
-//     try {
-//       // Simulate API call
-//       await new Promise((resolve) => setTimeout(resolve, 1000));
-//       setLastSaved(new Date());
-//       // Could show success toast here
-//     } catch (error) {
-//       console.error("Error saving job:", error);
-//     } finally {
-//       setIsSaving(false);
-//     }
-//   };
-
-//   const handlePublish = async () => {
-//     if (!validateForm()) return;
-
-//     setIsSaving(true);
-//     try {
-//       await new Promise((resolve) => setTimeout(resolve, 1000));
-//       router.push(`/jobs/${jobId}`);
-//     } catch (error) {
-//       console.error("Error publishing job:", error);
-//     } finally {
-//       setIsSaving(false);
-//     }
-//   };
-
-//   const sections = [
-//     { id: "basic", label: "Basic Information", icon: Briefcase },
-//     { id: "details", label: "Job Details", icon: MapPin },
-//     { id: "compensation", label: "Compensation", icon: DollarSign },
-//     { id: "application", label: "Application Settings", icon: Settings },
-//   ];
-
-//   const getCompletionStatus = () => {
-//     const required = {
-//       basic: formData.title && formData.description && formData.location,
-//       details:
-//         formData.responsibilities.length > 0 &&
-//         formData.requirements.length > 0,
-//       compensation: formData.salary.currency,
-//       application: true, // Always considered complete since all fields are optional
-//     };
-
-//     const completed = Object.values(required).filter(Boolean).length;
-//     const total = Object.keys(required).length;
-
-//     return {
-//       completed,
-//       total,
-//       percentage: Math.round((completed / total) * 100),
-//     };
-//   };
-
-//   const completionStatus = getCompletionStatus();
-
-//   return (
-//     <div className="min-h-screen bg-gray-50">
-//       {/* Header */}
-//       <div className="bg-white border-b sticky top-0 z-30">
-//         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-//           <div className="flex items-center justify-between py-4">
-//             <div className="flex items-center space-x-4">
-//               <Link
-//                 href={`/jobs/${jobId}`}
-//                 className="p-2 hover:bg-gray-100 rounded-md transition-colors"
-//               >
-//                 <ArrowLeft className="h-5 w-5 text-gray-600" />
-//               </Link>
-//               <div>
-//                 <h1 className="text-xl font-semibold text-gray-900">
-//                   Edit Job: {formData.title}
-//                 </h1>
-//                 <div className="flex items-center space-x-3 mt-1">
-//                   <div className="flex items-center space-x-2">
-//                     <div className="w-16 bg-gray-200 rounded-full h-1.5">
-//                       <div
-//                         className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
-//                         style={{ width: `${completionStatus.percentage}%` }}
-//                       ></div>
-//                     </div>
-//                     <span className="text-xs text-gray-500">
-//                       {completionStatus.completed}/{completionStatus.total}{" "}
-//                       sections complete
-//                     </span>
-//                   </div>
-//                   {lastSaved && (
-//                     <span className="text-xs text-gray-500">
-//                       Last saved {lastSaved.toLocaleTimeString()}
-//                     </span>
-//                   )}
-//                 </div>
-//               </div>
-//             </div>
-
-//             <div className="flex items-center space-x-3">
-//               <button
-//                 onClick={() => setShowPreview(true)}
-//                 className="flex items-center px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-//               >
-//                 <Eye className="h-4 w-4 mr-2" />
-//                 Preview
-//               </button>
-//               <button
-//                 onClick={handleSave}
-//                 disabled={isSaving}
-//                 className="flex items-center px-4 py-2 text-sm bg-white border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50"
-//               >
-//                 <Save className="h-4 w-4 mr-2" />
-//                 {isSaving ? "Saving..." : "Save Draft"}
-//               </button>
-//               <button
-//                 onClick={handlePublish}
-//                 disabled={isSaving || completionStatus.percentage < 75}
-//                 className="flex items-center px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
-//               >
-//                 Publish Job
-//               </button>
-//             </div>
-//           </div>
-//         </div>
-//       </div>
-
-//       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-//         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-//           {/* Navigation Sidebar */}
-//           <div className="lg:col-span-1">
-//             <div className="bg-white rounded-lg border p-4 sticky top-24">
-//               <nav className="space-y-2">
-//                 {sections.map((section) => {
-//                   const Icon = section.icon;
-//                   const isCompleted =
-//                     section.id === "basic"
-//                       ? formData.title &&
-//                         formData.description &&
-//                         formData.location
-//                       : section.id === "details"
-//                       ? formData.responsibilities.length > 0 &&
-//                         formData.requirements.length > 0
-//                       : section.id === "compensation"
-//                       ? formData.salary.currency
-//                       : true;
-
-//                   return (
-//                     <button
-//                       key={section.id}
-//                       onClick={() => setActiveSection(section.id)}
-//                       className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-//                         activeSection === section.id
-//                           ? "bg-blue-50 text-blue-600"
-//                           : "text-gray-700 hover:bg-gray-100"
-//                       }`}
-//                     >
-//                       <div className="flex items-center">
-//                         <Icon className="h-4 w-4 mr-3" />
-//                         {section.label}
-//                       </div>
-//                       {isCompleted && (
-//                         <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-//                       )}
-//                     </button>
-//                   );
-//                 })}
-//               </nav>
-
-//               {completionStatus.percentage < 100 && (
-//                 <div className="mt-4 p-3 bg-amber-50 rounded-md">
-//                   <p className="text-xs text-amber-800">
-//                     Complete all sections to publish your job posting.
-//                   </p>
-//                 </div>
-//               )}
-//             </div>
-//           </div>
-
-//           {/* Main Form */}
-//           <div className="lg:col-span-3">
-//             <div className="bg-white rounded-lg border">
-//               {activeSection === "basic" && (
-//                 <BasicInfoSection
-//                   formData={formData}
-//                   errors={errors}
-//                   updateFormData={updateFormData}
-//                 />
-//               )}
-
-//               {activeSection === "details" && (
-//                 <JobDetailsSection
-//                   formData={formData}
-//                   updateFormData={updateFormData}
-//                   updateListItem={updateListItem}
-//                   addListItem={addListItem}
-//                   removeListItem={removeListItem}
-//                 />
-//               )}
-
-//               {activeSection === "compensation" && (
-//                 <CompensationSection
-//                   formData={formData}
-//                   errors={errors}
-//                   updateNestedFormData={updateNestedFormData}
-//                 />
-//               )}
-
-//               {activeSection === "application" && (
-//                 <ApplicationSettingsSection
-//                   formData={formData}
-//                   updateNestedFormData={updateNestedFormData}
-//                 />
-//               )}
-//             </div>
-//           </div>
-//         </div>
-//       </div>
-
-//       {/* Preview Modal */}
-//       <JobPreviewModal
-//         formData={formData}
-//         isOpen={showPreview}
-//         onClose={() => setShowPreview(false)}
-//       />
-//     </div>
-//   );
-// }
-
-// components/jobs/JobEditPage.tsx
 "use client";
 
 import { JobFormData, JobFormErrors } from "@/interfaces";
@@ -506,13 +112,7 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
   };
 
   const handleAutoSave = async () => {
-    // Skip auto-save if there are critical validation errors
-    if (!validateForm(false)) {
-      console.log("⚠️ Skipping auto-save due to validation errors");
-      return;
-    }
-
-    // Skip auto-save if title is empty (minimum requirement)
+    // For auto-save, we only care about having a title
     if (!formData.title.trim()) {
       console.log("⚠️ Skipping auto-save - no title");
       return;
@@ -532,7 +132,7 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
       console.error("❌ Auto-save failed:", error);
 
       // Don't show auto-save errors to user unless it's authentication
-      if (error.message.includes("Authentication")) {
+      if (error.message && error.message.includes("Authentication")) {
         setSaveError("Please log in again");
       } else {
         // Just log auto-save errors, don't display them
@@ -596,34 +196,44 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
       [field]: currentArray.filter((_, i) => i !== index),
     }));
   };
-  const validateForm = (showErrors: boolean = true) => {
+
+  const validateForm = (isPublishing: boolean = false) => {
     const newErrors: JobFormErrors = {};
 
-    if (
-      !formData.title ||
-      (typeof formData.title === "string" && !formData.title.trim())
-    ) {
-      newErrors.title = "Job title is required";
+    // Only validate these fields if publishing or if they have some content
+    if (isPublishing || formData.title) {
+      if (
+        !formData.title ||
+        (typeof formData.title === "string" && !formData.title.trim())
+      ) {
+        newErrors.title = "Job title is required";
+      }
     }
 
-    if (
-      !formData.description ||
-      (typeof formData.description === "string" && !formData.description.trim())
-    ) {
-      newErrors.description = "Job description is required";
+    if (isPublishing || formData.description) {
+      if (
+        !formData.description ||
+        (typeof formData.description === "string" &&
+          !formData.description.trim())
+      ) {
+        newErrors.description = "Job description is required";
+      }
     }
 
     // Check if location is empty, handling both string and object cases
-    const locationIsEmpty =
-      !formData.location ||
-      (typeof formData.location === "string" && !formData.location.trim()) ||
-      (typeof formData.location === "object" &&
-        Object.keys(formData.location).length === 0);
+    if (isPublishing || formData.location) {
+      const locationIsEmpty =
+        !formData.location ||
+        (typeof formData.location === "string" && !formData.location.trim()) ||
+        (typeof formData.location === "object" &&
+          Object.keys(formData.location).length === 0);
 
-    if (locationIsEmpty) {
-      newErrors.location = "Location is required";
+      if (locationIsEmpty) {
+        newErrors.location = "Location is required";
+      }
     }
 
+    // Always validate salary logic if both values are present
     if (
       formData.salary.min !== undefined &&
       formData.salary.max !== undefined &&
@@ -632,15 +242,14 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
       newErrors.salary = "Minimum salary must be less than maximum salary";
     }
 
-    if (showErrors) {
-      setErrors(newErrors);
-    }
-
+    setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSave = async () => {
-    if (!validateForm()) return;
+    // For drafts, we don't need full validation, just basic check
+    // Validate with showErrors=true but don't block saving
+    validateForm(false);
 
     setIsSaving(true);
     setSaveError(null);
@@ -667,7 +276,8 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
   };
 
   const handlePublish = async () => {
-    if (!validateForm()) return;
+    // For publishing, we need full validation
+    if (!validateForm(true)) return;
 
     setIsSaving(true);
     setSaveError(null);
@@ -676,8 +286,7 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
       console.log("🚀 Publishing job...");
       const updateRequest = jobService.convertFormDataToUpdateRequest(formData);
 
-      // Set status to "open" for publishing (backend expects "open" for active jobs)
-      updateRequest.status = "open";
+      updateRequest.status = "Open";
       updateRequest.postedDate = new Date().toISOString();
 
       await jobService.updateJob(jobId, updateRequest);

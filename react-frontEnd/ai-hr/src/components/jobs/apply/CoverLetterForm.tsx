@@ -1,5 +1,3 @@
-// components/apply/CoverLetterForm.tsx
-
 interface CoverLetterFormProps {
   coverLetter: string;
   setCoverLetter: (letter: string) => void;

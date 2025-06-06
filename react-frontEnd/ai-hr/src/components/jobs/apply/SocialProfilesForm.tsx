@@ -1,4 +1,3 @@
-// components/apply/SocialProfilesForm.tsx
 import { SocialProfiles } from "@/interfaces";
 
 interface SocialProfilesFormProps {

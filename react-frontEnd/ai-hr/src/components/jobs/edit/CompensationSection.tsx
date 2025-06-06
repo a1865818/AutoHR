@@ -1,4 +1,3 @@
-// components/jobs/edit/CompensationSection.tsx
 import { JobFormData, JobFormErrors } from "@/interfaces/job";
 interface CompensationSectionProps {
   formData: JobFormData;

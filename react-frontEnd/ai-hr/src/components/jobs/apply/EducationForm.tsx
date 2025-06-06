@@ -1,4 +1,3 @@
-// components/apply/EducationForm.tsx
 import { Education } from "@/interfaces";
 import { Calendar, GraduationCap, Search } from "lucide-react";
 import { useState } from "react";

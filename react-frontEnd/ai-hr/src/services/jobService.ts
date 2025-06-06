@@ -188,7 +188,7 @@ class JobService {
     }
     let backendStatus = status;
     if (status === "active") {
-      backendStatus = "Open"; // Backend uses "open" for active jobs
+      backendStatus = "Open";
     }
     // Build query parameters
     const params = new URLSearchParams();
@@ -325,7 +325,10 @@ class JobService {
     };
   }
 
-  convertFormDataToUpdateRequest(formData: JobFormData): UpdateJobRequest {
+  convertFormDataToUpdateRequest(
+    formData: JobFormData
+    // status?: string
+  ): UpdateJobRequest {
     return {
       title: formData.title,
       description: formData.description,
@@ -345,7 +348,7 @@ class JobService {
       salaryMax: formData.salary.max,
       salaryCurrency: formData.salary.currency,
       applicationDeadline: formData.applicationSettings.deadline || undefined,
-      status: "draft", // Always save as draft when editing
+      status: "Draft", // Always save as draft when editing
     };
   }
 
@@ -477,9 +480,9 @@ class JobService {
   private mapFrontendStatusToBackend(frontendStatus: string): string {
     switch (frontendStatus.toLowerCase()) {
       case "active":
-        return "open"; // Frontend "Active" -> Backend "Open"
+        return "Open"; // Frontend "Active" -> Backend "Open"
       case "draft":
-        return "draft"; // Frontend "Draft" -> Backend "Draft"
+        return "Draft"; // Frontend "Draft" -> Backend "Draft"
       case "paused":
         return "paused"; // Frontend "Paused" -> Backend "Paused"
       case "closed":
@@ -494,9 +497,9 @@ class JobService {
     backendStatus: string
   ): "Draft" | "Active" | "Paused" | "Closed" {
     switch (backendStatus.toLowerCase()) {
-      case "open":
+      case "Open":
         return "Active"; // Backend "Open" -> Frontend "Active"
-      case "draft":
+      case "Draft":
         return "Draft"; // Backend "Draft" -> Frontend "Draft"
       case "paused":
         return "Paused"; // Backend "Paused" -> Frontend "Paused"
