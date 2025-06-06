@@ -43,6 +43,19 @@ public static class JobEndpoints
             .WithName("GetJobsByCompany")
             .WithSummary("Get jobs by company")
             .WithDescription("Retrieves all job postings for a specific company");
+
+        // Public endpoints for applicant users
+        app.MapGet("/public/jobs", GetPublicJobs)
+            .WithTags("Public Jobs")
+            .WithName("GetPublicJobs")
+            .WithSummary("Browse public jobs")
+            .WithDescription("Gets a list of active/open jobs for applicant browsing - no authentication required");
+
+        app.MapGet("/public/jobs/{id}", GetPublicJobById)
+            .WithTags("Public Jobs")
+            .WithName("GetPublicJobById")
+            .WithSummary("Get public job by ID")
+            .WithDescription("Retrieves complete details of a specific active job posting - no authentication required");
     }
 
     private static async Task<IResult> CreateJob(CreateJobRequest request, Supabase.Client client)
@@ -319,6 +332,138 @@ public static class JobEndpoints
         catch (Exception ex)
         {
             Console.WriteLine($"Error retrieving jobs for company: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+    // Public endpoints for applicants
+    private static async Task<IResult> GetPublicJobs(string? status, Guid? companyId, Supabase.Client client)
+    {
+        try
+        {
+            Console.WriteLine("🌍 Public jobs endpoint called - no authentication required");
+
+            // Start with a base query
+            var query = client.From<Job>();
+            var response = await query.Get();
+            var jobs = response.Models;
+
+            // For public endpoint, only show "Open" jobs (active for applicants)
+            jobs = jobs.Where(j => j.Status.Equals("Open", StringComparison.OrdinalIgnoreCase)).ToList();
+
+            // Apply additional filters if provided
+            if (!string.IsNullOrEmpty(status) && status.Equals("Open", StringComparison.OrdinalIgnoreCase))
+            {
+                // Status is already filtered to Open above
+            }
+
+            if (companyId.HasValue)
+            {
+                jobs = jobs.Where(j => j.CompanyId == companyId.Value).ToList();
+            }
+
+            Console.WriteLine($"🌍 Found {jobs.Count} public jobs");
+
+            // Create DTOs to avoid serialization issues - include all fields applicants need
+            var jobDtos = jobs.Select(job => new
+            {
+                Id = job.Id,
+                Title = job.Title,
+                CompanyId = job.CompanyId,
+                Description = job.Description,
+                EmploymentType = job.EmploymentType,
+                LocationType = job.LocationType,
+                Locations = job.Locations,
+                SalaryMin = job.SalaryMin,
+                SalaryMax = job.SalaryMax,
+                SalaryCurrency = job.SalaryCurrency,
+                Status = job.Status,
+                ApplicantCount = job.ApplicantCount,
+                PostedDate = job.PostedDate,
+                CreatedAt = job.CreatedAt,
+                Responsibilities = job.Responsibilities,
+                Requirements = job.Requirements,
+                Qualifications = job.Qualifications,
+                Benefits = job.Benefits,
+                SeniorityLevel = job.SeniorityLevel,
+                ExperienceYearsMin = job.ExperienceYearsMin,
+                ApplicationDeadline = job.ApplicationDeadline,
+                ViewCount = job.ViewCount,
+                AiGeneratedDescription = job.AiGeneratedDescription,
+                SkillMatchThreshold = job.SkillMatchThreshold,
+                ClosedDate = job.ClosedDate
+            }).ToList();
+
+            return Results.Ok(jobDtos);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error retrieving public jobs: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+    private static async Task<IResult> GetPublicJobById(Guid id, Supabase.Client client)
+    {
+        try
+        {
+            Console.WriteLine($"🌍 Public job by ID endpoint called for job: {id}");
+
+            // Get all jobs and filter by ID
+            var response = await client.From<Job>().Get();
+            var job = response.Models.FirstOrDefault(j => j.Id == id);
+
+            if (job == null)
+            {
+                return Results.NotFound(new { message = $"Job with ID {id} not found" });
+            }
+
+            // For public endpoint, only allow access to "Open" jobs
+            if (!job.Status.Equals("Open", StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.NotFound(new { message = $"Job with ID {id} is not available for public viewing" });
+            }
+
+            Console.WriteLine($"🌍 Found public job: {job.Title}");
+
+            // Create a complete DTO for applicants
+            var jobDto = new
+            {
+                Id = job.Id,
+                Title = job.Title,
+                CompanyId = job.CompanyId,
+                CreatedBy = job.CreatedBy,
+                Description = job.Description,
+                Responsibilities = job.Responsibilities,
+                Requirements = job.Requirements,
+                Qualifications = job.Qualifications,
+                Benefits = job.Benefits,
+                EmploymentType = job.EmploymentType,
+                SeniorityLevel = job.SeniorityLevel,
+                ExperienceYearsMin = job.ExperienceYearsMin,
+                LocationType = job.LocationType,
+                Locations = job.Locations,
+                SalaryMin = job.SalaryMin,
+                SalaryMax = job.SalaryMax,
+                SalaryCurrency = job.SalaryCurrency,
+                ApplicationDeadline = job.ApplicationDeadline,
+                Status = job.Status,
+                ApplicantCount = job.ApplicantCount,
+                ViewCount = job.ViewCount,
+                AiGeneratedDescription = job.AiGeneratedDescription,
+                SkillMatchThreshold = job.SkillMatchThreshold,
+                PostedDate = job.PostedDate,
+                ClosedDate = job.ClosedDate,
+                CreatedAt = job.CreatedAt,
+            };
+
+            return Results.Ok(jobDto);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error retrieving public job: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }

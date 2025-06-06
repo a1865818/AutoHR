@@ -1,12 +1,14 @@
 import JobApplicationForm from "@/components/jobs/apply/JobApplicationForm";
 
-interface ApplyPageProps {
+interface ApplicantApplyPageProps {
   params: {
     id: string;
   };
 }
 
-export default async function ApplyPage({ params }: ApplyPageProps) {
+export default async function ApplicantApplyPage({
+  params,
+}: ApplicantApplyPageProps) {
   const { id } = await params;
 
   return <JobApplicationForm jobId={id} />;

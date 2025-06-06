@@ -290,6 +290,101 @@ class JobService {
     }
   }
 
+  // Public methods for applicant job browsing (no auth required)
+  async getPublicJobs(status?: string, companyId?: string): Promise<ApiJob[]> {
+    let backendStatus = status;
+    if (status === "active") {
+      backendStatus = "Open";
+    }
+
+    // Build query parameters for public endpoint
+    const params = new URLSearchParams();
+    if (backendStatus && backendStatus.trim())
+      params.append("status", backendStatus);
+    if (companyId && companyId.trim()) params.append("companyId", companyId);
+
+    const queryString = params.toString();
+    const endpoint = `/public/jobs${queryString ? `?${queryString}` : ""}`;
+
+    console.log("🌍 Fetching public jobs from:", endpoint);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        let errorData;
+        try {
+          const text = await response.text();
+          errorData = text
+            ? JSON.parse(text)
+            : { error: `HTTP ${response.status}: ${response.statusText}` };
+        } catch {
+          errorData = {
+            error: `HTTP ${response.status}: ${response.statusText}`,
+          };
+        }
+        throw new Error(
+          errorData.error || `HTTP error! status: ${response.status}`
+        );
+      }
+
+      const jobs = await response.json();
+      console.log("✅ Public jobs fetched successfully:", jobs.length);
+      return jobs;
+    } catch (error: unknown) {
+      console.error("❌ Failed to fetch public jobs:", error);
+      throw error instanceof Error ? error : new Error("Failed to fetch public jobs");
+    }
+  }
+
+  async getPublicJobById(id: string): Promise<ApiJob> {
+    console.log("🌍 Fetching public job by ID:", id);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/public/jobs/${id}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        let errorData;
+        try {
+          const text = await response.text();
+          errorData = text
+            ? JSON.parse(text)
+            : { error: `HTTP ${response.status}: ${response.statusText}` };
+        } catch {
+          errorData = {
+            error: `HTTP ${response.status}: ${response.statusText}`,
+          };
+        }
+
+        // Provide more helpful error messages
+        if (response.status === 404) {
+          throw new Error("Job not found or is no longer available.");
+        }
+
+        throw new Error(
+          errorData.error || `HTTP error! status: ${response.status}`
+        );
+      }
+
+      const job = await response.json();
+      console.log("✅ Public job fetched successfully:", job.title);
+      return job;
+    } catch (error: unknown) {
+      console.error("❌ Failed to fetch public job:", error);
+      throw error instanceof Error ? error : new Error("Failed to fetch public job");
+    }
+  }
+
   // Utility methods to convert between API and frontend formats (unchanged)
   convertApiJobToFormData(apiJob: ApiJob, company?: ApiCompany): JobFormData {
     return {

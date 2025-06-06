@@ -1,6 +1,7 @@
 "use client";
 
 import { useJob } from "@/hooks/useJobs";
+import { useAuth } from "@/contexts/AuthContext";
 import { ApiJob } from "@/interfaces";
 import {
   AlertCircle,
@@ -33,6 +34,7 @@ interface JobDetailsPageProps {
 
 export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
   const { job, company, isLoading, error, refreshJob } = useJob(jobId);
+  const { user } = useAuth();
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "applicants">(
     "overview"
@@ -390,36 +392,44 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                 <Share2 className="h-4 w-4 mr-2" />
                 Share
               </button>
-              <Link
-                href={`/jobs/${job.id}/edit`}
-                className="flex items-center px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                <Edit className="h-4 w-4 mr-2" />
-                Edit Job
-              </Link>
-              <div className="relative">
-                <button
-                  className="p-2 hover:bg-gray-100 rounded-md transition-colors"
-                  onClick={() => setShowDropdown(!showDropdown)}
+
+              {/* Show Edit Job button only for HiringUserProfile */}
+              {user?.userCategory === "HiringUserProfile" && (
+                <Link
+                  href={`/jobs/${job.id}/edit`}
+                  className="flex items-center px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
-                  <MoreHorizontal className="h-5 w-5 text-gray-600" />
-                </button>
-                {showDropdown && (
-                  <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
-                    <div className="py-1">
-                      <button className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                        Duplicate Job
-                      </button>
-                      <button className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                        Archive Job
-                      </button>
-                      <button className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
-                        Delete Job
-                      </button>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Job
+                </Link>
+              )}
+
+              {/* Show dropdown menu only for HiringUserProfile */}
+              {user?.userCategory === "HiringUserProfile" && (
+                <div className="relative">
+                  <button
+                    className="p-2 hover:bg-gray-100 rounded-md transition-colors"
+                    onClick={() => setShowDropdown(!showDropdown)}
+                  >
+                    <MoreHorizontal className="h-5 w-5 text-gray-600" />
+                  </button>
+                  {showDropdown && (
+                    <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+                      <div className="py-1">
+                        <button className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                          Duplicate Job
+                        </button>
+                        <button className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                          Archive Job
+                        </button>
+                        <button className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50">
+                          Delete Job
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -435,16 +445,20 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
             >
               Job Overview
             </button>
-            <button
-              className={`pb-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === "applicants"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-              onClick={() => setActiveTab("applicants")}
-            >
-              Applicants ({applicantCount})
-            </button>
+
+            {/* Show Applicants tab only for HiringUserProfile */}
+            {user?.userCategory === "HiringUserProfile" && (
+              <button
+                className={`pb-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === "applicants"
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+                onClick={() => setActiveTab("applicants")}
+              >
+                Applicants ({applicantCount})
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -594,28 +608,43 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                   Quick Actions
                 </h3>
                 <div className="space-y-3">
-                  <Link
-                    href={`/jobs/${job.id}/apply`}
-                    className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Apply for This Job
-                  </Link>
-                  <button className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Applicants
-                  </button>
+                  {/* Show Apply button only for ApplicationUser */}
+                  {user?.userCategory === "ApplicationUser" && (
+                    <Link
+                      href={`/jobs/${job.id}/apply`}
+                      className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Apply for This Job
+                    </Link>
+                  )}
+
+                  {/* Show View Applicants button only for HiringUserProfile */}
+                  {user?.userCategory === "HiringUserProfile" && (
+                    <button
+                      onClick={() => setActiveTab("applicants")}
+                      className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      View Applicants
+                    </button>
+                  )}
+
                   <button className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors">
                     <Send className="h-4 w-4 mr-2" />
                     Share Job Link
                   </button>
-                  <Link
-                    href={`/jobs/${job.id}/edit`}
-                    className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-                  >
-                    <Edit className="h-4 w-4 mr-2" />
-                    Edit Job Details
-                  </Link>
+
+                  {/* Show Edit button only for HiringUserProfile */}
+                  {user?.userCategory === "HiringUserProfile" && (
+                    <Link
+                      href={`/jobs/${job.id}/edit`}
+                      className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                    >
+                      <Edit className="h-4 w-4 mr-2" />
+                      Edit Job Details
+                    </Link>
+                  )}
                 </div>
               </div>
 
@@ -645,14 +674,23 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                       {job.postedDate || job.createdAt
                         ? (() => {
                             try {
-                              let dateStr = job.postedDate || job.createdAt;
+                              let dateValue = job.postedDate || job.createdAt;
+                              let dateStr: string;
+
                               // Handle .NET DateTime objects
-                              if (typeof dateStr === "object") {
+                              if (
+                                typeof dateValue === "object" &&
+                                dateValue !== null
+                              ) {
+                                const objValue = dateValue as any;
                                 dateStr =
-                                  dateStr.value ||
-                                  dateStr.Value ||
-                                  dateStr.toString();
+                                  objValue.value ||
+                                  objValue.Value ||
+                                  String(dateValue);
+                              } else {
+                                dateStr = String(dateValue);
                               }
+
                               const posted = new Date(dateStr);
                               if (isNaN(posted.getTime())) return 0;
                               return Math.ceil(

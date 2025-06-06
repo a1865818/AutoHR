@@ -204,3 +204,67 @@ export function useJob(jobId: string): UseJobReturn {
     updateJob,
   };
 }
+
+// Public hook for applicants to view jobs without authentication
+export function usePublicJob(jobId: string): UseJobReturn {
+  const [job, setJob] = useState<ApiJob | null>(null);
+  const [company, setCompany] = useState<ApiCompany | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadJob = useCallback(async () => {
+    if (!jobId) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log("🌍 Loading public job data for ID:", jobId);
+      const jobData = await jobService.getPublicJobById(jobId);
+      setJob(jobData);
+
+      // Load company data if available
+      if (jobData.companyId) {
+        try {
+          const companyData = await jobService.getCompanyById(
+            jobData.companyId
+          );
+          setCompany(companyData);
+        } catch (error) {
+          console.warn("Could not load company data:", error);
+          // For public jobs, company data is nice to have but not required
+        }
+      }
+    } catch (error) {
+      console.error("Error loading public job:", error);
+      setError(error instanceof Error ? error.message : "Failed to load job");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [jobId]);
+
+  const refreshJob = useCallback(async () => {
+    await loadJob();
+  }, [loadJob]);
+
+  // For public jobs, we don't allow updates
+  const updateJob = useCallback(
+    async () => {
+      throw new Error("Cannot update jobs in public view");
+    },
+    []
+  );
+
+  useEffect(() => {
+    loadJob();
+  }, [loadJob]);
+
+  return {
+    job,
+    company,
+    isLoading,
+    error,
+    refreshJob,
+    updateJob,
+  };
+}
