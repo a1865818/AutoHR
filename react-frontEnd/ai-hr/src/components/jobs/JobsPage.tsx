@@ -1,225 +1,13 @@
 "use client";
 
+import { ApiCompany, ApiJob } from "@/interfaces";
 import { Job } from "@/interfaces/job";
-import { ChevronDown, Search } from "lucide-react";
+import { jobService } from "@/services/jobService";
+import { AlertCircle, ChevronDown, Loader2, Search } from "lucide-react";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { JobCard } from "./JobCard";
 import { JobFilterSidebar } from "./JobFilterSidebar";
-
-// Mock data for jobs
-const mockJobs: Job[] = [
-  {
-    id: "1",
-    title: "Senior Frontend Developer",
-    company: "Figma",
-    location: "Chicago, IL",
-    locationType: "On-site",
-    type: "Full-Time",
-    department: "Engineering",
-    experience: "5-7 Years",
-    salary: {
-      min: 90000,
-      max: 120000,
-      currency: "USD",
-      period: "per year",
-    },
-    description:
-      "We're looking for a senior frontend developer to join our design tools team.",
-    requirements: ["React", "TypeScript", "5+ years experience"],
-    qualifications: ["Bachelor's degree in Computer Science or related field"],
-    responsibilities: ["Develop UI features", "Collaborate with design team"],
-    benefits: ["Health insurance", "401(k)", "Stock options"],
-    skills: ["React", "TypeScript", "JavaScript", "HTML", "CSS"],
-    applicationSettings: {
-      deadline: "2025-06-15",
-      questionsRequired: true,
-      resumeRequired: true,
-      coverLetterRequired: false,
-      portfolioRequired: true,
-    },
-    postedDate: "2025-05-26",
-    status: "Active",
-    applicants: 24,
-    createdBy: "admin1",
-    updatedAt: "2025-05-27T10:00:00Z",
-  },
-  {
-    id: "2",
-    title: "Product Designer",
-    company: "Stripe",
-    location: "Chicago, IL",
-    locationType: "On-site",
-    type: "Full-Time",
-    department: "Design",
-    experience: "3-5 Years",
-    salary: {
-      min: 80000,
-      max: 110000,
-      currency: "USD",
-      period: "per year",
-    },
-    description:
-      "Join our product design team to create exceptional user experiences.",
-    requirements: ["Figma", "User Research", "3+ years experience"],
-    qualifications: ["Design portfolio", "Bachelor's degree"],
-    responsibilities: ["Create wireframes", "Conduct user testing"],
-    benefits: ["Flexible hours", "Remote work allowance"],
-    skills: ["Figma", "UX Research", "Prototyping"],
-    applicationSettings: {
-      deadline: "2025-06-20",
-      questionsRequired: false,
-      resumeRequired: true,
-      coverLetterRequired: true,
-      portfolioRequired: true,
-    },
-    postedDate: "2025-05-21",
-    status: "Active",
-    applicants: 18,
-    createdBy: "admin2",
-    updatedAt: "2025-05-27T09:30:00Z",
-  },
-  {
-    id: "3",
-    title: "UX Designer",
-    company: "Mailchimp",
-    location: "Remote",
-    locationType: "Remote",
-    type: "Full-Time",
-    department: "Design",
-    experience: "2-4 Years",
-    salary: {
-      min: 70000,
-      max: 95000,
-      currency: "USD",
-      period: "per year",
-    },
-    description:
-      "Help us design intuitive experiences for millions of users worldwide.",
-    requirements: ["Sketch", "Prototyping", "User Testing"],
-    qualifications: ["UX Design Certificate", "Portfolio"],
-    responsibilities: ["Design user journeys", "Run A/B tests"],
-    benefits: ["Remote-first", "Wellness stipend"],
-    skills: ["Sketch", "User Research", "Wireframing"],
-    applicationSettings: {
-      deadline: "2025-06-18",
-      questionsRequired: true,
-      resumeRequired: true,
-      coverLetterRequired: false,
-      portfolioRequired: true,
-    },
-    postedDate: "2025-05-25",
-    status: "Active",
-    applicants: 32,
-    createdBy: "admin3",
-    updatedAt: "2025-05-27T08:00:00Z",
-  },
-  {
-    id: "4",
-    title: "Backend Engineer",
-    company: "Intercom",
-    location: "Chicago, IL",
-    locationType: "On-site",
-    type: "Full-Time",
-    department: "Engineering",
-    experience: "4-6 Years",
-    salary: {
-      min: 95000,
-      max: 130000,
-      currency: "USD",
-      period: "per year",
-    },
-    description:
-      "Build scalable backend systems for our customer communication platform.",
-    requirements: ["Node.js", "PostgreSQL", "AWS"],
-    qualifications: ["CS degree", "Experience with cloud services"],
-    responsibilities: ["Develop APIs", "Maintain backend infrastructure"],
-    benefits: ["Paid time off", "Commuter benefits"],
-    skills: ["Node.js", "SQL", "AWS", "Docker"],
-    applicationSettings: {
-      deadline: "2025-06-22",
-      questionsRequired: false,
-      resumeRequired: true,
-      coverLetterRequired: true,
-      portfolioRequired: false,
-    },
-    postedDate: "2025-05-23",
-    status: "Paused",
-    applicants: 15,
-    createdBy: "admin4",
-    updatedAt: "2025-05-27T10:45:00Z",
-  },
-  {
-    id: "5",
-    title: "Marketing Manager",
-    company: "Dropbox",
-    location: "Chicago, IL",
-    locationType: "On-site",
-    type: "Full-Time",
-    department: "Marketing",
-    experience: "3-5 Years",
-    salary: {
-      min: 75000,
-      max: 100000,
-      currency: "USD",
-      period: "per year",
-    },
-    description:
-      "Lead marketing campaigns and drive user acquisition strategies.",
-    requirements: ["Digital Marketing", "Analytics", "Campaign Management"],
-    qualifications: ["Marketing degree", "5+ years experience"],
-    responsibilities: ["Develop marketing plans", "Analyze campaign data"],
-    benefits: ["Stock options", "Team events"],
-    skills: ["SEO", "Google Analytics", "Content Strategy"],
-    applicationSettings: {
-      deadline: "2025-06-25",
-      questionsRequired: false,
-      resumeRequired: true,
-      coverLetterRequired: false,
-      portfolioRequired: false,
-    },
-    postedDate: "2025-05-21",
-    status: "Active",
-    applicants: 28,
-    createdBy: "admin5",
-    updatedAt: "2025-05-27T11:00:00Z",
-  },
-  {
-    id: "6",
-    title: "Junior Developer",
-    company: "Spotify",
-    location: "New York, NY",
-    locationType: "Hybrid",
-    type: "Contract",
-    department: "Engineering",
-    experience: "0-2 Years",
-    salary: {
-      min: 55000,
-      max: 75000,
-      currency: "USD",
-      period: "per year",
-    },
-    description:
-      "Analyze user behavior and improve our recommendation algorithms.",
-    requirements: ["Python", "Machine Learning", "Statistics"],
-    qualifications: ["Bachelor’s in CS or related field"],
-    responsibilities: ["Develop scripts", "Analyze datasets"],
-    benefits: ["Gym reimbursement", "Mentorship"],
-    skills: ["Python", "Pandas", "Data Analysis"],
-    applicationSettings: {
-      deadline: "2025-06-28",
-      questionsRequired: true,
-      resumeRequired: true,
-      coverLetterRequired: false,
-      portfolioRequired: false,
-    },
-    postedDate: "2025-05-24",
-    status: "Active",
-    applicants: 12,
-    createdBy: "admin6",
-    updatedAt: "2025-05-27T09:15:00Z",
-  },
-];
 
 type SortOption = "newest" | "oldest" | "applicants" | "salary";
 type ViewMode = "jobs" | "drafts";
@@ -229,10 +17,132 @@ interface Filters {
   type: string[];
   experience: string[];
   location: string[];
-  favorites: string[];
 }
 
+// Helper functions moved outside component to avoid hoisting issues
+const extractLocationString = (locations: Record<string, any>): string => {
+  if (!locations) return "Location not specified";
+
+  if (locations.city && locations.state) {
+    return `${locations.city}, ${locations.state}`;
+  }
+
+  return locations.address || locations.description || "Location not specified";
+};
+
+const mapLocationTypeToJobFormat = (
+  locationType: string
+): "On-site" | "Remote" | "Hybrid" => {
+  switch (locationType?.toLowerCase()) {
+    case "remote":
+      return "Remote";
+    case "hybrid":
+      return "Hybrid";
+    default:
+      return "On-site";
+  }
+};
+
+const mapEmploymentTypeToJobFormat = (
+  employmentType: string
+): "Full-Time" | "Part-Time" | "Contract" | "Internship" => {
+  switch (employmentType?.toLowerCase()) {
+    case "full-time":
+      return "Full-Time";
+    case "part-time":
+      return "Part-Time";
+    case "contract":
+      return "Contract";
+    case "internship":
+      return "Internship";
+    default:
+      return "Full-Time";
+  }
+};
+
+const mapExperienceToJobFormat = (
+  seniorityLevel: string,
+  minYears?: number
+): string => {
+  if (minYears !== undefined) {
+    if (minYears === 0) return "0-2 Years";
+    if (minYears <= 2) return "2-5 Years";
+    if (minYears <= 5) return "5+ Years";
+    return "5+ Years";
+  }
+
+  switch (seniorityLevel?.toLowerCase()) {
+    case "junior":
+      return "0-2 Years";
+    case "mid":
+      return "2-5 Years";
+    case "senior":
+      return "5+ Years";
+    default:
+      return "2-5 Years";
+  }
+};
+
+const mapStatusToJobFormat = (
+  status: string
+): "Draft" | "Active" | "Paused" | "Closed" => {
+  // Handle null/undefined/empty status
+  if (!status || typeof status !== "string") {
+    console.warn("🚨 Invalid status received:", status);
+    return "Draft";
+  }
+
+  // Trim whitespace and convert to lowercase for comparison
+  const normalizedStatus = status.trim().toLowerCase();
+
+  console.log(
+    `🔄 Mapping status: "${status}" -> normalized: "${normalizedStatus}"`
+  );
+
+  switch (normalizedStatus) {
+    case "open": // Backend uses "Open" for active jobs
+    case "active": // Also handle "Active" just in case
+      console.log("✅ Mapped to Active");
+      return "Active";
+    case "draft": // Backend uses "Draft" for draft jobs
+      console.log("✅ Mapped to Draft");
+      return "Draft";
+    case "paused": // Backend uses "Paused" for paused jobs
+      console.log("✅ Mapped to Paused");
+      return "Paused";
+    case "closed": // Backend uses "Closed" for closed jobs
+      console.log("✅ Mapped to Closed");
+      return "Closed";
+    default:
+      console.warn("🚨 Unknown status received from backend:", status);
+      console.warn(
+        "🚨 Available values should be: Open, Draft, Paused, Closed"
+      );
+      return "Draft"; // Default fallback
+  }
+};
+
+const formatPostedDate = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffTime = Math.abs(now.getTime() - date.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 1) return "1 day ago";
+  if (diffDays < 7) return `${diffDays} days ago`;
+  if (diffDays < 14) return "1 week ago";
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+  return `${Math.floor(diffDays / 30)} months ago`;
+};
+
 export function JobsPage() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [allJobs, setAllJobs] = useState<ApiJob[]>([]);
+  const [companies, setCompanies] = useState<Map<string, ApiCompany>>(
+    new Map()
+  );
+
   const [expandedFilters, setExpandedFilters] = useState({
     status: true,
     type: true,
@@ -245,64 +155,209 @@ export function JobsPage() {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("jobs");
 
-  // Initialize with empty arrays instead of default filters to show all jobs initially
   const [activeFilters, setActiveFilters] = useState<Filters>({
     status: [],
     type: [],
     experience: [],
     location: [],
-    favorites: [],
   });
 
-  // Calculate filter counts based on all jobs
+  useEffect(() => {
+    loadAllJobsData();
+  }, []);
+
+  const loadAllJobsData = async () => {
+    console.log("🔄 Loading all jobs data...");
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      if (!jobService.isAuthenticated()) {
+        throw new Error("Please log in to view jobs");
+      }
+
+      // Load all jobs regardless of status
+      console.log("📊 Loading all jobs...");
+      const [activeJobs, draftJobs] = await Promise.all([
+        jobService.getAllJobs("Open"),
+        jobService.getAllJobs("Draft"),
+      ]);
+
+      const allJobsData = [...(activeJobs || []), ...(draftJobs || [])];
+
+      console.log("📊 Raw API jobs data:", allJobsData);
+      console.log("📊 Number of jobs received:", allJobsData?.length || 0);
+      console.log("📊 Active jobs:", activeJobs?.length || 0);
+      console.log("📊 Draft jobs:", draftJobs?.length || 0);
+
+      // Log first job for structure analysis
+      if (allJobsData && allJobsData.length > 0) {
+        console.log(
+          "🔍 First job structure:",
+          JSON.stringify(allJobsData[0], null, 2)
+        );
+      }
+
+      setAllJobs(allJobsData || []);
+
+      // Load companies
+      const companyIds = [
+        ...new Set((allJobsData || []).map((job) => job.companyId)),
+      ];
+      console.log("🏢 Loading companies for IDs:", companyIds);
+
+      const companiesMap = new Map<string, ApiCompany>();
+
+      await Promise.all(
+        companyIds.map(async (companyId) => {
+          try {
+            console.log(`🏢 Loading company ${companyId}...`);
+            const company = await jobService.getCompanyById(companyId);
+            console.log(`✅ Company loaded:`, company);
+            companiesMap.set(companyId, company);
+          } catch (error) {
+            console.warn(`❌ Failed to load company ${companyId}:`, error);
+          }
+        })
+      );
+
+      console.log("🏢 Companies map:", companiesMap);
+      setCompanies(companiesMap);
+    } catch (error) {
+      console.error("❌ Error loading jobs:", error);
+      setError(error instanceof Error ? error.message : "Failed to load jobs");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Transform API jobs to your existing Job interface format
+  const transformedJobs = useMemo(() => {
+    console.log("🔄 Starting job transformation...");
+    console.log("📊 Raw jobs to transform:", allJobs.length);
+
+    const transformed = allJobs.map((apiJob, index): Job => {
+      console.log(
+        `🔄 Transforming job ${index + 1}/${allJobs.length}:`,
+        apiJob.title
+      );
+      console.log(`📊 Original status: "${apiJob.status}"`);
+
+      const company = companies.get(apiJob.companyId);
+
+      const mappedStatus = mapStatusToJobFormat(apiJob.status);
+      console.log(`📊 Mapped status: "${mappedStatus}"`);
+
+      const transformedJob: Job = {
+        id: apiJob.id,
+        title: apiJob.title,
+        company: company?.name || "Unknown Company",
+        location: extractLocationString(apiJob.locations),
+        locationType: mapLocationTypeToJobFormat(apiJob.locationType),
+        type: mapEmploymentTypeToJobFormat(apiJob.employmentType),
+        department: company?.industry || "Not specified",
+        experience: mapExperienceToJobFormat(
+          apiJob.seniorityLevel,
+          apiJob.experienceYearsMin
+        ),
+        salary: {
+          min: apiJob.salaryMin || 0,
+          max: apiJob.salaryMax || 0,
+          currency: apiJob.salaryCurrency || "USD",
+          period: "per year" as const,
+        },
+        description: apiJob.description,
+        requirements: apiJob.requirements || [],
+        qualifications: apiJob.qualifications || [],
+        responsibilities: apiJob.responsibilities || [],
+        benefits: apiJob.benefits || [],
+        skills: [],
+        applicationSettings: {
+          deadline: apiJob.applicationDeadline || "",
+          questionsRequired: false,
+          resumeRequired: true,
+          coverLetterRequired: false,
+          portfolioRequired: false,
+        },
+        postedDate: formatPostedDate(apiJob.postedDate || apiJob.createdAt),
+        status: mappedStatus, // Use the mapped status
+        applicants: apiJob.applicantCount || 0,
+        createdBy: apiJob.createdBy,
+        updatedAt: apiJob.createdAt,
+      };
+
+      console.log(
+        `✅ Transformed job ${index + 1}: Status "${transformedJob.status}"`
+      );
+      return transformedJob;
+    });
+
+    // Count by status
+    const statusCounts = {
+      Active: transformed.filter((job) => job.status === "Active").length,
+      Draft: transformed.filter((job) => job.status === "Draft").length,
+      Paused: transformed.filter((job) => job.status === "Paused").length,
+      Closed: transformed.filter((job) => job.status === "Closed").length,
+    };
+
+    console.log("📊 Status counts after transformation:", statusCounts);
+    console.log("✅ Total transformed jobs:", transformed.length);
+
+    return transformed;
+  }, [allJobs, companies]);
+
+  // Calculate tab counts - always show total counts regardless of current view
+  const tabCounts = useMemo(() => {
+    const activeJobsCount = transformedJobs.filter(
+      (job) => job.status !== "Draft"
+    ).length;
+    const draftJobsCount = transformedJobs.filter(
+      (job) => job.status === "Draft"
+    ).length;
+
+    console.log(
+      "📊 Tab counts - Active:",
+      activeJobsCount,
+      "Draft:",
+      draftJobsCount
+    );
+
+    return {
+      activeJobs: activeJobsCount,
+      draftJobs: draftJobsCount,
+    };
+  }, [transformedJobs]);
+
+  // Calculate filter counts
   const filterCounts = useMemo(() => {
+    console.log("📊 Calculating filter counts for jobs:", transformedJobs);
+
     const counts = {
       status: {} as Record<string, number>,
       type: {} as Record<string, number>,
       experience: {} as Record<string, number>,
       location: {} as Record<string, number>,
-      favorites: {} as Record<string, number>,
     };
 
-    // Count each attribute in the mock jobs
-    mockJobs.forEach((job) => {
-      // Count by status
+    transformedJobs.forEach((job) => {
       counts.status[job.status] = (counts.status[job.status] || 0) + 1;
-
-      // Count by job type
       counts.type[job.type] = (counts.type[job.type] || 0) + 1;
 
-      // Simplify experience to Entry/Mid/Senior
       let expCategory = "Entry";
       if (job.experience.includes("5+")) {
         expCategory = "Senior";
-      } else if (
-        job.experience.includes("3-5") ||
-        job.experience.includes("2-5")
-      ) {
+      } else if (job.experience.includes("2-5")) {
         expCategory = "Mid";
       }
       counts.experience[expCategory] =
         (counts.experience[expCategory] || 0) + 1;
-
-      // Count by location
-      if (job.location.includes("Chicago")) {
-        counts.location["Chicago"] = (counts.location["Chicago"] || 0) + 1;
-      } else if (job.locationType === "Remote") {
-        counts.location["Remote"] = (counts.location["Remote"] || 0) + 1;
-      } else if (job.locationType === "Hybrid") {
-        counts.location["Hybrid"] = (counts.location["Hybrid"] || 0) + 1;
-      }
-
-      // Count for favorites (using same as status counts for simplicity)
-      counts.favorites[job.status] = (counts.favorites[job.status] || 0) + 1;
+      counts.location[job.locationType] =
+        (counts.location[job.locationType] || 0) + 1;
     });
 
-    // Add "Draft" counts (even though we don't have any actual draft jobs in our mock data)
-    counts.favorites["Draft"] = 3; // For display purposes
-
+    console.log("📊 Filter counts:", counts);
     return counts;
-  }, [mockJobs]);
+  }, [transformedJobs]);
 
   const toggleFilter = (filterType: keyof typeof expandedFilters) => {
     setExpandedFilters((prev) => ({
@@ -330,7 +385,6 @@ export function JobsPage() {
       type: [],
       experience: [],
       location: [],
-      favorites: [],
     });
   };
 
@@ -350,10 +404,24 @@ export function JobsPage() {
   };
 
   const filteredAndSortedJobs = useMemo(() => {
-    let filtered = mockJobs;
+    console.log("🔍 Filtering and sorting jobs...");
+    console.log("📊 Input jobs:", transformedJobs);
+    console.log("🔍 Search query:", searchQuery);
+    console.log("🔧 Active filters:", activeFilters);
+    console.log("📈 Sort by:", sortBy);
+
+    let filtered = transformedJobs;
+
+    // Filter by view mode first
+    if (viewMode === "jobs") {
+      filtered = filtered.filter((job) => job.status !== "Draft");
+    } else {
+      filtered = filtered.filter((job) => job.status === "Draft");
+    }
 
     // Search filter
     if (searchQuery) {
+      console.log("🔍 Applying search filter:", searchQuery);
       filtered = filtered.filter(
         (job) =>
           job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -362,30 +430,33 @@ export function JobsPage() {
             req.toLowerCase().includes(searchQuery.toLowerCase())
           )
       );
+      console.log("🔍 After search filter:", filtered.length, "jobs");
     }
 
-    // If no filters are selected, show all jobs
+    // Status filter
     const hasStatusFilters = activeFilters.status.length > 0;
-    const hasTypeFilters = activeFilters.type.length > 0;
-    const hasExperienceFilters = activeFilters.experience.length > 0;
-    const hasLocationFilters = activeFilters.location.length > 0;
-
-    // Apply Status filter only if at least one is selected
     if (hasStatusFilters) {
+      console.log("📊 Applying status filter:", activeFilters.status);
       filtered = filtered.filter((job) =>
         activeFilters.status.includes(job.status)
       );
+      console.log("📊 After status filter:", filtered.length, "jobs");
     }
 
-    // Apply Type filter only if at least one is selected
+    // Type filter
+    const hasTypeFilters = activeFilters.type.length > 0;
     if (hasTypeFilters) {
+      console.log("💼 Applying type filter:", activeFilters.type);
       filtered = filtered.filter((job) =>
         activeFilters.type.includes(job.type)
       );
+      console.log("💼 After type filter:", filtered.length, "jobs");
     }
 
-    // Apply Experience filter only if at least one is selected
+    // Experience filter
+    const hasExperienceFilters = activeFilters.experience.length > 0;
     if (hasExperienceFilters) {
+      console.log("🎯 Applying experience filter:", activeFilters.experience);
       filtered = filtered.filter((job) => {
         if (
           activeFilters.experience.includes("Senior") &&
@@ -394,7 +465,7 @@ export function JobsPage() {
           return true;
         if (
           activeFilters.experience.includes("Mid") &&
-          (job.experience.includes("3-5") || job.experience.includes("2-5"))
+          job.experience.includes("2-5")
         )
           return true;
         if (
@@ -404,36 +475,17 @@ export function JobsPage() {
           return true;
         return false;
       });
+      console.log("🎯 After experience filter:", filtered.length, "jobs");
     }
 
-    // Apply Location filter only if at least one is selected
+    // Location filter
+    const hasLocationFilters = activeFilters.location.length > 0;
     if (hasLocationFilters) {
+      console.log("📍 Applying location filter:", activeFilters.location);
       filtered = filtered.filter((job) => {
-        if (
-          activeFilters.location.includes("Chicago") &&
-          job.location.includes("Chicago")
-        )
-          return true;
-        if (
-          activeFilters.location.includes("Remote") &&
-          job.locationType === "Remote"
-        )
-          return true;
-        if (
-          activeFilters.location.includes("Hybrid") &&
-          job.locationType === "Hybrid"
-        )
-          return true;
-        return false;
+        return activeFilters.location.includes(job.locationType);
       });
-    }
-
-    // Apply favorites filter
-    if (activeFilters.favorites.length > 0) {
-      filtered = filtered.filter((job) => {
-        if (activeFilters.favorites.includes(job.status)) return true;
-        return true;
-      });
+      console.log("📍 After location filter:", filtered.length, "jobs");
     }
 
     // Sorting
@@ -456,10 +508,67 @@ export function JobsPage() {
       }
     });
 
+    console.log("✅ Final filtered and sorted jobs:", sorted);
     return sorted;
-  }, [mockJobs, searchQuery, activeFilters, sortBy]);
+  }, [transformedJobs, searchQuery, activeFilters, sortBy, viewMode]);
 
-  const draftJobs = 3; // Mock draft count
+  console.log("🎯 Current state:");
+  console.log("- isLoading:", isLoading);
+  console.log("- error:", error);
+  console.log("- allJobs.length:", allJobs.length);
+  console.log("- transformedJobs.length:", transformedJobs.length);
+  console.log("- filteredAndSortedJobs.length:", filteredAndSortedJobs.length);
+  console.log("- viewMode:", viewMode);
+  console.log("- tabCounts:", tabCounts);
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+            <p className="text-gray-600">Loading jobs...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex h-screen bg-gray-50">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-md">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+              <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-4" />
+              <h2 className="text-lg font-semibold text-red-900 mb-2">
+                Error Loading Jobs
+              </h2>
+              <p className="text-red-700 mb-4">{error}</p>
+              <div className="space-y-2">
+                <button
+                  onClick={loadAllJobsData}
+                  className="block w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                >
+                  Try Again
+                </button>
+                {error.includes("log in") && (
+                  <Link
+                    href="/login"
+                    className="block w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Go to Login
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -507,7 +616,7 @@ export function JobsPage() {
                     : "bg-gray-100 text-gray-600"
                 }`}
               >
-                {filteredAndSortedJobs.length}
+                {tabCounts.activeJobs}
               </span>
             </button>
             <button
@@ -526,7 +635,7 @@ export function JobsPage() {
                     : "bg-gray-100 text-gray-600"
                 }`}
               >
-                {draftJobs}
+                {tabCounts.draftJobs}
               </span>
             </button>
           </div>
@@ -590,39 +699,41 @@ export function JobsPage() {
 
         {/* Job List */}
         <div className="flex-1 overflow-y-auto p-6">
-          {viewMode === "jobs" ? (
-            <div className="space-y-4">
-              {filteredAndSortedJobs.map((job) => (
-                <JobCard key={job.id} job={job} />
-              ))}
+          <div className="space-y-4">
+            {filteredAndSortedJobs.map((job) => (
+              <JobCard key={job.id} job={job} />
+            ))}
 
-              {filteredAndSortedJobs.length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">
-                    {searchQuery
-                      ? "No jobs found matching your search."
-                      : "No jobs match your current filters."}
-                  </p>
-                  {Object.values(activeFilters).some(
-                    (arr) => arr.length > 0
-                  ) && (
-                    <button
-                      onClick={clearAllFilters}
-                      className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+            {filteredAndSortedJobs.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-gray-500">
+                  {searchQuery
+                    ? "No jobs found matching your search."
+                    : viewMode === "drafts"
+                    ? "No draft jobs found."
+                    : "No active jobs found."}
+                </p>
+                {Object.values(activeFilters).some((arr) => arr.length > 0) && (
+                  <button
+                    onClick={clearAllFilters}
+                    className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  >
+                    Clear all filters
+                  </button>
+                )}
+                {viewMode === "drafts" &&
+                  filteredAndSortedJobs.length === 0 &&
+                  !searchQuery && (
+                    <Link
+                      href="create-job"
+                      className="mt-2 inline-block text-blue-600 hover:text-blue-800 text-sm font-medium"
                     >
-                      Clear all filters
-                    </button>
+                      Create your first job
+                    </Link>
                   )}
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <p className="text-gray-500">
-                Draft functionality coming soon...
-              </p>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

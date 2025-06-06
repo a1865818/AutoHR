@@ -1,7 +1,6 @@
+// Models/Job.cs - Updated to include missing fields
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
-// using System;
-// using System.Collections.Generic;
 
 namespace ai_hr.Models
 {
@@ -12,7 +11,7 @@ namespace ai_hr.Models
         public Guid Id { get; set; }
 
         [Column("title")]
-        public string Title { get; set; }
+        public string Title { get; set; } = string.Empty;
 
         [Column("company_id")]
         public Guid CompanyId { get; set; }
@@ -21,34 +20,34 @@ namespace ai_hr.Models
         public Guid CreatedBy { get; set; }
 
         [Column("description")]
-        public string Description { get; set; }
+        public string Description { get; set; } = string.Empty;
 
         [Column("responsibilities")]
-        public List<string> Responsibilities { get; set; }
+        public List<string> Responsibilities { get; set; } = new();
 
         [Column("requirements")]
-        public List<string> Requirements { get; set; }
+        public List<string> Requirements { get; set; } = new();
 
         [Column("qualifications")]
-        public List<string> Qualifications { get; set; }
+        public List<string> Qualifications { get; set; } = new();
 
         [Column("benefits")]
-        public List<string> Benefits { get; set; }
+        public List<string> Benefits { get; set; } = new();
 
         [Column("employment_type")]
-        public string EmploymentType { get; set; }
+        public string EmploymentType { get; set; } = string.Empty; // "Full-Time", "Part-Time", etc.
 
         [Column("seniority_level")]
-        public string SeniorityLevel { get; set; }
+        public string? SeniorityLevel { get; set; }
 
         [Column("experience_years_min")]
         public int? ExperienceYearsMin { get; set; }
 
         [Column("location_type")]
-        public string LocationType { get; set; }
+        public string LocationType { get; set; } = string.Empty; // "On-site", "Remote", "Hybrid"
 
         [Column("locations")]
-        public Dictionary<string, object> Locations { get; set; }
+        public Dictionary<string, object> Locations { get; set; } = new();
 
         [Column("salary_min")]
         public decimal? SalaryMin { get; set; }
@@ -63,7 +62,7 @@ namespace ai_hr.Models
         public DateTime? ApplicationDeadline { get; set; }
 
         [Column("status")]
-        public string Status { get; set; } = "draft";
+        public string Status { get; set; } = "Open";
 
         [Column("applicant_count")]
         public int ApplicantCount { get; set; } = 0;
@@ -88,5 +87,19 @@ namespace ai_hr.Models
 
         [Column("updated_at")]
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+        // Additional fields for the frontend
+        [Column("company_name")]
+        public string? CompanyName { get; set; }
+
+        [Column("department")]
+        public string? Department { get; set; }
+
+        public Job()
+        {
+            Id = Guid.NewGuid();
+            CreatedAt = DateTime.UtcNow;
+            UpdatedAt = DateTime.UtcNow;
+        }
     }
 }
