@@ -8,20 +8,36 @@ import { useAuth } from "@/contexts/AuthContext";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
+  requiredUserCategory?: "ApplicationUser" | "HiringUserProfile";
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   fallback,
+  requiredUserCategory,
 }) => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push("/login");
+      return;
     }
-  }, [isAuthenticated, isLoading, router]);
+
+    if (!isLoading && isAuthenticated && user && requiredUserCategory) {
+      // Check if user's category matches the required category
+      if (user.userCategory !== requiredUserCategory) {
+        // Redirect to appropriate dashboard based on user category
+        if (user.userCategory === "ApplicationUser") {
+          router.push("/applicant");
+        } else if (user.userCategory === "HiringUserProfile") {
+          router.push("/");
+        }
+        return;
+      }
+    }
+  }, [isAuthenticated, isLoading, router, user, requiredUserCategory]);
 
   if (isLoading) {
     return (
@@ -38,6 +54,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
 
   if (!isAuthenticated) {
     // Return null while redirecting
+    return null;
+  }
+
+  // If a specific user category is required and user doesn't match, return null while redirecting
+  if (
+    requiredUserCategory &&
+    user &&
+    user.userCategory !== requiredUserCategory
+  ) {
     return null;
   }
 

@@ -4,11 +4,9 @@ import React, { useState, useRef, useEffect } from "react";
 import { ChevronDown, User, LogOut, Settings, Shield } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRouter } from "next/navigation";
-import LogoutModal from "./LogoutModal";
 
 const UserDropdown: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
   const router = useRouter();
@@ -44,15 +42,10 @@ const UserDropdown: React.FC = () => {
     router.push("/settings");
   };
 
-  const handleLogoutClick = () => {
+  const handleLogoutClick = async () => {
     setIsOpen(false);
-    setShowLogoutModal(true);
-  };
 
-  const confirmLogout = () => {
-    logout();
-    setShowLogoutModal(false);
-    router.push("/login");
+    await logout();
   };
 
   if (!user) {
@@ -159,14 +152,6 @@ const UserDropdown: React.FC = () => {
           </div>
         )}
       </div>
-
-      {/* Logout Confirmation Modal */}
-      <LogoutModal
-        isOpen={showLogoutModal}
-        onClose={() => setShowLogoutModal(false)}
-        onConfirm={confirmLogout}
-        userName={user.name}
-      />
     </>
   );
 };

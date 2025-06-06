@@ -1,6 +1,8 @@
 // // Core Components
 export { Header } from "./Header";
 export { Sidebar } from "./Sidebar";
+export { ApplicantSidebar } from "./ApplicantSidebar";
+export { HiringSidebar } from "./HiringSidebar";
 
 // Auth Components
 export { default as UserDropdown } from "./auth/UserDropdown";
