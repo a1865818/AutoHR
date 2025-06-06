@@ -63,6 +63,15 @@ export interface JobFormData {
   };
 }
 
+export interface JobFormErrors {
+  title?: string;
+  company?: string;
+  description?: string;
+  salary?: string;
+  location?: string;
+  general?: string;
+}
+
 export interface JobCreationStep {
   id: number;
   title: string;
@@ -100,4 +109,4 @@ export interface CreateJobResponse {
 
 export interface JobData {
   [key: string]: unknown;
-} 
+}

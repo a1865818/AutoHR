@@ -1,7 +1,9 @@
-// components/jobs/JobDetailsPage.tsx
 "use client";
 
+import { useJob } from "@/hooks/useJobs";
+import { ApiJob } from "@/interfaces";
 import {
+  AlertCircle,
   ArrowLeft,
   Briefcase,
   Building2,
@@ -10,8 +12,10 @@ import {
   Clock,
   DollarSign,
   Edit,
+  ExternalLink,
   Eye,
   Globe,
+  Loader2,
   MapPin,
   MoreHorizontal,
   Pause,
@@ -23,111 +27,103 @@ import {
 import Link from "next/link";
 import { useState } from "react";
 
-interface JobDetails {
-  id: string;
-  title: string;
-  company: string;
-  location: string;
-  type: "Full-Time" | "Part-Time" | "Contract" | "Internship";
-  experience: string;
-  salary: string;
-  salaryMin: number;
-  salaryMax: number;
-  description: string;
-  responsibilities: string[];
-  requirements: string[];
-  benefits: string[];
-  postedDate: string;
-  applicants: number;
-  status: "Active" | "Paused" | "Closed";
-  urgency?: "Urgent" | "High Priority";
-  isRemote: boolean;
-  department: string;
-  reportingTo: string;
-  companySize: string;
-  industry: string;
-  website: string;
-}
-
-// Mock job data - in real app this would come from props or API
-const mockJobDetails: JobDetails = {
-  id: "1",
-  title: "Senior Frontend Developer",
-  company: "Figma",
-  location: "Chicago, IL",
-  type: "Full-Time",
-  experience: "5-7 Years",
-  salary: "$90k - $120k",
-  salaryMin: 90000,
-  salaryMax: 120000,
-  description:
-    "We're looking for a senior frontend developer to join our design tools team. You'll be working on the core interface that millions of designers use daily to bring their ideas to life. This is a unique opportunity to shape the future of design tools and work with a world-class team of engineers and designers.",
-  responsibilities: [
-    "Build and maintain high-performance React components for the Figma editor",
-    "Collaborate with designers and product managers to implement new features",
-    "Optimize application performance and ensure smooth user experience",
-    "Mentor junior developers and contribute to technical decisions",
-    "Write comprehensive tests and maintain code quality standards",
-    "Participate in code reviews and architectural discussions",
-  ],
-  requirements: [
-    "5+ years of experience in frontend development",
-    "Expert knowledge of React, TypeScript, and modern JavaScript",
-    "Experience with canvas-based applications or graphics programming",
-    "Strong understanding of web performance optimization",
-    "Experience with testing frameworks (Jest, React Testing Library)",
-    "Bachelor's degree in Computer Science or equivalent experience",
-    "Excellent communication and collaboration skills",
-  ],
-  benefits: [
-    "Competitive salary and equity package",
-    "Comprehensive health, dental, and vision insurance",
-    "Flexible work arrangements and remote options",
-    "Professional development budget ($2,000/year)",
-    "Catered meals and snacks in the office",
-    "State-of-the-art equipment and workspace",
-    "Generous parental leave policy",
-    "Mental health and wellness support",
-  ],
-  postedDate: "2024-05-26",
-  applicants: 24,
-  status: "Active",
-  isRemote: false,
-  department: "Engineering",
-  reportingTo: "VP of Engineering",
-  companySize: "500-1000 employees",
-  industry: "Design & Technology",
-  website: "https://figma.com",
-};
-
 interface JobDetailsPageProps {
   jobId: string;
 }
 
 export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
-  // In a real application, you would fetch job data based on jobId
-
-  //   const [job, setJob] = useState<JobDetails | null>(null);
-  //   useEffect(() => {
-  //     fetchJobById(jobId).then(setJob);
-  //   }, [jobId]);
-
-  const [job] = useState<JobDetails>({
-    ...mockJobDetails,
-    id: jobId, // Use the actual jobId from the URL
-  });
+  const { job, company, isLoading, error, refreshJob } = useJob(jobId);
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "applicants">(
     "overview"
   );
 
+  // Enhanced safe rendering function to handle .NET objects with ValueKind
+  const safeRender = (value: any): string => {
+    if (value === null || value === undefined) return "";
+
+    // Handle .NET DateTime objects that might have ValueKind property
+    if (typeof value === "object") {
+      // Check for .NET DateTime serialization patterns
+      if (
+        value.ValueKind !== undefined ||
+        value.value !== undefined ||
+        value.Value !== undefined
+      ) {
+        // Try to extract date string from various .NET serialization formats
+        const dateStr = value.value || value.Value || value.toString();
+        try {
+          const date = new Date(dateStr);
+          if (!isNaN(date.getTime())) {
+            return date.toLocaleDateString();
+          }
+        } catch (e) {
+          // If date parsing fails, return empty string instead of the object
+          return "";
+        }
+        return "";
+      }
+
+      // Handle arrays
+      if (Array.isArray(value)) {
+        return value.map((item) => safeRender(item)).join(", ");
+      }
+
+      // Handle other objects - avoid rendering complex objects directly
+      try {
+        // Check if it's a simple object that can be stringified safely
+        const str = JSON.stringify(value);
+        if (str.length < 100) {
+          // Only stringify small objects
+          return str;
+        }
+        return "[Complex Object]";
+      } catch (e) {
+        return "[Object]";
+      }
+    }
+
+    return String(value);
+  };
+
+  // Safe number rendering function
+  const safeRenderNumber = (value: any): number => {
+    if (value === null || value === undefined) return 0;
+    if (typeof value === "number") return value;
+
+    // Handle .NET numeric objects
+    if (
+      typeof value === "object" &&
+      (value.value !== undefined || value.Value !== undefined)
+    ) {
+      const numValue = value.value || value.Value;
+      const num = Number(numValue);
+      return isNaN(num) ? 0 : num;
+    }
+
+    const num = Number(value);
+    return isNaN(num) ? 0 : num;
+  };
+
+  // Safe array rendering function
+  const safeRenderArray = (value: any): string[] => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return value
+        .filter((item) => item != null)
+        .map((item) => safeRender(item));
+    }
+    return [];
+  };
+
   const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "Active":
+    switch (status?.toLowerCase()) {
+      case "active":
+      case "open":
         return <CheckCircle className="h-4 w-4 text-green-600" />;
-      case "Paused":
+      case "paused":
         return <Pause className="h-4 w-4 text-yellow-600" />;
-      case "Closed":
+      case "closed":
         return <XCircle className="h-4 w-4 text-red-600" />;
       default:
         return null;
@@ -135,13 +131,16 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Active":
+    switch (status?.toLowerCase()) {
+      case "active":
+      case "open":
         return "bg-green-100 text-green-800";
-      case "Paused":
+      case "paused":
         return "bg-yellow-100 text-yellow-800";
-      case "Closed":
+      case "closed":
         return "bg-gray-100 text-gray-800";
+      case "draft":
+        return "bg-blue-100 text-blue-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -162,27 +161,208 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    });
+  const formatDate = (dateValue: any): string => {
+    if (!dateValue) return "";
+
+    try {
+      let dateStr = dateValue;
+
+      // Handle .NET DateTime objects
+      if (typeof dateValue === "object") {
+        dateStr = dateValue.value || dateValue.Value || dateValue.toString();
+      }
+
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return "";
+
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    } catch (e) {
+      return "";
+    }
   };
 
-  const getDaysAgo = (dateString: string) => {
-    const posted = new Date(dateString);
-    const now = new Date();
-    const diffTime = Math.abs(now.getTime() - posted.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const getDaysAgo = (dateValue: any): string => {
+    if (!dateValue) return "";
 
-    if (diffDays === 1) return "1 day ago";
-    if (diffDays < 7) return `${diffDays} days ago`;
-    if (diffDays < 14) return "1 week ago";
-    if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
-    return `${Math.floor(diffDays / 30)} months ago`;
+    try {
+      let dateStr = dateValue;
+
+      // Handle .NET DateTime objects
+      if (typeof dateValue === "object") {
+        dateStr = dateValue.value || dateValue.Value || dateValue.toString();
+      }
+
+      const posted = new Date(dateStr);
+      if (isNaN(posted.getTime())) return "";
+
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - posted.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) return "1 day ago";
+      if (diffDays < 7) return `${diffDays} days ago`;
+      if (diffDays < 14) return "1 week ago";
+      if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+      return `${Math.floor(diffDays / 30)} months ago`;
+    } catch (e) {
+      return "";
+    }
   };
+
+  const formatSalary = (job: ApiJob) => {
+    if (!job) return "Salary not specified";
+
+    const salaryMin = safeRenderNumber(job.salaryMin);
+    const salaryMax = safeRenderNumber(job.salaryMax);
+    const currency = safeRender(job.salaryCurrency) || "USD";
+
+    if (!salaryMin && !salaryMax) return "Salary not specified";
+
+    const formatNumber = (num: number) => num.toLocaleString();
+
+    if (salaryMin && salaryMax) {
+      return `${currency} ${formatNumber(
+        salaryMin
+      )} - ${currency} ${formatNumber(salaryMax)} per year`;
+    } else if (salaryMin) {
+      return `${currency} ${formatNumber(salaryMin)}+ per year`;
+    } else if (salaryMax) {
+      return `Up to ${currency} ${formatNumber(salaryMax)} per year`;
+    }
+
+    return "Salary not specified";
+  };
+
+  const extractLocationString = (locations: any): string => {
+    if (!locations) return "Location not specified";
+
+    // If locations is a string, return it directly
+    if (typeof locations === "string") return locations;
+
+    // If locations is an object
+    if (typeof locations === "object") {
+      // Check if it's an array
+      if (Array.isArray(locations)) {
+        if (locations.length > 0) {
+          const firstLocation = locations[0];
+          if (typeof firstLocation === "string") return firstLocation;
+          if (typeof firstLocation === "object") {
+            return extractFromLocationObject(firstLocation);
+          }
+        }
+        return "Location not specified";
+      } else {
+        return extractFromLocationObject(locations);
+      }
+    }
+
+    return "Location not specified";
+  };
+
+  const extractFromLocationObject = (location: any): string => {
+    if (!location) return "Location not specified";
+
+    const city = safeRender(location.city);
+    const state = safeRender(location.state);
+
+    if (city && state) {
+      return `${city}, ${state}`;
+    }
+
+    return (
+      safeRender(location.address) ||
+      safeRender(location.description) ||
+      safeRender(location.name) ||
+      safeRender(location.location) ||
+      "Location not specified"
+    );
+  };
+
+  const formatExperience = (seniorityLevel: any, minYears?: any): string => {
+    const minYearsNum = safeRenderNumber(minYears);
+
+    if (minYearsNum > 0) {
+      if (minYearsNum <= 2) return "0-2 Years";
+      if (minYearsNum <= 5) return "2-5 Years";
+      return "5+ Years";
+    }
+
+    const level = safeRender(seniorityLevel);
+    if (!level) return "Experience level not specified";
+
+    switch (level.toLowerCase()) {
+      case "junior":
+        return "0-2 Years";
+      case "mid":
+        return "2-5 Years";
+      case "senior":
+        return "5+ Years";
+      default:
+        return "Experience level not specified";
+    }
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">Loading job details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error || !job) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-4" />
+            <h2 className="text-lg font-semibold text-red-900 mb-2">
+              Error Loading Job
+            </h2>
+            <p className="text-red-700 mb-4">
+              {safeRender(error) || "Job not found"}
+            </p>
+            <div className="flex space-x-3 justify-center">
+              <button
+                onClick={refreshJob}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+              >
+                Try Again
+              </button>
+              <Link
+                href="/jobs"
+                className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
+              >
+                Back to Jobs
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Safely extract job data
+  const jobTitle = safeRender(job.title);
+  const jobStatus = safeRender(job.status);
+  const jobEmploymentType = safeRender(job.employmentType);
+  const jobDescription = safeRender(job.description);
+  const jobResponsibilities = safeRenderArray(job.responsibilities);
+  const jobRequirements = safeRenderArray(job.requirements);
+  const jobQualifications = safeRenderArray(job.qualifications);
+  const jobBenefits = safeRenderArray(job.benefits);
+  const companyName = safeRender(company?.name) || "Company";
+  const applicantCount = safeRenderNumber(job.applicantCount);
+  const viewCount = safeRenderNumber(job.viewCount);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -199,9 +379,9 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
               </Link>
               <div>
                 <h1 className="text-2xl font-semibold text-gray-900">
-                  {job.title}
+                  {jobTitle}
                 </h1>
-                <p className="text-sm text-gray-600">{job.company}</p>
+                <p className="text-sm text-gray-600">{companyName}</p>
               </div>
             </div>
 
@@ -210,10 +390,13 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                 <Share2 className="h-4 w-4 mr-2" />
                 Share
               </button>
-              <button className="flex items-center px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+              <Link
+                href={`/jobs/${job.id}/edit`}
+                className="flex items-center px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Job
-              </button>
+              </Link>
               <div className="relative">
                 <button
                   className="p-2 hover:bg-gray-100 rounded-md transition-colors"
@@ -260,7 +443,7 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
               }`}
               onClick={() => setActiveTab("applicants")}
             >
-              Applicants ({job.applicants})
+              Applicants ({applicantCount})
             </button>
           </div>
         </div>
@@ -276,26 +459,21 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
               <div className="bg-white rounded-lg border p-6">
                 <div className="flex items-start justify-between mb-6">
                   <div className="flex items-center space-x-3">
-                    {getStatusIcon(job.status)}
+                    {getStatusIcon(jobStatus)}
                     <span
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                        job.status
+                        jobStatus
                       )}`}
                     >
-                      {job.status}
+                      {jobStatus}
                     </span>
                     <span
                       className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(
-                        job.type
+                        jobEmploymentType
                       )}`}
                     >
-                      {job.type}
+                      {jobEmploymentType}
                     </span>
-                    {job.urgency && (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                        {job.urgency}
-                      </span>
-                    )}
                   </div>
                 </div>
 
@@ -303,19 +481,26 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
                   <div className="flex items-center text-sm text-gray-600">
                     <MapPin className="h-4 w-4 mr-2" />
-                    <span>{job.location}</span>
+                    <span>{extractLocationString(job.locations)}</span>
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <Briefcase className="h-4 w-4 mr-2" />
-                    <span>{job.experience}</span>
+                    <span>
+                      {formatExperience(
+                        job.seniorityLevel,
+                        job.experienceYearsMin
+                      )}
+                    </span>
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <DollarSign className="h-4 w-4 mr-2" />
-                    <span>{job.salary}</span>
+                    <span>{formatSalary(job)}</span>
                   </div>
                   <div className="flex items-center text-sm text-gray-600">
                     <Calendar className="h-4 w-4 mr-2" />
-                    <span>Posted {getDaysAgo(job.postedDate)}</span>
+                    <span>
+                      Posted {getDaysAgo(job.postedDate || job.createdAt)}
+                    </span>
                   </div>
                 </div>
 
@@ -324,55 +509,80 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">
                     Job Description
                   </h3>
-                  <p className="text-gray-700 leading-relaxed">
-                    {job.description}
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">
+                    {jobDescription}
                   </p>
                 </div>
 
                 {/* Responsibilities */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                    Key Responsibilities
-                  </h3>
-                  <ul className="space-y-2">
-                    {job.responsibilities.map((responsibility, index) => (
-                      <li key={index} className="flex items-start">
-                        <div className="flex-shrink-0 w-1.5 h-1.5 bg-blue-600 rounded-full mt-2 mr-3"></div>
-                        <span className="text-gray-700">{responsibility}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                {jobResponsibilities.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      Key Responsibilities
+                    </h3>
+                    <ul className="space-y-2">
+                      {jobResponsibilities.map((responsibility, index) => (
+                        <li key={index} className="flex items-start">
+                          <div className="flex-shrink-0 w-1.5 h-1.5 bg-blue-600 rounded-full mt-2 mr-3"></div>
+                          <span className="text-gray-700">
+                            {responsibility}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 {/* Requirements */}
-                <div className="mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                    Requirements
-                  </h3>
-                  <ul className="space-y-2">
-                    {job.requirements.map((requirement, index) => (
-                      <li key={index} className="flex items-start">
-                        <div className="flex-shrink-0 w-1.5 h-1.5 bg-green-600 rounded-full mt-2 mr-3"></div>
-                        <span className="text-gray-700">{requirement}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                {jobRequirements.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      Requirements
+                    </h3>
+                    <ul className="space-y-2">
+                      {jobRequirements.map((requirement, index) => (
+                        <li key={index} className="flex items-start">
+                          <div className="flex-shrink-0 w-1.5 h-1.5 bg-green-600 rounded-full mt-2 mr-3"></div>
+                          <span className="text-gray-700">{requirement}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Qualifications */}
+                {jobQualifications.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      Qualifications
+                    </h3>
+                    <ul className="space-y-2">
+                      {jobQualifications.map((qualification, index) => (
+                        <li key={index} className="flex items-start">
+                          <div className="flex-shrink-0 w-1.5 h-1.5 bg-purple-600 rounded-full mt-2 mr-3"></div>
+                          <span className="text-gray-700">{qualification}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 {/* Benefits */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                    Benefits & Perks
-                  </h3>
-                  <ul className="space-y-2">
-                    {job.benefits.map((benefit, index) => (
-                      <li key={index} className="flex items-start">
-                        <div className="flex-shrink-0 w-1.5 h-1.5 bg-purple-600 rounded-full mt-2 mr-3"></div>
-                        <span className="text-gray-700">{benefit}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+                {jobBenefits.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                      Benefits & Perks
+                    </h3>
+                    <ul className="space-y-2">
+                      {jobBenefits.map((benefit, index) => (
+                        <li key={index} className="flex items-start">
+                          <div className="flex-shrink-0 w-1.5 h-1.5 bg-orange-600 rounded-full mt-2 mr-3"></div>
+                          <span className="text-gray-700">{benefit}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -384,6 +594,13 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                   Quick Actions
                 </h3>
                 <div className="space-y-3">
+                  <Link
+                    href={`/jobs/${job.id}/apply`}
+                    className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Apply for This Job
+                  </Link>
                   <button className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
                     <Eye className="h-4 w-4 mr-2" />
                     View Applicants
@@ -392,10 +609,13 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                     <Send className="h-4 w-4 mr-2" />
                     Share Job Link
                   </button>
-                  <button className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors">
+                  <Link
+                    href={`/jobs/${job.id}/edit`}
+                    className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+                  >
                     <Edit className="h-4 w-4 mr-2" />
                     Edit Job Details
-                  </button>
+                  </Link>
                 </div>
               </div>
 
@@ -410,19 +630,40 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                       Total Applications
                     </span>
                     <span className="text-sm font-semibold text-gray-900">
-                      {job.applicants}
+                      {applicantCount}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Views</span>
                     <span className="text-sm font-semibold text-gray-900">
-                      142
+                      {viewCount}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Days Active</span>
                     <span className="text-sm font-semibold text-gray-900">
-                      3
+                      {job.postedDate || job.createdAt
+                        ? (() => {
+                            try {
+                              let dateStr = job.postedDate || job.createdAt;
+                              // Handle .NET DateTime objects
+                              if (typeof dateStr === "object") {
+                                dateStr =
+                                  dateStr.value ||
+                                  dateStr.Value ||
+                                  dateStr.toString();
+                              }
+                              const posted = new Date(dateStr);
+                              if (isNaN(posted.getTime())) return 0;
+                              return Math.ceil(
+                                (new Date().getTime() - posted.getTime()) /
+                                  (1000 * 60 * 60 * 24)
+                              );
+                            } catch (e) {
+                              return 0;
+                            }
+                          })()
+                        : 0}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -430,58 +671,65 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                       Application Rate
                     </span>
                     <span className="text-sm font-semibold text-gray-900">
-                      16.9%
+                      {viewCount > 0
+                        ? Math.round((applicantCount / viewCount) * 100)
+                        : 0}
+                      %
                     </span>
                   </div>
                 </div>
               </div>
 
               {/* Company Info */}
-              <div className="bg-white rounded-lg border p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  Company Information
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex items-center text-sm">
-                    <Building2 className="h-4 w-4 mr-3 text-gray-400" />
-                    <div>
-                      <span className="text-gray-600">Department: </span>
-                      <span className="font-medium text-gray-900">
-                        {job.department}
-                      </span>
+              {company && (
+                <div className="bg-white rounded-lg border p-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Company Information
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center text-sm">
+                      <Building2 className="h-4 w-4 mr-3 text-gray-400" />
+                      <div>
+                        <span className="text-gray-600">Company: </span>
+                        <span className="font-medium text-gray-900">
+                          {safeRender(company.name)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center text-sm">
-                    <Users className="h-4 w-4 mr-3 text-gray-400" />
-                    <div>
-                      <span className="text-gray-600">Company Size: </span>
-                      <span className="font-medium text-gray-900">
-                        {job.companySize}
-                      </span>
+                    <div className="flex items-center text-sm">
+                      <Users className="h-4 w-4 mr-3 text-gray-400" />
+                      <div>
+                        <span className="text-gray-600">Company Size: </span>
+                        <span className="font-medium text-gray-900">
+                          {safeRender(company.companySize)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center text-sm">
-                    <Briefcase className="h-4 w-4 mr-3 text-gray-400" />
-                    <div>
-                      <span className="text-gray-600">Industry: </span>
-                      <span className="font-medium text-gray-900">
-                        {job.industry}
-                      </span>
+                    <div className="flex items-center text-sm">
+                      <Briefcase className="h-4 w-4 mr-3 text-gray-400" />
+                      <div>
+                        <span className="text-gray-600">Industry: </span>
+                        <span className="font-medium text-gray-900">
+                          {safeRender(company.industry)}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex items-center text-sm">
-                    <Globe className="h-4 w-4 mr-3 text-gray-400" />
-                    <a
-                      href={job.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 font-medium"
-                    >
-                      Company Website
-                    </a>
+                    {company.website && (
+                      <div className="flex items-center text-sm">
+                        <Globe className="h-4 w-4 mr-3 text-gray-400" />
+                        <a
+                          href={safeRender(company.website)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:text-blue-800 font-medium"
+                        >
+                          Company Website
+                        </a>
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Posted Date */}
               <div className="bg-white rounded-lg border p-6">
@@ -494,7 +742,7 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                     <div>
                       <span className="text-gray-600">Posted: </span>
                       <span className="font-medium text-gray-900">
-                        {formatDate(job.postedDate)}
+                        {formatDate(job.postedDate || job.createdAt)}
                       </span>
                     </div>
                   </div>
@@ -503,10 +751,21 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                     <div>
                       <span className="text-gray-600">Active for: </span>
                       <span className="font-medium text-gray-900">
-                        {getDaysAgo(job.postedDate)}
+                        {getDaysAgo(job.postedDate || job.createdAt)}
                       </span>
                     </div>
                   </div>
+                  {job.applicationDeadline && (
+                    <div className="flex items-center text-sm">
+                      <Calendar className="h-4 w-4 mr-3 text-gray-400" />
+                      <div>
+                        <span className="text-gray-600">Deadline: </span>
+                        <span className="font-medium text-gray-900">
+                          {formatDate(job.applicationDeadline)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -520,7 +779,7 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                 Applicant Management
               </h3>
               <p className="text-gray-600 mb-4">
-                View and manage the {job.applicants} applicants for this
+                View and manage the {applicantCount} applicants for this
                 position.
               </p>
               <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">

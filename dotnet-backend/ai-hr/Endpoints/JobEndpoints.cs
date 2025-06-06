@@ -140,7 +140,8 @@ public static class JobEndpoints
         }
     }
 
-    private static async Task<IResult> GetJobs(string status, Guid? companyId, Supabase.Client client)
+
+    private static async Task<IResult> GetJobs(string? status, Guid? companyId, Supabase.Client client)
     {
         try
         {
@@ -149,15 +150,21 @@ public static class JobEndpoints
             var response = await query.Get();
             var jobs = response.Models;
 
-            // Apply filters after getting the data
+            // Apply filters after getting the data - only if parameters are provided
             if (!string.IsNullOrEmpty(status))
             {
-                jobs = jobs.Where(j => j.Status == status).ToList();
+                jobs = jobs.Where(j => j.Status.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
             }
 
             if (companyId.HasValue)
             {
                 jobs = jobs.Where(j => j.CompanyId == companyId.Value).ToList();
+            }
+
+            // If no filters are applied, default to showing only active jobs
+            if (string.IsNullOrEmpty(status) && !companyId.HasValue)
+            {
+                jobs = jobs.Where(j => j.Status.Equals("active", StringComparison.OrdinalIgnoreCase)).ToList();
             }
 
             // Create DTOs to avoid serialization issues
@@ -169,13 +176,26 @@ public static class JobEndpoints
                 Description = job.Description,
                 EmploymentType = job.EmploymentType,
                 LocationType = job.LocationType,
+                Locations = job.Locations,
                 SalaryMin = job.SalaryMin,
                 SalaryMax = job.SalaryMax,
                 SalaryCurrency = job.SalaryCurrency,
                 Status = job.Status,
                 ApplicantCount = job.ApplicantCount,
                 PostedDate = job.PostedDate,
-                CreatedAt = job.CreatedAt
+                CreatedAt = job.CreatedAt,
+                // Add other fields as needed
+                Responsibilities = job.Responsibilities,
+                Requirements = job.Requirements,
+                Qualifications = job.Qualifications,
+                Benefits = job.Benefits,
+                SeniorityLevel = job.SeniorityLevel,
+                ExperienceYearsMin = job.ExperienceYearsMin,
+                ApplicationDeadline = job.ApplicationDeadline,
+                ViewCount = job.ViewCount,
+                AiGeneratedDescription = job.AiGeneratedDescription,
+                SkillMatchThreshold = job.SkillMatchThreshold,
+                ClosedDate = job.ClosedDate
             }).ToList();
 
             return Results.Ok(jobDtos);

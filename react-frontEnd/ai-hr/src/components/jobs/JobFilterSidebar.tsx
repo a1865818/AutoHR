@@ -1,4 +1,3 @@
-// components/jobs/JobFilterSidebar.tsx
 import { ChevronDown, ChevronRight, Plus, X } from "lucide-react";
 
 interface FilterOption {
@@ -12,7 +11,6 @@ interface Filters {
   type: string[];
   experience: string[];
   location: string[];
-  favorites: string[];
 }
 
 interface JobFilterSidebarProps {
@@ -37,7 +35,6 @@ interface JobFilterSidebarProps {
     type: Record<string, number>;
     experience: Record<string, number>;
     location: Record<string, number>;
-    favorites: Record<string, number>;
   };
 }
 
@@ -49,12 +46,6 @@ export function JobFilterSidebar({
   clearAllFilters,
   filterCounts,
 }: JobFilterSidebarProps) {
-  // Define the filter options (without hardcoded counts)
-  const favorites: Omit<FilterOption, "count">[] = [
-    { id: "Active", label: "Active" },
-    { id: "Draft", label: "Draft" },
-  ];
-
   const statusFilters: Omit<FilterOption, "count">[] = [
     { id: "Active", label: "Active" },
     { id: "Paused", label: "Paused" },
@@ -79,11 +70,6 @@ export function JobFilterSidebar({
     { id: "Remote", label: "Remote" },
     { id: "Hybrid", label: "Hybrid" },
   ];
-
-  const handleFavoriteClick = (favoriteId: string) => {
-    const isActive = activeFilters.favorites.includes(favoriteId);
-    updateFilter("favorites", favoriteId, !isActive);
-  };
 
   const handleFilterChange = (
     category: keyof Filters,
@@ -169,35 +155,8 @@ export function JobFilterSidebar({
 
   return (
     <div className="w-52 bg-white border-r flex-shrink-0 flex flex-col">
-      {/* Favorites section */}
-      <div className="px-4 py-3">
-        <h3 className="text-xs font-medium text-gray-500 mb-2">Favorites</h3>
-        <ul className="space-y-1">
-          {favorites.map((item) => {
-            const isActive = activeFilters.favorites.includes(item.id);
-            const count = filterCounts.favorites[item.id] || 0;
-
-            return (
-              <li key={item.id}>
-                <button
-                  className={`w-full flex items-center justify-between px-2 py-1 rounded-md text-left transition-colors ${
-                    isActive
-                      ? "bg-blue-50 text-blue-600"
-                      : "text-gray-700 hover:bg-gray-100"
-                  }`}
-                  onClick={() => handleFavoriteClick(item.id)}
-                >
-                  <span className="text-sm">{item.label}</span>
-                  <span className="text-xs text-gray-500">{count}</span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </div>
-
       {/* Filters section */}
-      <div className="px-4 py-3 border-t">
+      <div className="px-4 py-3">
         <h3 className="text-xs font-medium text-gray-500 mb-2">Filters</h3>
 
         <FilterSection

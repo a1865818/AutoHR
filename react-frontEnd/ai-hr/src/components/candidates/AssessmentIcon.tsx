@@ -103,7 +103,7 @@ export function AssessmentIcon({ score }: AssessmentIconProps) {
               lineHeight: "1",
             }}
           >
-            100
+            100%
           </span>
         ) : (
           <span

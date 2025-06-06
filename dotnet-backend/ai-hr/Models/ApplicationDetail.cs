@@ -1,14 +1,12 @@
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
-// using System;
-// using System.Collections.Generic;
 
 namespace ai_hr.Models
 {
     [Table("ApplicationDetails")]
     public class ApplicationDetail : BaseModel
     {
-        [PrimaryKey("id", false)]
+        [PrimaryKey("id", true)] // true means we provide the ID value on insert
         public Guid Id { get; set; }
 
         [Column("job_id")]
@@ -30,10 +28,10 @@ namespace ai_hr.Models
         public DateTime? AvailabilityDate { get; set; }
 
         [Column("status")]
-        public string? Status { get; set; } = "applied";
+        public string Status { get; set; } = "applied"; // Remove nullable and set default
 
         [Column("stage")]
-        public string? Stage { get; set; } = "initial_review";
+        public string Stage { get; set; } = "initial_review"; // Remove nullable and set default
 
         [Column("job_source")]
         public string? JobSource { get; set; }
@@ -42,12 +40,22 @@ namespace ai_hr.Models
         public decimal? OverallAiScore { get; set; }
 
         [Column("ai_analysis")]
-        public Dictionary<string, object>? AiAnalysis { get; set; } // Representing JSONB as Dictionary
+        public Dictionary<string, object>? AiAnalysis { get; set; }
 
         [Column("applied_at")]
         public DateTime AppliedAt { get; set; } = DateTime.UtcNow;
 
         [Column("status_changed_at")]
         public DateTime StatusChangedAt { get; set; } = DateTime.UtcNow;
+
+        // Constructor to ensure ID is always set
+        public ApplicationDetail()
+        {
+            Id = Guid.NewGuid();
+            AppliedAt = DateTime.UtcNow;
+            StatusChangedAt = DateTime.UtcNow;
+            Status = "applied";
+            Stage = "initial_review";
+        }
     }
 }
