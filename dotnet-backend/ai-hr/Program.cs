@@ -139,6 +139,7 @@ app.UseAuthorization();
 app.MapUserEndpoints();
 app.MapApplicationDetailEndpoints();
 app.MapJobEndpoints();
+app.MapCandidateEndpoints();
 app.MapCompanyEndpoints();
 app.MapHiringUserProfileEndpoints();
 app.MapHiringUserProfileAuthenticationEndpoints();
