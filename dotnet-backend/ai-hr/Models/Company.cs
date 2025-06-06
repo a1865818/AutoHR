@@ -40,5 +40,8 @@ namespace ai_hr.Models
 
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+        [Column("email")]
+        public string email { get; set; }
     }
 }
