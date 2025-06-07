@@ -68,9 +68,14 @@ export function BasicInfoStep({
             id="company"
             value={formData.company}
             onChange={(e) => handleInputChange("company", e.target.value)}
-            placeholder="e.g. Tech Solutions Inc."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="Loading company..."
+            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 focus:outline-none cursor-not-allowed"
+            readOnly
+            disabled
           />
+          <p className="mt-1 text-xs text-gray-500">
+            Automatically filled with your company information
+          </p>
         </div>
 
         {/* Department */}
