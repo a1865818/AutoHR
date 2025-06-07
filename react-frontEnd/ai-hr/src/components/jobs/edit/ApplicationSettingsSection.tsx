@@ -1,5 +1,25 @@
 import { JobFormData } from "@/interfaces";
-import { Calendar, FileText, HelpCircle, Image } from "lucide-react";
+import {
+  Calendar,
+  FileText,
+  HelpCircle,
+  Image,
+  Users,
+  Plus,
+  Save,
+} from "lucide-react";
+import { useState, useEffect } from "react";
+import { jobService } from "@/services/jobService";
+import { interviewService } from "@/services/interviewService";
+import { useRouter } from "next/navigation";
+
+interface InterviewTemplate {
+  id: string;
+  name: string;
+  description: string;
+  isDefault: boolean;
+  companyId: string;
+}
 
 interface ApplicationSettingsSectionProps {
   formData: JobFormData;
@@ -8,13 +28,89 @@ interface ApplicationSettingsSectionProps {
     childField: string,
     value: any
   ) => void;
+  updateFormData: (data: Partial<JobFormData>) => void;
 }
 
 export function ApplicationSettingsSection({
   formData,
   updateNestedFormData,
+  updateFormData,
 }: ApplicationSettingsSectionProps) {
+  const router = useRouter();
   const today = new Date().toISOString().split("T")[0];
+  const [interviewTemplates, setInterviewTemplates] = useState<
+    InterviewTemplate[]
+  >([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+
+  // Load interview templates on component mount
+  useEffect(() => {
+    const loadInterviewTemplates = async () => {
+      setLoadingTemplates(true);
+      try {
+        const templates = await jobService.getInterviewTemplatesForJobs();
+        setInterviewTemplates(templates);
+
+        // Auto-select default template if no template is selected
+        if (!formData.interviewTemplateId && templates.length > 0) {
+          const defaultTemplate = templates.find(
+            (t: InterviewTemplate) => t.isDefault
+          );
+          if (defaultTemplate) {
+            updateFormData({ interviewTemplateId: defaultTemplate.id });
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load interview templates:", error);
+      } finally {
+        setLoadingTemplates(false);
+      }
+    };
+
+    loadInterviewTemplates();
+  }, []);
+
+  const handleCreateTemplate = () => {
+    router.push("/interviews/create");
+  };
+
+  const handleCreateTemplateWithId = (templateId?: string) => {
+    if (templateId) {
+      router.push(`/interviews/edit?id=${templateId}`);
+    } else {
+      router.push("/interviews/create");
+    }
+  };
+
+  const handleCreateCustomTemplate = async () => {
+    setIsSavingDraft(true);
+    try {
+      // Create a placeholder template since template_id can't be null
+      const placeholderTemplate = {
+        name: "Custom Template (Edit Required)",
+        description:
+          "This is a custom template created during job editing. Please edit and configure the interview rounds.",
+        isDefault: false,
+      };
+
+      const createdTemplate = await interviewService.createInterviewTemplate(
+        placeholderTemplate
+      );
+
+      // Update form data with the placeholder template ID
+      updateFormData({ interviewTemplateId: createdTemplate.id });
+
+      // Redirect to edit the template
+      handleCreateTemplateWithId(createdTemplate.id);
+    } catch (error) {
+      console.error("Failed to create custom template:", error);
+      // Fallback to regular template creation
+      handleCreateTemplateWithId(undefined);
+    } finally {
+      setIsSavingDraft(false);
+    }
+  };
 
   const applicationRequirements = [
     {
@@ -79,6 +175,129 @@ export function ApplicationSettingsSection({
             Leave blank for no deadline. Applications will close when you pause
             or close the job.
           </p>
+        </div>
+
+        {/* Interview Template Selection */}
+        <div className="mb-6">
+          <h3 className="text-base font-medium text-gray-900 mb-3">
+            Interview Process
+          </h3>
+          <p className="text-sm text-gray-600 mb-4">
+            Select the interview template that will be used for candidates
+            applying to this position.
+          </p>
+
+          <div className="space-y-4">
+            <label className="block text-sm font-medium text-gray-700">
+              Interview Template *
+            </label>
+
+            {loadingTemplates ? (
+              <div className="flex items-center space-x-2 text-gray-500">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <span className="text-sm">Loading interview templates...</span>
+              </div>
+            ) : (
+              <select
+                value={formData.interviewTemplateId || ""}
+                onChange={(e) =>
+                  updateFormData({
+                    interviewTemplateId: e.target.value || undefined,
+                  })
+                }
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              >
+                <option value="">Select an interview template</option>
+                {interviewTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name} {template.isDefault ? "(Default)" : ""}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {formData.interviewTemplateId && (
+              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                {(() => {
+                  const selectedTemplate = interviewTemplates.find(
+                    (t) => t.id === formData.interviewTemplateId
+                  );
+                  return selectedTemplate ? (
+                    <div>
+                      <p className="text-sm font-medium text-blue-900">
+                        {selectedTemplate.name}
+                      </p>
+                      <p className="text-sm text-blue-700 mt-1">
+                        {selectedTemplate.description}
+                      </p>
+                      {selectedTemplate.isDefault && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mt-2">
+                          <Users className="w-3 h-3 mr-1" />
+                          Default Template
+                        </span>
+                      )}
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
+
+            {/* Template Management Options */}
+            <div className="flex items-center space-x-3 pt-2">
+              <button
+                type="button"
+                onClick={handleCreateTemplate}
+                className="inline-flex items-center px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create New Template
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCreateCustomTemplate}
+                disabled={isSavingDraft}
+                className="inline-flex items-center px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Save className="w-4 h-4 mr-2" />
+                {isSavingDraft
+                  ? "Creating..."
+                  : "Create Custom Template for This Job"}
+              </button>
+            </div>
+
+            {interviewTemplates.length === 0 && !loadingTemplates && (
+              <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-md p-4">
+                <p className="font-medium mb-2">
+                  No interview templates available
+                </p>
+                <p className="mb-4">
+                  You need to create an interview template to complete your job
+                  setup. Templates define the interview process candidates will
+                  go through.
+                </p>
+                <div className="flex items-center space-x-3">
+                  <button
+                    type="button"
+                    onClick={handleCreateTemplate}
+                    className="inline-flex items-center px-3 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Template
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCreateCustomTemplate}
+                    disabled={isSavingDraft}
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    {isSavingDraft ? "Creating..." : "Create Custom Template"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Application Requirements */}
@@ -179,6 +398,20 @@ export function ApplicationSettingsSection({
                 ).toLocaleDateString()}
               </p>
             )}
+
+            <p>
+              • Interview Template:{" "}
+              {formData.interviewTemplateId
+                ? (() => {
+                    const selectedTemplate = interviewTemplates.find(
+                      (t) => t.id === formData.interviewTemplateId
+                    );
+                    return selectedTemplate
+                      ? selectedTemplate.name
+                      : "Selected";
+                  })()
+                : "Not selected"}
+            </p>
 
             {Object.values(formData.applicationSettings).some(
               (val) => val === true

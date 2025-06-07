@@ -279,6 +279,28 @@ class ApiService {
     });
   }
 
+  // Copy standard interview templates for newly registered company
+  async copyStandardTemplates(companyId: string): Promise<any> {
+    console.log('🔄 Copying standard templates for company:', companyId);
+    
+    try {
+      const response = await this.makeRequest<any>(`/companies/${companyId}/copy-standard-templates`, {
+        method: 'POST',
+      });
+      
+      console.log('✅ Standard templates copy response:', response);
+      return response;
+    } catch (error) {
+      console.warn('⚠️ Failed to copy standard templates (non-critical):', error);
+      // Don't throw error - this is a background process and shouldn't fail registration
+      return { 
+        message: 'Template copying failed but company registration succeeded',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        templatesCreated: 0 
+      };
+    }
+  }
+
   // Enhanced application user registration
   async registerApplicationUser(userData: ApplicationUserRegisterRequestEnhanced): Promise<ApplicationUserLoginResponse> {
     // Transform ApplicationUserRegisterRequestEnhanced to RegisterRequest format

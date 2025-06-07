@@ -484,6 +484,43 @@ const SignupPage: React.FC = () => {
           setSignupSuccess(true);
         }
       }
+
+      console.log("✅ User registration successful");
+
+      // 🔄 Copy standard templates to the newly registered company
+      console.log("🔄 Starting template copy process...");
+      console.log(
+        "🆔 Using company ID for template copy:",
+        companyData.companyId
+      );
+
+      if (companyData.companyId) {
+        try {
+          const templateResult = await apiService.copyStandardTemplates(
+            companyData.companyId
+          );
+          console.log("✅ Template copy completed:", templateResult);
+          if (templateResult.templatesCreated > 0) {
+            console.log(
+              `🎯 Successfully copied ${templateResult.templatesCreated} standard templates`
+            );
+          }
+        } catch (templateError) {
+          console.warn(
+            "⚠️ Template copy failed (non-critical):",
+            templateError
+          );
+          // Don't fail the registration process if template copying fails
+        }
+      } else {
+        console.warn("⚠️ No company ID available for template copying");
+      }
+
+      // Navigate to login page with success message
+      setTimeout(() => {
+        window.location.href =
+          "/signin?message=Registration successful! Please log in.";
+      }, 2000);
     } catch (error) {
       setSignupError(
         error instanceof Error

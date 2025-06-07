@@ -177,6 +177,14 @@ We offer a dynamic work environment where creativity and innovation are valued, 
   };
 
   const handleSaveDraft = async () => {
+    await handleSaveDraftInternal(false);
+  };
+
+  const handleSaveDraftWithoutRedirect = async () => {
+    await handleSaveDraftInternal(true);
+  };
+
+  const handleSaveDraftInternal = async (preventRedirect = false) => {
     // Check if user has company information
     if (!user?.companyId || !user?.id) {
       notifications.error(
@@ -221,10 +229,13 @@ We offer a dynamic work environment where creativity and innovation are valued, 
         setSuccessMessage("Draft saved successfully!");
         setShowSuccessMessage(true);
 
-        // Redirect to jobs page after showing success message
-        setTimeout(() => {
-          router.push("/jobs?view=drafts");
-        }, 800);
+        // Only redirect if not prevented
+        if (!preventRedirect) {
+          // Redirect to jobs page after showing success message
+          setTimeout(() => {
+            router.push("/jobs?view=drafts");
+          }, 200);
+        }
       } else {
         notifications.error(
           "Failed to save draft",
@@ -289,7 +300,7 @@ We offer a dynamic work environment where creativity and innovation are valued, 
         // Redirect after a brief delay
         setTimeout(() => {
           router.push("/jobs");
-        }, 800);
+        }, 200);
       } else {
         notifications.error(
           "Failed to publish job",
@@ -361,6 +372,7 @@ We offer a dynamic work environment where creativity and innovation are valued, 
             onNext={nextStep}
             onPrev={prevStep}
             onSaveDraft={handleSaveDraft}
+            onSaveDraftWithoutRedirect={handleSaveDraftWithoutRedirect}
           />
         );
       case 5:

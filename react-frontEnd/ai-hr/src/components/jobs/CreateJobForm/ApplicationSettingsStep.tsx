@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { jobService } from "@/services/jobService";
+import { interviewService } from "@/services/interviewService";
 import { useRouter } from "next/navigation";
 
 interface InterviewTemplate {
@@ -29,6 +30,7 @@ interface ApplicationSettingsStepProps {
   onNext: () => void;
   onPrev: () => void;
   onSaveDraft?: () => Promise<void>;
+  onSaveDraftWithoutRedirect?: () => Promise<void>;
 }
 
 export function ApplicationSettingsStep({
@@ -37,6 +39,7 @@ export function ApplicationSettingsStep({
   onNext,
   onPrev,
   onSaveDraft,
+  onSaveDraftWithoutRedirect,
 }: ApplicationSettingsStepProps) {
   const router = useRouter();
   const [interviewTemplates, setInterviewTemplates] = useState<
@@ -115,15 +118,58 @@ export function ApplicationSettingsStep({
     router.push("/interviews/create");
   };
 
+  const handleCreateTemplateWithId = (templateId?: string) => {
+    if (templateId) {
+      // If we have a template ID (placeholder), redirect to edit it
+      router.push(`/interviews/edit?id=${templateId}`);
+    } else {
+      // Otherwise, create a new template
+      router.push("/interviews/create");
+    }
+  };
+
   const handleSaveDraftAndRedirect = async () => {
-    if (!onSaveDraft) return;
+    if (!onSaveDraftWithoutRedirect) return;
 
     setIsSavingDraft(true);
     try {
-      await onSaveDraft();
-      handleCreateTemplate();
+      // First create a placeholder template since template_id can't be null
+      console.log("Creating placeholder template for draft...");
+
+      const placeholderTemplate = {
+        name: "Placeholder Template (Edit Required)",
+        description:
+          "This is a temporary template created during job draft. Please edit and configure the interview rounds.",
+        isDefault: false,
+      };
+
+      const createdTemplate = await interviewService.createInterviewTemplate(
+        placeholderTemplate
+      );
+      console.log("Placeholder template created:", createdTemplate);
+
+      // Update form data with the placeholder template ID
+      updateFormData({ interviewTemplateId: createdTemplate.id });
+
+      // Wait a moment for the form data to update
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Now save the draft with the template ID (without redirect)
+      await onSaveDraftWithoutRedirect();
+
+      // Redirect to create template page with the placeholder template ID for editing
+      handleCreateTemplateWithId(createdTemplate.id);
     } catch (error) {
       console.error("Failed to save draft:", error);
+      // If template creation fails, still try to save draft if deadline is set
+      if (formData.applicationSettings.deadline && onSaveDraftWithoutRedirect) {
+        try {
+          await onSaveDraftWithoutRedirect();
+          handleCreateTemplateWithId(undefined);
+        } catch (draftError) {
+          console.error("Failed to save draft without template:", draftError);
+        }
+      }
     } finally {
       setIsSavingDraft(false);
     }
@@ -231,13 +277,48 @@ export function ApplicationSettingsStep({
             </div>
           )}
 
+          {/* Alternative option to create new template */}
+          {interviewTemplates.length > 0 &&
+            !loadingTemplates &&
+            onSaveDraft && (
+              <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-md">
+                <h4 className="text-sm font-medium text-gray-900 mb-2">
+                  Need a custom template for this job?
+                </h4>
+                <p className="text-sm text-gray-600 mb-3">
+                  You can save your job progress and create a new interview
+                  template specifically for this position.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSaveDraftAndRedirect}
+                  disabled={
+                    isSavingDraft || !formData.applicationSettings.deadline
+                  }
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {isSavingDraft
+                    ? "Saving draft..."
+                    : "Save Draft & Create Custom Template"}
+                </button>
+                {!formData.applicationSettings.deadline && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    * Set an application deadline to enable draft saving
+                  </p>
+                )}
+              </div>
+            )}
+
           {interviewTemplates.length === 0 && !loadingTemplates && (
             <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-md p-4">
               <p className="font-medium mb-2">
                 No interview templates available
               </p>
               <p className="mb-4">
-                Create interview templates first to link them to job postings.
+                To save your job draft, you need to select an interview
+                template. You can create one now or save your progress and
+                create a template later.
               </p>
               <div className="flex items-center space-x-3">
                 <button
@@ -259,11 +340,16 @@ export function ApplicationSettingsStep({
                   >
                     <Save className="w-4 h-4 mr-2" />
                     {isSavingDraft
-                      ? "Saving..."
+                      ? "Saving draft..."
                       : "Save Draft & Create Template"}
                   </button>
                 )}
               </div>
+              {!formData.applicationSettings.deadline && (
+                <p className="text-xs text-amber-500 mt-2">
+                  * Set an application deadline to enable draft saving
+                </p>
+              )}
             </div>
           )}
         </div>

@@ -543,6 +543,11 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
                 <ApplicationSettingsSection
                   formData={formData}
                   updateNestedFormData={updateNestedFormData}
+                  updateFormData={(data) => {
+                    Object.entries(data).forEach(([key, value]) => {
+                      updateFormData(key as keyof JobFormData, value);
+                    });
+                  }}
                 />
               )}
             </div>

@@ -1,6 +1,9 @@
 using ai_hr.Models;
 using ai_hr.Contracts;
 using Supabase;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace ai_hr.Endpoints;
 
@@ -55,6 +58,13 @@ public static class CompanyEndpoints
             .WithName("VerifyCompany")
             .WithSummary("Verify company")
             .WithDescription("Marks a company as verified to indicate legitimacy");
+
+        app.MapPost("/companies/{companyId}/copy-standard-templates", CopyStandardTemplates)
+            .WithTags("Companies")
+            .WithName("CopyStandardTemplates")
+            .WithSummary("Copy standard interview templates to new company")
+            .WithDescription("Copies all interview templates from the template company to a newly registered company")
+            .RequireAuthorization();
     }
 
     private static async Task<IResult> CreateCompany(CreateCompanyRequest request, Supabase.Client client)
@@ -380,6 +390,183 @@ public static class CompanyEndpoints
             Console.WriteLine($"Error verifying company: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+    private static async Task<IResult> CopyStandardTemplates(
+        Guid companyId,
+        Supabase.Client client,
+        ClaimsPrincipal user)
+    {
+        try
+        {
+            // Template company ID that contains all standard templates
+            var templateCompanyId = Guid.Parse("979d1d98-28f2-4dac-8690-7a05986aead7");
+
+            // Get all interview templates from the template company
+            var templateResponse = await client.From<InterviewTemplate>().Get();
+            var sourceTemplates = templateResponse.Models
+                .Where(t => t.CompanyId == templateCompanyId)
+                .ToList();
+
+            if (!sourceTemplates.Any())
+            {
+                // Check if the template company exists
+                var companyResponse = await client.From<Company>().Get();
+                var templateCompany = companyResponse.Models.FirstOrDefault(c => c.Id == templateCompanyId);
+
+                if (templateCompany == null)
+                {
+                    return Results.Ok(new
+                    {
+                        message = "Template company not found",
+                        templatesCreated = 0,
+                        error = "Template company does not exist"
+                    });
+                }
+                else
+                {
+                    return Results.Ok(new
+                    {
+                        message = "Template company exists but has no templates",
+                        templatesCreated = 0,
+                        templateCompanyName = templateCompany.Name
+                    });
+                }
+            }
+
+            var copiedTemplates = new List<InterviewTemplate>();
+            var copiedRounds = new List<InterviewRound>();
+
+            // Copy each template
+            foreach (var sourceTemplate in sourceTemplates)
+            {
+                // Create new template for the target company
+                var newTemplate = new InterviewTemplate
+                {
+                    Id = Guid.NewGuid(),
+                    Name = sourceTemplate.Name,
+                    Description = sourceTemplate.Description,
+                    CompanyId = companyId, // Assign to new company
+                    IsDefault = sourceTemplate.IsDefault,
+                    CreatedBy = Guid.Parse("8169bddd-fbd6-48d5-bca4-333642eee938"), // Template company creator
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
+                    UsageCount = 0,
+                    SuccessRate = 0.0m,
+                    AverageRating = 0.0m
+                };
+
+                copiedTemplates.Add(newTemplate);
+
+                // Get rounds for this template
+                var roundsResponse = await client.From<InterviewRound>().Get();
+                var sourceRounds = roundsResponse.Models
+                    .Where(r => r.TemplateId == sourceTemplate.Id)
+                    .OrderBy(r => r.RoundOrder)
+                    .ToList();
+
+                // Copy each round
+                foreach (var sourceRound in sourceRounds)
+                {
+                    var newRound = new InterviewRound
+                    {
+                        Id = Guid.NewGuid(),
+                        TemplateId = newTemplate.Id, // Link to new template
+                        Name = sourceRound.Name,
+                        Type = sourceRound.Type,
+                        Duration = sourceRound.Duration,
+                        RoundOrder = sourceRound.RoundOrder,
+                        Description = sourceRound.Description,
+                        PassingCriteria = sourceRound.PassingCriteria,
+                        IsOptional = sourceRound.IsOptional,
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+
+                    // Validate that template ID is not empty
+                    if (newRound.TemplateId == Guid.Empty)
+                    {
+                        throw new InvalidOperationException($"Template ID cannot be empty for round {newRound.Name}");
+                    }
+
+                    copiedRounds.Add(newRound);
+                }
+            }
+
+            // Insert templates one by one and capture actual IDs
+            var insertedTemplateIds = new List<Guid>();
+            foreach (var template in copiedTemplates)
+            {
+                try
+                {
+                    var insertResponse = await client.From<InterviewTemplate>().Insert(template);
+
+                    // Get the actual inserted template from the response
+                    var insertedTemplate = insertResponse.Models.FirstOrDefault();
+                    if (insertedTemplate != null)
+                    {
+                        insertedTemplateIds.Add(insertedTemplate.Id);
+
+                        // Update the rounds to use the actual inserted template ID
+                        foreach (var round in copiedRounds.Where(r => r.TemplateId == template.Id))
+                        {
+                            round.TemplateId = insertedTemplate.Id;
+                        }
+                    }
+                }
+                catch (Exception templateEx)
+                {
+                    Console.WriteLine($"Failed to insert template {template.Name}: {templateEx.Message}");
+                }
+            }
+
+            // Insert rounds one by one, only for successfully inserted templates
+            var insertedRoundsCount = 0;
+            foreach (var round in copiedRounds)
+            {
+                try
+                {
+                    if (!insertedTemplateIds.Contains(round.TemplateId))
+                    {
+                        continue;
+                    }
+
+                    await client.From<InterviewRound>().Insert(round);
+                    insertedRoundsCount++;
+                }
+                catch (Exception roundEx)
+                {
+                    Console.WriteLine($"Failed to insert round {round.Name}: {roundEx.Message}");
+                }
+            }
+
+            return Results.Ok(new
+            {
+                message = "Standard templates copied successfully",
+                templatesCreated = insertedTemplateIds.Count,
+                roundsCreated = insertedRoundsCount,
+                templates = copiedTemplates
+                    .Where(t => insertedTemplateIds.Contains(t.Id))
+                    .Select(t => new
+                    {
+                        id = t.Id,
+                        name = t.Name,
+                        isDefault = t.IsDefault
+                    })
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error copying standard templates: {ex.Message}");
+
+            // Don't fail the registration process, just log the error
+            return Results.Ok(new
+            {
+                message = "Template copying failed, but company registration was successful",
+                error = ex.Message,
+                templatesCreated = 0
+            });
         }
     }
 }
