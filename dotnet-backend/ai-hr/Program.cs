@@ -144,7 +144,8 @@ app.MapCompanyEndpoints();
 app.MapHiringUserProfileEndpoints();
 app.MapHiringUserProfileAuthenticationEndpoints();
 app.MapAuthenticationEndpoints();
-
+app.MapLanggraphEndpoints();
+app.MapInterviewEndpoints();
 app.UseHttpsRedirection();
 
 app.Run();

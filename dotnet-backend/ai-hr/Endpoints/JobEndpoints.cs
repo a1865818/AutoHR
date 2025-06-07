@@ -1,6 +1,9 @@
 using ai_hr.Models;
 using ai_hr.Contracts;
 using Supabase;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace ai_hr.Endpoints;
 
@@ -56,6 +59,13 @@ public static class JobEndpoints
             .WithName("GetPublicJobById")
             .WithSummary("Get public job by ID")
             .WithDescription("Retrieves complete details of a specific active job posting - no authentication required");
+
+        app.MapGet("/jobs/interview-templates", GetInterviewTemplatesForJobs)
+            .WithTags("Jobs")
+            .WithName("GetInterviewTemplatesForJobs")
+            .WithSummary("Get interview templates for job creation")
+            .WithDescription("Retrieves available interview templates that can be linked to jobs")
+            .RequireAuthorization();
     }
 
     private static async Task<IResult> CreateJob(CreateJobRequest request, Supabase.Client client)
@@ -63,6 +73,8 @@ public static class JobEndpoints
         try
         {
             Console.WriteLine($"Creating job with title: {request.Title}");
+            Console.WriteLine($"InterviewTemplateId received: {request.InterviewTemplateId}");
+
             var job = new Job
             {
                 Title = request.Title,
@@ -85,8 +97,11 @@ public static class JobEndpoints
                 Status = request.Status,
                 AiGeneratedDescription = request.AiGeneratedDescription,
                 SkillMatchThreshold = request.SkillMatchThreshold,
+                InterviewTemplateId = request.InterviewTemplateId,
                 CreatedAt = DateTime.UtcNow,
             };
+
+            Console.WriteLine($"Job.InterviewTemplateId being inserted: {job.InterviewTemplateId}");
 
             var response = await client.From<Job>().Insert(job);
             return Results.Ok();
@@ -141,6 +156,7 @@ public static class JobEndpoints
                 PostedDate = job.PostedDate,
                 ClosedDate = job.ClosedDate,
                 CreatedAt = job.CreatedAt,
+                InterviewTemplateId = job.InterviewTemplateId,
             };
 
             return Results.Ok(jobDto);
@@ -197,6 +213,7 @@ public static class JobEndpoints
                 ApplicantCount = job.ApplicantCount,
                 PostedDate = job.PostedDate,
                 CreatedAt = job.CreatedAt,
+                InterviewTemplateId = job.InterviewTemplateId,
                 // Add other fields as needed
                 Responsibilities = job.Responsibilities,
                 Requirements = job.Requirements,
@@ -255,6 +272,7 @@ public static class JobEndpoints
             if (request.SkillMatchThreshold.HasValue) job.SkillMatchThreshold = request.SkillMatchThreshold.Value;
             if (request.PostedDate.HasValue) job.PostedDate = request.PostedDate;
             if (request.ClosedDate.HasValue) job.ClosedDate = request.ClosedDate;
+            if (request.InterviewTemplateId.HasValue) job.InterviewTemplateId = request.InterviewTemplateId;
 
             // Update the record
             var response = await client.From<Job>().Update(job);
@@ -324,7 +342,8 @@ public static class JobEndpoints
                 Status = job.Status,
                 ApplicantCount = job.ApplicantCount,
                 PostedDate = job.PostedDate,
-                CreatedAt = job.CreatedAt
+                CreatedAt = job.CreatedAt,
+                InterviewTemplateId = job.InterviewTemplateId,
             }).ToList();
 
             return Results.Ok(jobDtos);
@@ -382,6 +401,7 @@ public static class JobEndpoints
                 ApplicantCount = job.ApplicantCount,
                 PostedDate = job.PostedDate,
                 CreatedAt = job.CreatedAt,
+                InterviewTemplateId = job.InterviewTemplateId,
                 Responsibilities = job.Responsibilities,
                 Requirements = job.Requirements,
                 Qualifications = job.Qualifications,
@@ -457,6 +477,7 @@ public static class JobEndpoints
                 PostedDate = job.PostedDate,
                 ClosedDate = job.ClosedDate,
                 CreatedAt = job.CreatedAt,
+                InterviewTemplateId = job.InterviewTemplateId,
             };
 
             return Results.Ok(jobDto);
@@ -464,6 +485,67 @@ public static class JobEndpoints
         catch (Exception ex)
         {
             Console.WriteLine($"Error retrieving public job: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+    private static async Task<IResult> GetInterviewTemplatesForJobs(
+        Supabase.Client client,
+        ClaimsPrincipal user)
+    {
+        try
+        {
+            Console.WriteLine("🔍 Getting interview templates for job creation");
+
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                Console.WriteLine("❌ No user ID found");
+                return Results.Unauthorized();
+            }
+
+            if (!Guid.TryParse(userId, out var userGuid))
+            {
+                Console.WriteLine("❌ Invalid user ID format");
+                return Results.BadRequest(new { error = "Invalid user ID format" });
+            }
+
+            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
+            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
+
+            if (hiringUser == null)
+            {
+                Console.WriteLine("❌ Hiring user not found");
+                return Results.Unauthorized();
+            }
+
+            Console.WriteLine($"🔍 Getting templates for company: {hiringUser.CompanyId}");
+
+            // Get interview templates for this company and global templates
+            var templatesResponse = await client.From<ai_hr.Models.InterviewTemplate>().Get();
+            var templates = templatesResponse.Models
+                .Where(t => t.CompanyId == hiringUser.CompanyId || t.CompanyId == null)
+                .OrderByDescending(t => t.IsDefault)
+                .ThenBy(t => t.Name)
+                .ToList();
+
+            // Create simple DTOs for job creation dropdown
+            var templateDtos = templates.Select(template => new
+            {
+                Id = template.Id,
+                Name = template.Name,
+                Description = template.Description,
+                IsDefault = template.IsDefault,
+                CompanyId = template.CompanyId
+            }).ToList();
+
+            Console.WriteLine($"🔍 Found {templateDtos.Count} interview templates for company {hiringUser.CompanyId}");
+            return Results.Ok(templateDtos);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error retrieving interview templates for jobs: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }

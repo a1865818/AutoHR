@@ -106,7 +106,7 @@ class JobService {
           console.error("❌ JSON Parse Error:", parseError);
           console.error("❌ Response text:", text);
           throw new Error(
-            `Invalid JSON response from server: ${parseError.message}`
+            `Invalid JSON response from server: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`
           );
         }
       }
@@ -120,7 +120,7 @@ class JobService {
           return JSON.parse(text);
         } catch (parseError) {
           console.error("❌ Failed to parse JSON-like text:", text);
-          throw new Error(`Invalid JSON response: ${parseError.message}`);
+          throw new Error(`Invalid JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
         }
       }
 
@@ -128,12 +128,12 @@ class JobService {
       return text || null;
     } catch (error) {
       // Don't log fetch errors twice
-      if (error.message.includes("JSON") || error.message.includes("HTTP")) {
+      if (error instanceof Error && (error.message.includes("JSON") || error.message.includes("HTTP"))) {
         throw error;
       }
 
       console.error("🚨 Network/Fetch Error:", { url, error });
-      throw new Error(`Network error: ${error.message}`);
+      throw new Error(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
   // Check if user is authenticated
@@ -148,7 +148,7 @@ class JobService {
       await this.getJobById(id);
       return true;
     } catch (error) {
-      console.log("Job existence check failed:", error.message);
+      console.log("Job existence check failed:", error instanceof Error ? error.message : 'Unknown error');
       return false;
     }
   }
@@ -170,12 +170,14 @@ class JobService {
       console.error("❌ Failed to load job:", error);
 
       // Provide more helpful error messages
-      if (error.message.includes("404")) {
-        throw new Error("Job not found. It may have been deleted.");
-      } else if (error.message.includes("401")) {
-        throw new Error("Authentication required. Please log in again.");
-      } else if (error.message.includes("403")) {
-        throw new Error("You do not have permission to view this job.");
+      if (error instanceof Error) {
+        if (error.message.includes("404")) {
+          throw new Error("Job not found. It may have been deleted.");
+        } else if (error.message.includes("401")) {
+          throw new Error("Authentication required. Please log in again.");
+        } else if (error.message.includes("403")) {
+          throw new Error("You do not have permission to view this job.");
+        }
       }
 
       throw error;
@@ -206,6 +208,12 @@ class JobService {
     if (!this.isAuthenticated()) {
       throw new Error("Authentication required to create jobs");
     }
+    
+    console.log("🚀 JobService createJob called with data:", {
+      ...data,
+      interviewTemplateId: data.interviewTemplateId
+    });
+    
     return this.fetchApi("/jobs", {
       method: "POST",
       body: JSON.stringify(data),
@@ -233,11 +241,10 @@ class JobService {
 
   async deleteJob(id: string): Promise<void> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to delete jobs");
+      throw new Error("Authentication required to delete job");
     }
-    return this.fetchApi(`/jobs/${id}`, {
-      method: "DELETE",
-    });
+
+    await this.fetchApi(`/jobs/${id}`, { method: "DELETE" });
   }
 
   async getJobsByCompany(companyId: string): Promise<ApiJob[]> {
@@ -444,6 +451,7 @@ class JobService {
       salaryCurrency: formData.salary.currency,
       applicationDeadline: formData.applicationSettings.deadline || undefined,
       status: "Draft", // Always save as draft when editing
+      interviewTemplateId: formData.interviewTemplateId,
     };
   }
 
@@ -452,8 +460,10 @@ class JobService {
     companyId: string,
     createdBy: string
   ): CreateJobRequest {
+    console.log("🔧 Converting form data to create request. FormData.interviewTemplateId:", formData.interviewTemplateId);
+    
     const updateRequest = this.convertFormDataToUpdateRequest(formData);
-    return {
+    const createRequest = {
       ...updateRequest,
       companyId,
       createdBy,
@@ -474,7 +484,11 @@ class JobService {
       status: "draft",
       aiGeneratedDescription: false,
       skillMatchThreshold: 0.7,
+      interviewTemplateId: formData.interviewTemplateId,
     };
+    
+    console.log("🔧 Created request with interviewTemplateId:", createRequest.interviewTemplateId);
+    return createRequest;
   }
 
   // Helper methods for data transformation (unchanged from original)
@@ -657,6 +671,20 @@ class JobService {
       type: locationType.toLowerCase(),
       description: locationStr,
     };
+  }
+
+  async getInterviewTemplatesForJobs(): Promise<any[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to view interview templates");
+    }
+
+    try {
+      const templates = await this.fetchApi("/jobs/interview-templates");
+      return templates || [];
+    } catch (error) {
+      console.error("❌ Failed to load interview templates:", error);
+      throw error;
+    }
   }
 }
 

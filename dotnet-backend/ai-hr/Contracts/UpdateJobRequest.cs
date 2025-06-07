@@ -25,5 +25,6 @@ namespace ai_hr.Contracts
         public decimal? SkillMatchThreshold { get; set; }
         public DateTime? PostedDate { get; set; }
         public DateTime? ClosedDate { get; set; }
+        public Guid? InterviewTemplateId { get; set; }
     }
 }

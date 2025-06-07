@@ -360,6 +360,7 @@ We offer a dynamic work environment where creativity and innovation are valued, 
             updateFormData={updateFormData}
             onNext={nextStep}
             onPrev={prevStep}
+            onSaveDraft={handleSaveDraft}
           />
         );
       case 5:

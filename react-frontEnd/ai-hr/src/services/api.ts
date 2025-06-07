@@ -412,7 +412,9 @@ export function mapFormDataToCreateJobRequest(
   status: "Open" | "Draft" = "Open",
   aiGeneratedDescription: boolean = false
 ): CreateJobRequest {
-  return {
+  console.log("🔧 mapFormDataToCreateJobRequest - FormData.interviewTemplateId:", formData.interviewTemplateId);
+  
+  const createRequest = {
     title: formData.title,
     companyId,
     createdBy,
@@ -435,7 +437,11 @@ export function mapFormDataToCreateJobRequest(
     status,
     aiGeneratedDescription,
     skillMatchThreshold: 0.70, // Default value from backend
+    interviewTemplateId: formData.interviewTemplateId,
   };
+  
+  console.log("🔧 Created request with interviewTemplateId:", createRequest.interviewTemplateId);
+  return createRequest;
 }
 
 // Validation function to check if form data is complete enough for API call
@@ -516,6 +522,11 @@ export const notifications = {
 export const jobApi = {
   // Create a new job - now accepts CreateJobRequest directly
   createJob: async (jobData: CreateJobRequest): Promise<ApiResponse<CreateJobResponse>> => {
+    console.log("🚀 jobApi.createJob called with data:", {
+      ...jobData,
+      interviewTemplateId: jobData.interviewTemplateId
+    });
+    
     return apiCall<CreateJobResponse>("/jobs", {
       method: "POST",
       body: JSON.stringify(jobData),

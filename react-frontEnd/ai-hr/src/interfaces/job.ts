@@ -61,6 +61,7 @@ export interface JobFormData {
     coverLetterRequired?: boolean;
     portfolioRequired?: boolean;
   };
+  interviewTemplateId?: string;
 }
 
 export interface JobFormErrors {
@@ -100,6 +101,7 @@ export interface CreateJobRequest {
   status: string;
   aiGeneratedDescription?: boolean;
   skillMatchThreshold?: number;
+  interviewTemplateId?: string;
 }
 
 export interface CreateJobResponse {

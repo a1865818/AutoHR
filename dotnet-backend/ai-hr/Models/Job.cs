@@ -95,6 +95,9 @@ namespace ai_hr.Models
         [Column("department")]
         public string? Department { get; set; }
 
+        [Column("template_id")]
+        public Guid? InterviewTemplateId { get; set; }
+
         public Job()
         {
             Id = Guid.NewGuid();

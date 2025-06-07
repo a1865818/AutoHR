@@ -10,6 +10,7 @@ import {
   PlusCircle,
   BarChart3,
   Building,
+  Calendar,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -35,6 +36,7 @@ export function HiringSidebar() {
     { name: "Dashboard", href: "/", icon: Home },
     { name: "Candidates", href: "/candidates", icon: Users },
     { name: "Jobs", href: "/jobs", icon: FileText },
+    { name: "Interviews", href: "/interviews", icon: Calendar },
     { name: "Analytics", href: "/analytics", icon: BarChart3 },
     { name: "Settings", href: "/settings", icon: Settings },
   ];

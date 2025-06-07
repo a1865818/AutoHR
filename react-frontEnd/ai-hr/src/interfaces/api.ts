@@ -138,6 +138,7 @@ export interface ApiJob {
   postedDate?: string;
   closedDate?: string;
   createdAt: string;
+  interviewTemplateId?: string;
 }
 
 export interface ApiCompany {
@@ -175,6 +176,7 @@ export interface CreateJobRequest {
   status: string;
   aiGeneratedDescription: boolean;
   skillMatchThreshold: number;
+  interviewTemplateId?: string;
 }
 
 export interface UpdateJobRequest {
@@ -198,6 +200,7 @@ export interface UpdateJobRequest {
   skillMatchThreshold?: number;
   postedDate?: string;
   closedDate?: string;
+  interviewTemplateId?: string;
 }
 
 //Apply api
