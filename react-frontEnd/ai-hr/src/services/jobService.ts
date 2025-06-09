@@ -186,22 +186,65 @@ class JobService {
     if (!this.isAuthenticated()) {
       throw new Error("Authentication required to view jobs");
     }
+
     let backendStatus = status;
     if (status === "active") {
       backendStatus = "Open";
     }
+
     // Build query parameters
     const params = new URLSearchParams();
-    if (backendStatus && backendStatus.trim())
+    if (backendStatus && backendStatus.trim()) {
       params.append("status", backendStatus);
-    if (companyId && companyId.trim()) params.append("companyId", companyId);
+    }
+
+    // 🔥 ALWAYS INCLUDE COMPANY ID FOR HIRING USERS
+    if (companyId && companyId.trim()) {
+      params.append("companyId", companyId);
+      console.log("📊 Filtering jobs by company ID:", companyId);
+    } else {
+      console.warn("⚠️ No company ID provided - this may return all jobs");
+    }
 
     const queryString = params.toString();
     const endpoint = `/jobs${queryString ? `?${queryString}` : ""}`;
 
-    return this.fetchApi(endpoint);
+    console.log("📊 Fetching jobs from endpoint:", endpoint);
+
+    const jobs = await this.fetchApi(endpoint);
+    console.log("📊 Received jobs:", jobs?.length || 0);
+
+    return jobs;
   }
 
+  getCurrentUser() {
+    if (typeof window === "undefined") {
+      return { token: null, userId: null, userCategory: null, companyId: null };
+    }
+  
+    const token = this.getAuthToken();
+    const userCategory = localStorage.getItem("userCategory") || sessionStorage.getItem("userCategory");
+  
+    // Get user data to extract userId and companyId
+    const currentUserStr = localStorage.getItem("currentUser") || sessionStorage.getItem("currentUser");
+    let userId = null;
+    let companyId = null;
+  
+    if (currentUserStr) {
+      try {
+        const currentUser = JSON.parse(currentUserStr);
+        userId = currentUser.id;
+        companyId = currentUser.companyId;
+        console.log("👤 getCurrentUser - parsed user data:", { userId, companyId });
+      } catch (error) {
+        console.warn("Failed to parse currentUser from storage:", error);
+      }
+    }
+  
+    return { token, userId, userCategory, companyId };
+  }
+
+  
   async createJob(data: CreateJobRequest): Promise<void> {
     if (!this.isAuthenticated()) {
       throw new Error("Authentication required to create jobs");
@@ -338,7 +381,9 @@ class JobService {
       return jobs;
     } catch (error: unknown) {
       console.error("❌ Failed to fetch public jobs:", error);
-      throw error instanceof Error ? error : new Error("Failed to fetch public jobs");
+      throw error instanceof Error
+        ? error
+        : new Error("Failed to fetch public jobs");
     }
   }
 
@@ -381,7 +426,9 @@ class JobService {
       return job;
     } catch (error: unknown) {
       console.error("❌ Failed to fetch public job:", error);
-      throw error instanceof Error ? error : new Error("Failed to fetch public job");
+      throw error instanceof Error
+        ? error
+        : new Error("Failed to fetch public job");
     }
   }
 

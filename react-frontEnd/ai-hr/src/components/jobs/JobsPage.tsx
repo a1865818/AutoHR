@@ -167,7 +167,7 @@ export function JobsPage() {
   }, []);
 
   const loadAllJobsData = async () => {
-    console.log("🔄 Loading all jobs data...");
+    console.log("🔄 Loading jobs data for hiring user's company...");
     setIsLoading(true);
     setError(null);
 
@@ -176,55 +176,79 @@ export function JobsPage() {
         throw new Error("Please log in to view jobs");
       }
 
-      // Load all jobs regardless of status
-      console.log("📊 Loading all jobs...");
+      // 🔥 GET THE CURRENT USER'S COMPANY ID
+      const authData = jobService.getCurrentUser();
+      console.log("👤 Current user auth data:", authData);
+
+      // Extract company ID from auth data
+      let userCompanyId: string | null = null;
+
+      if (authData.companyId) {
+        userCompanyId = authData.companyId;
+        console.log("🏢 User's company ID:", userCompanyId);
+      } else {
+        // If no company ID in auth, try to get it from currentUser in storage
+        const currentUserStr =
+          localStorage.getItem("currentUser") ||
+          sessionStorage.getItem("currentUser");
+        if (currentUserStr) {
+          try {
+            const currentUser = JSON.parse(currentUserStr);
+            userCompanyId = currentUser.companyId;
+            console.log("🏢 Company ID from storage:", userCompanyId);
+          } catch (error) {
+            console.warn("Failed to parse currentUser from storage:", error);
+          }
+        }
+      }
+
+      if (!userCompanyId) {
+        throw new Error(
+          "No company associated with your account. Please contact your administrator."
+        );
+      }
+
+      // 🔥 LOAD JOBS FILTERED BY COMPANY ID
+      console.log("📊 Loading jobs for company:", userCompanyId);
       const [activeJobs, draftJobs] = await Promise.all([
-        jobService.getAllJobs("Open"),
-        jobService.getAllJobs("Draft"),
+        jobService.getAllJobs("Open", userCompanyId), // Pass company ID
+        jobService.getAllJobs("Draft", userCompanyId), // Pass company ID
       ]);
 
       const allJobsData = [...(activeJobs || []), ...(draftJobs || [])];
 
-      console.log("📊 Raw API jobs data:", allJobsData);
-      console.log("📊 Number of jobs received:", allJobsData?.length || 0);
-      console.log("📊 Active jobs:", activeJobs?.length || 0);
-      console.log("📊 Draft jobs:", draftJobs?.length || 0);
+      console.log("📊 Company-filtered jobs data:", allJobsData);
+      console.log("📊 Number of company jobs:", allJobsData?.length || 0);
+      console.log("📊 Active company jobs:", activeJobs?.length || 0);
+      console.log("📊 Draft company jobs:", draftJobs?.length || 0);
 
       // Log first job for structure analysis
       if (allJobsData && allJobsData.length > 0) {
         console.log(
-          "🔍 First job structure:",
+          "🔍 First company job structure:",
           JSON.stringify(allJobsData[0], null, 2)
         );
       }
 
       setAllJobs(allJobsData || []);
 
-      // Load companies
-      const companyIds = [
-        ...new Set((allJobsData || []).map((job) => job.companyId)),
-      ];
-      console.log("🏢 Loading companies for IDs:", companyIds);
-
+      // Load company data for the user's company
+      console.log("🏢 Loading company data for:", userCompanyId);
       const companiesMap = new Map<string, ApiCompany>();
 
-      await Promise.all(
-        companyIds.map(async (companyId) => {
-          try {
-            console.log(`🏢 Loading company ${companyId}...`);
-            const company = await jobService.getCompanyById(companyId);
-            console.log(`✅ Company loaded:`, company);
-            companiesMap.set(companyId, company);
-          } catch (error) {
-            console.warn(`❌ Failed to load company ${companyId}:`, error);
-          }
-        })
-      );
+      try {
+        console.log(`🏢 Loading company ${userCompanyId}...`);
+        const company = await jobService.getCompanyById(userCompanyId);
+        console.log(`✅ Company loaded:`, company);
+        companiesMap.set(userCompanyId, company);
+      } catch (error) {
+        console.warn(`❌ Failed to load company ${userCompanyId}:`, error);
+      }
 
       console.log("🏢 Companies map:", companiesMap);
       setCompanies(companiesMap);
     } catch (error) {
-      console.error("❌ Error loading jobs:", error);
+      console.error("❌ Error loading company jobs:", error);
       setError(error instanceof Error ? error.message : "Failed to load jobs");
     } finally {
       setIsLoading(false);
