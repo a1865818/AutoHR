@@ -2,7 +2,7 @@
 
 import { useJob } from "@/hooks/useJobs";
 import { useAuth } from "@/contexts/AuthContext";
-import { ApiJob } from "@/interfaces";
+import { ApiJob, CandidateWithJobDetails } from "@/interfaces";
 import {
   AlertCircle,
   ArrowLeft,
@@ -27,6 +27,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { JobApplicantsList } from "./JobApplicantsList";
+import { CandidateProfileModal } from "../candidates/CandidateProfileModal";
+
+import { useEffect } from "react";
+import { candidateService } from "@/services/candidateService";
 
 interface JobDetailsPageProps {
   jobId: string;
@@ -39,6 +44,46 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "applicants">(
     "overview"
   );
+  const [selectedCandidate, setSelectedCandidate] =
+    useState<CandidateWithJobDetails | null>(null);
+  const [showCandidateModal, setShowCandidateModal] = useState(false);
+  const [actualApplicantCount, setActualApplicantCount] = useState(0);
+  // Add this useEffect to get the actual applicant count for this job
+  useEffect(() => {
+    const fetchApplicantCount = async () => {
+      if (job?.id && user?.userCategory === "HiringUserProfile") {
+        try {
+          const candidates = await candidateService.getCandidatesForJob(job.id);
+          setActualApplicantCount(candidates.length);
+          console.log(
+            `✅ Found ${candidates.length} applicants for job ${job.id}`
+          );
+
+          // Update the global job state with the actual applicant count
+          if (job.applicantCount !== candidates.length) {
+            // This will help ensure the count is consistent across the application
+            job.applicantCount = candidates.length;
+          }
+        } catch (error) {
+          console.error("Failed to fetch applicant count:", error);
+          // Fallback to the count from job data
+          setActualApplicantCount(safeRenderNumber(job.applicantCount));
+        }
+      } else {
+        // For non-hiring users, use the count from job data
+        setActualApplicantCount(safeRenderNumber(job?.applicantCount || 0));
+      }
+    };
+
+    if (job) {
+      fetchApplicantCount();
+    }
+  }, [job, user]);
+
+  const handleCandidateClick = (candidate: CandidateWithJobDetails) => {
+    setSelectedCandidate(candidate);
+    setShowCandidateModal(true);
+  };
 
   // Enhanced safe rendering function to handle .NET objects with ValueKind
   const safeRender = (value: any): string => {
@@ -363,7 +408,7 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
   const jobQualifications = safeRenderArray(job.qualifications);
   const jobBenefits = safeRenderArray(job.benefits);
   const companyName = safeRender(company?.name) || "Company";
-  const applicantCount = safeRenderNumber(job.applicantCount);
+  const applicantCount = actualApplicantCount;
   const viewCount = safeRenderNumber(job.viewCount);
 
   return (
@@ -626,7 +671,7 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                       className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                     >
                       <Eye className="h-4 w-4 mr-2" />
-                      View Applicants
+                      View Applicants ({applicantCount})
                     </button>
                   )}
 
@@ -658,9 +703,18 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                     <span className="text-sm text-gray-600">
                       Total Applications
                     </span>
-                    <span className="text-sm font-semibold text-gray-900">
-                      {applicantCount}
-                    </span>
+                    {user?.userCategory === "HiringUserProfile" ? (
+                      <button
+                        onClick={() => setShowApplicantsModal(true)}
+                        className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                      >
+                        {applicantCount}
+                      </button>
+                    ) : (
+                      <span className="text-sm font-semibold text-gray-900">
+                        {applicantCount}
+                      </span>
+                    )}
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Views</span>
@@ -810,23 +864,40 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
           </div>
         ) : (
           /* Applicants Tab */
-          <div className="bg-white rounded-lg border p-6">
-            <div className="text-center py-12">
-              <Users className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Applicant Management
-              </h3>
-              <p className="text-gray-600 mb-4">
-                View and manage the {applicantCount} applicants for this
-                position.
-              </p>
-              <button className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors">
-                View All Applicants
-              </button>
+          <div className="bg-white rounded-lg border">
+            <div className="p-6 border-b">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    Job Applicants
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {applicantCount} candidate{applicantCount !== 1 ? 's' : ''} applied for this position
+                  </p>
+                </div>
+              
+              </div>
+            </div>
+            
+            <div className="p-6">
+              <JobApplicantsList
+                jobId={jobId}
+                onCandidateClick={handleCandidateClick}
+              />
             </div>
           </div>
         )}
       </div>
+      
+      {/* Candidate Profile Modal */}
+      <CandidateProfileModal
+        isOpen={showCandidateModal}
+        candidate={selectedCandidate}
+        onClose={() => {
+          setShowCandidateModal(false);
+          setSelectedCandidate(null);
+        }}
+      />
     </div>
   );
 }

@@ -106,87 +106,6 @@ public static class CandidateEndpoints
             var allUsers = allUsersResponse.Models ?? new List<ApplicationUser>();
             var userLookup = allUsers.ToDictionary(u => u.Id, u => u);
 
-            //private static async Task<IResult> GetCandidatesByCompany(Guid companyId, Supabase.Client client)
-            //{
-            //    try
-            //    {
-            //        Console.WriteLine($"Fetching candidates for company: {companyId}");
-
-            //        // Step 1: Get company information (same as before)
-            //        var companyResponse = await client.From<Company>()
-            //            .Where(c => c.Id == companyId)
-            //            .Get();
-
-            //        var company = companyResponse.Models?.FirstOrDefault();
-            //        if (company == null)
-            //        {
-            //            Console.WriteLine($"Company not found: {companyId}");
-            //            return Results.NotFound(new { message = $"Company not found: {companyId}" });
-            //        }
-
-            //        Console.WriteLine($"✅ Found company: {company.Name}");
-
-            //        // Step 2: Get all jobs for this company (same as before)
-            //        var jobsResponse = await client.From<Job>()
-            //            .Where(j => j.CompanyId == companyId)
-            //            .Get();
-
-            //        var companyJobs = jobsResponse.Models;
-            //        if (companyJobs == null || !companyJobs.Any())
-            //        {
-            //            Console.WriteLine($"No jobs found for company: {companyId}");
-            //            return Results.Ok(new
-            //            {
-            //                candidates = new List<object>(),
-            //                totalCount = 0,
-            //                companyName = company.Name
-            //            });
-            //        }
-
-            //        Console.WriteLine($"✅ Found {companyJobs.Count} jobs for company");
-
-            //        // Step 3: Get all applications for these jobs (same as before)
-            //        var jobIds = companyJobs.Select(j => j.Id).ToList();
-            //        var applications = new List<ApplicationDetail>();
-
-            //        foreach (var jobId in jobIds)
-            //        {
-            //            var appResponse = await client.From<ApplicationDetail>()
-            //                .Where(ad => ad.JobId == jobId)
-            //                .Get();
-
-            //            if (appResponse.Models != null)
-            //            {
-            //                applications.AddRange(appResponse.Models);
-            //            }
-            //        }
-
-            //        Console.WriteLine($"✅ Found {applications.Count} total applications");
-
-            //        if (!applications.Any())
-            //        {
-            //            return Results.Ok(new
-            //            {
-            //                candidates = new List<object>(),
-            //                totalCount = 0,
-            //                companyName = company.Name
-            //            });
-            //        }
-
-            //        // Step 4: Get ALL ApplicationUsers at once (more efficient)
-            //        var candidateUserIds = applications.Select(a => a.CandidateUserId).Distinct().ToList();
-            //        Console.WriteLine($"🔍 Need to lookup {candidateUserIds.Count} unique users");
-
-            //        // Get all ApplicationUsers in one query
-            //        var allUsersResponse = await client.From<ApplicationUser>().Get();
-            //        var allUsers = allUsersResponse.Models ?? new List<ApplicationUser>();
-
-            //        Console.WriteLine($"📊 Found {allUsers.Count} total users in ApplicationUser table");
-
-            //        // Create a lookup dictionary for fast matching
-            //        var userLookup = allUsers.ToDictionary(u => u.Id, u => u);
-            //        Console.WriteLine($"💾 Created user lookup dictionary with {userLookup.Count} entries");
-
             // Step 5: Build candidate response objects with proper error handling
             var candidates = applications.Select(app =>
             {
@@ -339,6 +258,7 @@ public static class CandidateEndpoints
             var company = companyResponse.Models?.FirstOrDefault();
             var companyName = company?.Name ?? "Unknown Company";
 
+
             // Get all applications for this job
             var appResponse = await client.From<ApplicationDetail>()
                 .Where(ad => ad.JobId == jobId)
@@ -352,38 +272,43 @@ public static class CandidateEndpoints
 
             Console.WriteLine($"Found {applications.Count} applications for job");
 
-            // Get candidate user details
-            var candidateUserIds = applications.Select(a => a.CandidateUserId).Distinct().ToList();
-            var candidateUsers = new List<ApplicationUser>();
+            // ✅ FIX: Use the same approach as GetCandidatesByCompany
+            // Get ALL ApplicationUsers at once (more efficient)
+            var allUsersResponse = await client.From<ApplicationUser>().Get();
+            var allUsers = allUsersResponse.Models ?? new List<ApplicationUser>();
 
-            foreach (var userId in candidateUserIds)
-            {
-                try
-                {
-                    var userResponse = await client.From<ApplicationUser>()
-                        .Where(u => u.Id == userId.ToString())
-                        .Get();
+            Console.WriteLine($"📊 Found {allUsers.Count} total users in ApplicationUser table");
 
-                    if (userResponse.Models != null && userResponse.Models.Any())
-                    {
-                        candidateUsers.AddRange(userResponse.Models);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine($"Error fetching user {userId}: {ex.Message}");
-                }
-            }
+            // Create a lookup dictionary for fast matching
+            var userLookup = allUsers.ToDictionary(u => u.Id, u => u);
+            Console.WriteLine($"💾 Created user lookup dictionary with {userLookup.Count} entries");
 
             // Build candidate response objects
             var candidates = applications.Select(app =>
             {
-                var candidateUser = candidateUsers.FirstOrDefault(u => u.Id == app.CandidateUserId.ToString());
+                // ✅ FIX: Use the same lookup logic as GetCandidatesByCompany
+                var candidateUserIdString = app.CandidateUserId.ToString();
+                userLookup.TryGetValue(candidateUserIdString, out var candidateUser);
+
+                // Log the lookup result for debugging
+                if (candidateUser != null)
+                {
+                    Console.WriteLine($"✅ Found user for application {app.Id}: {candidateUser.FirstName} {candidateUser.LastName}");
+                }
+                else
+                {
+                    Console.WriteLine($"❌ User not found for application {app.Id}, candidate_user_id: {candidateUserIdString}");
+                }
+
                 var assessmentScore = app.OverallAiScore ?? CalculateAssessmentScore(app);
                 var stage = MapStageToEnum(app.Stage);
                 var status = MapStatusToEnum(app.Status);
 
-                var candidateName = candidateUser != null ? $"{candidateUser.FirstName} {candidateUser.LastName}" : "Unknown Candidate";
+                // ✅ FIX: Use the same name construction logic as GetCandidatesByCompany
+                var candidateName = candidateUser != null
+                    ? $"{candidateUser.FirstName} {candidateUser.LastName}"
+                    : $"Unknown User ({candidateUserIdString.Substring(0, 8)}...)";
+
                 var companyInitial = !string.IsNullOrEmpty(companyName) ? companyName.Substring(0, 1).ToUpper() : "C";
 
                 return new
@@ -393,12 +318,12 @@ public static class CandidateEndpoints
                     candidateUserId = app.CandidateUserId.ToString(),
                     jobId = app.JobId.ToString(),
                     name = candidateName,
-                    email = candidateUser?.Email ?? "",
+                    email = candidateUser?.Email ?? "No email available",
                     photo = candidateUser != null
                         ? $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(candidateName)}&size=32&background=e5e7eb&color=374151&rounded=true"
-                        : "https://ui-avatars.com/api/?name=User&size=32&background=e5e7eb&color=374151&rounded=true",
+                        : "https://ui-avatars.com/api/?name=Unknown&size=32&background=f87171&color=ffffff&rounded=true",
                     role = job.Title,
-                    company = companyName, // Use actual company name
+                    company = companyName,
                     companyLogo = !string.IsNullOrEmpty(company?.LogoUrl)
                         ? company.LogoUrl
                         : $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(companyInitial)}&size=24&background=3b82f6&color=ffffff&rounded=true",
@@ -416,13 +341,20 @@ public static class CandidateEndpoints
                     jobDepartment = job.Department ?? "",
                     jobLocationType = job.LocationType ?? "Unknown",
                     jobEmploymentType = job.EmploymentType ?? "Unknown",
-
-
-                    hiringNotes = app.HiringNotes ?? "unknown",
+                    hiringNotes = app.HiringNotes ?? "",
                     notesCreatedAt = app.NotesCreatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                    notesUpdatedAt = app.NotesUpdatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                    notesUpdatedAt = app.NotesUpdatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+
+                    // Debug info
+                    debug = new
+                    {
+                        userFound = candidateUser != null,
+                        searchedUserId = candidateUserIdString,
+                        totalUsersInDb = allUsers.Count
+                    }
                 };
             }).ToList();
+
 
             Console.WriteLine($"Returning {candidates.Count} candidates for job {jobId}");
             return Results.Ok(candidates);

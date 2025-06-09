@@ -169,7 +169,6 @@ class CandidateService {
       throw error;
     }
   }
-
   // Update candidate status (approve/decline)
   async updateCandidateStatus(
     applicationId: string,

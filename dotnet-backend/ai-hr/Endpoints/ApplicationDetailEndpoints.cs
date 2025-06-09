@@ -1,4 +1,4 @@
-using ai_hr.Models;
+﻿using ai_hr.Models;
 using ai_hr.Contracts;
 using Supabase;
 
@@ -45,6 +45,37 @@ public static class ApplicationDetailEndpoints
             .WithDescription("Permanently removes a job application from the system");
     }
 
+    private static async Task UpdateJobApplicantCount(Guid jobId, Supabase.Client client)
+    {
+        try
+        {
+            // Get the current count of applications for this job
+            var applicationsResponse = await client.From<ApplicationDetail>()
+                .Where(ad => ad.JobId == jobId)
+                .Get();
+
+            var currentCount = applicationsResponse.Models?.Count ?? 0;
+
+            // Get the job and update its applicant count
+            var jobResponse = await client.From<Job>()
+                .Where(j => j.Id == jobId)
+                .Get();
+
+            var job = jobResponse.Models?.FirstOrDefault();
+            if (job != null)
+            {
+                job.ApplicantCount = currentCount;
+                await client.From<Job>().Update(job);
+
+                Console.WriteLine($"✅ Updated job {jobId} applicant count to {currentCount}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Failed to update applicant count for job {jobId}: {ex.Message}");
+        }
+    }
+
     private static async Task<IResult> CreateApplicationDetail(CreateApplicationDetailRequest request, Supabase.Client client)
     {
         try
@@ -72,9 +103,8 @@ public static class ApplicationDetailEndpoints
             Console.WriteLine($"Creating application detail with ID: {applicationId}");
             Console.WriteLine($"JobId: {request.JobId}, CandidateUserId: {request.CandidateUserId}");
 
-            // Use Upsert instead of Insert to handle potential ID conflicts better
             var response = await client.From<ApplicationDetail>()
-                .Upsert(applicationDetail);
+         .Upsert(applicationDetail);
 
             var newApplicationDetail = response.Models.FirstOrDefault();
 
@@ -85,6 +115,9 @@ public static class ApplicationDetailEndpoints
             }
 
             Console.WriteLine($"Application detail created successfully with ID: {newApplicationDetail.Id}");
+
+            // ✅ UPDATE THE APPLICANT COUNT FOR THE JOB
+            await UpdateJobApplicantCount(request.JobId, client);
 
             // Return the created application with relevant details
             return Results.Ok(new
@@ -290,4 +323,7 @@ public static class ApplicationDetailEndpoints
             return Results.BadRequest(new { error = ex.Message });
         }
     }
+
+
+
 }
