@@ -377,8 +377,8 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-30">
+      {/* Header - removed sticky positioning */}
+      <div className="bg-white border-b z-30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-4">
             <div className="flex items-center space-x-4">
@@ -405,11 +405,7 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
                       sections complete
                     </span>
                   </div>
-                  {lastSaved && (
-                    <span className="text-xs text-green-600">
-                      ✓ Saved {lastSaved.toLocaleTimeString()}
-                    </span>
-                  )}
+
                   {saveError && (
                     <span className="text-xs text-red-600">⚠ {saveError}</span>
                   )}
@@ -461,7 +457,7 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Navigation Sidebar */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg border p-4 sticky top-24">
+            <div className="bg-white rounded-lg border p-4 sticky top-4">
               <nav className="space-y-2">
                 {sections.map((section) => {
                   const Icon = section.icon;
