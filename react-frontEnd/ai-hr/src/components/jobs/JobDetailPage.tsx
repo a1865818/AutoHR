@@ -703,18 +703,9 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                     <span className="text-sm text-gray-600">
                       Total Applications
                     </span>
-                    {user?.userCategory === "HiringUserProfile" ? (
-                      <button
-                        onClick={() => setShowApplicantsModal(true)}
-                        className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors"
-                      >
-                        {applicantCount}
-                      </button>
-                    ) : (
                       <span className="text-sm font-semibold text-gray-900">
                         {applicantCount}
                       </span>
-                    )}
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Views</span>
