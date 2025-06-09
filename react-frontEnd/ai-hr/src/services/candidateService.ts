@@ -1,6 +1,7 @@
 import {
   CandidateWithJobDetails,
   CandidatesResponse,
+  SaveNoteRequest,
 } from "@/interfaces/index";
 
 class CandidateService {
@@ -220,7 +221,6 @@ class CandidateService {
     }
   }
 
-  // Save candidate note
   async saveCandidateNote(applicationId: string, note: string): Promise<void> {
     const { token, userCategory } = this.getAuthData();
 
@@ -232,23 +232,19 @@ class CandidateService {
       throw new Error("Access denied - only hiring users can save notes");
     }
 
-    console.log("📤 Saving candidate note:", applicationId);
+    console.log("📤 Saving candidate note to database:", applicationId);
 
     try {
-      // For now, we'll store notes in the cover letter field or create a separate notes endpoint
-      // This is a simplified approach - you might want to create a separate notes table
+      const requestBody: SaveNoteRequest = {
+        notes: note,
+      };
+
       const response = await fetch(
-        `${this.baseUrl}/applicationdetails/${applicationId}`,
+        `${this.baseUrl}/candidates/${applicationId}/notes`,
         {
           method: "PUT",
           headers: this.getHeaders(),
-          body: JSON.stringify({
-            // Store note in AI analysis for now - you can create a dedicated notes field
-            aiAnalysis: {
-              hiringNotes: note,
-              noteUpdatedAt: new Date().toISOString(),
-            },
-          }),
+          body: JSON.stringify(requestBody),
         }
       );
 
@@ -257,13 +253,48 @@ class CandidateService {
         throw new Error(`Failed to save note: ${error}`);
       }
 
-      console.log("✅ Candidate note saved successfully");
+      const result = await response.json();
+      console.log("✅ Candidate note saved to database successfully:", result);
     } catch (error) {
       console.error("❌ Failed to save candidate note:", error);
       throw error;
     }
   }
 
+  // New: Delete candidate note from database
+  async deleteCandidateNote(applicationId: string): Promise<void> {
+    const { token, userCategory } = this.getAuthData();
+
+    if (!token) {
+      throw new Error("User not authenticated");
+    }
+
+    if (userCategory === "ApplicationUser") {
+      throw new Error("Access denied - only hiring users can delete notes");
+    }
+
+    console.log("📤 Deleting candidate note from database:", applicationId);
+
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/candidates/${applicationId}/notes`,
+        {
+          method: "DELETE",
+          headers: this.getHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to delete note: ${error}`);
+      }
+
+      console.log("✅ Candidate note deleted from database successfully");
+    } catch (error) {
+      console.error("❌ Failed to delete candidate note:", error);
+      throw error;
+    }
+  }
   // Get current user info
   getCurrentUser() {
     return this.getAuthData();

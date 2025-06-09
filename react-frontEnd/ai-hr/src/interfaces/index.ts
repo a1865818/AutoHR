@@ -19,6 +19,12 @@ export interface Candidate {
   availabilityDate?: string;
   jobSource?: string;
   overallAiScore?: number;
+  hiringNotes?: string;
+  notesCreatedAt?: string;
+  notesUpdatedAt?: string;
+}
+export interface SaveNoteRequest {
+  notes: string;
 }
 
 export interface CandidateWithJobDetails extends Candidate {

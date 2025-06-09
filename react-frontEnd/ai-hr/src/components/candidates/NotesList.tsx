@@ -7,6 +7,7 @@ interface NotesListProps {
   selectedCandidate: string | null;
   onCandidateClick: (candidateId: string) => void;
   onDeleteNote: (candidateId: string) => void;
+  onEditNote: (candidate: Candidate) => void;
 }
 
 export function NotesList({
@@ -15,12 +16,19 @@ export function NotesList({
   selectedCandidate,
   onCandidateClick,
   onDeleteNote,
+  onEditNote,
 }: NotesListProps) {
-  const handleDeleteClick = (e: React.MouseEvent, candidateId: string) => {
+  // FIXED: Use applicationId for delete operations
+  const handleDeleteClick = (e: React.MouseEvent, candidate: Candidate) => {
     e.stopPropagation();
     if (confirm("Are you sure you want to delete this note?")) {
-      onDeleteNote(candidateId);
+      onDeleteNote(candidate.applicationId); // FIXED: Pass applicationId instead of candidate.id
     }
+  };
+
+  const handleEditClick = (e: React.MouseEvent, candidate: Candidate) => {
+    e.stopPropagation();
+    onEditNote(candidate);
   };
 
   const truncateText = (text: string, maxLength: number = 150) => {
@@ -28,10 +36,27 @@ export function NotesList({
     return text.substring(0, maxLength) + "...";
   };
 
-  //   const formatDate = (candidateId: string) => {
-  //     // In a real app, you'd store the actual date when the note was created/updated
-  //     return "2 days ago";
-  //   };
+  const formatTimestamp = (timestamp: string | undefined) => {
+    if (!timestamp) return "Unknown time";
+
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+    if (diffInHours < 1) {
+      const minutes = Math.floor(diffInHours * 60);
+      return `${minutes} minute${minutes !== 1 ? "s" : ""} ago`;
+    } else if (diffInHours < 24) {
+      const hours = Math.floor(diffInHours);
+      return `${hours} hour${hours !== 1 ? "s" : ""} ago`;
+    } else if (diffInHours < 168) {
+      // 7 days
+      const days = Math.floor(diffInHours / 24);
+      return `${days} day${days !== 1 ? "s" : ""} ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
 
   return (
     <div
@@ -51,8 +76,14 @@ export function NotesList({
       ) : (
         <div className="space-y-4 py-4">
           {candidates.map((candidate) => {
-            const note = notes[candidate.id];
+            // FIXED: Get note using applicationId
+            const note = notes[candidate.applicationId];
             const isSelected = selectedCandidate === candidate.id;
+
+            // Get timestamp info
+            const notesUpdatedAt = (candidate as any).notesUpdatedAt;
+            const notesCreatedAt = (candidate as any).notesCreatedAt;
+            const displayTime = notesUpdatedAt || notesCreatedAt;
 
             return (
               <div
@@ -98,18 +129,16 @@ export function NotesList({
 
                   <div className="flex items-center space-x-2">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onCandidateClick(candidate.id);
-                      }}
-                      className="p-1 text-gray-400 hover:text-blue-500 rounded"
+                      onClick={(e) => handleEditClick(e, candidate)}
+                      className="p-1 text-gray-400 hover:text-blue-500 rounded transition-colors"
                       title="Edit note"
                     >
                       <Edit3 className="h-4 w-4" />
                     </button>
+                    {/* FIXED: Pass entire candidate object to get applicationId */}
                     <button
-                      onClick={(e) => handleDeleteClick(e, candidate.id)}
-                      className="p-1 text-gray-400 hover:text-red-500 rounded"
+                      onClick={(e) => handleDeleteClick(e, candidate)}
+                      className="p-1 text-gray-400 hover:text-red-500 rounded transition-colors"
                       title="Delete note"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -127,7 +156,11 @@ export function NotesList({
                 {/* Note metadata */}
                 <div className="flex items-center text-xs text-gray-500">
                   <Calendar className="h-3 w-3 mr-1" />
-                  {/* <span>Last updated {formatDate(candidate.id)}</span> */}
+                  <span>
+                    {notesUpdatedAt && notesUpdatedAt !== notesCreatedAt
+                      ? `Updated ${formatTimestamp(notesUpdatedAt)}`
+                      : `Created ${formatTimestamp(notesCreatedAt)}`}
+                  </span>
                   <span className="mx-2">•</span>
                   <span>{note.length} characters</span>
                 </div>
