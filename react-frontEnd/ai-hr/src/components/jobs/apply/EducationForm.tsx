@@ -1,6 +1,6 @@
 import { Education } from "@/interfaces";
 import { Calendar, GraduationCap, Search } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface EducationFormProps {
   education: Education | null;
@@ -13,6 +13,7 @@ export function EducationForm({
   onSave,
   onCancel,
 }: EducationFormProps) {
+  // Initialize form data from the education prop
   const [formData, setFormData] = useState<Omit<Education, "id">>({
     institution: education?.institution || "",
     major: education?.major || "",
@@ -23,6 +24,35 @@ export function EducationForm({
     endDate: education?.endDate || "",
     isCurrentlyAttending: education?.isCurrentlyAttending || false,
   });
+
+  // Update form data when education prop changes (e.g., when editing a different education entry)
+  useEffect(() => {
+    if (education) {
+      console.log("📚 Populating education form with:", education);
+      setFormData({
+        institution: education.institution || "",
+        major: education.major || "",
+        degree: education.degree || "",
+        location: education.location || "",
+        description: education.description || "",
+        startDate: education.startDate || "",
+        endDate: education.endDate || "",
+        isCurrentlyAttending: education.isCurrentlyAttending || false,
+      });
+    } else {
+      // Reset form when adding new education
+      setFormData({
+        institution: "",
+        major: "",
+        degree: "",
+        location: "",
+        description: "",
+        startDate: "",
+        endDate: "",
+        isCurrentlyAttending: false,
+      });
+    }
+  }, [education]);
 
   // Track which fields have been touched by the user
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());

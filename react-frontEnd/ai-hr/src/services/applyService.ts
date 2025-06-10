@@ -182,12 +182,15 @@ class ApplicationService {
       throw new Error(`Application submission failed: ${error}`);
     }
 
-    console.log("✅ Application submitted successfully");
+    // Parse the response from the backend to get the real application ID
+    const responseData = await response.json();
+    console.log("✅ Application submitted successfully:", responseData);
 
+    // Use the application ID returned from the backend
     return {
-      applicationId: `app_${Date.now()}`,
-      status: "applied",
-      submittedAt: new Date().toISOString(),
+      applicationId: responseData.id || responseData.applicationId, // Use the correct ID field from backend
+      status: responseData.status || "applied",
+      submittedAt: responseData.submittedAt || responseData.createdAt || new Date().toISOString(),
       message: "Application submitted successfully",
     };
   }
@@ -202,6 +205,14 @@ class ApplicationService {
       throw new Error("User not authenticated");
     }
 
+    // Validate that the applicationId is in the correct format (GUID format)
+    if (!this.isValidGuid(applicationId)) {
+      console.error("❌ Invalid application ID format:", applicationId);
+      throw new Error("Invalid application ID format. Expected a GUID.");
+    }
+
+    console.log("🔍 Getting application status for ID:", applicationId);
+    
     const response = await fetch(
       `${this.baseUrl}/applicationdetails/${applicationId}`,
       {
@@ -212,10 +223,23 @@ class ApplicationService {
 
     if (!response.ok) {
       const error = await response.text();
+      console.error("❌ Failed to get application status:", {
+        status: response.status,
+        statusText: response.statusText,
+        error,
+      });
       throw new Error(`Failed to get application status: ${error}`);
     }
 
-    return response.json();
+    const result = await response.json();
+    console.log("✅ Got application status:", result);
+    return result;
+  }
+  
+  // Helper method to check if a string is a valid GUID
+  private isValidGuid(str: string): boolean {
+    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return guidRegex.test(str);
   }
 
   // Get user's applications

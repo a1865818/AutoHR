@@ -21,11 +21,15 @@ import { useEffect, useState } from "react";
 
 interface ApplicationSuccessPageProps {
   jobId: string;
+  applicationId?: string;
 }
 
-export function ApplicationSuccessPage({ jobId }: ApplicationSuccessPageProps) {
+export function ApplicationSuccessPage({
+  jobId,
+  applicationId: propApplicationId,
+}: ApplicationSuccessPageProps) {
   const searchParams = useSearchParams();
-  const applicationId = searchParams.get("applicationId");
+  const applicationId = propApplicationId || searchParams.get("applicationId");
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -183,7 +187,7 @@ export function ApplicationSuccessPage({ jobId }: ApplicationSuccessPageProps) {
             </h2>
             <p className="text-red-700 mb-4">{error}</p>
             <Link
-              href="/jobs"
+              href="/applicant/jobs"
               className="inline-block px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
               Browse Jobs
@@ -405,7 +409,7 @@ export function ApplicationSuccessPage({ jobId }: ApplicationSuccessPageProps) {
 
                   <div className="pt-3 border-t">
                     <Link
-                      href={`/jobs/${jobId}`}
+                      href={`/applicant/jobs/${jobId}`}
                       className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium"
                     >
                       View Job Details
@@ -468,7 +472,7 @@ export function ApplicationSuccessPage({ jobId }: ApplicationSuccessPageProps) {
                 </Link>
 
                 <Link
-                  href="/jobs"
+                  href="/applicant/jobs"
                   className="block w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors text-center text-sm font-medium"
                 >
                   Browse More Jobs

@@ -1,7 +1,7 @@
 // components/apply/ExperienceForm.tsx
 import { Experience } from "@/interfaces";
 import { Building, Calendar, Search } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface ExperienceFormProps {
   experience: Experience | null;
@@ -14,6 +14,7 @@ export function ExperienceForm({
   onSave,
   onCancel,
 }: ExperienceFormProps) {
+  // Initialize form data from the experience prop
   const [formData, setFormData] = useState<Omit<Experience, "id">>({
     title: experience?.title || "",
     company: experience?.company || "",
@@ -23,6 +24,33 @@ export function ExperienceForm({
     endDate: experience?.endDate || "",
     isCurrent: experience?.isCurrent || false,
   });
+
+  // Update form data when experience prop changes (e.g., when editing a different experience entry)
+  useEffect(() => {
+    if (experience) {
+      console.log("💼 Populating experience form with:", experience);
+      setFormData({
+        title: experience.title || "",
+        company: experience.company || "",
+        location: experience.location || "",
+        description: experience.description || "",
+        startDate: experience.startDate || "",
+        endDate: experience.endDate || "",
+        isCurrent: experience.isCurrent || false,
+      });
+    } else {
+      // Reset form when adding new experience
+      setFormData({
+        title: "",
+        company: "",
+        location: "",
+        description: "",
+        startDate: "",
+        endDate: "",
+        isCurrent: false,
+      });
+    }
+  }, [experience]);
 
   // Track which fields have been touched by the user
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());

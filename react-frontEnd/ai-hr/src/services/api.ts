@@ -147,6 +147,13 @@ class ApiService {
     });
   }
 
+  async updateApplicationUserProfile(data: any): Promise<any> {
+    return this.makeRequest<any>('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Logout methods
   async logout(): Promise<void> {
     return this.makeRequest<void>('/hiring-auth/logout', {
