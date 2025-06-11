@@ -420,16 +420,24 @@ function mapExperienceToSeniority(experience: string): string {
   return "Mid"; // Default fallback
 }
 
-// Transform location string to locations object
-function transformLocation(location: string, locationType: string): Record<string, unknown> {
-  // Create a flexible location object that can handle various formats
+// Transform city and country to locations object
+function transformLocation(city: string, country: string, locationType: string): Record<string, unknown> {
+  // Handle null/undefined case
+  if ((!city || city.trim() === "") && (!country || country.trim() === "")) {
+    return {
+      type: locationType.toLowerCase(),
+      description: locationType === "Remote" ? "Remote work" : "Location not specified",
+    };
+  }
+
+  // Ensure city and country are strings
+  const cityStr = String(city || "").trim();
+  const countryStr = String(country || "").trim();
+
   return {
-    primary: location,
-    type: locationType,
-    // Could be extended with more location details if needed
-    // city: extractCity(location),
-    // country: extractCountry(location),
-    // remote: locationType === "Remote"
+    city: cityStr,
+    country: countryStr,
+    address: cityStr && countryStr ? `${cityStr}, ${countryStr}` : cityStr || countryStr,
   };
 }
 
@@ -448,6 +456,7 @@ export function mapFormDataToCreateJobRequest(
     companyId,
     createdBy,
     description: formData.description,
+    department: formData.department || "",
     responsibilities: formData.responsibilities,
     requirements: formData.requirements,
     qualifications: formData.qualifications,
@@ -456,7 +465,7 @@ export function mapFormDataToCreateJobRequest(
     seniorityLevel: mapExperienceToSeniority(formData.experience),
     experienceYearsMin: extractMinYears(formData.experience),
     locationType: formData.locationType, // "On-site", "Remote", "Hybrid"
-    locations: transformLocation(formData.location, formData.locationType),
+    locations: transformLocation(formData.city, formData.country, formData.locationType),
     salaryMin: formData.salary.min || undefined,
     salaryMax: formData.salary.max || undefined,
     salaryCurrency: formData.salary.currency,
@@ -483,7 +492,8 @@ export function validateFormDataForSubmission(formData: JobFormData): {
   // Required fields for job creation
   if (!formData.title.trim()) missingFields.push("Job Title");
   if (!formData.description.trim()) missingFields.push("Job Description");
-  if (!formData.location.trim()) missingFields.push("Location");
+  if (!formData.city.trim()) missingFields.push("City");
+  if (!formData.country.trim()) missingFields.push("Country");
   if (formData.responsibilities.length === 0) missingFields.push("Responsibilities");
   if (formData.requirements.length === 0) missingFields.push("Requirements");
   if (formData.qualifications.length === 0) missingFields.push("Qualifications");

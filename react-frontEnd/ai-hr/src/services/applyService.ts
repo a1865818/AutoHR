@@ -2,8 +2,10 @@
 import {
   ApplicationDetailResponse,
   CreateApplicationDetailRequest,
+  ApplicationWithJobDetails,
 } from "@/interfaces/api";
 import { ApplicationData, PreliminaryData } from "@/interfaces/apply";
+import { jobService } from "@/services/jobService";
 
 class ApplicationService {
   private baseUrl: string;
@@ -267,6 +269,77 @@ class ApplicationService {
     }
 
     return response.json();
+  }
+
+  // Get user's applications with job details
+  async getUserApplicationsWithJobDetails(): Promise<ApplicationWithJobDetails[]> {
+    const applications = await this.getUserApplications();
+    
+    // Fetch job details for each application
+    const applicationsWithJobs = await Promise.allSettled(
+      applications.map(async (app) => {
+        try {
+          const job = await jobService.getJobById(app.jobId);
+          
+          // Extract location string from locations object
+          let locationString = 'Unknown Location';
+          if (job.locations) {
+            if (typeof job.locations === 'string') {
+              locationString = job.locations;
+            } else if (typeof job.locations === 'object') {
+              // Extract first location or fallback
+              const locationValues = Object.values(job.locations);
+              locationString = locationValues.length > 0 ? String(locationValues[0]) : 'Unknown Location';
+            }
+          }
+
+          // We'll need to fetch company details separately
+          let companyName = 'Unknown Company';
+          try {
+            const company = await jobService.getCompanyById(job.companyId);
+            companyName = company.name;
+          } catch (error) {
+            console.warn(`Failed to fetch company details for company ${job.companyId}:`, error);
+          }
+          
+          return {
+            ...app,
+            job: {
+              title: job.title,
+              company: companyName,
+              location: locationString,
+              employmentType: job.employmentType,
+              status: job.status,
+              department: job.department || 'Not specified',
+              salary: (job.salaryMin || job.salaryMax) ? {
+                min: job.salaryMin || 0,
+                max: job.salaryMax || 0,
+                currency: job.salaryCurrency || 'USD',
+                period: 'per year',
+              } : undefined,
+            },
+          };
+        } catch (error) {
+          console.warn(`Failed to fetch job details for job ${app.jobId}:`, error);
+          return {
+            ...app,
+            job: {
+              title: 'Unknown Position',
+              company: 'Unknown Company',
+              location: 'Unknown Location',
+              employmentType: 'Unknown',
+              status: 'unknown',
+              department: 'Not specified',
+            },
+          };
+        }
+      })
+    );
+
+    // Filter out rejected promises and return successful ones
+    return applicationsWithJobs
+      .filter((result) => result.status === 'fulfilled')
+      .map((result) => (result as PromiseFulfilledResult<ApplicationWithJobDetails>).value);
   }
 
   // Check if user has already applied to a job

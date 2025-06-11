@@ -39,7 +39,8 @@ export interface JobFormData {
   company?: string;
   department?: string;
   description: string;
-  location: string;
+  city: string;
+  country: string;
   locationType: "On-site" | "Remote" | "Hybrid";
   type: string;
   experience: string;
@@ -69,7 +70,8 @@ export interface JobFormErrors {
   company?: string;
   description?: string;
   salary?: string;
-  location?: string;
+  city?: string;
+  country?: string;
   general?: string;
 }
 
@@ -85,6 +87,7 @@ export interface CreateJobRequest {
   companyId: string; // GUID as string
   createdBy: string; // GUID as string
   description: string;
+  department: string;
   responsibilities: string[];
   requirements: string[];
   qualifications: string[];

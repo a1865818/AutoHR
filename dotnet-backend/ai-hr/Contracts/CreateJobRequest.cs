@@ -14,6 +14,8 @@ namespace ai_hr.Contracts
 
         public string Description { get; set; }
 
+        public string Department { get; set; }
+
         public List<string> Responsibilities { get; set; }
         public List<string> Requirements { get; set; }
         public List<string> Qualifications { get; set; }

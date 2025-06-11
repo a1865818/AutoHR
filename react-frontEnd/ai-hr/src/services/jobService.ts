@@ -392,14 +392,16 @@ class JobService {
     }
   }
 
-  // Utility methods to convert between API and frontend formats (unchanged)
+  // Utility methods to convert between API and frontend formats - updated for city/country
   convertApiJobToFormData(apiJob: ApiJob, company?: ApiCompany): JobFormData {
+    const location = this.extractLocationFromObject(apiJob.locations);
     return {
       title: apiJob.title,
       company: company?.name,
-      department: "",
+      department: apiJob.department || "",
       description: apiJob.description,
-      location: this.extractLocationString(apiJob.locations),
+      city: location.city,
+      country: location.country,
       locationType: this.mapLocationTypeToFormData(apiJob.locationType),
       type: apiJob.employmentType,
       experience: this.mapExperienceToFormData(
@@ -433,6 +435,7 @@ class JobService {
   ): UpdateJobRequest {
     return {
       title: formData.title,
+      department: formData.department || "",
       description: formData.description,
       responsibilities: formData.responsibilities.filter((r) => r.trim()),
       requirements: formData.requirements.filter((r) => r.trim()),
@@ -443,7 +446,8 @@ class JobService {
       experienceYearsMin: this.extractMinExperience(formData.experience),
       locationType: this.mapFormDataToLocationType(formData.locationType),
       locations: this.createLocationObject(
-        formData.location,
+        formData.city,
+        formData.country,
         formData.locationType
       ),
       salaryMin: formData.salary.min,
@@ -469,6 +473,7 @@ class JobService {
       createdBy,
       title: formData.title,
       description: formData.description,
+      department: formData.department || "",
       responsibilities: formData.responsibilities.filter((r) => r.trim()),
       requirements: formData.requirements.filter((r) => r.trim()),
       qualifications: formData.qualifications.filter((q) => q.trim()),
@@ -477,7 +482,8 @@ class JobService {
       seniorityLevel: this.mapFormDataToSeniorityLevel(formData.experience),
       locationType: this.mapFormDataToLocationType(formData.locationType),
       locations: this.createLocationObject(
-        formData.location,
+        formData.city,
+        formData.country,
         formData.locationType
       ),
       salaryCurrency: formData.salary.currency,
@@ -491,27 +497,37 @@ class JobService {
     return createRequest;
   }
 
-  // Helper methods for data transformation (unchanged from original)
-  private extractLocationString(locations: Record<string, any>): string {
-    if (!locations) return "Location not specified";
+  // Helper methods for data transformation - updated to extract city and country
+  private extractLocationFromObject(locations: Record<string, any>): { city: string; country: string } {
+    if (!locations) return { city: "", country: "" };
 
-    if (locations.city && locations.state) {
-      return `${locations.city}, ${locations.state}`;
+    // Direct city and country fields
+    if (locations.city || locations.country) {
+      return {
+        city: locations.city || "",
+        country: locations.country || ""
+      };
     }
 
-    if (locations.address) {
-      return locations.address;
+    // Legacy support: try to extract from address
+    if (locations.address && typeof locations.address === "string") {
+      const parts = locations.address.split(",").map((p: string) => p.trim());
+      return {
+        city: parts[0] || "",
+        country: parts[1] || ""
+      };
     }
 
-    if (locations.description) {
-      return locations.description;
+    // Legacy support: try description
+    if (locations.description && typeof locations.description === "string") {
+      const parts = locations.description.split(",").map((p: string) => p.trim());
+      return {
+        city: parts[0] || "",
+        country: parts[1] || ""
+      };
     }
 
-    if (typeof locations === "string") {
-      return locations;
-    }
-
-    return "Location not specified";
+    return { city: "", country: "" };
   }
 
   private mapLocationTypeToFormData(
@@ -625,19 +641,16 @@ class JobService {
     return match ? parseInt(match[1]) : 0;
   }
   private createLocationObject(
-    location: string | Record<string, any>,
+    city: string,
+    country: string,
     locationType: "On-site" | "Remote" | "Hybrid"
   ): Record<string, any> {
-    // If location is already an object, use it as base and just update the type
-    if (typeof location === "object" && location !== null) {
-      return {
-        ...location,
-        type: locationType.toLowerCase(),
-      };
-    }
+    // Ensure city and country are strings
+    const cityStr = String(city || "").trim();
+    const countryStr = String(country || "").trim();
 
     // Handle null/undefined case
-    if (!location) {
+    if (!cityStr && !countryStr) {
       return {
         type: locationType.toLowerCase(),
         description:
@@ -645,31 +658,21 @@ class JobService {
       };
     }
 
-    // Now we know location is a string, proceed with original logic
-    const locationStr = String(location); // Ensure it's a string
-    const parts = locationStr.split(",").map((p) => p.trim());
-
     if (locationType === "Remote") {
       return {
         type: "remote",
         description: "Remote work",
-        address: locationStr,
-      };
-    }
-
-    if (parts.length >= 2) {
-      return {
-        city: parts[0],
-        state: parts[1],
-        type: locationType.toLowerCase(),
-        address: locationStr,
+        city: cityStr || "Remote",
+        country: countryStr || "Global",
       };
     }
 
     return {
-      address: locationStr,
+      city: cityStr,
+      country: countryStr,
       type: locationType.toLowerCase(),
-      description: locationStr,
+      address: cityStr && countryStr ? `${cityStr}, ${countryStr}` : cityStr || countryStr,
+      description: cityStr && countryStr ? `${cityStr}, ${countryStr}` : cityStr || countryStr || "Location not specified",
     };
   }
 

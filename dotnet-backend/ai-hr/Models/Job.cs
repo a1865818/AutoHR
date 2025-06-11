@@ -82,27 +82,10 @@ namespace ai_hr.Models
         [Column("closed_date")]
         public DateTime? ClosedDate { get; set; }
 
-        [Column("created_at")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-
-        [Column("updated_at")]
-        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
-
-        // Additional fields for the frontend
-        [Column("company_name")]
-        public string? CompanyName { get; set; }
-
         [Column("department")]
         public string? Department { get; set; }
 
         [Column("template_id")]
         public Guid? InterviewTemplateId { get; set; }
-
-        public Job()
-        {
-            Id = Guid.NewGuid();
-            CreatedAt = DateTime.UtcNow;
-            UpdatedAt = DateTime.UtcNow;
-        }
     }
 }

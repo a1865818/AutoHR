@@ -57,7 +57,8 @@ const initialFormData: JobFormData = {
   company: "",
   department: "",
   description: "",
-  location: "",
+  city: "",
+  country: "",
   locationType: "On-site",
   type: "Full-Time",
   experience: "",
@@ -320,7 +321,7 @@ We offer a dynamic work environment where creativity and innovation are valued, 
   const isStepValid = (stepId: number): boolean => {
     switch (stepId) {
       case 1:
-        return !!(formData.title && formData.location);
+        return !!(formData.title && formData.city && formData.country);
       case 2:
         return !!(formData.description && formData.responsibilities.length > 0);
       case 3:

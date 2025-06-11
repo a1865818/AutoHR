@@ -104,7 +104,9 @@ export function PreviewStep({
             </p>
             <div className="flex items-center text-gray-500 text-sm mb-3">
               <MapPin className="h-4 w-4 mr-1" />
-              {formData.location}
+              {formData.city && formData.country
+                ? `${formData.city}, ${formData.country}`
+                : formData.city || formData.country || "Location not specified"}
             </div>
           </div>
           <div className="text-right">

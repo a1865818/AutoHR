@@ -117,6 +117,7 @@ export interface ApiJob {
   companyId: string;
   createdBy: string;
   description: string;
+  department?: string;
   responsibilities: string[];
   requirements: string[];
   qualifications: string[];
@@ -160,6 +161,7 @@ export interface CreateJobRequest {
   companyId: string;
   createdBy: string;
   description: string;
+  department: string;
   responsibilities: string[];
   requirements: string[];
   qualifications: string[];
@@ -181,6 +183,7 @@ export interface CreateJobRequest {
 
 export interface UpdateJobRequest {
   title?: string;
+  department?: string;
   description?: string;
   responsibilities?: string[];
   requirements?: string[];
@@ -267,6 +270,13 @@ export interface ApplicationWithJobDetails extends ApplicationDetailResponse {
     location: string;
     employmentType: string;
     status: string;
+    department?: string;
+    salary?: {
+      min: number;
+      max: number;
+      currency: string;
+      period: string;
+    };
   };
 }
 
@@ -275,6 +285,17 @@ export interface ApplicationSummary {
   applicationsByStatus: Record<string, number>;
   applicationsByStage: Record<string, number>;
   recentApplications: ApplicationDetailResponse[];
+}
+
+export interface ApplicationFilters {
+  status: string[];
+  stage: string[];
+  dateRange: {
+    start?: string;
+    end?: string;
+  };
+  company: string[];
+  jobTitle: string;
 }
 
 // Error response format

@@ -40,7 +40,8 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
     company: "",
     department: "",
     description: "",
-    location: "",
+    city: "",
+    country: "",
     locationType: "On-site",
     type: "",
     experience: "",
@@ -130,14 +131,6 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
       setSaveError(null);
     } catch (error) {
       console.error("❌ Auto-save failed:", error);
-
-      // Don't show auto-save errors to user unless it's authentication
-      if (error.message && error.message.includes("Authentication")) {
-        setSaveError("Please log in again");
-      } else {
-        // Just log auto-save errors, don't display them
-        console.warn("Auto-save failed silently:", error.message);
-      }
     }
   };
 
@@ -220,16 +213,12 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
       }
     }
 
-    // Check if location is empty, handling both string and object cases
-    if (isPublishing || formData.location) {
-      const locationIsEmpty =
-        !formData.location ||
-        (typeof formData.location === "string" && !formData.location.trim()) ||
-        (typeof formData.location === "object" &&
-          Object.keys(formData.location).length === 0);
-
-      if (locationIsEmpty) {
-        newErrors.location = "Location is required";
+    if (isPublishing || formData.city || formData.country) {
+      if (!formData.city || !formData.city.trim()) {
+        newErrors.city = "City is required";
+      }
+      if (!formData.country || !formData.country.trim()) {
+        newErrors.country = "Country is required";
       }
     }
 
@@ -313,7 +302,7 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
 
   const getCompletionStatus = () => {
     const required = {
-      basic: formData.title && formData.description && formData.location,
+      basic: formData.title && formData.description && formData.city && formData.country,
       details:
         formData.responsibilities.filter((r) => r.trim()).length > 0 &&
         formData.requirements.filter((r) => r.trim()).length > 0,
@@ -469,7 +458,8 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
                     section.id === "basic"
                       ? formData.title &&
                         formData.description &&
-                        formData.location
+                        formData.city &&
+                        formData.country
                       : section.id === "details"
                       ? formData.responsibilities.filter((r) => r.trim())
                           .length > 0 &&

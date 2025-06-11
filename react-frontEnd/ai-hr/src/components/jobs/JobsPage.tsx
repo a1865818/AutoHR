@@ -268,7 +268,7 @@ export function JobsPage() {
         location: extractLocationString(apiJob.locations),
         locationType: mapLocationTypeToJobFormat(apiJob.locationType),
         type: mapEmploymentTypeToJobFormat(apiJob.employmentType),
-        department: company?.industry || "Not specified",
+        department: apiJob.department || "Not specified",
         experience: mapExperienceToJobFormat(
           apiJob.seniorityLevel,
           apiJob.experienceYearsMin

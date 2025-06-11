@@ -106,27 +106,45 @@ export function BasicInfoSection({
             </select>
           </div>
 
+          {/* City */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Location
+            <label
+              htmlFor="city"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              City *
             </label>
             <input
               type="text"
-              value={formData.location}
-              onChange={(e) => updateFormData("location", e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
-                errors.location ? "border-red-300" : "border-gray-300"
-              }`}
-              placeholder="e.g. Chicago, IL"
+              id="city"
+              value={formData.city}
+              onChange={(e) => updateFormData("city", e.target.value)}
+              placeholder="e.g. San Francisco"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
             />
-            {errors.location && (
-              <p className="mt-1 text-xs text-red-600">{errors.location}</p>
-            )}
+          </div>
+
+          {/* Country */}
+          <div>
+            <label
+              htmlFor="country"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Country *
+            </label>
+            <input
+              type="text"
+              id="country"
+              value={formData.country}
+              onChange={(e) => updateFormData("country", e.target.value)}
+              placeholder="e.g. United States"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Work Arrangement
+              Work Type
             </label>
             <select
               value={formData.locationType}

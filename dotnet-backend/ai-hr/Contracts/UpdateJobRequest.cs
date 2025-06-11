@@ -6,6 +6,7 @@ namespace ai_hr.Contracts
     public class UpdateJobRequest
     {
         public string Title { get; set; }
+        public string Department { get; set; }
         public string Description { get; set; }
         public List<string> Responsibilities { get; set; }
         public List<string> Requirements { get; set; }

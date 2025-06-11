@@ -164,6 +164,7 @@ export function JobCard({ job }: JobCardProps) {
   const jobType = safeRender(job.type);
   const location = safeRender(job.location);
   const experience = safeRender(job.experience);
+  const department = safeRender(job.department);
   const postedDate = safeRender(job.postedDate);
   const description = safeRender(job.description);
   const applicantCount = safeRenderNumber(job.applicants);
@@ -219,7 +220,7 @@ export function JobCard({ job }: JobCardProps) {
             </div>
           </div>
 
-          {/* Job type and applicants */}
+          {/* Job type, department and applicants */}
           <div className="flex items-center gap-3 mb-3">
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(
@@ -228,6 +229,11 @@ export function JobCard({ job }: JobCardProps) {
             >
               {jobType}
             </span>
+            {department && department !== "Not specified" && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                {department}
+              </span>
+            )}
             <div className="flex items-center text-sm text-gray-600">
               <Users className="h-4 w-4 mr-1" />
               {applicantCount} applicants
