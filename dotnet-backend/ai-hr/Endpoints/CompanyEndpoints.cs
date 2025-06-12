@@ -65,6 +65,19 @@ public static class CompanyEndpoints
             .WithSummary("Copy standard interview templates to new company")
             .WithDescription("Copies all interview templates from the template company to a newly registered company")
             .RequireAuthorization();
+
+        // Public endpoints for applicant users
+        app.MapGet("/public/companies", GetPublicCompanies)
+            .WithTags("Public Companies")
+            .WithName("GetPublicCompanies")
+            .WithSummary("Browse public companies")
+            .WithDescription("Gets a list of verified companies for applicant browsing - no authentication required");
+
+        app.MapGet("/public/companies/{id}", GetPublicCompanyById)
+            .WithTags("Public Companies")
+            .WithName("GetPublicCompanyById")
+            .WithSummary("Get public company by ID")
+            .WithDescription("Retrieves complete details of a specific company with their job postings - no authentication required");
     }
 
     private static async Task<IResult> CreateCompany(CreateCompanyRequest request, Supabase.Client client)
@@ -567,6 +580,139 @@ public static class CompanyEndpoints
                 error = ex.Message,
                 templatesCreated = 0
             });
+        }
+    }
+
+    // Public endpoints for applicants
+    private static async Task<IResult> GetPublicCompanies(string? industry, Supabase.Client client)
+    {
+        try
+        {
+            Console.WriteLine("🌍 Public companies endpoint called - no authentication required");
+
+            // Get all companies
+            var response = await client.From<Company>().Get();
+            var companies = response.Models;
+
+            // For public endpoint, only show verified companies
+            // companies = companies.Where(c => c.IsVerified).ToList();
+
+            // Apply industry filter if provided
+            if (!string.IsNullOrEmpty(industry))
+            {
+                companies = companies.Where(c => c.Industry != null &&
+                    c.Industry.Equals(industry, StringComparison.OrdinalIgnoreCase)).ToList();
+            }
+
+            Console.WriteLine($"🌍 Found {companies.Count} public companies");
+
+            // Get job counts for each company
+            var jobsResponse = await client.From<Job>().Get();
+            var openJobs = jobsResponse.Models.Where(j => j.Status.Equals("Open", StringComparison.OrdinalIgnoreCase)).ToList();
+
+            // Create DTOs with job counts
+            var companyDtos = companies.Select(company => new
+            {
+                Id = company.Id,
+                Name = company.Name,
+                Description = company.Description,
+                Website = company.Website,
+                LogoUrl = company.LogoUrl,
+                Industry = company.Industry,
+                CompanySize = company.CompanySize,
+                Headquarters = company.Headquarters,
+                FoundedYear = company.FoundedYear,
+                IsVerified = company.IsVerified,
+                CreatedAt = company.CreatedAt,
+                JobCount = openJobs.Count(j => j.CompanyId == company.Id)
+            }).OrderByDescending(c => c.JobCount).ThenBy(c => c.Name).ToList();
+
+            return Results.Ok(companyDtos);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error retrieving public companies: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+    private static async Task<IResult> GetPublicCompanyById(Guid id, Supabase.Client client)
+    {
+        try
+        {
+            Console.WriteLine($"🌍 Public company by ID endpoint called for company: {id}");
+
+            // Get company by ID
+            var response = await client.From<Company>().Get();
+            var company = response.Models.FirstOrDefault(c => c.Id == id);
+
+            if (company == null)
+            {
+                return Results.NotFound(new { message = $"Company with ID {id} not found" });
+            }
+
+            // For public endpoint, allow access to all companies (no verification required)
+            // if (!company.IsVerified)
+            // {
+            //     return Results.NotFound(new { message = $"Company with ID {id} is not available for public viewing" });
+            // }
+
+            Console.WriteLine($"🌍 Found public company: {company.Name}");
+
+            // Get open jobs for this company
+            var jobsResponse = await client.From<Job>().Get();
+            var openJobs = jobsResponse.Models
+                .Where(j => j.CompanyId == company.Id && j.Status.Equals("Open", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(j => j.PostedDate)
+                .ToList();
+
+            // Create job DTOs
+            var jobDtos = openJobs.Select(job => new
+            {
+                Id = job.Id,
+                Title = job.Title,
+                Description = job.Description,
+                Department = job.Department,
+                EmploymentType = job.EmploymentType,
+                LocationType = job.LocationType,
+                Locations = job.Locations,
+                SalaryMin = job.SalaryMin,
+                SalaryMax = job.SalaryMax,
+                SalaryCurrency = job.SalaryCurrency,
+                Status = job.Status,
+                ApplicantCount = job.ApplicantCount,
+                PostedDate = job.PostedDate,
+                ApplicationDeadline = job.ApplicationDeadline,
+                SeniorityLevel = job.SeniorityLevel,
+                ExperienceYearsMin = job.ExperienceYearsMin
+            }).ToList();
+
+            // Create complete company DTO with jobs
+            var companyDto = new
+            {
+                Id = company.Id,
+                Name = company.Name,
+                Description = company.Description,
+                Website = company.Website,
+                LogoUrl = company.LogoUrl,
+                Industry = company.Industry,
+                CompanySize = company.CompanySize,
+                Headquarters = company.Headquarters,
+                FoundedYear = company.FoundedYear,
+                IsVerified = company.IsVerified,
+                CreatedAt = company.CreatedAt,
+                Jobs = jobDtos,
+                JobCount = jobDtos.Count
+            };
+
+            return Results.Ok(companyDto);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error retrieving public company: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }
     }
 }

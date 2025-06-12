@@ -44,7 +44,7 @@ const UserDropdown: React.FC = () => {
 
   const handleLogoutClick = async () => {
     setIsOpen(false);
-
+    await new Promise((resolve) => setTimeout(resolve, 300));
     await logout();
   };
 

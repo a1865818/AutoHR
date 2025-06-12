@@ -22,7 +22,7 @@ export function CandidateHeader({
       {/* Header */}
       <div className="p-6 bg-white">
         <h1 className="text-xl font-semibold text-gray-800">
-          Qualified candidates
+          Candidates 
         </h1>
 
         {/* Tabs */}

@@ -1,12 +1,19 @@
 import { FilterOption } from "@/interfaces";
-import { ChevronDown, ChevronRight, Plus, Settings, X } from "lucide-react";
+import {
+  ChevronDown,
+  ChevronRight,
+  Plus,
+  Settings,
+  X,
+  Briefcase,
+} from "lucide-react";
 import { useState } from "react";
 
 // Available filters that can be added to favorites
 const availableStatusFilters = [
-  { id: "qualified", label: "Qualified" },
-  { id: "Hired", label: "Hired" },
-  { id: "disqualified", label: "Disqualified" },
+  { id: "in-progress", label: "In Progress" },
+  { id: "hired", label: "Hired" },
+  { id: "rejected", label: "Rejected" },
 ];
 
 const availableStageFilters = [
@@ -19,9 +26,9 @@ const availableStageFilters = [
 ];
 
 const statusFilters: Omit<FilterOption, "count">[] = [
-  { id: "qualified", label: "Qualified" },
-  { id: "new", label: "New" },
-  { id: "disqualified", label: "Disqualified" },
+  { id: "in-progress", label: "In Progress" },
+  { id: "hired", label: "Hired" },
+  { id: "rejected", label: "Rejected" },
 ];
 
 const stageFilters: Omit<FilterOption, "count">[] = [
@@ -36,22 +43,59 @@ const stageFilters: Omit<FilterOption, "count">[] = [
 interface FavoriteFilter {
   id: string;
   label: string;
-  type: "status" | "stage";
+  type: "status" | "stage" | "position";
+}
+
+interface JobFilter {
+  id: string;
+  title: string;
+  department?: string;
+}
+
+// Tooltip component for job titles
+interface TooltipProps {
+  content: string;
+  department?: string;
+  children: React.ReactNode;
+}
+
+function Tooltip({ content, department, children }: TooltipProps) {
+  const [isVisible, setIsVisible] = useState(false);
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setIsVisible(true)}
+      onMouseLeave={() => setIsVisible(false)}
+    >
+      {children}
+      {isVisible && (
+        <div className="absolute left-0 top-full mt-1 z-50 bg-gray-900 text-white text-xs rounded-md py-2 px-3 shadow-lg whitespace-nowrap max-w-xs">
+          <div className="font-medium">{content}</div>
+          {department && <div className="text-gray-300 mt-1">{department}</div>}
+          {/* Tooltip arrow */}
+          <div className="absolute bottom-full left-4 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 interface FilterSidebarProps {
   expandedFilters: {
     status: boolean;
     stage: boolean;
+    position: boolean;
   };
-  toggleFilter: (filterType: "status" | "stage") => void;
+  toggleFilter: (filterType: "status" | "stage" | "position") => void;
   activeFilters: {
     favorites: string[];
     status: string[];
     stage: string[];
+    position: string[];
   };
   onFilterChange: (
-    filterType: "favorites" | "status" | "stage",
+    filterType: "favorites" | "status" | "stage" | "position",
     filterId: string,
     checked: boolean
   ) => void;
@@ -59,7 +103,7 @@ interface FilterSidebarProps {
   onAddFavorite: (
     filterId: string,
     label: string,
-    type: "status" | "stage"
+    type: "status" | "stage" | "position"
   ) => void;
   onRemoveFavorite: (filterId: string) => void;
   onClearFilters: () => void;
@@ -67,8 +111,10 @@ interface FilterSidebarProps {
     favorites: Record<string, number>;
     status: Record<string, number>;
     stage: Record<string, number>;
+    position: Record<string, number>;
   };
   favoriteFilters: FavoriteFilter[];
+  availableJobs: JobFilter[];
 }
 
 export function FilterSidebar({
@@ -82,6 +128,7 @@ export function FilterSidebar({
   onClearFilters,
   filterCounts,
   favoriteFilters,
+  availableJobs,
 }: FilterSidebarProps) {
   const [showFavoriteDropdown, setShowFavoriteDropdown] = useState(false);
 
@@ -91,12 +138,14 @@ export function FilterSidebar({
 
   const isFavoriteActive = (
     favoriteId: string,
-    favoriteType: "status" | "stage"
+    favoriteType: "status" | "stage" | "position"
   ) => {
     if (favoriteType === "status") {
       return activeFilters.status.includes(favoriteId);
-    } else {
+    } else if (favoriteType === "stage") {
       return activeFilters.stage.includes(favoriteId);
+    } else {
+      return activeFilters.position.includes(favoriteId);
     }
   };
 
@@ -108,15 +157,23 @@ export function FilterSidebar({
     const availableStage = availableStageFilters.filter(
       (f) => !currentFavoriteIds.includes(f.id)
     );
+    const availablePosition = availableJobs.filter(
+      (f) => !currentFavoriteIds.includes(f.id)
+    );
 
     return [
       ...availableStatus.map((f) => ({ ...f, type: "status" as const })),
       ...availableStage.map((f) => ({ ...f, type: "stage" as const })),
+      ...availablePosition.map((f) => ({
+        id: f.id,
+        label: f.title,
+        type: "position" as const,
+      })),
     ];
   };
 
   const handleCheckboxChange = (
-    filterType: "status" | "stage",
+    filterType: "status" | "stage" | "position",
     filterId: string,
     checked: boolean
   ) => {
@@ -159,9 +216,9 @@ export function FilterSidebar({
                         }}
                         className="w-full text-left px-2 py-1 text-xs hover:bg-gray-100 rounded flex items-center justify-between"
                       >
-                        <span>{filter.label}</span>
-                        <span className="text-gray-400 text-xs capitalize">
-                          {filter.type}
+                        <span className="truncate">{filter.label}</span>
+                        <span className="text-gray-400 text-xs capitalize flex-shrink-0 ml-1">
+                          {filter.type === "position" ? "job" : filter.type}
                         </span>
                       </button>
                     ))}
@@ -191,10 +248,13 @@ export function FilterSidebar({
                         : "text-gray-700 hover:bg-gray-100"
                     }`}
                   >
-                    <div className="flex items-center">
-                      <span className="text-sm">{item.label}</span>
+                    <div className="flex items-center min-w-0">
+                      {item.type === "position" && (
+                        <Briefcase className="h-3 w-3 mr-1 text-blue-500 flex-shrink-0" />
+                      )}
+                      <span className="text-sm truncate">{item.label}</span>
                     </div>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-500 ml-1 flex-shrink-0">
                       {filterCounts.favorites[item.id] || 0}
                     </span>
                   </button>
@@ -220,8 +280,95 @@ export function FilterSidebar({
       </div>
 
       {/* Filters section */}
-      <div className="px-4 py-3 border-t">
+      <div className="px-4 py-3 border-t flex-1 overflow-y-auto">
         <h3 className="text-xs font-medium text-gray-500 mb-2">Filters</h3>
+
+        {/* Position filter */}
+        <div className="mb-4">
+          <div
+            className="flex items-center justify-between cursor-pointer hover:bg-gray-50 rounded px-1 py-1"
+            onClick={() => toggleFilter("position")}
+          >
+            <div className="flex items-center">
+              {expandedFilters.position ? (
+                <ChevronDown className="h-3 w-3 text-gray-500 mr-1" />
+              ) : (
+                <ChevronRight className="h-3 w-3 text-gray-500 mr-1" />
+              )}
+              <Briefcase className="h-3 w-3 text-blue-500 mr-1" />
+              <span className="text-sm font-medium text-gray-700">
+                Position
+              </span>
+            </div>
+            <button
+              className="text-gray-400 hover:text-gray-600 p-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                // Clear all position filters
+                activeFilters.position.forEach((filterId) => {
+                  onFilterChange("position", filterId, false);
+                });
+              }}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+
+          {expandedFilters.position && (
+            <ul className="ml-4 mt-1 space-y-1">
+              {availableJobs.map((job) => {
+                const isChecked = activeFilters.position.includes(job.id);
+                return (
+                  <li key={job.id} className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id={`position-${job.id}`}
+                      checked={isChecked}
+                      onChange={(e) =>
+                        handleCheckboxChange(
+                          "position",
+                          job.id,
+                          e.target.checked
+                        )
+                      }
+                      className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <label
+                      htmlFor={`position-${job.id}`}
+                      className="ml-2 flex flex-1 items-center justify-between text-sm text-gray-700 cursor-pointer min-w-0"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <Tooltip
+                          content={job.title}
+                          department={job.department}
+                        >
+                          <span className="block truncate hover:text-blue-600 transition-colors">
+                            {job.title}
+                          </span>
+                        </Tooltip>
+                        {job.department && (
+                          <Tooltip content={job.department}>
+                            <span className="text-xs text-gray-500 truncate block hover:text-gray-700 transition-colors">
+                              {job.department}
+                            </span>
+                          </Tooltip>
+                        )}
+                      </div>
+                      <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
+                        {filterCounts.position[job.id] || 0}
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+              {availableJobs.length === 0 && (
+                <li className="text-center py-2">
+                  <p className="text-xs text-gray-400">No positions found</p>
+                </li>
+              )}
+            </ul>
+          )}
+        </div>
 
         {/* Status filter */}
         <div className="mb-4">

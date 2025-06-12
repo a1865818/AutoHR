@@ -69,9 +69,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const isAuthPage = ["/login", "/signup", "/forgot-password"].includes(
         currentPath
       );
+      const isPublicPage =
+        currentPath.startsWith("/jobs") ||
+        currentPath === "/" ||
+        currentPath.startsWith("/public/") ||
+        currentPath.startsWith("/public");
 
-      if (!user && !isAuthPage) {
-        // User is not authenticated and not on auth page - redirect to login
+      if (!user && !isAuthPage && !isPublicPage) {
+        // User is not authenticated and not on auth page or public page - redirect to login
         router.replace("/login");
       } else if (user && isAuthPage) {
         // User is authenticated and on auth page - redirect to appropriate dashboard

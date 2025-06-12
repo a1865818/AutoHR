@@ -11,7 +11,7 @@ export interface Candidate {
   companyLogo?: string;
   assessment: number;
   stage: "Applied" | "Interview" | "Offer";
-  status: "In Progress" | "Hired" | "Disqualified";
+  status: "In Progress" | "Hired" | "Rejected";
   appliedAt: string;
   resumeUrl?: string;
   coverLetterText?: string;

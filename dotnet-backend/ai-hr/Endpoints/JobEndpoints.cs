@@ -447,16 +447,11 @@ public static class JobEndpoints
             // For public endpoint, only show "Open" jobs (active for applicants)
             jobs = jobs.Where(j => j.Status.Equals("Open", StringComparison.OrdinalIgnoreCase)).ToList();
 
-            // Apply additional filters if provided
-            if (!string.IsNullOrEmpty(status) && status.Equals("Open", StringComparison.OrdinalIgnoreCase))
-            {
-                // Status is already filtered to Open above
-            }
 
-            if (companyId.HasValue)
-            {
-                jobs = jobs.Where(j => j.CompanyId == companyId.Value).ToList();
-            }
+            // if (companyId.HasValue)
+            // {
+            //     jobs = jobs.Where(j => j.CompanyId == companyId.Value).ToList();
+            // }
 
             Console.WriteLine($"🌍 Found {jobs.Count} public jobs");
 

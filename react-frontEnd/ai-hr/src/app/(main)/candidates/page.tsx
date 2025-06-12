@@ -195,12 +195,14 @@ function CandidatesPage() {
   const [expandedFilters, setExpandedFilters] = useState({
     status: true,
     stage: true,
+    position: true,
   });
 
   const [activeFilters, setActiveFilters] = useState({
     favorites: [] as string[],
     status: ["in-progress"],
     stage: ["applied", "interview", "offer"],
+    position: [] as string[],
   });
 
   // Customizable favorites
@@ -208,12 +210,12 @@ function CandidatesPage() {
     Array<{
       id: string;
       label: string;
-      type: "status" | "stage";
+      type: "status" | "stage" | "position";
     }>
   >([
     { id: "in-progress", label: "In Progress", type: "status" as const },
     { id: "hired", label: "Hired", type: "status" as const },
-    { id: "disqualified", label: "Disqualified", type: "status" as const },
+    { id: "rejected", label: "Rejected", type: "status" as const },
   ]);
 
   // Notes state
@@ -273,27 +275,85 @@ function CandidatesPage() {
     loadCandidates();
   }, [isAuthorized, companyId]);
 
-  // Calculate filter counts based on real candidates data
+  // Get available jobs from candidates for filtering
+  const availableJobs = useMemo(() => {
+    const jobsMap = new Map();
+    candidates.forEach((candidate) => {
+      const hasJobDetails = "jobTitle" in candidate && "jobId" in candidate;
+      if (hasJobDetails) {
+        const jobId = (candidate as any).jobId;
+        const jobTitle = (candidate as any).jobTitle;
+        const jobDepartment = (candidate as any).jobDepartment;
+
+        if (!jobsMap.has(jobId)) {
+          jobsMap.set(jobId, {
+            id: jobId,
+            title: jobTitle,
+            department: jobDepartment,
+          });
+        }
+      }
+    });
+    return Array.from(jobsMap.values());
+  }, [candidates]);
+
+  // Calculate filter counts based on real candidates data and active filters
   const filterCounts = useMemo(() => {
     const counts = {
       favorites: {} as Record<string, number>,
       status: {
         "in-progress": 0,
         hired: 0,
-        disqualified: 0,
+        rejected: 0,
       },
       stage: {
         applied: 0,
         interview: 0,
         offer: 0,
       },
+      position: {} as Record<string, number>,
     };
 
-    // Count by status and stage
+    // For position counts, we need to consider active status and stage filters
+    // but NOT active position filters (to avoid circular dependency)
+    const getFilteredCandidatesForCounts = () => {
+      let filtered = candidates;
+
+      // Apply status filter (but not position filter for position counts)
+      if (activeFilters.status.length > 0) {
+        filtered = filtered.filter((candidate) => {
+          let statusKey =
+            candidate.status?.toLowerCase().replace(" ", "-") || "in-progress";
+          // Map "disqualified" to "rejected" for consistency
+          if (statusKey === "disqualified") {
+            statusKey = "rejected";
+          }
+          return activeFilters.status.includes(statusKey);
+        });
+      }
+
+      // Apply stage filter (but not position filter for position counts)
+      if (activeFilters.stage.length > 0) {
+        filtered = filtered.filter((candidate) =>
+          activeFilters.stage.includes(candidate.stage.toLowerCase())
+        );
+      }
+
+      return filtered;
+    };
+
+    const filteredCandidatesForCounts = getFilteredCandidatesForCounts();
+
+    // Count by status and stage (using all candidates)
     candidates.forEach((candidate) => {
       // Count for status filters
-      const status = (candidate.status?.toLowerCase().replace(" ", "-") ||
-        "in-progress") as keyof typeof counts.status;
+      let statusKey =
+        candidate.status?.toLowerCase().replace(" ", "-") || "in-progress";
+      // Map "disqualified" to "rejected" for consistency
+      if (statusKey === "disqualified") {
+        statusKey = "rejected";
+      }
+      const status = statusKey as keyof typeof counts.status;
       if (counts.status[status] !== undefined) {
         counts.status[status]++;
       }
@@ -305,6 +365,17 @@ function CandidatesPage() {
       }
     });
 
+    // Count for position filters (using filtered candidates that respect status/stage filters)
+    filteredCandidatesForCounts.forEach((candidate) => {
+      const hasJobDetails = "jobId" in candidate;
+      if (hasJobDetails) {
+        const jobId = (candidate as any).jobId;
+        if (jobId) {
+          counts.position[jobId] = (counts.position[jobId] || 0) + 1;
+        }
+      }
+    });
+
     // Calculate favorite counts based on current favorite filters
     favoriteFilters.forEach((favorite) => {
       if (favorite.type === "status") {
@@ -313,11 +384,13 @@ function CandidatesPage() {
       } else if (favorite.type === "stage") {
         counts.favorites[favorite.id] =
           counts.stage[favorite.id as keyof typeof counts.stage] || 0;
+      } else if (favorite.type === "position") {
+        counts.favorites[favorite.id] = counts.position[favorite.id] || 0;
       }
     });
 
     return counts;
-  }, [candidates, favoriteFilters]);
+  }, [candidates, favoriteFilters, activeFilters.status, activeFilters.stage]);
 
   const handleCandidateClick = (candidateId: string) => {
     setSelectedCandidate(candidateId);
@@ -327,7 +400,7 @@ function CandidatesPage() {
     setSelectedCandidate(null);
   };
 
-  const toggleFilter = (filterType: "status" | "stage") => {
+  const toggleFilter = (filterType: "status" | "stage" | "position") => {
     setExpandedFilters((prev) => ({
       ...prev,
       [filterType]: !prev[filterType],
@@ -335,7 +408,7 @@ function CandidatesPage() {
   };
 
   const handleFilterChange = (
-    filterType: "favorites" | "status" | "stage",
+    filterType: "favorites" | "status" | "stage" | "position",
     filterId: string,
     checked: boolean
   ) => {
@@ -353,13 +426,17 @@ function CandidatesPage() {
       const isCurrentlyActive =
         favorite.type === "status"
           ? activeFilters.status.includes(filterId)
-          : activeFilters.stage.includes(filterId);
+          : favorite.type === "stage"
+          ? activeFilters.stage.includes(filterId)
+          : activeFilters.position.includes(filterId);
 
       if (isCurrentlyActive) {
         if (favorite.type === "status") {
           handleFilterChange("status", filterId, false);
         } else if (favorite.type === "stage") {
           handleFilterChange("stage", filterId, false);
+        } else if (favorite.type === "position") {
+          handleFilterChange("position", filterId, false);
         }
         setActiveFilters((prev) => ({ ...prev, favorites: [] }));
       } else {
@@ -367,6 +444,7 @@ function CandidatesPage() {
           ...prev,
           status: [],
           stage: [],
+          position: [],
           favorites: [filterId],
         }));
 
@@ -374,6 +452,8 @@ function CandidatesPage() {
           handleFilterChange("status", filterId, true);
         } else if (favorite.type === "stage") {
           handleFilterChange("stage", filterId, true);
+        } else if (favorite.type === "position") {
+          handleFilterChange("position", filterId, true);
         }
       }
     }
@@ -382,7 +462,7 @@ function CandidatesPage() {
   const handleAddFavorite = (
     filterId: string,
     label: string,
-    type: "status" | "stage"
+    type: "status" | "stage" | "position"
   ) => {
     if (!favoriteFilters.find((f) => f.id === filterId)) {
       setFavoriteFilters((prev) => [...prev, { id: filterId, label, type }]);
@@ -397,6 +477,8 @@ function CandidatesPage() {
         handleFilterChange("status", filterId, false);
       } else if (favorite.type === "stage") {
         handleFilterChange("stage", filterId, false);
+      } else if (favorite.type === "position") {
+        handleFilterChange("position", filterId, false);
       }
       setActiveFilters((prev) => ({
         ...prev,
@@ -410,6 +492,7 @@ function CandidatesPage() {
       favorites: [],
       status: [],
       stage: [],
+      position: [],
     });
   };
 
@@ -431,7 +514,7 @@ function CandidatesPage() {
       const candidate = candidates.find((c) => c.id === candidateId);
       if (!candidate) return;
 
-      let newStatus: "In Progress" | "Hired" | "Disqualified";
+      let newStatus: "In Progress" | "Hired" | "Rejected";
       let newStage: "Applied" | "Interview" | "Offer" | undefined;
 
       if (action === "approve") {
@@ -448,7 +531,7 @@ function CandidatesPage() {
           newStatus = "In Progress";
         }
       } else {
-        newStatus = "Disqualified";
+        newStatus = "Rejected";
       }
 
       // Update backend
@@ -530,6 +613,7 @@ function CandidatesPage() {
       favorites: [],
       status: [],
       stage: [],
+      position: [],
     });
     setSearchQuery("");
     setNotesSearchQuery("");
@@ -540,21 +624,60 @@ function CandidatesPage() {
     return candidates.filter((candidate) => candidateNotes[candidate.id]);
   }, [candidates, candidateNotes]);
 
-  // Filter notes based on search
+  // Filter notes based on search and active filters
   const filteredNoteCandidates = useMemo(() => {
-    if (!notesSearchQuery) return candidatesWithNotes;
+    let filtered = candidatesWithNotes;
 
-    return candidatesWithNotes.filter(
-      (candidate) =>
-        candidate.name.toLowerCase().includes(notesSearchQuery.toLowerCase()) ||
-        candidate.company
-          .toLowerCase()
-          .includes(notesSearchQuery.toLowerCase()) ||
-        candidateNotes[candidate.id]
-          ?.toLowerCase()
-          .includes(notesSearchQuery.toLowerCase())
-    );
-  }, [candidatesWithNotes, notesSearchQuery, candidateNotes]);
+    // Apply search filter
+    if (notesSearchQuery) {
+      filtered = filtered.filter(
+        (candidate) =>
+          candidate.name
+            .toLowerCase()
+            .includes(notesSearchQuery.toLowerCase()) ||
+          candidate.company
+            .toLowerCase()
+            .includes(notesSearchQuery.toLowerCase()) ||
+          candidateNotes[candidate.id]
+            ?.toLowerCase()
+            .includes(notesSearchQuery.toLowerCase())
+      );
+    }
+
+    // Apply position filter
+    if (activeFilters.position.length > 0) {
+      filtered = filtered.filter((candidate) => {
+        const hasJobDetails = "jobId" in candidate;
+        if (hasJobDetails) {
+          const jobId = (candidate as any).jobId;
+          return activeFilters.position.includes(jobId);
+        }
+        return false;
+      });
+    }
+
+    // Apply status filter
+    if (activeFilters.status.length > 0) {
+      filtered = filtered.filter((candidate) => {
+        let statusKey =
+          candidate.status?.toLowerCase().replace(" ", "-") || "in-progress";
+        // Map "disqualified" to "rejected" for consistency
+        if (statusKey === "disqualified") {
+          statusKey = "rejected";
+        }
+        return activeFilters.status.includes(statusKey);
+      });
+    }
+
+    // Apply stage filter
+    if (activeFilters.stage.length > 0) {
+      filtered = filtered.filter((candidate) =>
+        activeFilters.stage.includes(candidate.stage.toLowerCase())
+      );
+    }
+
+    return filtered;
+  }, [candidatesWithNotes, notesSearchQuery, candidateNotes, activeFilters]);
 
   // Filter and sort candidates
   const filteredAndSortedCandidates = useMemo(() => {
@@ -572,13 +695,29 @@ function CandidatesPage() {
       );
     }
 
+    // Apply position filter
+    if (activeFilters.position.length > 0) {
+      filtered = filtered.filter((candidate) => {
+        const hasJobDetails = "jobId" in candidate;
+        if (hasJobDetails) {
+          const jobId = (candidate as any).jobId;
+          return activeFilters.position.includes(jobId);
+        }
+        return false;
+      });
+    }
+
     // Apply status filter
     if (activeFilters.status.length > 0) {
-      filtered = filtered.filter((candidate) =>
-        activeFilters.status.includes(
-          candidate.status?.toLowerCase().replace(" ", "-") || "in-progress"
-        )
-      );
+      filtered = filtered.filter((candidate) => {
+        let statusKey =
+          candidate.status?.toLowerCase().replace(" ", "-") || "in-progress";
+        // Map "disqualified" to "rejected" for consistency
+        if (statusKey === "disqualified") {
+          statusKey = "rejected";
+        }
+        return activeFilters.status.includes(statusKey);
+      });
     }
 
     // Apply stage filter
@@ -690,6 +829,7 @@ function CandidatesPage() {
                 onClearFilters={clearFilters}
                 filterCounts={filterCounts}
                 favoriteFilters={favoriteFilters}
+                availableJobs={availableJobs}
               />
               <div className="flex-1 overflow-hidden flex flex-col">
                 <CandidateHeader
@@ -723,6 +863,7 @@ function CandidatesPage() {
                 onClearFilters={clearFilters}
                 filterCounts={filterCounts}
                 favoriteFilters={favoriteFilters}
+                availableJobs={availableJobs}
               />
               <div className="flex-1 overflow-hidden flex flex-col">
                 <CandidateHeader
@@ -847,6 +988,7 @@ function CandidatesPage() {
         onClearFilters={clearFilters}
         filterCounts={filterCounts}
         favoriteFilters={favoriteFilters}
+        availableJobs={availableJobs}
       />
 
       {/* Main content area */}
@@ -860,8 +1002,8 @@ function CandidatesPage() {
           onSearchChange={
             activeTab === "candidates" ? setSearchQuery : setNotesSearchQuery
           }
-          candidatesCount={candidates.length} // Always show total candidates
-          notesCount={candidatesWithNotes.length} // Always show total notes
+          candidatesCount={filteredAndSortedCandidates.length} // Show filtered candidates count
+          notesCount={filteredNoteCandidates.length} // Show filtered notes count
         />
         {renderMainContent()}
       </div>
