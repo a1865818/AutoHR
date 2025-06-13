@@ -264,7 +264,7 @@ export function GuestJobApplicationForm({
                 Try Again
               </button>
               <Link
-                href="/public/jobs"
+                href="/public"
                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
               >
                 Browse Jobs
@@ -308,7 +308,7 @@ export function GuestJobApplicationForm({
                 View Job Details
               </Link>
               <Link
-                href="/public/jobs"
+                href="/public"
                 className="block w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
               >
                 Browse More Jobs

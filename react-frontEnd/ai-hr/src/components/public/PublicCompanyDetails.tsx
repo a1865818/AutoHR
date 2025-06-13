@@ -18,6 +18,7 @@ import {
   type PublicCompanyDetails,
 } from "@/services/publicCompanyService";
 import { PublicJobCard } from "@/components/jobs/public/PublicJobCard";
+import { Pagination } from "@/components/ui/Pagination";
 
 interface PublicCompanyDetailsProps {
   companyId: string;
@@ -29,7 +30,10 @@ export default function PublicCompanyDetails({
   const [company, setCompany] = useState<PublicCompanyDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAllJobs, setShowAllJobs] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const jobsPerPage = 4; // Fewer jobs per page for company details
 
   useEffect(() => {
     fetchCompany();
@@ -40,6 +44,7 @@ export default function PublicCompanyDetails({
       setLoading(true);
       const data = await publicCompanyService.getPublicCompanyById(companyId);
       setCompany(data);
+      setCurrentPage(1); // Reset to first page when new company is loaded
       setError(null);
     } catch (err) {
       setError(
@@ -108,6 +113,24 @@ export default function PublicCompanyDetails({
     });
   };
 
+  // Pagination logic for jobs
+  const totalJobs = company?.jobs.length || 0;
+  const totalPages = Math.ceil(totalJobs / jobsPerPage);
+  const startIndex = (currentPage - 1) * jobsPerPage;
+  const endIndex = startIndex + jobsPerPage;
+  const paginatedJobs = company?.jobs.slice(startIndex, endIndex) || [];
+
+  // Handle page changes
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+
+    // Scroll to top of job listings
+    const jobListingsElement = document.getElementById("company-job-listings");
+    if (jobListingsElement) {
+      jobListingsElement.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Back Navigation */}
@@ -153,10 +176,7 @@ export default function PublicCompanyDetails({
                       {company.name}
                     </h1>
                     {company.isVerified && (
-                      <CheckCircle
-                        className="h-6 w-6 text-green-500"
-                        title="Verified Company"
-                      />
+                      <CheckCircle className="h-6 w-6 text-green-500" />
                     )}
                   </div>
 
@@ -233,14 +253,17 @@ export default function PublicCompanyDetails({
             </div>
 
             {/* Open Positions */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <div
+              className="bg-white rounded-lg shadow p-6"
+              id="company-job-listings"
+            >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-semibold text-gray-900">
-                  Open Positions ({company.jobs.length})
+                  Open Positions ({totalJobs})
                 </h2>
-                {company.jobs.length > 0 && (
+                {totalJobs > 0 && (
                   <Link
-                    href={`/public/jobs?company=${company.id}`}
+                    href={`/public?company=${company.id}`}
                     className="text-blue-600 hover:text-blue-800 text-sm font-medium"
                   >
                     View all jobs
@@ -248,7 +271,7 @@ export default function PublicCompanyDetails({
                 )}
               </div>
 
-              {company.jobs.length === 0 ? (
+              {totalJobs === 0 ? (
                 <div className="text-center py-8">
                   <Building2 className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-gray-600">
@@ -259,35 +282,27 @@ export default function PublicCompanyDetails({
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {(showAllJobs ? company.jobs : company.jobs.slice(0, 5)).map(
-                    (job) => (
+                <>
+                  <div className="space-y-4">
+                    {paginatedJobs.map((job) => (
                       <PublicJobCard key={job.id} job={job} />
-                    )
-                  )}
+                    ))}
+                  </div>
 
-                  {company.jobs.length > 5 && !showAllJobs && (
-                    <div className="text-center pt-4">
-                      <button
-                        onClick={() => setShowAllJobs(true)}
-                        className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                      >
-                        View {company.jobs.length - 5} more positions
-                      </button>
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="mt-6">
+                      <Pagination
+                        currentPage={currentPage}
+                        totalPages={totalPages}
+                        onPageChange={handlePageChange}
+                        totalItems={totalJobs}
+                        itemsPerPage={jobsPerPage}
+                        showInfo={false}
+                      />
                     </div>
                   )}
-
-                  {showAllJobs && company.jobs.length > 5 && (
-                    <div className="text-center pt-4">
-                      <button
-                        onClick={() => setShowAllJobs(false)}
-                        className="inline-flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                      >
-                        Show fewer positions
-                      </button>
-                    </div>
-                  )}
-                </div>
+                </>
               )}
             </div>
           </div>

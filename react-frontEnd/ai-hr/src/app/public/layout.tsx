@@ -18,7 +18,7 @@ export default function PublicLayout({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <Link href="/public/jobs" className="flex items-center space-x-2">
+            <Link href="/public" className="flex items-center space-x-2">
               <div className="bg-blue-600 p-2 rounded-lg">
                 <Briefcase className="h-6 w-6 text-white" />
               </div>
@@ -30,7 +30,7 @@ export default function PublicLayout({
             {/* Navigation */}
             <nav className="hidden md:flex items-center space-x-8">
               <Link
-                href="/public/jobs"
+                href="/public"
                 className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
               >
                 Browse Jobs
@@ -40,6 +40,12 @@ export default function PublicLayout({
                 className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
               >
                 Companies
+              </Link>
+              <Link
+                href="/public/profile"
+                className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
+              >
+                Profile
               </Link>
             </nav>
 
@@ -112,8 +118,13 @@ export default function PublicLayout({
               </h3>
               <ul className="space-y-2 text-gray-600">
                 <li>
-                  <Link href="/public/jobs" className="hover:text-blue-600">
+                  <Link href="/public" className="hover:text-blue-600">
                     Browse Jobs
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/public/profile" className="hover:text-blue-600">
+                    Why Create Profile
                   </Link>
                 </li>
                 <li>

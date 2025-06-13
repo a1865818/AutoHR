@@ -168,7 +168,7 @@ export function PublicJobDetails({ jobId }: PublicJobDetailsProps) {
                 Try Again
               </button>
               <Link
-                href="/public/jobs"
+                href="/public"
                 className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
               >
                 Browse Other Jobs
@@ -188,7 +188,7 @@ export function PublicJobDetails({ jobId }: PublicJobDetailsProps) {
           <div className="flex items-center justify-between py-4">
             <div className="flex items-center space-x-4">
               <Link
-                href="/public/jobs"
+                href="/public"
                 className="p-2 hover:bg-gray-100 rounded-md transition-colors"
               >
                 <ArrowLeft className="h-5 w-5 text-gray-600" />

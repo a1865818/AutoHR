@@ -12,7 +12,7 @@ export default function HomePage() {
     if (!isLoading) {
       if (!isAuthenticated) {
         // Redirect unauthenticated users to public job board
-        router.push("/public/jobs");
+        router.push("/public");
       } else {
         // Redirect based on user type
         if (user?.userCategory === "ApplicationUser") {

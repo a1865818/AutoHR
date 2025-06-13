@@ -76,8 +76,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         currentPath.startsWith("/public");
 
       if (!user && !isAuthPage && !isPublicPage) {
-        // User is not authenticated and not on auth page or public page - redirect to login
-        router.replace("/login");
+        // User is not authenticated and not on auth page or public page - redirect to public
+        router.replace("/public");
       } else if (user && isAuthPage) {
         // User is authenticated and on auth page - redirect to appropriate dashboard
         if (user.userCategory === "ApplicationUser") {

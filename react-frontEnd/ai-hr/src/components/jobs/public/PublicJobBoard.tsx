@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Search,
   MapPin,
@@ -15,6 +16,7 @@ import { ApiJob, ApiCompany } from "@/interfaces";
 import { publicJobService } from "@/services/publicJobService";
 import { PublicJobCard } from "@/components/jobs/public/PublicJobCard";
 import { PublicJobFilters } from "@/components/jobs/public/PublicJobFilters";
+import { Pagination } from "@/components/ui/Pagination";
 import Link from "next/link";
 
 type SortOption = "newest" | "oldest" | "salary" | "company";
@@ -22,7 +24,7 @@ type SortOption = "newest" | "oldest" | "salary" | "company";
 interface Filters {
   type: string[];
   experience: string[];
-  location: string[];
+  workType: string[];
 }
 
 export function PublicJobBoard() {
@@ -33,30 +35,85 @@ export function PublicJobBoard() {
     new Map()
   );
 
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(""); // Jobs/companies/keywords
+  const [locationQuery, setLocationQuery] = useState(""); // City/location
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Company filtering state
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(
+    null
+  );
+  const searchParams = useSearchParams();
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const jobsPerPage = 4;
+
   const [activeFilters, setActiveFilters] = useState<Filters>({
     type: [],
     experience: [],
-    location: [],
+    workType: [],
   });
+
+  // Read URL parameters
+  useEffect(() => {
+    const companyParam = searchParams.get("company");
+    const pageParam = searchParams.get("page");
+    const searchParam = searchParams.get("search");
+    const locationParam = searchParams.get("location");
+
+    if (companyParam) {
+      setSelectedCompanyId(companyParam);
+      console.log("🏢 Company filter applied from URL:", companyParam);
+    } else {
+      setSelectedCompanyId(null);
+    }
+
+    if (pageParam) {
+      const page = parseInt(pageParam, 10);
+      if (page > 0) {
+        setCurrentPage(page);
+      }
+    } else {
+      setCurrentPage(1);
+    }
+
+    if (searchParam) {
+      setSearchQuery(searchParam);
+    }
+
+    if (locationParam) {
+      setLocationQuery(locationParam);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     loadPublicJobs();
   }, []);
 
-  const loadPublicJobs = async () => {
+  // Load jobs when company filter changes
+  useEffect(() => {
+    if (selectedCompanyId) {
+      loadPublicJobs(selectedCompanyId);
+    }
+  }, [selectedCompanyId]);
+
+  const loadPublicJobs = async (companyId?: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      console.log("🌍 Loading public jobs...");
+      console.log(
+        "🌍 Loading public jobs...",
+        companyId ? `for company: ${companyId}` : "all"
+      );
 
-      // Load jobs from public API
-      const jobs = await publicJobService.getPublicJobs();
+      // Load jobs from public API with optional company filter
+      const jobs = await publicJobService.getPublicJobs(
+        companyId ? { companyId } : undefined
+      );
       setAllJobs(jobs);
 
       // Load company data for each unique company
@@ -75,6 +132,17 @@ export function PublicJobBoard() {
       );
 
       setCompanies(companyMap);
+
+      // Debug: Log unique employment types and location types
+      const uniqueEmploymentTypes = [
+        ...new Set(jobs.map((job) => job.employmentType).filter(Boolean)),
+      ];
+      const uniqueLocationTypes = [
+        ...new Set(jobs.map((job) => job.locationType).filter(Boolean)),
+      ];
+      console.log("📊 Unique employment types in data:", uniqueEmploymentTypes);
+      console.log("🏢 Unique location types in data:", uniqueLocationTypes);
+
       console.log(
         `✅ Loaded ${jobs.length} public jobs and ${companyMap.size} companies`
       );
@@ -89,7 +157,15 @@ export function PublicJobBoard() {
   const filteredAndSortedJobs = useMemo(() => {
     let filtered = allJobs;
 
-    // Search filter
+    // Company filter (highest priority)
+    if (selectedCompanyId) {
+      filtered = filtered.filter((job) => job.companyId === selectedCompanyId);
+      console.log(
+        `🏢 Filtered to ${filtered.length} jobs for company ${selectedCompanyId}`
+      );
+    }
+
+    // Search filter (jobs, companies, keywords)
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -99,13 +175,53 @@ export function PublicJobBoard() {
           companies.get(job.companyId)?.name.toLowerCase().includes(query) ||
           job.department?.toLowerCase().includes(query)
       );
+      console.log(`🔍 After keyword search: ${filtered.length} jobs`);
     }
 
-    // Type filter
+    // Location filter (city/location search)
+    if (locationQuery.trim()) {
+      const locationSearch = locationQuery.toLowerCase();
+      filtered = filtered.filter((job) => {
+        // Extract location information from the locations object
+        let locationText = "";
+        if (job.locations && typeof job.locations === "object") {
+          // Convert locations object to searchable text
+          locationText = Object.values(job.locations)
+            .filter(Boolean)
+            .map((val) => String(val))
+            .join(" ")
+            .toLowerCase();
+        }
+
+        const isMatch = locationText.includes(locationSearch);
+        if (!isMatch) {
+          console.log(
+            `❌ Job "${job.title}" location "${locationText}" doesn't match search "${locationSearch}"`
+          );
+        }
+        return isMatch;
+      });
+      console.log(`📍 After location search: ${filtered.length} jobs`);
+    }
+
+    // Type filter (fixed with case-insensitive matching)
     if (activeFilters.type.length > 0) {
-      filtered = filtered.filter((job) =>
-        activeFilters.type.includes(job.employmentType)
-      );
+      console.log("🔍 Job type filter active:", activeFilters.type);
+      filtered = filtered.filter((job) => {
+        const jobEmploymentType = (job.employmentType || "").trim();
+        const isMatch = activeFilters.type.some(
+          (filterType) =>
+            jobEmploymentType.toLowerCase() === filterType.toLowerCase()
+        );
+        if (!isMatch) {
+          console.log(
+            `❌ Job "${job.title}" employment type "${jobEmploymentType}" doesn't match filters:`,
+            activeFilters.type
+          );
+        }
+        return isMatch;
+      });
+      console.log(`✅ After employment type filter: ${filtered.length} jobs`);
     }
 
     // Experience filter
@@ -127,17 +243,24 @@ export function PublicJobBoard() {
       });
     }
 
-    // Location filter (simplified)
-    if (activeFilters.location.length > 0) {
+    // Work Type filter (Remote, On-site, Hybrid)
+    if (activeFilters.workType.length > 0) {
+      console.log("🏢 Work type filter active:", activeFilters.workType);
       filtered = filtered.filter((job) => {
-        const jobLocations =
-          typeof job.locations === "object"
-            ? Object.values(job.locations).join(" ").toLowerCase()
-            : String(job.locations || "").toLowerCase();
-        return activeFilters.location.some((loc) =>
-          jobLocations.includes(loc.toLowerCase())
+        const jobLocationType = (job.locationType || "").trim();
+        const isMatch = activeFilters.workType.some(
+          (filterWorkType) =>
+            jobLocationType.toLowerCase() === filterWorkType.toLowerCase()
         );
+        if (!isMatch) {
+          console.log(
+            `❌ Job "${job.title}" location type "${jobLocationType}" doesn't match filters:`,
+            activeFilters.workType
+          );
+        }
+        return isMatch;
       });
+      console.log(`✅ After work type filter: ${filtered.length} jobs`);
     }
 
     // Sort
@@ -167,7 +290,22 @@ export function PublicJobBoard() {
     });
 
     return sorted;
-  }, [allJobs, companies, searchQuery, sortBy, activeFilters]);
+  }, [
+    allJobs,
+    companies,
+    searchQuery,
+    locationQuery,
+    sortBy,
+    activeFilters,
+    selectedCompanyId,
+  ]);
+
+  // Calculate pagination
+  const totalJobs = filteredAndSortedJobs.length;
+  const totalPages = Math.ceil(totalJobs / jobsPerPage);
+  const startIndex = (currentPage - 1) * jobsPerPage;
+  const endIndex = startIndex + jobsPerPage;
+  const paginatedJobs = filteredAndSortedJobs.slice(startIndex, endIndex);
 
   const updateFilter = (category: keyof Filters, value: string) => {
     setActiveFilters((prev) => ({
@@ -182,14 +320,50 @@ export function PublicJobBoard() {
     setActiveFilters({
       type: [],
       experience: [],
-      location: [],
+      workType: [],
     });
     setSearchQuery("");
+    setLocationQuery("");
+    setCurrentPage(1);
+    // Clear company filter by navigating to the base URL
+    if (selectedCompanyId) {
+      window.history.pushState(null, "", "/public");
+      setSelectedCompanyId(null);
+    }
   };
+
+  // Handle page changes
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+
+    // Update URL with new page
+    const url = new URL(window.location.href);
+    if (page === 1) {
+      url.searchParams.delete("page");
+    } else {
+      url.searchParams.set("page", page.toString());
+    }
+    window.history.pushState(null, "", url.toString());
+
+    // Scroll to top of job listings
+    const jobListingsElement = document.getElementById("job-listings");
+    if (jobListingsElement) {
+      jobListingsElement.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    if (currentPage !== 1) {
+      handlePageChange(1);
+    }
+  }, [searchQuery, locationQuery, activeFilters, selectedCompanyId]);
 
   const hasActiveFilters =
     Object.values(activeFilters).some((arr) => arr.length > 0) ||
-    searchQuery.trim() !== "";
+    searchQuery.trim() !== "" ||
+    locationQuery.trim() !== "" ||
+    selectedCompanyId !== null;
 
   const getSortLabel = (option: SortOption) => {
     switch (option) {
@@ -227,7 +401,7 @@ export function PublicJobBoard() {
             </h2>
             <p className="text-red-700 mb-4">{error}</p>
             <button
-              onClick={loadPublicJobs}
+              onClick={() => loadPublicJobs()}
               className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
             >
               Try Again
@@ -245,24 +419,44 @@ export function PublicJobBoard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
             <h1 className="text-4xl md:text-5xl font-bold mb-4">
-              Find Your Dream Job
+              {selectedCompanyId && companies.get(selectedCompanyId)
+                ? `Jobs at ${companies.get(selectedCompanyId)?.name}`
+                : "Find Your Dream Job"}
             </h1>
             <p className="text-xl mb-8 max-w-2xl mx-auto">
-              Discover opportunities at top companies. Apply instantly without
-              creating an account.
+              {selectedCompanyId && companies.get(selectedCompanyId)
+                ? `Explore all available positions at ${
+                    companies.get(selectedCompanyId)?.name
+                  }. Apply instantly without creating an account.`
+                : "Discover opportunities at top companies. Apply instantly without creating an account."}
             </p>
 
-            {/* Quick Search */}
-            <div className="max-w-2xl mx-auto">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search jobs, companies, or keywords..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 text-gray-900 bg-white rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-white/20"
-                />
+            {/* Dual Search */}
+            <div className="max-w-4xl mx-auto">
+              <div className="flex flex-col md:flex-row gap-4">
+                {/* Jobs/Companies Search */}
+                <div className="flex-1 relative">
+                  <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search jobs, companies, or keywords..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 text-gray-900 bg-white rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-white/20"
+                  />
+                </div>
+
+                {/* Location Search */}
+                <div className="flex-1 relative">
+                  <MapPin className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Where: Enter city or location..."
+                    value={locationQuery}
+                    onChange={(e) => setLocationQuery(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 text-gray-900 bg-white rounded-lg shadow-lg focus:outline-none focus:ring-2 focus:ring-white/20"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -278,7 +472,7 @@ export function PublicJobBoard() {
               activeFilters={activeFilters}
               updateFilter={updateFilter}
               clearAllFilters={clearAllFilters}
-              totalJobs={filteredAndSortedJobs.length}
+              totalJobs={totalJobs}
             />
           </div>
 
@@ -317,7 +511,7 @@ export function PublicJobBoard() {
                       activeFilters={activeFilters}
                       updateFilter={updateFilter}
                       clearAllFilters={clearAllFilters}
-                      totalJobs={filteredAndSortedJobs.length}
+                      totalJobs={totalJobs}
                     />
                   </div>
                 </div>
@@ -326,14 +520,36 @@ export function PublicJobBoard() {
           </div>
 
           {/* Job Listings */}
-          <div className="flex-1">
+          <div className="flex-1" id="job-listings">
             {/* Results Header */}
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {filteredAndSortedJobs.length} Job
-                  {filteredAndSortedJobs.length !== 1 ? "s" : ""} Available
+                  {totalJobs} Job
+                  {totalJobs !== 1 ? "s" : ""} Available
+                  {selectedCompanyId && companies.get(selectedCompanyId) && (
+                    <span className="text-lg font-normal text-gray-600 ml-2">
+                      at {companies.get(selectedCompanyId)?.name}
+                    </span>
+                  )}
                 </h2>
+                {selectedCompanyId && (
+                  <div className="mt-2">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                      <Briefcase className="h-4 w-4 mr-1" />
+                      {companies.get(selectedCompanyId)?.name}
+                      <button
+                        onClick={() => {
+                          window.history.pushState(null, "", "/public");
+                          setSelectedCompanyId(null);
+                        }}
+                        className="ml-2 hover:text-blue-600"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  </div>
+                )}
                 {hasActiveFilters && (
                   <button
                     onClick={clearAllFilters}
@@ -388,7 +604,7 @@ export function PublicJobBoard() {
 
             {/* Job Cards */}
             <div className="space-y-4">
-              {filteredAndSortedJobs.length === 0 ? (
+              {totalJobs === 0 ? (
                 <div className="text-center py-12">
                   <div className="bg-white rounded-lg shadow-sm border p-8">
                     <div className="text-6xl mb-4">💼</div>
@@ -411,7 +627,7 @@ export function PublicJobBoard() {
                   </div>
                 </div>
               ) : (
-                filteredAndSortedJobs.map((job) => (
+                paginatedJobs.map((job) => (
                   <PublicJobCard
                     key={job.id}
                     job={job}
@@ -421,8 +637,21 @@ export function PublicJobBoard() {
               )}
             </div>
 
-            {/* Load More / Pagination could go here */}
-            {filteredAndSortedJobs.length > 0 && (
+            {/* Pagination */}
+            {totalJobs > 0 && (
+              <div className="mt-8">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                  totalItems={totalJobs}
+                  itemsPerPage={jobsPerPage}
+                />
+              </div>
+            )}
+
+            {/* Call-to-action for non-registered users */}
+            {totalJobs > 0 && (
               <div className="mt-12 text-center">
                 <div className="bg-white rounded-lg border p-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">

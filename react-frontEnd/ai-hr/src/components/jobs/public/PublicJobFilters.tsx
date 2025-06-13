@@ -5,7 +5,7 @@ import { X } from "lucide-react";
 interface Filters {
   type: string[];
   experience: string[];
-  location: string[];
+  workType: string[];
 }
 
 interface PublicJobFiltersProps {
@@ -35,13 +35,10 @@ export function PublicJobFilters({
     { value: "senior", label: "Senior Level (6+ years)" },
   ];
 
-  const popularLocations = [
-    { value: "New York", label: "New York" },
-    { value: "California", label: "California" },
-    { value: "Texas", label: "Texas" },
-    { value: "Florida", label: "Florida" },
-    { value: "Washington", label: "Washington" },
+  const workTypes = [
     { value: "Remote", label: "Remote" },
+    { value: "On-site", label: "On-site" },
+    { value: "Hybrid", label: "Hybrid" },
   ];
 
   const hasActiveFilters = Object.values(activeFilters).some(
@@ -105,20 +102,20 @@ export function PublicJobFilters({
         </div>
       </div>
 
-      {/* Location Filter */}
+      {/* Work Type Filter */}
       <div className="mb-6">
-        <h4 className="text-sm font-medium text-gray-900 mb-3">Location</h4>
+        <h4 className="text-sm font-medium text-gray-900 mb-3">Work Type</h4>
         <div className="space-y-2">
-          {popularLocations.map((location) => (
-            <label key={location.value} className="flex items-center">
+          {workTypes.map((workType) => (
+            <label key={workType.value} className="flex items-center">
               <input
                 type="checkbox"
-                checked={activeFilters.location.includes(location.value)}
-                onChange={() => updateFilter("location", location.value)}
+                checked={activeFilters.workType.includes(workType.value)}
+                onChange={() => updateFilter("workType", workType.value)}
                 className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
               />
               <span className="ml-2 text-sm text-gray-700">
-                {location.label}
+                {workType.label}
               </span>
             </label>
           ))}
@@ -164,14 +161,14 @@ export function PublicJobFilters({
                 </button>
               </span>
             ))}
-            {activeFilters.location.map((loc) => (
+            {activeFilters.workType.map((workType) => (
               <span
-                key={loc}
+                key={workType}
                 className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full"
               >
-                {loc}
+                {workType}
                 <button
-                  onClick={() => updateFilter("location", loc)}
+                  onClick={() => updateFilter("workType", workType)}
                   className="ml-1 hover:text-purple-600"
                 >
                   <X className="h-3 w-3" />

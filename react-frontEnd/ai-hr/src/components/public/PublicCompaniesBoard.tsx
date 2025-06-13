@@ -16,6 +16,7 @@ import {
   publicCompanyService,
   PublicCompany,
 } from "@/services/publicCompanyService";
+import { Pagination } from "@/components/ui/Pagination";
 
 export default function PublicCompaniesBoard() {
   const [companies, setCompanies] = useState<PublicCompany[]>([]);
@@ -27,6 +28,10 @@ export default function PublicCompaniesBoard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedIndustry, setSelectedIndustry] = useState("");
   const [industries, setIndustries] = useState<string[]>([]);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const companiesPerPage = 6; // 3x4 grid on desktop
 
   useEffect(() => {
     fetchCompanies();
@@ -95,7 +100,31 @@ export default function PublicCompaniesBoard() {
   const clearFilters = () => {
     setSearchTerm("");
     setSelectedIndustry("");
+    setCurrentPage(1); // Reset pagination when clearing filters
   };
+
+  // Handle page changes
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+
+    // Scroll to top of companies grid
+    const companiesGrid = document.getElementById("companies-grid");
+    if (companiesGrid) {
+      companiesGrid.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedIndustry]);
+
+  // Calculate pagination
+  const totalCompanies = filteredCompanies.length;
+  const totalPages = Math.ceil(totalCompanies / companiesPerPage);
+  const startIndex = (currentPage - 1) * companiesPerPage;
+  const endIndex = startIndex + companiesPerPage;
+  const paginatedCompanies = filteredCompanies.slice(startIndex, endIndex);
 
   const hasActiveFilters = searchTerm || selectedIndustry;
 
@@ -210,110 +239,139 @@ export default function PublicCompaniesBoard() {
           <>
             {/* Results Count */}
             <div className="mb-6">
-              <p className="text-gray-600">
-                {filteredCompanies.length}{" "}
-                {filteredCompanies.length === 1 ? "company" : "companies"} found
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-gray-600">
+                  {totalCompanies}{" "}
+                  {totalCompanies === 1 ? "company" : "companies"} found
+                  {totalPages > 1 && (
+                    <span className="ml-2 text-sm">
+                      (Showing {startIndex + 1}-
+                      {Math.min(endIndex, totalCompanies)} of {totalCompanies})
+                    </span>
+                  )}
+                </p>
+                {totalPages > 1 && (
+                  <p className="text-sm text-gray-500">
+                    Page {currentPage} of {totalPages}
+                  </p>
+                )}
+              </div>
             </div>
 
             {/* Companies Grid */}
-            {filteredCompanies.length === 0 ? (
-              <div className="text-center py-12">
-                <Building2 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  No companies found
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  {hasActiveFilters
-                    ? "Try adjusting your search criteria"
-                    : "There are no verified companies available at the moment"}
-                </p>
-                {hasActiveFilters && (
-                  <button
-                    onClick={clearFilters}
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    Clear filters
-                  </button>
-                )}
-              </div>
-            ) : (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredCompanies.map((company) => (
-                  <Link
-                    key={company.id}
-                    href={`/public/companies/${company.id}`}
-                    className="block bg-white rounded-lg shadow hover:shadow-lg transition-shadow duration-200 overflow-hidden group"
-                  >
-                    {/* Company Logo */}
-                    <div className="h-32 bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-                      {company.logoUrl ? (
-                        <Image
-                          src={company.logoUrl}
-                          alt={`${company.name} logo`}
-                          width={80}
-                          height={80}
-                          className="object-contain"
-                        />
-                      ) : (
-                        <Building2 className="h-12 w-12 text-gray-400" />
-                      )}
-                    </div>
-
-                    <div className="p-6">
-                      {/* Company Name */}
-                      <h3 className="text-xl font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                        {company.name}
-                      </h3>
-
-                      {/* Industry */}
-                      {company.industry && (
-                        <p className="text-sm text-blue-600 font-medium mb-2">
-                          {company.industry}
-                        </p>
-                      )}
-
-                      {/* Description */}
-                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                        {company.description || "No description available"}
-                      </p>
-
-                      {/* Company Details */}
-                      <div className="space-y-2">
-                        {company.headquarters && (
-                          <div className="flex items-center text-sm text-gray-500">
-                            <MapPin className="h-4 w-4 mr-2" />
-                            {typeof company.headquarters === "object"
-                              ? `${company.headquarters.city}, ${company.headquarters.state}, ${company.headquarters.country}`
-                              : company.headquarters}
-                          </div>
-                        )}
-
-                        {company.companySize && (
-                          <div className="flex items-center text-sm text-gray-500">
-                            <Users className="h-4 w-4 mr-2" />
-                            {company.companySize}
-                          </div>
-                        )}
-
-                        <div className="flex items-center text-sm text-gray-500">
-                          <Briefcase className="h-4 w-4 mr-2" />
-                          {company.jobCount} open{" "}
-                          {company.jobCount === 1 ? "position" : "positions"}
+            <div id="companies-grid">
+              {totalCompanies === 0 ? (
+                <div className="text-center py-12">
+                  <Building2 className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    No companies found
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    {hasActiveFilters
+                      ? "Try adjusting your search criteria"
+                      : "There are no verified companies available at the moment"}
+                  </p>
+                  {hasActiveFilters && (
+                    <button
+                      onClick={clearFilters}
+                      className="text-blue-600 hover:text-blue-800"
+                    >
+                      Clear filters
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {paginatedCompanies.map((company) => (
+                      <Link
+                        key={company.id}
+                        href={`/public/companies/${company.id}`}
+                        className="block bg-white rounded-lg shadow hover:shadow-lg transition-shadow duration-200 overflow-hidden group"
+                      >
+                        {/* Company Logo */}
+                        <div className="h-32 bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+                          {company.logoUrl ? (
+                            <Image
+                              src={company.logoUrl}
+                              alt={`${company.name} logo`}
+                              width={80}
+                              height={80}
+                              className="object-contain"
+                            />
+                          ) : (
+                            <Building2 className="h-12 w-12 text-gray-400" />
+                          )}
                         </div>
 
-                        {company.website && (
-                          <div className="flex items-center text-sm text-blue-600">
-                            <ExternalLink className="h-4 w-4 mr-2" />
-                            Visit Website
+                        <div className="p-6">
+                          {/* Company Name */}
+                          <h3 className="text-xl font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
+                            {company.name}
+                          </h3>
+
+                          {/* Industry */}
+                          {company.industry && (
+                            <p className="text-sm text-blue-600 font-medium mb-2">
+                              {company.industry}
+                            </p>
+                          )}
+
+                          {/* Description */}
+                          <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                            {company.description || "No description available"}
+                          </p>
+
+                          {/* Company Details */}
+                          <div className="space-y-2">
+                            {company.headquarters && (
+                              <div className="flex items-center text-sm text-gray-500">
+                                <MapPin className="h-4 w-4 mr-2" />
+                                {typeof company.headquarters === "object"
+                                  ? `${company.headquarters.city}, ${company.headquarters.state}, ${company.headquarters.country}`
+                                  : company.headquarters}
+                              </div>
+                            )}
+
+                            {company.companySize && (
+                              <div className="flex items-center text-sm text-gray-500">
+                                <Users className="h-4 w-4 mr-2" />
+                                {company.companySize}
+                              </div>
+                            )}
+
+                            <div className="flex items-center text-sm text-gray-500">
+                              <Briefcase className="h-4 w-4 mr-2" />
+                              {company.jobCount} open{" "}
+                              {company.jobCount === 1
+                                ? "position"
+                                : "positions"}
+                            </div>
+
+                            {company.website && (
+                              <div className="flex items-center text-sm text-blue-600">
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                Visit Website
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+
+                  {/* Pagination */}
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
+                    totalItems={totalCompanies}
+                    itemsPerPage={companiesPerPage}
+                    className="mt-8"
+                  />
+                </>
+              )}
+            </div>
           </>
         )}
       </div>
