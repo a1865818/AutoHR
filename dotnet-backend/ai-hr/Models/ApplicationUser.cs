@@ -27,6 +27,10 @@ namespace ai_hr.Models
         [Column("Roles")]
         public string Roles { get; set; } = "User";
 
+        // Indicates if this is a public/guest user (applied without registration)
+        [Column("isPublic")]
+        public bool IsPublic { get; set; } = false;
+
         // Profile data stored as JSONB
         [Column("Education")]
         public List<Dictionary<string, object>>? Education { get; set; }
@@ -39,5 +43,13 @@ namespace ai_hr.Models
 
         [Column("PhoneNumber")]
         public string? PhoneNumber { get; set; }
+
+        // Location information - storing city and country
+        [Column("Location")]
+        public Dictionary<string, object>? Location { get; set; }
+
+        // Resume management - storing multiple resume URLs
+        [Column("ResumeList")]
+        public List<Dictionary<string, object>>? ResumeList { get; set; }
     }
 }

@@ -16,6 +16,8 @@ import { ApiJob, ApiCompany } from "@/interfaces";
 import { publicJobService } from "@/services/publicJobService";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { GuestExperienceForm, GuestExperience } from "./GuestExperienceForm";
+import { GuestEducationForm, GuestEducation } from "./GuestEducationForm";
 
 interface GuestJobApplicationFormProps {
   jobId: string;
@@ -28,29 +30,13 @@ interface GuestApplicationData {
     email: string;
     phoneNumber: string;
     city: string;
+    country: string;
     countryCode: string;
   };
   resume: File | null;
   coverLetter: string;
-  experience: Array<{
-    title: string;
-    company: string;
-    location: string;
-    description: string;
-    startDate: string;
-    endDate?: string;
-    isCurrent: boolean;
-  }>;
-  education: Array<{
-    institution: string;
-    degree: string;
-    major: string;
-    location: string;
-    description?: string;
-    startDate: string;
-    endDate?: string;
-    isCurrentlyAttending: boolean;
-  }>;
+  experience: GuestExperience[];
+  education: GuestEducation[];
 }
 
 export function GuestJobApplicationForm({
@@ -72,6 +58,7 @@ export function GuestJobApplicationForm({
       email: "",
       phoneNumber: "",
       city: "",
+      country: "",
       countryCode: "+1",
     },
     resume: null,
@@ -163,6 +150,7 @@ export function GuestJobApplicationForm({
     if (!personalInfo.email.trim()) return "Email is required";
     if (!personalInfo.phoneNumber.trim()) return "Phone number is required";
     if (!personalInfo.city.trim()) return "City is required";
+    if (!personalInfo.country.trim()) return "Country is required";
     if (!resume) return "Resume is required";
 
     // Basic email validation
@@ -202,13 +190,15 @@ export function GuestJobApplicationForm({
           formData.education.length > 0 ? formData.education : undefined,
       });
 
+      console.log("✅ Guest application submitted successfully:", result);
+
       setApplicationId(result.applicationId);
       setIsSubmitted(true);
 
-      // Redirect to success page after delay
+      // Redirect to public success page after delay
       setTimeout(() => {
         router.push(
-          `/jobs/${jobId}/apply-success?applicationId=${result.applicationId}`
+          `/public/jobs/${jobId}/apply-success?applicationId=${result.applicationId}`
         );
       }, 2000);
     } catch (error) {
@@ -298,6 +288,41 @@ export function GuestJobApplicationForm({
                 <p className="text-xs text-gray-500 mt-1">
                   Save this ID to track your application status
                 </p>
+              </div>
+            )}
+            {formData.resume && (
+              <div className="bg-white border border-green-200 rounded-md p-3 mb-4">
+                <p className="text-sm text-gray-600 mb-1">Resume Uploaded:</p>
+                <p className="text-sm text-gray-900 font-medium">
+                  {formData.resume.name}
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  ✅ Your resume has been added to your profile for future
+                  applications
+                </p>
+
+                {formData.experience.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-green-200">
+                    <p className="text-sm text-gray-600 mb-1">
+                      Work Experience: {formData.experience.length} entries
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      ✅ Your work experience has been saved to your profile
+                    </p>
+                  </div>
+                )}
+
+                {formData.education.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-green-200">
+                    <p className="text-sm text-gray-600 mb-1">
+                      Education: {formData.education.length} entries
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      ✅ Your education background has been saved to your
+                      profile
+                    </p>
+                  </div>
+                )}
               </div>
             )}
             <div className="space-y-2">
@@ -459,7 +484,7 @@ export function GuestJobApplicationForm({
                 </div>
               </div>
 
-              <div className="md:col-span-2">
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   City <span className="text-red-500">*</span>
                 </label>
@@ -473,6 +498,25 @@ export function GuestJobApplicationForm({
                     }
                     className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., New York, San Francisco"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Country <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={formData.personalInfo.country}
+                    onChange={(e) =>
+                      handlePersonalInfoChange("country", e.target.value)
+                    }
+                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., United States, Canada"
                     required
                   />
                 </div>
@@ -512,7 +556,30 @@ export function GuestJobApplicationForm({
                 </p>
               </label>
             </div>
+
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <p className="text-blue-700 text-sm">
+                <strong>Pro tip:</strong> Create an account to save your resumes
+                and apply faster to future jobs!
+              </p>
+            </div>
           </div>
+
+          {/* Experience Section */}
+          <GuestExperienceForm
+            experiences={formData.experience}
+            onExperiencesChange={(experience) =>
+              setFormData((prev) => ({ ...prev, experience }))
+            }
+          />
+
+          {/* Education Section */}
+          <GuestEducationForm
+            education={formData.education}
+            onEducationChange={(education) =>
+              setFormData((prev) => ({ ...prev, education }))
+            }
+          />
 
           {/* Cover Letter */}
           <div className="bg-white rounded-lg border p-6">

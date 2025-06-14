@@ -6,6 +6,7 @@ export interface PersonalInfoAppliedForm {
   email: string;
   confirmEmail: string;
   city: string;
+  country: string;
   phoneNumber: string;
   countryCode: string;
 }
@@ -52,6 +53,9 @@ export interface ApplicationData {
     resumeFile: File | null;
   };
   profileImage: string | null;
+  // Resume selection fields
+  selectedResumeUrl?: string;
+  selectedResumeName?: string;
 }
 export interface PreliminaryData {
   preferredName: string;
@@ -69,7 +73,8 @@ export interface ApplyFormData {
     lastName: string;
     email: string;
     phoneNumber: string;
-    location: string;
+    city: string;
+    country: string;
   };
   experience: ExperienceItemData[];
   education: EducationItemData[];

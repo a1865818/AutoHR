@@ -35,6 +35,8 @@ import { FileUpload } from "./FileUpload";
 import { PersonalInfoForm } from "./PersonalInfoForm";
 import PreliminaryQuestionsForm from "./PreliminaryQuestionsForm";
 import { SocialProfilesForm } from "./SocialProfilesForm";
+import ResumeSelector from "@/components/resume/ResumeSelector";
+import { Resume } from "@/services/resumeService";
 
 interface JobData {
   id: string;
@@ -90,6 +92,10 @@ export default function JobApplicationForm({
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [profileImage, setProfileImage] = useState<string | null>(null);
 
+  // Resume selection states
+  const [selectedResumeUrl, setSelectedResumeUrl] = useState<string>("");
+  const [selectedResumeName, setSelectedResumeName] = useState<string>("");
+
   // Form data states
   const [personalInfo, setPersonalInfo] = useState<PersonalInfoAppliedForm>({
     firstName: "",
@@ -97,6 +103,7 @@ export default function JobApplicationForm({
     email: "",
     confirmEmail: "",
     city: "",
+    country: "",
     phoneNumber: "",
     countryCode: "+1",
   });
@@ -148,6 +155,20 @@ export default function JobApplicationForm({
       }));
     }
   }, [user, personalInfo.firstName, personalInfo.lastName]);
+
+  // Save location when city or country changes
+  useEffect(() => {
+    if (isProfileDataLoaded && personalInfo.city && personalInfo.country) {
+      const timeoutId = setTimeout(() => {
+        saveProfileToBackend(undefined, undefined, undefined, undefined, {
+          city: personalInfo.city,
+          country: personalInfo.country,
+        });
+      }, 500); // Debounce for 0.5 second
+
+      return () => clearTimeout(timeoutId);
+    }
+  }, [personalInfo.city, personalInfo.country, isProfileDataLoaded]);
 
   // Load user's existing education and experience data
   useEffect(() => {
@@ -738,7 +759,8 @@ export default function JobApplicationForm({
     updatedEducation?: Education[],
     updatedExperiences?: Experience[],
     updatedProfiles?: SocialProfiles,
-    updatedPhoneNumber?: string
+    updatedPhoneNumber?: string,
+    updatedLocation?: { city: string; country: string }
   ) => {
     if (!isAuthenticated || !user || user.userCategory !== "ApplicationUser") {
       return;
@@ -764,11 +786,16 @@ export default function JobApplicationForm({
         updatedPhoneNumber !== undefined
           ? updatedPhoneNumber
           : personalInfo.phoneNumber;
+      const locationToSave =
+        updatedLocation !== undefined
+          ? updatedLocation
+          : { city: personalInfo.city, country: personalInfo.country };
 
       console.log("📊 Education to save:", educationToSave);
       console.log("📊 Experiences to save:", experiencesToSave);
       console.log("📊 Social profiles to save:", profilesToSave);
       console.log("📊 Phone number to save:", phoneToSave);
+      console.log("📊 Location to save:", locationToSave);
 
       // Transform data to backend format - always send complete data
       const profileData = {
@@ -798,6 +825,10 @@ export default function JobApplicationForm({
           website: profilesToSave.website || "",
         },
         PhoneNumber: phoneToSave || "",
+        Location: {
+          city: locationToSave.city || "",
+          country: locationToSave.country || "",
+        },
       };
 
       console.log("📤 Sending profile data:", profileData);
@@ -835,6 +866,19 @@ export default function JobApplicationForm({
   const handleResumeUpload = async (file: File) => {
     setResumeFile(file);
     console.log("Resume file selected:", file.name);
+  };
+
+  // Resume selection handlers
+  const handleResumeSelect = (resumeUrl: string, resumeName: string) => {
+    setSelectedResumeUrl(resumeUrl);
+    setSelectedResumeName(resumeName);
+    console.log("Resume selected:", resumeName, resumeUrl);
+  };
+
+  const handleResumeUploadFromSelector = (resume: Resume) => {
+    setSelectedResumeUrl(resume.url);
+    setSelectedResumeName(resume.originalName);
+    console.log("New resume uploaded:", resume.originalName, resume.url);
   };
 
   const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -940,8 +984,9 @@ export default function JobApplicationForm({
       return "Emails do not match";
     if (!personalInfo.phoneNumber.trim()) return "Phone number is required";
     if (!personalInfo.city.trim()) return "City is required";
+    if (!personalInfo.country.trim()) return "Country is required";
 
-    if (applicationMethod === "manual" && !resumeFile) {
+    if (applicationMethod === "manual" && !selectedResumeUrl && !resumeFile) {
       return "Resume is required";
     }
 
@@ -995,6 +1040,9 @@ export default function JobApplicationForm({
           resumeFile,
         },
         profileImage,
+        // Include resume selection data
+        selectedResumeUrl,
+        selectedResumeName,
       };
 
       console.log("🚀 Submitting application...");
@@ -1493,21 +1541,14 @@ export default function JobApplicationForm({
             {/* Social Profiles */}
             <SocialProfilesForm profiles={profiles} setProfiles={setProfiles} />
 
-            {/* Resume Upload (for manual method) */}
+            {/* Resume Selection (for manual method) */}
             {applicationMethod === "manual" && (
-              <div className="bg-white rounded-lg border p-8">
-                <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                  Resume <span className="text-red-500">*</span>
-                </h2>
-
-                <FileUpload
-                  onFileSelect={handleResumeUpload}
-                  uploadedFile={resumeFile}
-                  title="Choose a file or drop it here"
-                  description="10MB size limit"
-                  required={true}
-                />
-              </div>
+              <ResumeSelector
+                selectedResumeUrl={selectedResumeUrl || ""}
+                onResumeSelect={handleResumeSelect}
+                onResumeUpload={handleResumeUploadFromSelector}
+                required={true}
+              />
             )}
 
             {/* Cover Letter */}

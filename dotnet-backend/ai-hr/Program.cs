@@ -17,6 +17,16 @@ var builder = WebApplication.CreateBuilder(args);
 // Configure JWT settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 
+// Configure HTTPS redirection options
+builder.Services.AddHttpsRedirection(options =>
+{
+    if (builder.Environment.IsDevelopment())
+    {
+        options.RedirectStatusCode = StatusCodes.Status307TemporaryRedirect;
+        options.HttpsPort = 5189;
+    }
+});
+
 // Add authentication and authorization
 builder.Services.AddAuthentication(options =>
 {
@@ -128,8 +138,16 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// Use CORS
+// Use CORS first
 app.UseCors("AllowNextJs");
+
+// Add HTTPS redirection in the correct position (early in the pipeline)
+// Only enable HTTPS redirection if both HTTP and HTTPS ports are configured
+var urls = builder.Configuration["urls"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "";
+if (urls.Contains("https://") && !app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
 
 // Add authentication and authorization middleware
 app.UseAuthentication();
@@ -147,6 +165,6 @@ app.MapAuthenticationEndpoints();
 app.MapNotesEndpoints();
 app.MapLanggraphEndpoints();
 app.MapInterviewEndpoints();
-app.UseHttpsRedirection();
+app.MapStorageBucketEndpoints();
 
 app.Run();

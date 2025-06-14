@@ -39,7 +39,15 @@ public static class UserEndpoints
                 Password = request.Password,
                 FirstName = request.FirstName,
                 LastName = request.LastName,
-                CreatedAt = DateTime.UtcNow.AddHours(7)
+                CreatedAt = DateTime.UtcNow.AddHours(7),
+                IsActive = true,
+                Roles = "User",
+                // Initialize optional fields with default values
+                ResumeList = new List<Dictionary<string, object>>(),
+                Education = new List<Dictionary<string, object>>(),
+                Experiences = new List<Dictionary<string, object>>(),
+                SocialLink = new Dictionary<string, object>(),
+                Location = new Dictionary<string, object>()
             };
 
             Console.WriteLine($"User object created - Email: {user.Email}, Name: {user.FirstName} {user.LastName}");

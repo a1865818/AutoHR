@@ -149,10 +149,18 @@ class ApplicationService {
     // Calculate expected salary from user input if available
     const expectedSalary = this.calculateExpectedSalary(applicationData);
 
+    // Determine resume URL - prioritize selected resume URL over file upload
+    let resumeUrl: string | undefined;
+    if (applicationData.selectedResumeUrl) {
+      resumeUrl = applicationData.selectedResumeUrl;
+    } else if (resumeFileId) {
+      resumeUrl = `uploads/${resumeFileId}`;
+    }
+
     const request: CreateApplicationDetailRequest = {
       jobId,
       candidateUserId: userId,
-      resumeUrl: resumeFileId ? `uploads/${resumeFileId}` : undefined,
+      resumeUrl,
       coverLetterText,
       expectedSalary,
       availabilityDate: this.calculateAvailabilityDate(applicationData),
@@ -165,6 +173,7 @@ class ApplicationService {
         preliminaryAnswers: preliminaryData,
         applicationMethod: applicationData.method,
         submittedAt: new Date().toISOString(),
+        selectedResumeName: applicationData.selectedResumeName,
       },
     };
 

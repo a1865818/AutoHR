@@ -107,6 +107,7 @@ class PublicJobService {
         email: string;
         phoneNumber: string;
         city: string;
+        country: string;
         countryCode: string;
       };
       resume: File;
@@ -140,12 +141,16 @@ class PublicJobService {
       // Add job ID
       formData.append("jobId", jobId);
       
+      // Add application type flag
+      formData.append("isPublic", "true");
+      
       // Add personal info
       formData.append("firstName", applicationData.personalInfo.firstName);
       formData.append("lastName", applicationData.personalInfo.lastName);
       formData.append("email", applicationData.personalInfo.email);
       formData.append("phoneNumber", applicationData.personalInfo.phoneNumber);
       formData.append("city", applicationData.personalInfo.city);
+      formData.append("country", applicationData.personalInfo.country);
       formData.append("countryCode", applicationData.personalInfo.countryCode);
       
       // Add resume file

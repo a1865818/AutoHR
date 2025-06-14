@@ -101,7 +101,13 @@ namespace ai_hr.Services
                     LastName = request.LastName,
                     CreatedAt = DateTime.UtcNow.AddHours(7),
                     IsActive = true,
-                    Roles = "User"
+                    Roles = "User",
+                    // Initialize optional fields with default values
+                    ResumeList = new List<Dictionary<string, object>>(),
+                    Education = new List<Dictionary<string, object>>(),
+                    Experiences = new List<Dictionary<string, object>>(),
+                    SocialLink = new Dictionary<string, object>(),
+                    Location = new Dictionary<string, object>()
                 };
 
                 var response = await _supabaseClient

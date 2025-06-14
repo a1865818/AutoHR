@@ -13,5 +13,9 @@ namespace ai_hr.Contracts
         public JsonElement? SocialLink { get; set; }
 
         public string? PhoneNumber { get; set; }
+
+        public JsonElement? Location { get; set; }
+
+        public List<JsonElement>? ResumeList { get; set; }
     }
 }

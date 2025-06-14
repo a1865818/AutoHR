@@ -172,7 +172,9 @@ namespace ai_hr.Endpoints
                         Education = appUser.Education,
                         Experiences = appUser.Experiences,
                         SocialLink = appUser.SocialLink,
-                        PhoneNumber = appUser.PhoneNumber
+                        PhoneNumber = appUser.PhoneNumber,
+                        Location = appUser.Location,
+                        ResumeList = appUser.ResumeList
                     };
 
                     return Results.Ok(userInfo);
@@ -254,7 +256,28 @@ namespace ai_hr.Endpoints
 
                     if (request.PhoneNumber != null) appUser.PhoneNumber = request.PhoneNumber;
 
-                    Console.WriteLine($"[DEBUG] Updating user with Education count: {appUser.Education?.Count ?? 0}, Experience count: {appUser.Experiences?.Count ?? 0}");
+                    if (request.Location != null)
+                    {
+                        Console.WriteLine($"[DEBUG] Processing Location update");
+                        // Convert JsonElement to proper Dictionary for storage
+                        appUser.Location = JsonElementToDictionary(request.Location.Value);
+                        Console.WriteLine($"[DEBUG] Location field updated");
+                    }
+
+                    if (request.ResumeList != null)
+                    {
+                        Console.WriteLine($"[DEBUG] Processing ResumeList update with {request.ResumeList.Count} items");
+                        // Convert JsonElement to proper Dictionary for storage
+                        appUser.ResumeList = request.ResumeList.Select(item =>
+                        {
+                            var dict = JsonElementToDictionary(item);
+                            Console.WriteLine($"[DEBUG] Resume item converted: {string.Join(", ", dict.Select(kvp => $"{kvp.Key}={kvp.Value}"))}");
+                            return dict;
+                        }).ToList();
+                        Console.WriteLine($"[DEBUG] ResumeList field updated with {appUser.ResumeList.Count} items");
+                    }
+
+                    Console.WriteLine($"[DEBUG] Updating user with Education count: {appUser.Education?.Count ?? 0}, Experience count: {appUser.Experiences?.Count ?? 0}, Resume count: {appUser.ResumeList?.Count ?? 0}");
 
                     // Update the user in the database
                     var updateResponse = await client.From<ai_hr.Models.ApplicationUser>().Update(appUser);
