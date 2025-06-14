@@ -1,6 +1,6 @@
 "use client";
 
-import { withHiringAuth } from "@/components/auth/withHiringAuth";
+import { withHiringAuth } from "@/components/auth/WithHiringAuth";
 import { CandidateDetail } from "@/components/candidates/CandidateDetail";
 import { CandidateHeader } from "@/components/candidates/CandidateHeader";
 import { CandidatesList } from "@/components/candidates/CandidatesList";
@@ -10,7 +10,15 @@ import { NotesList } from "@/components/candidates/NotesList";
 import { useHiringAuth } from "@/hooks/useHiringAuth";
 import { CandidateWithJobDetails } from "@/interfaces";
 import { candidateService } from "@/services/candidateService";
-import { Briefcase, FileText, Plus, Search, Users } from "lucide-react";
+import {
+  Briefcase,
+  FileText,
+  Plus,
+  Search,
+  Users,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 // Empty State Component
@@ -191,6 +199,10 @@ function CandidatesPage() {
     field: "name" | "company" | "assessment" | "stage" | "status";
     direction: "asc" | "desc";
   }>({ field: "name", direction: "asc" });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [candidatesPerPage] = useState(5);
 
   // Filter states
   const [expandedFilters, setExpandedFilters] = useState({
@@ -455,6 +467,8 @@ function CandidatesPage() {
         ? [...prev[filterType], filterId]
         : prev[filterType].filter((id) => id !== filterId),
     }));
+    // Reset to first page when filters change
+    setCurrentPage(1);
   };
 
   const handleFavoriteToggle = (filterId: string) => {
@@ -531,6 +545,8 @@ function CandidatesPage() {
       stage: [],
       position: [],
     });
+    // Reset to first page when clearing filters
+    setCurrentPage(1);
   };
 
   const handleSort = (
@@ -782,6 +798,16 @@ function CandidatesPage() {
     return filtered;
   }, [candidatesWithNotes, notesSearchQuery, candidateNotes, activeFilters]);
 
+  // Calculate pagination for notes
+  const totalNotes = filteredNoteCandidates.length;
+  const totalNotesPages = Math.ceil(totalNotes / candidatesPerPage);
+  const notesStartIndex = (currentPage - 1) * candidatesPerPage;
+  const notesEndIndex = notesStartIndex + candidatesPerPage;
+  const paginatedNoteCandidates = filteredNoteCandidates.slice(
+    notesStartIndex,
+    notesEndIndex
+  );
+
   // Filter and sort candidates
   const filteredAndSortedCandidates = useMemo(() => {
     let filtered = candidates;
@@ -874,6 +900,34 @@ function CandidatesPage() {
 
     return filtered;
   }, [candidates, searchQuery, activeFilters, sortBy]);
+
+  // Reset to first page when active tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
+
+  // Reset to first page when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  // Calculate pagination for candidates
+  const totalCandidates = filteredAndSortedCandidates.length;
+  const totalPages = Math.ceil(totalCandidates / candidatesPerPage);
+  const startIndex = (currentPage - 1) * candidatesPerPage;
+  const endIndex = startIndex + candidatesPerPage;
+  const paginatedCandidates = filteredAndSortedCandidates.slice(
+    startIndex,
+    endIndex
+  );
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of candidate list when page changes
+    document
+      .getElementById("candidates-list-container")
+      ?.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   // Get selected candidate data
   const selectedCandidateData = candidates.find(
@@ -1036,13 +1090,89 @@ function CandidatesPage() {
         }
       }
       return (
-        <CandidatesList
-          candidates={filteredAndSortedCandidates}
-          selectedCandidate={selectedCandidate}
-          onCandidateClick={handleCandidateClick}
-          sortBy={sortBy}
-          onSort={handleSort}
-        />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <CandidatesList
+            candidates={paginatedCandidates}
+            selectedCandidate={selectedCandidate}
+            onCandidateClick={handleCandidateClick}
+            sortBy={sortBy}
+            onSort={handleSort}
+          />
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="border-t bg-white px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Showing {startIndex + 1} to{" "}
+                  {Math.min(endIndex, totalCandidates)} of {totalCandidates}{" "}
+                  candidates
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`p-2 rounded-md ${
+                      currentPage === 1
+                        ? "text-gray-400 cursor-not-allowed"
+                        : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                    }`}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+
+                  <div className="flex space-x-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter((page) => {
+                        // Show first page, last page, current page, and 2 pages around current page
+                        return (
+                          page === 1 ||
+                          page === totalPages ||
+                          Math.abs(page - currentPage) <= 2
+                        );
+                      })
+                      .map((page, index, filteredPages) => {
+                        // Add ellipsis if there's a gap
+                        const showEllipsis =
+                          index > 0 && page - filteredPages[index - 1] > 1;
+
+                        return (
+                          <div key={page} className="flex items-center">
+                            {showEllipsis && (
+                              <span className="px-2 text-gray-400">...</span>
+                            )}
+                            <button
+                              onClick={() => handlePageChange(page)}
+                              className={`px-3 py-1 rounded-md text-sm font-medium ${
+                                currentPage === page
+                                  ? "bg-blue-600 text-white"
+                                  : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className={`p-2 rounded-md ${
+                      currentPage === totalPages
+                        ? "text-gray-400 cursor-not-allowed"
+                        : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                    }`}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       );
     } else {
       // Notes tab
@@ -1065,14 +1195,89 @@ function CandidatesPage() {
         }
       }
       return (
-        <NotesList
-          candidates={filteredNoteCandidates}
-          notes={candidateNotes}
-          selectedCandidate={selectedCandidate}
-          onCandidateClick={handleCandidateClick}
-          onDeleteNote={handleDeleteNote}
-          onEditNote={handleEditNote}
-        />
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <NotesList
+            candidates={paginatedNoteCandidates}
+            notes={candidateNotes}
+            selectedCandidate={selectedCandidate}
+            onCandidateClick={handleCandidateClick}
+            onDeleteNote={handleDeleteNote}
+            onEditNote={handleEditNote}
+          />
+
+          {/* Pagination for Notes */}
+          {totalNotesPages > 1 && (
+            <div className="border-t bg-white px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Showing {notesStartIndex + 1} to{" "}
+                  {Math.min(notesEndIndex, totalNotes)} of {totalNotes} notes
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`p-2 rounded-md ${
+                      currentPage === 1
+                        ? "text-gray-400 cursor-not-allowed"
+                        : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                    }`}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+
+                  <div className="flex space-x-1">
+                    {Array.from({ length: totalNotesPages }, (_, i) => i + 1)
+                      .filter((page) => {
+                        // Show first page, last page, current page, and 2 pages around current page
+                        return (
+                          page === 1 ||
+                          page === totalNotesPages ||
+                          Math.abs(page - currentPage) <= 2
+                        );
+                      })
+                      .map((page, index, filteredPages) => {
+                        // Add ellipsis if there's a gap
+                        const showEllipsis =
+                          index > 0 && page - filteredPages[index - 1] > 1;
+
+                        return (
+                          <div key={page} className="flex items-center">
+                            {showEllipsis && (
+                              <span className="px-2 text-gray-400">...</span>
+                            )}
+                            <button
+                              onClick={() => handlePageChange(page)}
+                              className={`px-3 py-1 rounded-md text-sm font-medium ${
+                                currentPage === page
+                                  ? "bg-blue-600 text-white"
+                                  : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalNotesPages}
+                    className={`p-2 rounded-md ${
+                      currentPage === totalNotesPages
+                        ? "text-gray-400 cursor-not-allowed"
+                        : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                    }`}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       );
     }
   };

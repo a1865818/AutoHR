@@ -94,7 +94,10 @@ export function CandidatesList({
       </div>
 
       {/* Candidate list */}
-      <div className="flex-1 overflow-y-auto px-6">
+      <div
+        id="candidates-list-container"
+        className="flex-1 overflow-y-auto px-6"
+      >
         {candidates.length === 0 ? (
           <div className="flex items-center justify-center h-32 text-gray-500">
             <div className="text-center">

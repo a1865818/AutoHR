@@ -10,7 +10,7 @@ interface Filters {
   status: string[];
   type: string[];
   experience: string[];
-  location: string[];
+  workType: string[];
 }
 
 interface JobFilterSidebarProps {
@@ -18,10 +18,10 @@ interface JobFilterSidebarProps {
     status: boolean;
     type: boolean;
     experience: boolean;
-    location: boolean;
+    workType: boolean;
   };
   toggleFilter: (
-    filterType: "status" | "type" | "experience" | "location"
+    filterType: "status" | "type" | "experience" | "workType"
   ) => void;
   activeFilters: Filters;
   updateFilter: (
@@ -34,7 +34,7 @@ interface JobFilterSidebarProps {
     status: Record<string, number>;
     type: Record<string, number>;
     experience: Record<string, number>;
-    location: Record<string, number>;
+    workType: Record<string, number>;
   };
 }
 
@@ -65,9 +65,9 @@ export function JobFilterSidebar({
     { id: "Senior", label: "5+ Years" },
   ];
 
-  const locationFilters: Omit<FilterOption, "count">[] = [
-    { id: "Chicago", label: "Chicago, IL" },
+  const workTypeFilters: Omit<FilterOption, "count">[] = [
     { id: "Remote", label: "Remote" },
+    { id: "On-site", label: "On-site" },
     { id: "Hybrid", label: "Hybrid" },
   ];
 
@@ -181,10 +181,10 @@ export function JobFilterSidebar({
         />
 
         <FilterSection
-          title="Location"
-          filterKey="location"
-          filters={locationFilters}
-          category="location"
+          title="Work Type"
+          filterKey="workType"
+          filters={workTypeFilters}
+          category="workType"
         />
 
         {/* Filter buttons */}

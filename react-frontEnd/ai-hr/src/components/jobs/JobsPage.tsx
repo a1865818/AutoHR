@@ -3,7 +3,14 @@
 import { ApiCompany, ApiJob } from "@/interfaces";
 import { Job } from "@/interfaces/job";
 import { jobService } from "@/services/jobService";
-import { AlertCircle, ChevronDown, Loader2, Search } from "lucide-react";
+import {
+  AlertCircle,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Search,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -17,7 +24,7 @@ interface Filters {
   status: string[];
   type: string[];
   experience: string[];
-  location: string[];
+  workType: string[];
 }
 
 // Helper functions moved outside component to avoid hoisting issues
@@ -148,7 +155,7 @@ export function JobsPage() {
     status: true,
     type: true,
     experience: false,
-    location: false,
+    workType: false,
   });
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -156,11 +163,15 @@ export function JobsPage() {
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("jobs");
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [jobsPerPage] = useState(5);
+
   const [activeFilters, setActiveFilters] = useState<Filters>({
     status: [],
     type: [],
     experience: [],
-    location: [],
+    workType: [],
   });
 
   const searchParams = useSearchParams();
@@ -343,17 +354,97 @@ export function JobsPage() {
     return transformed;
   }, [allJobs, companies]);
 
-  // Calculate tab counts - always show total counts regardless of current view
+  // Calculate tab counts - apply filters to get accurate counts
   const tabCounts = useMemo(() => {
-    const activeJobsCount = transformedJobs.filter(
+    console.log("🔄 Calculating tab counts with filters...");
+
+    let filtered = transformedJobs;
+
+    // Apply the same filtering logic as filteredAndSortedJobs but without view mode filter
+
+    // Search filter
+    if (searchQuery) {
+      console.log("🔍 Applying search filter to tab counts:", searchQuery);
+      filtered = filtered.filter(
+        (job) =>
+          job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          job.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          job.requirements.some((req) =>
+            req.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+      );
+    }
+
+    // Status filter (but don't filter out drafts/active completely - we need both for tab counts)
+    const hasStatusFilters = activeFilters.status.length > 0;
+    if (hasStatusFilters) {
+      console.log(
+        "📊 Applying status filter to tab counts:",
+        activeFilters.status
+      );
+      filtered = filtered.filter((job) =>
+        activeFilters.status.includes(job.status)
+      );
+    }
+
+    // Type filter
+    const hasTypeFilters = activeFilters.type.length > 0;
+    if (hasTypeFilters) {
+      console.log("💼 Applying type filter to tab counts:", activeFilters.type);
+      filtered = filtered.filter((job) =>
+        activeFilters.type.includes(job.type)
+      );
+    }
+
+    // Experience filter
+    const hasExperienceFilters = activeFilters.experience.length > 0;
+    if (hasExperienceFilters) {
+      console.log(
+        "🎯 Applying experience filter to tab counts:",
+        activeFilters.experience
+      );
+      filtered = filtered.filter((job) => {
+        if (
+          activeFilters.experience.includes("Senior") &&
+          job.experience.includes("5+")
+        )
+          return true;
+        if (
+          activeFilters.experience.includes("Mid") &&
+          job.experience.includes("2-5")
+        )
+          return true;
+        if (
+          activeFilters.experience.includes("Entry") &&
+          job.experience.includes("0-2")
+        )
+          return true;
+        return false;
+      });
+    }
+
+    // Work Type filter
+    const hasWorkTypeFilters = activeFilters.workType.length > 0;
+    if (hasWorkTypeFilters) {
+      console.log(
+        "📍 Applying work type filter to tab counts:",
+        activeFilters.workType
+      );
+      filtered = filtered.filter((job) => {
+        return activeFilters.workType.includes(job.locationType);
+      });
+    }
+
+    // Now calculate counts from filtered jobs
+    const activeJobsCount = filtered.filter(
       (job) => job.status !== "Draft"
     ).length;
-    const draftJobsCount = transformedJobs.filter(
+    const draftJobsCount = filtered.filter(
       (job) => job.status === "Draft"
     ).length;
 
     console.log(
-      "📊 Tab counts - Active:",
+      "📊 Filtered tab counts - Active:",
       activeJobsCount,
       "Draft:",
       draftJobsCount
@@ -363,7 +454,7 @@ export function JobsPage() {
       activeJobs: activeJobsCount,
       draftJobs: draftJobsCount,
     };
-  }, [transformedJobs]);
+  }, [transformedJobs, searchQuery, activeFilters]);
 
   // Calculate filter counts
   const filterCounts = useMemo(() => {
@@ -373,7 +464,7 @@ export function JobsPage() {
       status: {} as Record<string, number>,
       type: {} as Record<string, number>,
       experience: {} as Record<string, number>,
-      location: {} as Record<string, number>,
+      workType: {} as Record<string, number>,
     };
 
     transformedJobs.forEach((job) => {
@@ -388,8 +479,8 @@ export function JobsPage() {
       }
       counts.experience[expCategory] =
         (counts.experience[expCategory] || 0) + 1;
-      counts.location[job.locationType] =
-        (counts.location[job.locationType] || 0) + 1;
+      counts.workType[job.locationType] =
+        (counts.workType[job.locationType] || 0) + 1;
     });
 
     console.log("📊 Filter counts:", counts);
@@ -414,6 +505,8 @@ export function JobsPage() {
         ? [...prev[category], value]
         : prev[category].filter((item) => item !== value),
     }));
+    // Reset to first page when filters change
+    setCurrentPage(1);
   };
 
   const clearAllFilters = () => {
@@ -421,8 +514,10 @@ export function JobsPage() {
       status: [],
       type: [],
       experience: [],
-      location: [],
+      workType: [],
     });
+    // Reset to first page when clearing filters
+    setCurrentPage(1);
   };
 
   const getSortLabel = (sort: SortOption) => {
@@ -515,14 +610,14 @@ export function JobsPage() {
       console.log("🎯 After experience filter:", filtered.length, "jobs");
     }
 
-    // Location filter
-    const hasLocationFilters = activeFilters.location.length > 0;
-    if (hasLocationFilters) {
-      console.log("📍 Applying location filter:", activeFilters.location);
+    // Work Type filter
+    const hasWorkTypeFilters = activeFilters.workType.length > 0;
+    if (hasWorkTypeFilters) {
+      console.log("📍 Applying work type filter:", activeFilters.workType);
       filtered = filtered.filter((job) => {
-        return activeFilters.location.includes(job.locationType);
+        return activeFilters.workType.includes(job.locationType);
       });
-      console.log("📍 After location filter:", filtered.length, "jobs");
+      console.log("📍 After work type filter:", filtered.length, "jobs");
     }
 
     // Sorting
@@ -548,6 +643,31 @@ export function JobsPage() {
     console.log("✅ Final filtered and sorted jobs:", sorted);
     return sorted;
   }, [transformedJobs, searchQuery, activeFilters, sortBy, viewMode]);
+
+  // Reset to first page when view mode changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [viewMode]);
+
+  // Reset to first page when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  // Calculate pagination
+  const totalJobs = filteredAndSortedJobs.length;
+  const totalPages = Math.ceil(totalJobs / jobsPerPage);
+  const startIndex = (currentPage - 1) * jobsPerPage;
+  const endIndex = startIndex + jobsPerPage;
+  const paginatedJobs = filteredAndSortedJobs.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of job list when page changes
+    document
+      .getElementById("job-list-container")
+      ?.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   console.log("🎯 Current state:");
   console.log("- isLoading:", isLoading);
@@ -735,42 +855,119 @@ export function JobsPage() {
         </div>
 
         {/* Job List */}
-        <div className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-4">
-            {filteredAndSortedJobs.map((job) => (
-              <JobCard key={job.id} job={job} />
-            ))}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <div id="job-list-container" className="flex-1 overflow-y-auto p-6">
+            <div className="space-y-4">
+              {paginatedJobs.map((job) => (
+                <JobCard key={job.id} job={job} />
+              ))}
 
-            {filteredAndSortedJobs.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-gray-500">
-                  {searchQuery
-                    ? "No jobs found matching your search."
-                    : viewMode === "drafts"
-                    ? "No draft jobs found."
-                    : "No active jobs found."}
-                </p>
-                {Object.values(activeFilters).some((arr) => arr.length > 0) && (
-                  <button
-                    onClick={clearAllFilters}
-                    className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
-                  >
-                    Clear all filters
-                  </button>
-                )}
-                {viewMode === "drafts" &&
-                  filteredAndSortedJobs.length === 0 &&
-                  !searchQuery && (
-                    <Link
-                      href="create-job"
-                      className="mt-2 inline-block text-blue-600 hover:text-blue-800 text-sm font-medium"
+              {filteredAndSortedJobs.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-gray-500">
+                    {searchQuery
+                      ? "No jobs found matching your search."
+                      : viewMode === "drafts"
+                      ? "No draft jobs found."
+                      : "No active jobs found."}
+                  </p>
+                  {Object.values(activeFilters).some(
+                    (arr) => arr.length > 0
+                  ) && (
+                    <button
+                      onClick={clearAllFilters}
+                      className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
                     >
-                      Create your first job
-                    </Link>
+                      Clear all filters
+                    </button>
                   )}
-              </div>
-            )}
+                  {viewMode === "drafts" &&
+                    filteredAndSortedJobs.length === 0 &&
+                    !searchQuery && (
+                      <Link
+                        href="create-job"
+                        className="mt-2 inline-block text-blue-600 hover:text-blue-800 text-sm font-medium"
+                      >
+                        Create your first job
+                      </Link>
+                    )}
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="border-t bg-white px-6 py-4">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-700">
+                  Showing {startIndex + 1} to {Math.min(endIndex, totalJobs)} of{" "}
+                  {totalJobs} jobs
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`p-2 rounded-md ${
+                      currentPage === 1
+                        ? "text-gray-400 cursor-not-allowed"
+                        : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                    }`}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+
+                  <div className="flex space-x-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter((page) => {
+                        // Show first page, last page, current page, and 2 pages around current page
+                        return (
+                          page === 1 ||
+                          page === totalPages ||
+                          Math.abs(page - currentPage) <= 2
+                        );
+                      })
+                      .map((page, index, filteredPages) => {
+                        // Add ellipsis if there's a gap
+                        const showEllipsis =
+                          index > 0 && page - filteredPages[index - 1] > 1;
+
+                        return (
+                          <div key={page} className="flex items-center">
+                            {showEllipsis && (
+                              <span className="px-2 text-gray-400">...</span>
+                            )}
+                            <button
+                              onClick={() => handlePageChange(page)}
+                              className={`px-3 py-1 rounded-md text-sm font-medium ${
+                                currentPage === page
+                                  ? "bg-blue-600 text-white"
+                                  : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
+                              }`}
+                            >
+                              {page}
+                            </button>
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className={`p-2 rounded-md ${
+                      currentPage === totalPages
+                        ? "text-gray-400 cursor-not-allowed"
+                        : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                    }`}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
