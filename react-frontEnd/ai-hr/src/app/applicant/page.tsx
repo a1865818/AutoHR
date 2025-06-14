@@ -144,7 +144,7 @@ export default function ApplicantDashboard() {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <Link
           href="/applicant/jobs"
           className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow group"
@@ -183,6 +183,26 @@ export default function ApplicantDashboard() {
           </div>
           <div className="mt-4 flex items-center text-sm text-green-600">
             <span>{recentApplications.length} active applications</span>
+          </div>
+        </Link>
+
+        <Link
+          href="/applicant/saved-jobs"
+          className="bg-white p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow group"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-800 group-hover:text-red-600">
+                Saved Jobs
+              </h3>
+              <p className="mt-2 text-gray-600 text-sm">
+                View your saved job opportunities
+              </p>
+            </div>
+            <Heart className="w-8 h-8 text-red-600" />
+          </div>
+          <div className="mt-4 flex items-center text-sm text-red-600">
+            <span>Access your favorite jobs anytime</span>
           </div>
         </Link>
 

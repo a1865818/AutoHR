@@ -5,8 +5,12 @@ import {
   DollarSign,
   ExternalLink,
   MapPin,
+  Heart,
+  Loader2,
 } from "lucide-react";
 import Link from "next/link";
+import { useState } from "react";
+import { useSavedJobs } from "@/contexts/SavedJobsContext";
 
 interface ApplicantJobCardProps {
   job: ApiJob;
@@ -151,13 +155,51 @@ const formatExperience = (
 };
 
 export function ApplicantJobCard({ job, company }: ApplicantJobCardProps) {
+  const { isJobSaved, toggleJobSaved } = useSavedJobs();
+  const [isToggling, setIsToggling] = useState(false);
+  const isSaved = isJobSaved(job.id);
+
+  const handleSaveToggle = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (isToggling) return;
+
+    setIsToggling(true);
+    try {
+      await toggleJobSaved(job.id);
+    } catch (error) {
+      console.error("Failed to toggle job saved status:", error);
+    } finally {
+      setIsToggling(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1">
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            {safeRender(job.title) || "Job Title"}
-          </h3>
+          <div className="flex items-start justify-between mb-2">
+            <h3 className="text-xl font-semibold text-gray-900 flex-1">
+              {safeRender(job.title) || "Job Title"}
+            </h3>
+            <button
+              onClick={handleSaveToggle}
+              disabled={isToggling}
+              className={`ml-3 p-2 rounded-full transition-all duration-200 ${
+                isSaved
+                  ? "bg-red-50 text-red-600 hover:bg-red-100"
+                  : "bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-red-500"
+              } ${isToggling ? "opacity-50 cursor-not-allowed" : ""}`}
+              title={isSaved ? "Remove from saved jobs" : "Save job"}
+            >
+              {isToggling ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Heart className={`h-5 w-5 ${isSaved ? "fill-current" : ""}`} />
+              )}
+            </button>
+          </div>
           <p className="text-gray-600 mb-3">
             {safeRender(company?.name) || "Company"}
           </p>

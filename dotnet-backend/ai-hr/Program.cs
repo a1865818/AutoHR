@@ -62,6 +62,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IHiringUserProfileAuthenticationService, HiringUserProfileAuthenticationService>();
+builder.Services.AddScoped<ISavedJobsService, SavedJobsService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -166,5 +167,6 @@ app.MapNotesEndpoints();
 app.MapLanggraphEndpoints();
 app.MapInterviewEndpoints();
 app.MapStorageBucketEndpoints();
+app.MapSavedJobsEndpoints();
 
 app.Run();

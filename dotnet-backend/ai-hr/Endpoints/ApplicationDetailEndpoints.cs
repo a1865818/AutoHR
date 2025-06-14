@@ -396,7 +396,7 @@ public static class ApplicationDetailEndpoints
             // Handle file upload and create resume entry
             var resumeId = Guid.NewGuid().ToString();
             var resumeFileName = $"{guestUserId}_{DateTime.UtcNow:yyyyMMddHHmmss}_{resumeFile.FileName}";
-            var bucketName = "resume-storage-public";
+            var bucketName = Environment.GetEnvironmentVariable("BUCKET_NAME") ?? "resume-storage";
             await ai_hr.Endpoints.StorageBucketEndpoints.UploadFile(client, bucketName, resumeFileName, resumeFile);
             var resumeUrl = bucketName + "/" + resumeFileName;
 

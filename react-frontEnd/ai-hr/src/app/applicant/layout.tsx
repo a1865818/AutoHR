@@ -1,4 +1,5 @@
 import { ApplicantSidebar, Header, ProtectedRoute } from "@/components";
+import { SavedJobsProvider } from "@/contexts/SavedJobsContext";
 
 export default function ApplicantLayout({
   children,
@@ -7,13 +8,17 @@ export default function ApplicantLayout({
 }) {
   return (
     <ProtectedRoute requiredUserCategory="ApplicationUser">
-      <div className="flex h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
-        <ApplicantSidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Header />
-          <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
+      <SavedJobsProvider>
+        <div className="flex h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+          <ApplicantSidebar />
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <Header />
+            <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
+      </SavedJobsProvider>
     </ProtectedRoute>
   );
 }

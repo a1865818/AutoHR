@@ -18,6 +18,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ApplicantJobCard } from "@/components/jobs/ApplicantJobCard";
 import { ApplicantJobFilterSidebar } from "@/components/jobs/ApplicantJobFilterSidebar";
+import { Pagination } from "@/components/ui/Pagination";
 
 type SortOption = "newest" | "oldest" | "salary" | "relevance";
 
@@ -206,6 +207,10 @@ export function ApplicantJobsPage() {
     locationType: [],
   });
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [jobsPerPage] = useState(4);
+
   const { user } = useAuth();
 
   useEffect(() => {
@@ -388,12 +393,21 @@ export function ApplicantJobsPage() {
       case "oldest":
         return "Oldest First";
       case "salary":
-        return "Highest Salary";
+        return "Salary (High to Low)";
       case "relevance":
         return "Most Relevant";
       default:
         return "Newest First";
     }
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of job list
+    document.querySelector(".flex-1.overflow-y-auto")?.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   };
 
   // Filter and sort jobs
@@ -477,6 +491,23 @@ export function ApplicantJobsPage() {
     return sorted;
   }, [allJobs, companies, searchQuery, sortBy, activeFilters]);
 
+  // Calculate pagination
+  const totalJobs = filteredAndSortedJobs.length;
+  const totalPages = Math.ceil(totalJobs / jobsPerPage);
+  const startIndex = (currentPage - 1) * jobsPerPage;
+  const endIndex = startIndex + jobsPerPage;
+  const paginatedJobs = filteredAndSortedJobs.slice(startIndex, endIndex);
+
+  // Reset to first page when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilters]);
+
   const hasActiveFilters =
     Object.values(activeFilters).some((arr) => arr.length > 0) ||
     searchQuery.trim() !== "";
@@ -542,8 +573,13 @@ export function ApplicantJobsPage() {
                 Find Your Next Job
               </h1>
               <p className="text-gray-600 mt-1">
-                {filteredAndSortedJobs.length} job
-                {filteredAndSortedJobs.length !== 1 ? "s" : ""} available
+                {totalJobs > 0 && (
+                  <>
+                    Showing {startIndex + 1}-{Math.min(endIndex, totalJobs)} of{" "}
+                    {totalJobs} job{totalJobs !== 1 ? "s" : ""} available
+                  </>
+                )}
+                {totalJobs === 0 && "No jobs available"}
               </p>
             </div>
           </div>
@@ -635,8 +671,8 @@ export function ApplicantJobsPage() {
 
         {/* Job List */}
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="space-y-4">
-            {filteredAndSortedJobs.length === 0 ? (
+          <div className="space-y-6">
+            {totalJobs === 0 ? (
               <div className="text-center py-12">
                 <div className="bg-white rounded-lg shadow-sm border p-8">
                   <div className="h-12 w-12 text-gray-400 mx-auto mb-4">💼</div>
@@ -659,13 +695,31 @@ export function ApplicantJobsPage() {
                 </div>
               </div>
             ) : (
-              filteredAndSortedJobs.map((job) => (
-                <ApplicantJobCard
-                  key={job.id}
-                  job={job}
-                  company={companies.get(job.companyId)}
-                />
-              ))
+              <>
+                <div className="space-y-4">
+                  {paginatedJobs.map((job) => (
+                    <ApplicantJobCard
+                      key={job.id}
+                      job={job}
+                      company={companies.get(job.companyId)}
+                    />
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="mt-8">
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={handlePageChange}
+                      totalItems={totalJobs}
+                      itemsPerPage={jobsPerPage}
+                      showInfo={false}
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

@@ -51,5 +51,9 @@ namespace ai_hr.Models
         // Resume management - storing multiple resume URLs
         [Column("ResumeList")]
         public List<Dictionary<string, object>>? ResumeList { get; set; }
+
+        // Saved jobs - storing array of job IDs that user has saved as favorites
+        [Column("SavedJobs")]
+        public List<string>? SavedJobs { get; set; }
     }
 }

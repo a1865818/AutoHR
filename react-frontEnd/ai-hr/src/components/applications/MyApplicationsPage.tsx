@@ -20,6 +20,7 @@ import Link from "next/link";
 import ApplicationCard from "../applications/ApplicationCard";
 import ApplicationStats from "../applications/ApplicationStats";
 import ApplicationFiltersPanel from "../applications/ApplicationFiltersPanel";
+import { Pagination } from "@/components/ui/Pagination";
 
 type SortOption = "newest" | "oldest" | "company" | "status" | "jobTitle";
 type SortOrder = "asc" | "desc";
@@ -50,6 +51,10 @@ export default function MyApplicationsPage() {
 
   // UI states
   const [showFilters, setShowFilters] = useState(false);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [applicationsPerPage] = useState(4);
 
   // Load applications data
   useEffect(() => {
@@ -164,6 +169,26 @@ export default function MyApplicationsPage() {
     return filtered;
   }, [applications, searchQuery, selectedFilters, sortBy, sortOrder]);
 
+  // Calculate pagination
+  const totalApplications = filteredAndSortedApplications.length;
+  const totalPages = Math.ceil(totalApplications / applicationsPerPage);
+  const startIndex = (currentPage - 1) * applicationsPerPage;
+  const endIndex = startIndex + applicationsPerPage;
+  const paginatedApplications = filteredAndSortedApplications.slice(
+    startIndex,
+    endIndex
+  );
+
+  // Reset to first page when search query changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedFilters]);
+
   // Get unique values for filter options
   const filterOptions = useMemo(() => {
     const statuses = [
@@ -204,6 +229,12 @@ export default function MyApplicationsPage() {
       jobTitle: "",
     });
     setSearchQuery("");
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of the page smoothly
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const toggleSort = (newSortBy: SortOption) => {
@@ -395,13 +426,17 @@ export default function MyApplicationsPage() {
         <div className="space-y-4">
           {/* Results count */}
           <div className="text-sm text-gray-600">
-            Showing {filteredAndSortedApplications.length} of{" "}
-            {applications.length} applications
+            {totalApplications > 0 && (
+              <>
+                Showing {startIndex + 1}-{Math.min(endIndex, totalApplications)}{" "}
+                of {totalApplications} applications
+              </>
+            )}
           </div>
 
           {/* Applications Grid */}
           <div className="grid gap-6">
-            {filteredAndSortedApplications.map((application) => (
+            {paginatedApplications.map((application) => (
               <ApplicationCard
                 key={application.id}
                 application={application}
@@ -409,6 +444,20 @@ export default function MyApplicationsPage() {
               />
             ))}
           </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="mt-8">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                totalItems={totalApplications}
+                itemsPerPage={applicationsPerPage}
+                showInfo={false}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
