@@ -172,7 +172,7 @@ class CandidateService {
   // Update candidate status (approve/decline)
   async updateCandidateStatus(
     applicationId: string,
-    status: "In Progress" | "Hired" | "Disqualified",
+    status: "In Progress" | "Hired" | "Rejected",
     stage?: "Applied" | "Interview" | "Offer"
   ): Promise<void> {
     const { token, userCategory } = this.getAuthData();

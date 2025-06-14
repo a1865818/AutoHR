@@ -11,7 +11,7 @@ export interface Candidate {
   companyLogo?: string;
   assessment: number;
   stage: "Applied" | "Interview" | "Offer";
-  status: "In Progress" | "Hired" | "Disqualified";
+  status: "In Progress" | "Hired" | "Rejected";
   appliedAt: string;
   resumeUrl?: string;
   coverLetterText?: string;
@@ -60,10 +60,11 @@ export * from "./settings";
 // Export profile interfaces
 export * from "./profile";
 
-// Export job interfaces
+// Export job interfaces (excluding CreateJobRequest to avoid conflict)
 export * from "./job";
 
-// Export API interfaces
+// Export API interfaces (including CreateJobRequest)
+export type { CreateJobRequest } from "./api";
 export * from "./api";
 
 // Export notification interfaces
@@ -71,3 +72,6 @@ export * from "./notifications";
 
 // Export apply form interfaces
 export * from "./apply";
+
+// Export interview interfaces
+export * from "./interview";

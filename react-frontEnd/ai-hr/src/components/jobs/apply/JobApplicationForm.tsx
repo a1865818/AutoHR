@@ -1,4 +1,3 @@
-
 "use client";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -11,6 +10,7 @@ import {
 } from "@/interfaces";
 import { applicationService } from "@/services/applyService";
 import { jobService } from "@/services/jobService";
+import { apiService } from "@/services/api";
 import {
   AlertCircle,
   ArrowLeft,
@@ -73,6 +73,7 @@ export default function JobApplicationForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasAlreadyApplied, setHasAlreadyApplied] = useState(false);
+  const [isProfileDataLoaded, setIsProfileDataLoaded] = useState(false);
 
   // Success state
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -147,6 +148,184 @@ export default function JobApplicationForm({
       }));
     }
   }, [user, personalInfo.firstName, personalInfo.lastName]);
+
+  // Load user's existing education and experience data
+  useEffect(() => {
+    const loadUserProfileData = async () => {
+      console.log("🚀 loadUserProfileData useEffect triggered", {
+        user: user ? { id: user.id, userCategory: user.userCategory } : null,
+        isAuthenticated,
+      });
+
+      if (
+        !user ||
+        !isAuthenticated ||
+        user.userCategory !== "ApplicationUser"
+      ) {
+        console.log("❌ Skipping profile data load - requirements not met");
+        return;
+      }
+
+      try {
+        console.log("🔄 Loading user profile data...");
+        const userData = await apiService.getCurrentApplicationUser();
+        console.log("📥 Received user data:", userData);
+
+        // Pre-fill education data if it exists
+        if (
+          userData.Education &&
+          Array.isArray(userData.Education) &&
+          userData.Education.length > 0
+        ) {
+          console.log("✅ Found existing education data:", userData.Education);
+          const transformedEducation = userData.Education.map(
+            (edu: any, index: number) => ({
+              id: `loaded-edu-${index}-${Date.now()}`, // Generate new ID for frontend use only
+              institution: edu.institution || "",
+              major: edu.major || "",
+              degree: edu.degree || "",
+              location: edu.location || "",
+              description: edu.description || "",
+              startDate: edu.startDate || "",
+              endDate: edu.endDate || "",
+              isCurrentlyAttending: edu.isCurrentlyAttending || false,
+            })
+          );
+          console.log("📚 Setting education state:", transformedEducation);
+          setEducation(transformedEducation);
+        } else {
+          console.log(
+            "❌ No education data found. userData.Education:",
+            userData.Education
+          );
+        }
+
+        // Pre-fill experience data if it exists (check both Experiences and Experience fields)
+        const experienceData = userData.Experiences || userData.Experience;
+        if (
+          experienceData &&
+          Array.isArray(experienceData) &&
+          experienceData.length > 0
+        ) {
+          console.log("✅ Found existing experience data:", experienceData);
+          const transformedExperience = experienceData.map(
+            (exp: any, index: number) => ({
+              id: `loaded-exp-${index}-${Date.now()}`, // Generate new ID for frontend use only
+              title: exp.title || "",
+              company: exp.company || "",
+              location: exp.location || "",
+              description: exp.description || "",
+              startDate: exp.startDate || "",
+              endDate: exp.endDate || "",
+              isCurrent: exp.isCurrent || false,
+            })
+          );
+          console.log("💼 Setting experiences state:", transformedExperience);
+          setExperiences(transformedExperience);
+        } else {
+          console.log(
+            "❌ No experience data found. userData.Experiences:",
+            userData.Experiences,
+            "userData.Experience:",
+            userData.Experience
+          );
+        }
+
+        // Pre-fill phone number if it exists
+        if (userData.PhoneNumber) {
+          console.log("✅ Found existing phone number:", userData.PhoneNumber);
+          setPersonalInfo((prev) => {
+            console.log("📞 Setting phone in personal info:", prev, "->", {
+              ...prev,
+              phoneNumber: userData.PhoneNumber,
+            });
+            return {
+              ...prev,
+              phoneNumber: userData.PhoneNumber || "",
+            };
+          });
+        } else {
+          console.log(
+            "❌ No phone number found. userData.PhoneNumber:",
+            userData.PhoneNumber
+          );
+        }
+
+        // Pre-fill social links if they exist
+        if (userData.SocialLink && typeof userData.SocialLink === "object") {
+          console.log("✅ Found existing social links:", userData.SocialLink);
+          setProfiles((prev) => {
+            const newProfiles = {
+              ...prev,
+              linkedin: userData.SocialLink.linkedin || "",
+              facebook: userData.SocialLink.facebook || "",
+              twitter: userData.SocialLink.twitter || "",
+              website: userData.SocialLink.website || "",
+            };
+            console.log("🔗 Setting social profiles:", prev, "->", newProfiles);
+            return newProfiles;
+          });
+        }
+
+        console.log("✅ User profile data loaded successfully");
+        setIsProfileDataLoaded(true);
+      } catch (error) {
+        console.warn("⚠️ Failed to load user profile data:", error);
+        // Don't show error to user, just use empty forms
+        setIsProfileDataLoaded(true); // Set as loaded even on error to prevent blocking the form
+      }
+    };
+
+    loadUserProfileData();
+  }, [user, isAuthenticated]);
+
+  // Save profile data when social profiles change
+  useEffect(() => {
+    if (!isAuthenticated || !user || user.userCategory !== "ApplicationUser") {
+      return;
+    }
+
+    // Don't save on initial load (when profiles are empty or just loaded)
+    if (
+      profiles.linkedin === "" &&
+      profiles.facebook === "" &&
+      profiles.twitter === "" &&
+      profiles.website === ""
+    ) {
+      return;
+    }
+
+    // Add a small delay to avoid too many API calls
+    const saveTimeout = setTimeout(() => {
+      saveProfileToBackend(undefined, undefined, profiles);
+    }, 1000);
+
+    return () => clearTimeout(saveTimeout);
+  }, [profiles]);
+
+  // Save profile data when phone number changes
+  useEffect(() => {
+    if (!isAuthenticated || !user || user.userCategory !== "ApplicationUser") {
+      return;
+    }
+
+    // Don't save on initial load (when phone number is empty or just loaded)
+    if (!personalInfo.phoneNumber || personalInfo.phoneNumber === "") {
+      return;
+    }
+
+    // Add a small delay to avoid too many API calls
+    const saveTimeout = setTimeout(() => {
+      saveProfileToBackend(
+        undefined,
+        undefined,
+        undefined,
+        personalInfo.phoneNumber
+      );
+    }, 1000);
+
+    return () => clearTimeout(saveTimeout);
+  }, [personalInfo.phoneNumber]);
 
   // Check authentication and load job data
   useEffect(() => {
@@ -237,6 +416,15 @@ export default function JobApplicationForm({
         setJob(transformedJob);
       }
 
+      // Make sure user is authenticated before proceeding
+      if (!isAuthenticated || !user) {
+        console.log(
+          "❌ User not authenticated, skipping profile and application checks"
+        );
+        setIsLoading(false);
+        return;
+      }
+
       // Check if user has already applied
       console.log("🔍 Checking if user has already applied...");
       const hasApplied = await applicationService.hasAppliedToJob(jobId);
@@ -246,17 +434,248 @@ export default function JobApplicationForm({
       );
       setHasAlreadyApplied(hasApplied);
 
-      // Load saved draft if exists
-      console.log("💾 Loading saved draft...");
+      // First, load user profile data from the database to ensure auto-fill
+      console.log("🔄 Loading user profile data for auto-fill...");
+      try {
+        // Check if auth token exists before making the API call
+        const token =
+          localStorage.getItem("authToken") ||
+          sessionStorage.getItem("authToken");
+        if (!token) {
+          console.error("❌ No auth token found, can't load profile data");
+          throw new Error("Authentication token missing");
+        }
+
+        console.log("🔑 Using auth token to fetch profile data");
+        const userData = await apiService.getCurrentApplicationUser();
+        console.log("📥 Received user data for auto-fill:", userData);
+
+        // Log all possible field names for debugging
+        console.log("🔍 Available fields in userData:", Object.keys(userData));
+
+        // Pre-fill education data if it exists - check all possible field names
+        const educationData = userData.education;
+        console.log("🎓 Found education data:", educationData);
+
+        if (
+          educationData &&
+          (Array.isArray(educationData) || typeof educationData === "object")
+        ) {
+          // Handle both array and single object cases
+          const educationArray = Array.isArray(educationData)
+            ? educationData
+            : [educationData];
+
+          if (educationArray.length > 0) {
+            console.log("✅ Auto-filling education data:", educationArray);
+            const transformedEducation = educationArray.map(
+              (edu: any, index: number) => ({
+                id: `loaded-edu-${index}-${Date.now()}`, // Generate new ID for frontend use only
+                institution: edu.institution || "",
+                major: edu.major || "",
+                degree: edu.degree || "",
+                location: edu.location || "",
+                description: edu.description || "",
+                startDate: edu.startDate || "",
+                endDate: edu.endDate || "",
+                isCurrentlyAttending: edu.isCurrentlyAttending || false,
+              })
+            );
+            console.log(
+              "📚 Setting education state with:",
+              transformedEducation
+            );
+            setEducation(transformedEducation);
+          }
+        }
+
+        // Pre-fill experience data if it exists - check all possible field names
+        const experienceData = userData.experiences;
+        console.log("💼 Found experience data:", experienceData);
+
+        if (
+          experienceData &&
+          (Array.isArray(experienceData) || typeof experienceData === "object")
+        ) {
+          // Handle both array and single object cases
+          const experienceArray = Array.isArray(experienceData)
+            ? experienceData
+            : [experienceData];
+
+          if (experienceArray.length > 0) {
+            console.log("✅ Auto-filling experience data:", experienceArray);
+            const transformedExperience = experienceArray.map(
+              (exp: any, index: number) => ({
+                id: `loaded-exp-${index}-${Date.now()}`, // Generate new ID for frontend use only
+                title: exp.title || "",
+                company: exp.company || "",
+                location: exp.location || "",
+                description: exp.description || "",
+                startDate: exp.startDate || "",
+                endDate: exp.endDate || "",
+                isCurrent: exp.isCurrent || false,
+              })
+            );
+            console.log(
+              "💼 Setting experiences state with:",
+              transformedExperience
+            );
+            setExperiences(transformedExperience);
+          }
+        }
+
+        // Pre-fill phone number if it exists - check all possible field names
+        const phoneNumber = userData.phoneNumber;
+        console.log("📞 Found phone number:", phoneNumber);
+
+        if (phoneNumber) {
+          console.log("✅ Auto-filling phone number:", phoneNumber);
+          setPersonalInfo((prev) => ({
+            ...prev,
+            phoneNumber: phoneNumber,
+          }));
+        } else {
+          console.log("❌ No phone number found in user data");
+        }
+
+        // Pre-fill social links if they exist - check all possible field names
+        const socialLinks =
+          userData.SocialLink ||
+          userData.socialLink ||
+          userData.socialLinks ||
+          userData.social_links;
+        console.log("🔗 Found social links:", socialLinks);
+
+        if (socialLinks && typeof socialLinks === "object") {
+          console.log("✅ Auto-filling social links:", socialLinks);
+          setProfiles((prev) => ({
+            ...prev,
+            linkedin: socialLinks.linkedin || socialLinks.Linkedin || "",
+            facebook: socialLinks.facebook || socialLinks.Facebook || "",
+            twitter: socialLinks.twitter || socialLinks.Twitter || "",
+            website: socialLinks.website || socialLinks.Website || "",
+          }));
+        }
+
+        console.log("✅ Auto-fill from user profile completed");
+
+        // Store references to the data for verification
+        const finalEducationData = educationData;
+        const finalExperienceData = experienceData;
+
+        // Verify that the data was properly loaded into state
+        setTimeout(() => {
+          console.log("🔍 Verification - Current state after auto-fill:");
+          console.log("📚 Education:", education.length, "items");
+          console.log("💼 Experiences:", experiences.length, "items");
+          console.log("📞 Phone number:", personalInfo.phoneNumber);
+          console.log("🔗 Social profiles:", profiles);
+
+          // If data wasn't loaded properly, try one more time
+          if (
+            education.length === 0 &&
+            finalEducationData &&
+            (Array.isArray(finalEducationData)
+              ? finalEducationData.length > 0
+              : true)
+          ) {
+            console.log(
+              "⚠️ Education data wasn't loaded properly, trying again..."
+            );
+            const educationArray = Array.isArray(finalEducationData)
+              ? finalEducationData
+              : [finalEducationData];
+            const transformedEducation = educationArray.map(
+              (edu: any, index: number) => ({
+                id: `retry-edu-${index}-${Date.now()}`,
+                institution: edu.institution || "",
+                major: edu.major || "",
+                degree: edu.degree || "",
+                location: edu.location || "",
+                description: edu.description || "",
+                startDate: edu.startDate || "",
+                endDate: edu.endDate || "",
+                isCurrentlyAttending: edu.isCurrentlyAttending || false,
+              })
+            );
+            setEducation(transformedEducation);
+          }
+
+          if (
+            experiences.length === 0 &&
+            finalExperienceData &&
+            (Array.isArray(finalExperienceData)
+              ? finalExperienceData.length > 0
+              : true)
+          ) {
+            console.log(
+              "⚠️ Experience data wasn't loaded properly, trying again..."
+            );
+            const experienceArray = Array.isArray(finalExperienceData)
+              ? finalExperienceData
+              : [finalExperienceData];
+            const transformedExperience = experienceArray.map(
+              (exp: any, index: number) => ({
+                id: `retry-exp-${index}-${Date.now()}`,
+                title: exp.title || "",
+                company: exp.company || "",
+                location: exp.location || "",
+                description: exp.description || "",
+                startDate: exp.startDate || "",
+                endDate: exp.endDate || "",
+                isCurrent: exp.isCurrent || false,
+              })
+            );
+            setExperiences(transformedExperience);
+          }
+        }, 500);
+      } catch (error) {
+        console.warn(
+          "⚠️ Failed to load user profile data for auto-fill:",
+          error
+        );
+
+        // Handle 401 Unauthorized errors - user might need to log in again
+        if (error instanceof Error && error.message.includes("401")) {
+          console.log("🔄 Auth token expired, redirecting to login...");
+
+          // Clear auth data
+          localStorage.removeItem("authToken");
+          localStorage.removeItem("refreshToken");
+          sessionStorage.removeItem("authToken");
+          sessionStorage.removeItem("refreshToken");
+
+          // Set error message for user
+          setError("Your session has expired. Please log in again.");
+
+          // Redirect to login after a short delay
+          setTimeout(() => {
+            router.push(
+              `/login?returnUrl=${encodeURIComponent(window.location.pathname)}`
+            );
+          }, 2000);
+        }
+      }
+
+      // Then, load saved draft if exists (but only for job-specific fields)
+      console.log("💾 Loading saved draft for job-specific fields...");
       const draft = await applicationService.getApplicationDraft(jobId);
       if (draft) {
-        console.log("✅ Draft found, populating form");
-        // Populate form with draft data
-        if (draft.personalInfo) setPersonalInfo(draft.personalInfo);
-        if (draft.experiences) setExperiences(draft.experiences);
-        if (draft.education) setEducation(draft.education);
-        if (draft.profiles) setProfiles(draft.profiles);
-        if (draft.coverLetter) setCoverLetter(draft.coverLetter);
+        console.log("✅ Draft found, loading job-specific fields");
+
+        // Only load cover letter from draft as it's job-specific
+        if (draft.coverLetter) {
+          console.log("📝 Loading cover letter from draft");
+          setCoverLetter(draft.coverLetter);
+        }
+
+        // Load application method if it exists
+        if (draft.method) {
+          console.log("📝 Loading application method from draft");
+          setApplicationMethod(draft.method);
+        }
+
+        console.log("✅ Job-specific draft data loaded");
       } else {
         console.log("ℹ️ No draft found");
       }
@@ -276,7 +695,7 @@ export default function JobApplicationForm({
 
     const autoSave = setTimeout(() => {
       saveDraft();
-    }, 30000); // Save every 30 seconds
+    }, 10000); // Save every 30 seconds
 
     return () => clearTimeout(autoSave);
   }, [
@@ -314,6 +733,89 @@ export default function JobApplicationForm({
     }
   };
 
+  // Save profile data to backend
+  const saveProfileToBackend = async (
+    updatedEducation?: Education[],
+    updatedExperiences?: Experience[],
+    updatedProfiles?: SocialProfiles,
+    updatedPhoneNumber?: string
+  ) => {
+    if (!isAuthenticated || !user || user.userCategory !== "ApplicationUser") {
+      return;
+    }
+
+    // Don't save if profile data is still loading
+    if (!isProfileDataLoaded) {
+      console.log("⏳ Profile data still loading, skipping save");
+      return;
+    }
+
+    try {
+      console.log("💾 Saving profile data to backend...");
+
+      // Always use the most current data - either provided updates or current state
+      const educationToSave =
+        updatedEducation !== undefined ? updatedEducation : education;
+      const experiencesToSave =
+        updatedExperiences !== undefined ? updatedExperiences : experiences;
+      const profilesToSave =
+        updatedProfiles !== undefined ? updatedProfiles : profiles;
+      const phoneToSave =
+        updatedPhoneNumber !== undefined
+          ? updatedPhoneNumber
+          : personalInfo.phoneNumber;
+
+      console.log("📊 Education to save:", educationToSave);
+      console.log("📊 Experiences to save:", experiencesToSave);
+      console.log("📊 Social profiles to save:", profilesToSave);
+      console.log("📊 Phone number to save:", phoneToSave);
+
+      // Transform data to backend format - always send complete data
+      const profileData = {
+        Education: educationToSave.map((edu) => ({
+          institution: edu.institution,
+          major: edu.major,
+          degree: edu.degree,
+          location: edu.location,
+          description: edu.description,
+          startDate: edu.startDate,
+          endDate: edu.endDate,
+          isCurrentlyAttending: edu.isCurrentlyAttending,
+        })),
+        Experience: experiencesToSave.map((exp) => ({
+          title: exp.title,
+          company: exp.company,
+          location: exp.location,
+          description: exp.description,
+          startDate: exp.startDate,
+          endDate: exp.endDate,
+          isCurrent: exp.isCurrent,
+        })),
+        SocialLink: {
+          linkedin: profilesToSave.linkedin || "",
+          facebook: profilesToSave.facebook || "",
+          twitter: profilesToSave.twitter || "",
+          website: profilesToSave.website || "",
+        },
+        PhoneNumber: phoneToSave || "",
+      };
+
+      console.log("📤 Sending profile data:", profileData);
+      await apiService.updateApplicationUserProfile(profileData);
+      console.log("✅ Profile data saved to backend successfully");
+
+      // Log the final counts for verification
+      console.log(
+        `✅ Saved: ${profileData.Education?.length || 0} education items, ${
+          profileData.Experience?.length || 0
+        } experience items`
+      );
+    } catch (error) {
+      console.warn("⚠️ Failed to save profile data to backend:", error);
+      // Don't show error to user - this is background saving
+    }
+  };
+
   // Rest of your component methods remain the same...
   const handleAutoFillUpload = async (file: File) => {
     setUploadedFile(file);
@@ -347,43 +849,77 @@ export default function JobApplicationForm({
   };
 
   // Experience handlers
-  const addExperience = (experience: Omit<Experience, "id">) => {
+  const addExperience = async (experience: Omit<Experience, "id">) => {
     const newExperience = { ...experience, id: Date.now().toString() };
-    setExperiences([...experiences, newExperience]);
+    const updatedExperiences = [...experiences, newExperience];
+    setExperiences(updatedExperiences);
     setShowExperienceForm(false);
+
+    console.log("💼 Experience added, saving to backend:", newExperience);
+    // Save to backend in the background with the updated data
+    setTimeout(() => saveProfileToBackend(undefined, updatedExperiences), 500);
   };
 
-  const updateExperience = (experience: Experience) => {
-    setExperiences(
-      experiences.map((exp) => (exp.id === experience.id ? experience : exp))
+  const updateExperience = async (experience: Experience) => {
+    const updatedExperiences = experiences.map((exp) =>
+      exp.id === experience.id ? experience : exp
     );
+    setExperiences(updatedExperiences);
     setEditingExperience(null);
     setShowExperienceForm(false);
+
+    console.log("💼 Experience updated, saving to backend:", experience);
+    // Save to backend in the background with the updated data
+    setTimeout(() => saveProfileToBackend(undefined, updatedExperiences), 500);
   };
 
-  const removeExperience = (id: string) => {
-    setExperiences(experiences.filter((exp) => exp.id !== id));
+  const removeExperience = async (id: string) => {
+    const updatedExperiences = experiences.filter((exp) => exp.id !== id);
+    setExperiences(updatedExperiences);
+
+    console.log(
+      "💼 Experience removed, saving to backend. Remaining:",
+      updatedExperiences.length
+    );
+    // Save to backend in the background with the updated data
+    setTimeout(() => saveProfileToBackend(undefined, updatedExperiences), 500);
   };
 
   // Education handlers
-  const addEducation = (educationItem: Omit<Education, "id">) => {
+  const addEducation = async (educationItem: Omit<Education, "id">) => {
     const newEducation = { ...educationItem, id: Date.now().toString() };
-    setEducation([...education, newEducation]);
+    const updatedEducation = [...education, newEducation];
+    setEducation(updatedEducation);
     setShowEducationForm(false);
+
+    console.log("📚 Education added, saving to backend:", newEducation);
+    // Save to backend in the background with the updated data
+    setTimeout(() => saveProfileToBackend(updatedEducation), 500);
   };
 
-  const updateEducation = (educationItem: Education) => {
-    setEducation(
-      education.map((edu) =>
-        edu.id === educationItem.id ? educationItem : edu
-      )
+  const updateEducation = async (educationItem: Education) => {
+    const updatedEducation = education.map((edu) =>
+      edu.id === educationItem.id ? educationItem : edu
     );
+    setEducation(updatedEducation);
     setEditingEducation(null);
     setShowEducationForm(false);
+
+    console.log("📚 Education updated, saving to backend:", educationItem);
+    // Save to backend in the background with the updated data
+    setTimeout(() => saveProfileToBackend(updatedEducation), 500);
   };
 
-  const removeEducation = (id: string) => {
-    setEducation(education.filter((edu) => edu.id !== id));
+  const removeEducation = async (id: string) => {
+    const updatedEducation = education.filter((edu) => edu.id !== id);
+    setEducation(updatedEducation);
+
+    console.log(
+      "📚 Education removed, saving to backend. Remaining:",
+      updatedEducation.length
+    );
+    // Save to backend in the background with the updated data
+    setTimeout(() => saveProfileToBackend(updatedEducation), 500);
   };
 
   // Step navigation
@@ -482,9 +1018,9 @@ export default function JobApplicationForm({
       // Redirect to success page after a delay
       setTimeout(() => {
         router.push(
-          `/jobs/${jobId}/application-success?applicationId=${response.applicationId}`
+          `/applicant/jobs/${jobId}/application-success?applicationId=${response.applicationId}`
         );
-      }, 2000);
+      }, 100);
     } catch (error) {
       console.error("❌ Application submission failed:", error);
       setError(

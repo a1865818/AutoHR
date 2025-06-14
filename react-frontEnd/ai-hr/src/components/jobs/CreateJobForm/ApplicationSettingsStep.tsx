@@ -7,13 +7,30 @@ import {
   Mail,
   Briefcase,
   Image,
+  Users,
+  Plus,
+  Save,
 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { jobService } from "@/services/jobService";
+import { interviewService } from "@/services/interviewService";
+import { useRouter } from "next/navigation";
+
+interface InterviewTemplate {
+  id: string;
+  name: string;
+  description: string;
+  isDefault: boolean;
+  companyId: string;
+}
 
 interface ApplicationSettingsStepProps {
   formData: JobFormData;
   updateFormData: (data: Partial<JobFormData>) => void;
   onNext: () => void;
   onPrev: () => void;
+  onSaveDraft?: () => Promise<void>;
+  onSaveDraftWithoutRedirect?: () => Promise<void>;
 }
 
 export function ApplicationSettingsStep({
@@ -21,7 +38,43 @@ export function ApplicationSettingsStep({
   updateFormData,
   onNext,
   onPrev,
+  onSaveDraft,
+  onSaveDraftWithoutRedirect,
 }: ApplicationSettingsStepProps) {
+  const router = useRouter();
+  const [interviewTemplates, setInterviewTemplates] = useState<
+    InterviewTemplate[]
+  >([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+
+  // Load interview templates on component mount
+  useEffect(() => {
+    const loadInterviewTemplates = async () => {
+      setLoadingTemplates(true);
+      try {
+        const templates = await jobService.getInterviewTemplatesForJobs();
+        setInterviewTemplates(templates);
+
+        // Auto-select default template if no template is selected
+        if (!formData.interviewTemplateId && templates.length > 0) {
+          const defaultTemplate = templates.find(
+            (t: InterviewTemplate) => t.isDefault
+          );
+          if (defaultTemplate) {
+            updateFormData({ interviewTemplateId: defaultTemplate.id });
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load interview templates:", error);
+      } finally {
+        setLoadingTemplates(false);
+      }
+    };
+
+    loadInterviewTemplates();
+  }, []);
+
   const handleApplicationSettingChange = (
     field: keyof JobFormData["applicationSettings"],
     value: string | boolean
@@ -56,7 +109,70 @@ export function ApplicationSettingsStep({
   };
 
   const isFormValid = () => {
-    return !!formData.applicationSettings.deadline;
+    return (
+      !!formData.applicationSettings.deadline && !!formData.interviewTemplateId
+    );
+  };
+
+  const handleCreateTemplate = () => {
+    router.push("/interviews/create");
+  };
+
+  const handleCreateTemplateWithId = (templateId?: string) => {
+    if (templateId) {
+      // If we have a template ID (placeholder), redirect to edit it
+      router.push(`/interviews/edit?id=${templateId}`);
+    } else {
+      // Otherwise, create a new template
+      router.push("/interviews/create");
+    }
+  };
+
+  const handleSaveDraftAndRedirect = async () => {
+    if (!onSaveDraftWithoutRedirect) return;
+
+    setIsSavingDraft(true);
+    try {
+      // First create a placeholder template since template_id can't be null
+      console.log("Creating placeholder template for draft...");
+
+      const placeholderTemplate = {
+        name: "Placeholder Template (Edit Required)",
+        description:
+          "This is a temporary template created during job draft. Please edit and configure the interview rounds.",
+        isDefault: false,
+      };
+
+      const createdTemplate = await interviewService.createInterviewTemplate(
+        placeholderTemplate
+      );
+      console.log("Placeholder template created:", createdTemplate);
+
+      // Update form data with the placeholder template ID
+      updateFormData({ interviewTemplateId: createdTemplate.id });
+
+      // Wait a moment for the form data to update
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Now save the draft with the template ID (without redirect)
+      await onSaveDraftWithoutRedirect();
+
+      // Redirect to create template page with the placeholder template ID for editing
+      handleCreateTemplateWithId(createdTemplate.id);
+    } catch (error) {
+      console.error("Failed to save draft:", error);
+      // If template creation fails, still try to save draft if deadline is set
+      if (formData.applicationSettings.deadline && onSaveDraftWithoutRedirect) {
+        try {
+          await onSaveDraftWithoutRedirect();
+          handleCreateTemplateWithId(undefined);
+        } catch (draftError) {
+          console.error("Failed to save draft without template:", draftError);
+        }
+      }
+    } finally {
+      setIsSavingDraft(false);
+    }
   };
 
   return (
@@ -93,6 +209,149 @@ export function ApplicationSettingsStep({
           >
             Set to 30 days from now
           </button>
+        </div>
+      </div>
+
+      {/* Interview Template Selection */}
+      <div>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">
+          Interview Process
+        </h3>
+        <p className="text-sm text-gray-500 mb-6">
+          Select the interview template that will be used for candidates
+          applying to this position.
+        </p>
+
+        <div className="space-y-4">
+          <label className="block text-sm font-medium text-gray-700">
+            Interview Template *
+          </label>
+
+          {loadingTemplates ? (
+            <div className="flex items-center space-x-2 text-gray-500">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
+              <span className="text-sm">Loading interview templates...</span>
+            </div>
+          ) : (
+            <select
+              value={formData.interviewTemplateId || ""}
+              onChange={(e) =>
+                updateFormData({
+                  interviewTemplateId: e.target.value || undefined,
+                })
+              }
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            >
+              <option value="">Select an interview template</option>
+              {interviewTemplates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name} {template.isDefault ? "(Default)" : ""}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {formData.interviewTemplateId && (
+            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              {(() => {
+                const selectedTemplate = interviewTemplates.find(
+                  (t) => t.id === formData.interviewTemplateId
+                );
+                return selectedTemplate ? (
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">
+                      {selectedTemplate.name}
+                    </p>
+                    <p className="text-sm text-blue-700 mt-1">
+                      {selectedTemplate.description}
+                    </p>
+                    {selectedTemplate.isDefault && (
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mt-2">
+                        <Users className="w-3 h-3 mr-1" />
+                        Default Template
+                      </span>
+                    )}
+                  </div>
+                ) : null;
+              })()}
+            </div>
+          )}
+
+          {/* Alternative option to create new template */}
+          {interviewTemplates.length > 0 &&
+            !loadingTemplates &&
+            onSaveDraft && (
+              <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-md">
+                <h4 className="text-sm font-medium text-gray-900 mb-2">
+                  Need a custom template for this job?
+                </h4>
+                <p className="text-sm text-gray-600 mb-3">
+                  You can save your job progress and create a new interview
+                  template specifically for this position.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSaveDraftAndRedirect}
+                  disabled={
+                    isSavingDraft || !formData.applicationSettings.deadline
+                  }
+                  className="inline-flex items-center px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {isSavingDraft
+                    ? "Saving draft..."
+                    : "Save Draft & Create Custom Template"}
+                </button>
+                {!formData.applicationSettings.deadline && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    * Set an application deadline to enable draft saving
+                  </p>
+                )}
+              </div>
+            )}
+
+          {interviewTemplates.length === 0 && !loadingTemplates && (
+            <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-md p-4">
+              <p className="font-medium mb-2">
+                No interview templates available
+              </p>
+              <p className="mb-4">
+                To save your job draft, you need to select an interview
+                template. You can create one now or save your progress and
+                create a template later.
+              </p>
+              <div className="flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={handleCreateTemplate}
+                  className="inline-flex items-center px-3 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Template
+                </button>
+                {onSaveDraft && (
+                  <button
+                    type="button"
+                    onClick={handleSaveDraftAndRedirect}
+                    disabled={
+                      isSavingDraft || !formData.applicationSettings.deadline
+                    }
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    {isSavingDraft
+                      ? "Saving draft..."
+                      : "Save Draft & Create Template"}
+                  </button>
+                )}
+              </div>
+              {!formData.applicationSettings.deadline && (
+                <p className="text-xs text-amber-500 mt-2">
+                  * Set an application deadline to enable draft saving
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -257,6 +516,17 @@ export function ApplicationSettingsStep({
                   formData.applicationSettings.deadline
                 ).toLocaleDateString()
               : "Not set"}
+          </p>
+          <p className="mb-1">
+            <strong>Interview Template:</strong>{" "}
+            {formData.interviewTemplateId
+              ? (() => {
+                  const selectedTemplate = interviewTemplates.find(
+                    (t) => t.id === formData.interviewTemplateId
+                  );
+                  return selectedTemplate ? selectedTemplate.name : "Selected";
+                })()
+              : "Not selected"}
           </p>
           <p className="mb-1">
             <strong>Required documents:</strong>

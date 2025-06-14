@@ -1,5 +1,5 @@
 interface StatusTagProps {
-  status: "In Progress" | "Hired" | "Disqualified";
+  status: "In Progress" | "Hired" | "Rejected";
 }
 
 export function StatusTag({ status }: StatusTagProps) {
@@ -9,7 +9,7 @@ export function StatusTag({ status }: StatusTagProps) {
         return "bg-blue-500 text-white";
       case "Hired":
         return "bg-green-500 text-white";
-      case "Disqualified":
+      case "Rejected":
         return "bg-red-500 text-white";
       default:
         return "bg-gray-200 text-gray-800";

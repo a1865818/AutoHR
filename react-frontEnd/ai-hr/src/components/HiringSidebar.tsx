@@ -10,6 +10,7 @@ import {
   PlusCircle,
   BarChart3,
   Building,
+  Calendar,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -35,6 +36,7 @@ export function HiringSidebar() {
     { name: "Dashboard", href: "/", icon: Home },
     { name: "Candidates", href: "/candidates", icon: Users },
     { name: "Jobs", href: "/jobs", icon: FileText },
+    { name: "Interviews", href: "/interviews", icon: Calendar },
     { name: "Analytics", href: "/analytics", icon: BarChart3 },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
@@ -99,7 +101,7 @@ export function HiringSidebar() {
               prefetch={false}
               className="flex items-center"
               title={
-                isCollapsed ? "HR Recruit Dashboard" : "HR Recruit Dashboard"
+                isCollapsed ? "AutoHire Dashboard" : "AutoHire Dashboard"
               }
             >
               <div
@@ -118,7 +120,7 @@ export function HiringSidebar() {
                   isCollapsed ? "lg:hidden" : ""
                 }`}
               >
-                HR Recruit
+                AutoHire
               </span>
             </Link>
             {isOpen && (
@@ -172,29 +174,56 @@ export function HiringSidebar() {
                 );
               })}
             </div>
-
-            {/* Quick Actions Section */}
             <div className="border-t border-gray-200 pt-6">
-              <div className={`${isCollapsed ? "lg:hidden" : ""} mb-2`}>
-                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                  Quick Actions
-                </p>
-              </div>
-              <div className="space-y-1">
-                <Link
-                  href="/create-job"
-                  className={`flex items-center py-2 px-3 rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 transition-colors
-                    ${isCollapsed ? "justify-center" : ""}`}
-                  title={isCollapsed ? "Create Job" : undefined}
-                >
-                  <PlusCircle
-                    className={`h-4 w-4 ${isCollapsed ? "" : "mr-3"}`}
-                  />
-                  <span className={`${isCollapsed ? "lg:hidden" : ""}`}>
+            <div className={`${isCollapsed ? "lg:hidden" : ""} mb-4`}>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center">
+                <span className="h-1 w-6 bg-indigo-600 rounded-full mr-2"></span>
+                Quick Actions
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              {/* Create Job Button */}
+              <Link
+                href="/create-job"
+                className={`group relative flex items-center py-3 px-4 rounded-xl text-sm font-medium text-white 
+                  bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 
+                  shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 
+                  transition-all duration-200 ease-out
+                  ${isCollapsed ? "justify-center" : ""}`}
+                title={isCollapsed ? "Create Job" : undefined}
+              >
+                <div className="flex items-center">
+                  <div className={`p-1 rounded-lg bg-white/20 ${isCollapsed ? "" : "mr-3"}`}>
+                    <PlusCircle className="h-4 w-4" />
+                  </div>
+                  <span className={`${isCollapsed ? "lg:hidden" : ""} font-semibold`}>
                     Create Job
                   </span>
-                </Link>
-              </div>
+                </div>
+              </Link>
+              
+              {/* Create Interview Template Button */}
+              <Link
+                href="/interviews/create"
+                className={`group relative flex items-center py-3 px-4 rounded-xl text-sm font-medium text-gray-700
+                  bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200
+                  border border-gray-200 hover:border-gray-300
+                  shadow-sm hover:shadow-md transform hover:-translate-y-0.5
+                  transition-all duration-200 ease-out
+                  ${isCollapsed ? "justify-center" : ""}`}
+                title={isCollapsed ? "Create Interview Template" : undefined}
+              >
+                <div className="flex items-center">
+                  <div className={`p-1 rounded-lg bg-indigo-100 text-indigo-600 ${isCollapsed ? "" : "mr-3"}`}>
+                    <PlusCircle className="h-4 w-4" />
+                  </div>
+                  <span className={`${isCollapsed ? "lg:hidden" : ""} font-semibold`}>
+                    Create Interview Template
+                  </span>
+                </div>
+              </Link>
+            </div>
             </div>
           </nav>
         </div>

@@ -2,8 +2,10 @@
 import {
   ApplicationDetailResponse,
   CreateApplicationDetailRequest,
+  ApplicationWithJobDetails,
 } from "@/interfaces/api";
 import { ApplicationData, PreliminaryData } from "@/interfaces/apply";
+import { jobService } from "@/services/jobService";
 
 class ApplicationService {
   private baseUrl: string;
@@ -182,12 +184,15 @@ class ApplicationService {
       throw new Error(`Application submission failed: ${error}`);
     }
 
-    console.log("✅ Application submitted successfully");
+    // Parse the response from the backend to get the real application ID
+    const responseData = await response.json();
+    console.log("✅ Application submitted successfully:", responseData);
 
+    // Use the application ID returned from the backend
     return {
-      applicationId: `app_${Date.now()}`,
-      status: "applied",
-      submittedAt: new Date().toISOString(),
+      applicationId: responseData.id || responseData.applicationId, // Use the correct ID field from backend
+      status: responseData.status || "applied",
+      submittedAt: responseData.submittedAt || responseData.createdAt || new Date().toISOString(),
       message: "Application submitted successfully",
     };
   }
@@ -202,6 +207,14 @@ class ApplicationService {
       throw new Error("User not authenticated");
     }
 
+    // Validate that the applicationId is in the correct format (GUID format)
+    if (!this.isValidGuid(applicationId)) {
+      console.error("❌ Invalid application ID format:", applicationId);
+      throw new Error("Invalid application ID format. Expected a GUID.");
+    }
+
+    console.log("🔍 Getting application status for ID:", applicationId);
+    
     const response = await fetch(
       `${this.baseUrl}/applicationdetails/${applicationId}`,
       {
@@ -212,10 +225,23 @@ class ApplicationService {
 
     if (!response.ok) {
       const error = await response.text();
+      console.error("❌ Failed to get application status:", {
+        status: response.status,
+        statusText: response.statusText,
+        error,
+      });
       throw new Error(`Failed to get application status: ${error}`);
     }
 
-    return response.json();
+    const result = await response.json();
+    console.log("✅ Got application status:", result);
+    return result;
+  }
+  
+  // Helper method to check if a string is a valid GUID
+  private isValidGuid(str: string): boolean {
+    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    return guidRegex.test(str);
   }
 
   // Get user's applications
@@ -243,6 +269,77 @@ class ApplicationService {
     }
 
     return response.json();
+  }
+
+  // Get user's applications with job details
+  async getUserApplicationsWithJobDetails(): Promise<ApplicationWithJobDetails[]> {
+    const applications = await this.getUserApplications();
+    
+    // Fetch job details for each application
+    const applicationsWithJobs = await Promise.allSettled(
+      applications.map(async (app) => {
+        try {
+          const job = await jobService.getJobById(app.jobId);
+          
+          // Extract location string from locations object
+          let locationString = 'Unknown Location';
+          if (job.locations) {
+            if (typeof job.locations === 'string') {
+              locationString = job.locations;
+            } else if (typeof job.locations === 'object') {
+              // Extract first location or fallback
+              const locationValues = Object.values(job.locations);
+              locationString = locationValues.length > 0 ? String(locationValues[0]) : 'Unknown Location';
+            }
+          }
+
+          // We'll need to fetch company details separately
+          let companyName = 'Unknown Company';
+          try {
+            const company = await jobService.getCompanyById(job.companyId);
+            companyName = company.name;
+          } catch (error) {
+            console.warn(`Failed to fetch company details for company ${job.companyId}:`, error);
+          }
+          
+          return {
+            ...app,
+            job: {
+              title: job.title,
+              company: companyName,
+              location: locationString,
+              employmentType: job.employmentType,
+              status: job.status,
+              department: job.department || 'Not specified',
+              salary: (job.salaryMin || job.salaryMax) ? {
+                min: job.salaryMin || 0,
+                max: job.salaryMax || 0,
+                currency: job.salaryCurrency || 'USD',
+                period: 'per year',
+              } : undefined,
+            },
+          };
+        } catch (error) {
+          console.warn(`Failed to fetch job details for job ${app.jobId}:`, error);
+          return {
+            ...app,
+            job: {
+              title: 'Unknown Position',
+              company: 'Unknown Company',
+              location: 'Unknown Location',
+              employmentType: 'Unknown',
+              status: 'unknown',
+              department: 'Not specified',
+            },
+          };
+        }
+      })
+    );
+
+    // Filter out rejected promises and return successful ones
+    return applicationsWithJobs
+      .filter((result) => result.status === 'fulfilled')
+      .map((result) => (result as PromiseFulfilledResult<ApplicationWithJobDetails>).value);
   }
 
   // Check if user has already applied to a job

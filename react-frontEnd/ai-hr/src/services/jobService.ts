@@ -106,7 +106,7 @@ class JobService {
           console.error("❌ JSON Parse Error:", parseError);
           console.error("❌ Response text:", text);
           throw new Error(
-            `Invalid JSON response from server: ${parseError.message}`
+            `Invalid JSON response from server: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`
           );
         }
       }
@@ -120,7 +120,7 @@ class JobService {
           return JSON.parse(text);
         } catch (parseError) {
           console.error("❌ Failed to parse JSON-like text:", text);
-          throw new Error(`Invalid JSON response: ${parseError.message}`);
+          throw new Error(`Invalid JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
         }
       }
 
@@ -128,12 +128,12 @@ class JobService {
       return text || null;
     } catch (error) {
       // Don't log fetch errors twice
-      if (error.message.includes("JSON") || error.message.includes("HTTP")) {
+      if (error instanceof Error && (error.message.includes("JSON") || error.message.includes("HTTP"))) {
         throw error;
       }
 
       console.error("🚨 Network/Fetch Error:", { url, error });
-      throw new Error(`Network error: ${error.message}`);
+      throw new Error(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
   // Check if user is authenticated
@@ -148,7 +148,7 @@ class JobService {
       await this.getJobById(id);
       return true;
     } catch (error) {
-      console.log("Job existence check failed:", error.message);
+      console.log("Job existence check failed:", error instanceof Error ? error.message : 'Unknown error');
       return false;
     }
   }
@@ -170,12 +170,14 @@ class JobService {
       console.error("❌ Failed to load job:", error);
 
       // Provide more helpful error messages
-      if (error.message.includes("404")) {
-        throw new Error("Job not found. It may have been deleted.");
-      } else if (error.message.includes("401")) {
-        throw new Error("Authentication required. Please log in again.");
-      } else if (error.message.includes("403")) {
-        throw new Error("You do not have permission to view this job.");
+      if (error instanceof Error) {
+        if (error.message.includes("404")) {
+          throw new Error("Job not found. It may have been deleted.");
+        } else if (error.message.includes("401")) {
+          throw new Error("Authentication required. Please log in again.");
+        } else if (error.message.includes("403")) {
+          throw new Error("You do not have permission to view this job.");
+        }
       }
 
       throw error;
@@ -249,6 +251,12 @@ class JobService {
     if (!this.isAuthenticated()) {
       throw new Error("Authentication required to create jobs");
     }
+    
+    console.log("🚀 JobService createJob called with data:", {
+      ...data,
+      interviewTemplateId: data.interviewTemplateId
+    });
+    
     return this.fetchApi("/jobs", {
       method: "POST",
       body: JSON.stringify(data),
@@ -276,11 +284,10 @@ class JobService {
 
   async deleteJob(id: string): Promise<void> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to delete jobs");
+      throw new Error("Authentication required to delete job");
     }
-    return this.fetchApi(`/jobs/${id}`, {
-      method: "DELETE",
-    });
+
+    await this.fetchApi(`/jobs/${id}`, { method: "DELETE" });
   }
 
   async getJobsByCompany(companyId: string): Promise<ApiJob[]> {
@@ -432,14 +439,16 @@ class JobService {
     }
   }
 
-  // Utility methods to convert between API and frontend formats (unchanged)
+  // Utility methods to convert between API and frontend formats - updated for city/country
   convertApiJobToFormData(apiJob: ApiJob, company?: ApiCompany): JobFormData {
+    const location = this.extractLocationFromObject(apiJob.locations);
     return {
       title: apiJob.title,
       company: company?.name,
-      department: "",
+      department: apiJob.department || "",
       description: apiJob.description,
-      location: this.extractLocationString(apiJob.locations),
+      city: location.city,
+      country: location.country,
       locationType: this.mapLocationTypeToFormData(apiJob.locationType),
       type: apiJob.employmentType,
       experience: this.mapExperienceToFormData(
@@ -473,6 +482,7 @@ class JobService {
   ): UpdateJobRequest {
     return {
       title: formData.title,
+      department: formData.department || "",
       description: formData.description,
       responsibilities: formData.responsibilities.filter((r) => r.trim()),
       requirements: formData.requirements.filter((r) => r.trim()),
@@ -483,7 +493,8 @@ class JobService {
       experienceYearsMin: this.extractMinExperience(formData.experience),
       locationType: this.mapFormDataToLocationType(formData.locationType),
       locations: this.createLocationObject(
-        formData.location,
+        formData.city,
+        formData.country,
         formData.locationType
       ),
       salaryMin: formData.salary.min,
@@ -491,6 +502,7 @@ class JobService {
       salaryCurrency: formData.salary.currency,
       applicationDeadline: formData.applicationSettings.deadline || undefined,
       status: "Draft", // Always save as draft when editing
+      interviewTemplateId: formData.interviewTemplateId,
     };
   }
 
@@ -499,13 +511,16 @@ class JobService {
     companyId: string,
     createdBy: string
   ): CreateJobRequest {
+    console.log("🔧 Converting form data to create request. FormData.interviewTemplateId:", formData.interviewTemplateId);
+    
     const updateRequest = this.convertFormDataToUpdateRequest(formData);
-    return {
+    const createRequest = {
       ...updateRequest,
       companyId,
       createdBy,
       title: formData.title,
       description: formData.description,
+      department: formData.department || "",
       responsibilities: formData.responsibilities.filter((r) => r.trim()),
       requirements: formData.requirements.filter((r) => r.trim()),
       qualifications: formData.qualifications.filter((q) => q.trim()),
@@ -514,37 +529,52 @@ class JobService {
       seniorityLevel: this.mapFormDataToSeniorityLevel(formData.experience),
       locationType: this.mapFormDataToLocationType(formData.locationType),
       locations: this.createLocationObject(
-        formData.location,
+        formData.city,
+        formData.country,
         formData.locationType
       ),
       salaryCurrency: formData.salary.currency,
       status: "draft",
       aiGeneratedDescription: false,
       skillMatchThreshold: 0.7,
+      interviewTemplateId: formData.interviewTemplateId,
     };
+    
+    console.log("🔧 Created request with interviewTemplateId:", createRequest.interviewTemplateId);
+    return createRequest;
   }
 
-  // Helper methods for data transformation (unchanged from original)
-  private extractLocationString(locations: Record<string, any>): string {
-    if (!locations) return "Location not specified";
+  // Helper methods for data transformation - updated to extract city and country
+  private extractLocationFromObject(locations: Record<string, any>): { city: string; country: string } {
+    if (!locations) return { city: "", country: "" };
 
-    if (locations.city && locations.state) {
-      return `${locations.city}, ${locations.state}`;
+    // Direct city and country fields
+    if (locations.city || locations.country) {
+      return {
+        city: locations.city || "",
+        country: locations.country || ""
+      };
     }
 
-    if (locations.address) {
-      return locations.address;
+    // Legacy support: try to extract from address
+    if (locations.address && typeof locations.address === "string") {
+      const parts = locations.address.split(",").map((p: string) => p.trim());
+      return {
+        city: parts[0] || "",
+        country: parts[1] || ""
+      };
     }
 
-    if (locations.description) {
-      return locations.description;
+    // Legacy support: try description
+    if (locations.description && typeof locations.description === "string") {
+      const parts = locations.description.split(",").map((p: string) => p.trim());
+      return {
+        city: parts[0] || "",
+        country: parts[1] || ""
+      };
     }
 
-    if (typeof locations === "string") {
-      return locations;
-    }
-
-    return "Location not specified";
+    return { city: "", country: "" };
   }
 
   private mapLocationTypeToFormData(
@@ -658,19 +688,16 @@ class JobService {
     return match ? parseInt(match[1]) : 0;
   }
   private createLocationObject(
-    location: string | Record<string, any>,
+    city: string,
+    country: string,
     locationType: "On-site" | "Remote" | "Hybrid"
   ): Record<string, any> {
-    // If location is already an object, use it as base and just update the type
-    if (typeof location === "object" && location !== null) {
-      return {
-        ...location,
-        type: locationType.toLowerCase(),
-      };
-    }
+    // Ensure city and country are strings
+    const cityStr = String(city || "").trim();
+    const countryStr = String(country || "").trim();
 
     // Handle null/undefined case
-    if (!location) {
+    if (!cityStr && !countryStr) {
       return {
         type: locationType.toLowerCase(),
         description:
@@ -678,32 +705,36 @@ class JobService {
       };
     }
 
-    // Now we know location is a string, proceed with original logic
-    const locationStr = String(location); // Ensure it's a string
-    const parts = locationStr.split(",").map((p) => p.trim());
-
     if (locationType === "Remote") {
       return {
         type: "remote",
         description: "Remote work",
-        address: locationStr,
-      };
-    }
-
-    if (parts.length >= 2) {
-      return {
-        city: parts[0],
-        state: parts[1],
-        type: locationType.toLowerCase(),
-        address: locationStr,
+        city: cityStr || "Remote",
+        country: countryStr || "Global",
       };
     }
 
     return {
-      address: locationStr,
+      city: cityStr,
+      country: countryStr,
       type: locationType.toLowerCase(),
-      description: locationStr,
+      address: cityStr && countryStr ? `${cityStr}, ${countryStr}` : cityStr || countryStr,
+      description: cityStr && countryStr ? `${cityStr}, ${countryStr}` : cityStr || countryStr || "Location not specified",
     };
+  }
+
+  async getInterviewTemplatesForJobs(): Promise<any[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to view interview templates");
+    }
+
+    try {
+      const templates = await this.fetchApi("/jobs/interview-templates");
+      return templates || [];
+    } catch (error) {
+      console.error("❌ Failed to load interview templates:", error);
+      throw error;
+    }
   }
 }
 

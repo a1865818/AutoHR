@@ -147,6 +147,13 @@ class ApiService {
     });
   }
 
+  async updateApplicationUserProfile(data: any): Promise<any> {
+    return this.makeRequest<any>('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Logout methods
   async logout(): Promise<void> {
     return this.makeRequest<void>('/hiring-auth/logout', {
@@ -279,6 +286,28 @@ class ApiService {
     });
   }
 
+  // Copy standard interview templates for newly registered company
+  async copyStandardTemplates(companyId: string): Promise<any> {
+    console.log('🔄 Copying standard templates for company:', companyId);
+    
+    try {
+      const response = await this.makeRequest<any>(`/companies/${companyId}/copy-standard-templates`, {
+        method: 'POST',
+      });
+      
+      console.log('✅ Standard templates copy response:', response);
+      return response;
+    } catch (error) {
+      console.warn('⚠️ Failed to copy standard templates (non-critical):', error);
+      // Don't throw error - this is a background process and shouldn't fail registration
+      return { 
+        message: 'Template copying failed but company registration succeeded',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        templatesCreated: 0 
+      };
+    }
+  }
+
   // Enhanced application user registration
   async registerApplicationUser(userData: ApplicationUserRegisterRequestEnhanced): Promise<ApplicationUserLoginResponse> {
     // Transform ApplicationUserRegisterRequestEnhanced to RegisterRequest format
@@ -391,16 +420,24 @@ function mapExperienceToSeniority(experience: string): string {
   return "Mid"; // Default fallback
 }
 
-// Transform location string to locations object
-function transformLocation(location: string, locationType: string): Record<string, unknown> {
-  // Create a flexible location object that can handle various formats
+// Transform city and country to locations object
+function transformLocation(city: string, country: string, locationType: string): Record<string, unknown> {
+  // Handle null/undefined case
+  if ((!city || city.trim() === "") && (!country || country.trim() === "")) {
+    return {
+      type: locationType.toLowerCase(),
+      description: locationType === "Remote" ? "Remote work" : "Location not specified",
+    };
+  }
+
+  // Ensure city and country are strings
+  const cityStr = String(city || "").trim();
+  const countryStr = String(country || "").trim();
+
   return {
-    primary: location,
-    type: locationType,
-    // Could be extended with more location details if needed
-    // city: extractCity(location),
-    // country: extractCountry(location),
-    // remote: locationType === "Remote"
+    city: cityStr,
+    country: countryStr,
+    address: cityStr && countryStr ? `${cityStr}, ${countryStr}` : cityStr || countryStr,
   };
 }
 
@@ -412,11 +449,14 @@ export function mapFormDataToCreateJobRequest(
   status: "Open" | "Draft" = "Open",
   aiGeneratedDescription: boolean = false
 ): CreateJobRequest {
-  return {
+  console.log("🔧 mapFormDataToCreateJobRequest - FormData.interviewTemplateId:", formData.interviewTemplateId);
+  
+  const createRequest = {
     title: formData.title,
     companyId,
     createdBy,
     description: formData.description,
+    department: formData.department || "",
     responsibilities: formData.responsibilities,
     requirements: formData.requirements,
     qualifications: formData.qualifications,
@@ -425,7 +465,7 @@ export function mapFormDataToCreateJobRequest(
     seniorityLevel: mapExperienceToSeniority(formData.experience),
     experienceYearsMin: extractMinYears(formData.experience),
     locationType: formData.locationType, // "On-site", "Remote", "Hybrid"
-    locations: transformLocation(formData.location, formData.locationType),
+    locations: transformLocation(formData.city, formData.country, formData.locationType),
     salaryMin: formData.salary.min || undefined,
     salaryMax: formData.salary.max || undefined,
     salaryCurrency: formData.salary.currency,
@@ -435,7 +475,11 @@ export function mapFormDataToCreateJobRequest(
     status,
     aiGeneratedDescription,
     skillMatchThreshold: 0.70, // Default value from backend
+    interviewTemplateId: formData.interviewTemplateId,
   };
+  
+  console.log("🔧 Created request with interviewTemplateId:", createRequest.interviewTemplateId);
+  return createRequest;
 }
 
 // Validation function to check if form data is complete enough for API call
@@ -448,7 +492,8 @@ export function validateFormDataForSubmission(formData: JobFormData): {
   // Required fields for job creation
   if (!formData.title.trim()) missingFields.push("Job Title");
   if (!formData.description.trim()) missingFields.push("Job Description");
-  if (!formData.location.trim()) missingFields.push("Location");
+  if (!formData.city.trim()) missingFields.push("City");
+  if (!formData.country.trim()) missingFields.push("Country");
   if (formData.responsibilities.length === 0) missingFields.push("Responsibilities");
   if (formData.requirements.length === 0) missingFields.push("Requirements");
   if (formData.qualifications.length === 0) missingFields.push("Qualifications");
@@ -516,6 +561,11 @@ export const notifications = {
 export const jobApi = {
   // Create a new job - now accepts CreateJobRequest directly
   createJob: async (jobData: CreateJobRequest): Promise<ApiResponse<CreateJobResponse>> => {
+    console.log("🚀 jobApi.createJob called with data:", {
+      ...jobData,
+      interviewTemplateId: jobData.interviewTemplateId
+    });
+    
     return apiCall<CreateJobResponse>("/jobs", {
       method: "POST",
       body: JSON.stringify(jobData),

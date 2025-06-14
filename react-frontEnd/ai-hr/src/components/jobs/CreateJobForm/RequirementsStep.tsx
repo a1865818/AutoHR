@@ -50,14 +50,14 @@ export function RequirementsStep({
   const addSkill = () => {
     if (newSkill.trim()) {
       updateFormData({
-        skills: [...formData.skills, newSkill.trim()],
+        skills: [...(formData.skills ?? []), newSkill.trim()],
       });
       setNewSkill("");
     }
   };
 
   const removeSkill = (index: number) => {
-    const updated = formData.skills.filter((_, i) => i !== index);
+    const updated = (formData.skills ?? []).filter((_, i) => i !== index);
     updateFormData({ skills: updated });
   };
 
@@ -143,7 +143,7 @@ export function RequirementsStep({
             {formData.requirements.map((requirement, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between bg-red-50 px-3 py-2 rounded-md border border-red-200"
+                className="flex items-center justify-between bg-blue-50 px-3 py-2 rounded-md border border-blue-200"
               >
                 <span className="text-sm text-gray-900">• {requirement}</span>
                 <button
@@ -234,13 +234,13 @@ export function RequirementsStep({
           <p className="text-sm font-medium text-gray-700 mb-2">Quick Add:</p>
           <div className="flex flex-wrap gap-2">
             {commonSkills
-              .filter((skill) => !formData.skills.includes(skill))
+              .filter((skill) => !(formData.skills ?? []).includes(skill))
               .map((skill) => (
                 <button
                   key={skill}
                   onClick={() => {
                     updateFormData({
-                      skills: [...formData.skills, skill],
+                      skills: [...(formData.skills ?? []), skill],
                     });
                   }}
                   className="inline-flex items-center px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
@@ -272,9 +272,9 @@ export function RequirementsStep({
           </div>
         </div>
 
-        {formData.skills.length > 0 && (
+        {(formData.skills ?? []).length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {formData.skills.map((skill, index) => (
+            {(formData.skills ?? []).map((skill, index) => (
               <div
                 key={index}
                 className="inline-flex items-center bg-green-50 text-green-800 px-3 py-1 rounded-full text-sm border border-green-200"

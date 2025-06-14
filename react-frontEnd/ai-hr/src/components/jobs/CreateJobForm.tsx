@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { JobFormData, JobCreationStep } from "@/interfaces";
 import { Check, ChevronRight, Save } from "lucide-react";
@@ -10,6 +10,8 @@ import { RequirementsStep } from "./CreateJobForm/RequirementsStep";
 import { ApplicationSettingsStep } from "./CreateJobForm/ApplicationSettingsStep";
 import { PreviewStep } from "./CreateJobForm/PreviewStep";
 import { jobApi } from "@/services/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { jobService } from "@/services/jobService";
 import {
   mapFormDataToCreateJobRequest,
   validateFormDataForSubmission,
@@ -55,7 +57,8 @@ const initialFormData: JobFormData = {
   company: "",
   department: "",
   description: "",
-  location: "",
+  city: "",
+  country: "",
   locationType: "On-site",
   type: "Full-Time",
   experience: "",
@@ -81,12 +84,49 @@ const initialFormData: JobFormData = {
 
 export function CreateJobForm() {
   const router = useRouter();
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<JobFormData>(initialFormData);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+  const [companyName, setCompanyName] = useState("");
+  const [isLoadingCompany, setIsLoadingCompany] = useState(true);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // Load company information when component mounts
+  useEffect(() => {
+    const loadCompanyInfo = async () => {
+      if (user?.companyId) {
+        try {
+          setIsLoadingCompany(true);
+          const company = await jobService.getCompanyById(user.companyId);
+          if (company) {
+            setCompanyName(company.name);
+            // Pre-fill the company field
+            setFormData((prev) => ({
+              ...prev,
+              company: company.name,
+            }));
+          }
+        } catch (error) {
+          console.error("Error loading company information:", error);
+          notifications.error(
+            "Error loading company",
+            "Unable to load company information. Please try again."
+          );
+        } finally {
+          setIsLoadingCompany(false);
+        }
+      } else {
+        setIsLoadingCompany(false);
+      }
+    };
+
+    loadCompanyInfo();
+  }, [user?.companyId]);
 
   const updateFormData = (newData: Partial<JobFormData>) => {
     setFormData((prev) => ({ ...prev, ...newData }));
@@ -138,6 +178,23 @@ We offer a dynamic work environment where creativity and innovation are valued, 
   };
 
   const handleSaveDraft = async () => {
+    await handleSaveDraftInternal(false);
+  };
+
+  const handleSaveDraftWithoutRedirect = async () => {
+    await handleSaveDraftInternal(true);
+  };
+
+  const handleSaveDraftInternal = async (preventRedirect = false) => {
+    // Check if user has company information
+    if (!user?.companyId || !user?.id) {
+      notifications.error(
+        "Authentication required",
+        "Please ensure you're logged in with proper company access."
+      );
+      return;
+    }
+
     // Validate form data for draft (less strict validation)
     const validation = validateFormDataForDraft(formData);
     if (!validation.isValid) {
@@ -150,29 +207,40 @@ We offer a dynamic work environment where creativity and innovation are valued, 
 
     setIsSaving(true);
     try {
-      // Map form data to API format with draft status
+      // Map form data to API format with draft status using actual user/company IDs
       const jobRequest = mapFormDataToCreateJobRequest(
         formData,
-        "b78cf45f-e78e-4a73-8539-8eb15deb408f", // Use default company ID for now
-        "ad389a8b-44ff-43cf-8f39-276e109cba17", // Use default user ID for now
+        user.companyId, // Use logged-in user's company ID
+        user.id, // Use logged-in user's ID
         "Draft", // Set status as draft
         false // Not AI generated (unless description was AI generated)
       );
 
       const response = await jobApi.createJob(jobRequest);
 
-      if (response.success) {
-        notifications.success(
-          "Draft saved successfully!",
-          "Your job draft has been saved and can be published later."
-        );
+      // Show success message
+      const isSuccess =
+        !response?.error &&
+        (response?.success === true ||
+          response?.data ||
+          (response !== null && response !== undefined));
 
-        // Optionally redirect to jobs list or stay on form
-        // router.push("/jobs");
+      if (isSuccess) {
+        // Show success message for draft
+        setSuccessMessage("Draft saved successfully!");
+        setShowSuccessMessage(true);
+
+        // Only redirect if not prevented
+        if (!preventRedirect) {
+          // Redirect to jobs page after showing success message
+          setTimeout(() => {
+            router.push("/jobs?view=drafts");
+          }, 200);
+        }
       } else {
         notifications.error(
           "Failed to save draft",
-          response.error || "Please try again."
+          response?.error || "Please try again."
         );
       }
     } catch (error) {
@@ -180,13 +248,21 @@ We offer a dynamic work environment where creativity and innovation are valued, 
         "Failed to save draft",
         "An unexpected error occurred. Please try again."
       );
-      console.error("Error saving draft:", error);
     } finally {
       setIsSaving(false);
     }
   };
 
   const handlePublish = async () => {
+    // Check if user has company information
+    if (!user?.companyId || !user?.id) {
+      notifications.error(
+        "Authentication required",
+        "Please ensure you're logged in with proper company access."
+      );
+      return;
+    }
+
     // Validate form data for publication (strict validation)
     const validation = validateFormDataForSubmission(formData);
     if (!validation.isValid) {
@@ -199,33 +275,37 @@ We offer a dynamic work environment where creativity and innovation are valued, 
 
     setIsPublishing(true);
     try {
-      // Map form data to API format with active status
+      // Map form data to API format with open status using actual user/company IDs
       const jobRequest = mapFormDataToCreateJobRequest(
         formData,
-        "b78cf45f-e78e-4a73-8539-8eb15deb408f", // Use default company ID for now
-        "ad389a8b-44ff-43cf-8f39-276e109cba17", // Use default user ID for now
-        "Open", // Set status as active/published
-        false // Track if description was AI generated
+        user.companyId, // Use logged-in user's company ID
+        user.id, // Use logged-in user's ID
+        "Open", // Set status as open/published
+        false // Not AI generated (unless description was AI generated)
       );
 
       const response = await jobApi.createJob(jobRequest);
 
-      if (response.success) {
-        notifications.success(
-          "Job published successfully!",
-          "Your job posting is now live and accepting applications."
-        );
+      // Show success message
+      const isSuccess =
+        !response?.error &&
+        (response?.success === true ||
+          response?.data ||
+          (response !== null && response !== undefined));
 
-        // Redirect to job detail page if ID is available, otherwise to jobs list
-        if (response.data?.id) {
-          router.push(`/jobs/${response.data.id}`);
-        } else {
+      if (isSuccess) {
+        // Show success message
+        setSuccessMessage("Job published successfully!");
+        setShowSuccessMessage(true);
+
+        // Redirect after a brief delay
+        setTimeout(() => {
           router.push("/jobs");
-        }
+        }, 200);
       } else {
         notifications.error(
           "Failed to publish job",
-          response.error || "Please try again."
+          response?.error || "Please try again."
         );
       }
     } catch (error) {
@@ -233,7 +313,6 @@ We offer a dynamic work environment where creativity and innovation are valued, 
         "Failed to publish job",
         "An unexpected error occurred. Please try again."
       );
-      console.error("Error publishing job:", error);
     } finally {
       setIsPublishing(false);
     }
@@ -242,7 +321,7 @@ We offer a dynamic work environment where creativity and innovation are valued, 
   const isStepValid = (stepId: number): boolean => {
     switch (stepId) {
       case 1:
-        return !!(formData.title && formData.location);
+        return !!(formData.title && formData.city && formData.country);
       case 2:
         return !!(formData.description && formData.responsibilities.length > 0);
       case 3:
@@ -293,6 +372,8 @@ We offer a dynamic work environment where creativity and innovation are valued, 
             updateFormData={updateFormData}
             onNext={nextStep}
             onPrev={prevStep}
+            onSaveDraft={handleSaveDraft}
+            onSaveDraftWithoutRedirect={handleSaveDraftWithoutRedirect}
           />
         );
       case 5:
@@ -302,6 +383,8 @@ We offer a dynamic work environment where creativity and innovation are valued, 
             onPrev={prevStep}
             onPublish={handlePublish}
             isPublishing={isPublishing}
+            showSuccessMessage={showSuccessMessage}
+            successMessage={successMessage}
           />
         );
       default:

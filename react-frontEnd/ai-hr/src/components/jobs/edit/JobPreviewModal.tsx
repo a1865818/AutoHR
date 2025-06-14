@@ -91,7 +91,13 @@ export function JobPreviewModal({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
               <div className="flex items-center text-sm text-gray-600">
                 <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
-                <span>{formData.location}</span>
+                <span>
+                  {formData.city && formData.country
+                    ? `${formData.city}, ${formData.country}`
+                    : formData.city ||
+                      formData.country ||
+                      "Location not specified"}
+                </span>
               </div>
               <div className="flex items-center text-sm text-gray-600">
                 <Briefcase className="h-4 w-4 mr-2 flex-shrink-0" />

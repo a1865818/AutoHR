@@ -203,6 +203,11 @@ export function ApplicantJobCard({ job, company }: ApplicantJobCardProps) {
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
             {safeRender(job.locationType) || "On-site"}
           </span>
+          {job.department && job.department !== "Not specified" && (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+              {safeRender(job.department)}
+            </span>
+          )}
         </div>
         <div className="flex space-x-3">
           <Link

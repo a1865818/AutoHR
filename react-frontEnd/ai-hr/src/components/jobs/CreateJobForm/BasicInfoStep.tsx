@@ -29,7 +29,8 @@ export function BasicInfoStep({
     return (
       formData.title &&
       formData.company &&
-      formData.location &&
+      formData.city &&
+      formData.country &&
       formData.department
     );
   };
@@ -68,9 +69,14 @@ export function BasicInfoStep({
             id="company"
             value={formData.company}
             onChange={(e) => handleInputChange("company", e.target.value)}
-            placeholder="e.g. Tech Solutions Inc."
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            placeholder="Loading company..."
+            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-700 focus:outline-none cursor-not-allowed"
+            readOnly
+            disabled
           />
+          <p className="mt-1 text-xs text-gray-500">
+            Automatically filled with your company information
+          </p>
         </div>
 
         {/* Department */}
@@ -91,20 +97,38 @@ export function BasicInfoStep({
           />
         </div>
 
-        {/* Location */}
+        {/* City */}
         <div>
           <label
-            htmlFor="location"
+            htmlFor="city"
             className="block text-sm font-medium text-gray-700 mb-2"
           >
-            Location *
+            City *
           </label>
           <input
             type="text"
-            id="location"
-            value={formData.location}
-            onChange={(e) => handleInputChange("location", e.target.value)}
-            placeholder="e.g. San Francisco, CA"
+            id="city"
+            value={formData.city}
+            onChange={(e) => handleInputChange("city", e.target.value)}
+            placeholder="e.g. San Francisco"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          />
+        </div>
+
+        {/* Country */}
+        <div>
+          <label
+            htmlFor="country"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
+            Country *
+          </label>
+          <input
+            type="text"
+            id="country"
+            value={formData.country}
+            onChange={(e) => handleInputChange("country", e.target.value)}
+            placeholder="e.g. United States"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
           />
         </div>

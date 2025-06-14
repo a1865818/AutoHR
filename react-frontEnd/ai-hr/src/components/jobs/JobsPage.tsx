@@ -6,6 +6,7 @@ import { jobService } from "@/services/jobService";
 import { AlertCircle, ChevronDown, Loader2, Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { JobCard } from "./JobCard";
 import { JobFilterSidebar } from "./JobFilterSidebar";
 
@@ -162,6 +163,18 @@ export function JobsPage() {
     location: [],
   });
 
+  const searchParams = useSearchParams();
+
+  // Set initial view mode based on URL parameter
+  useEffect(() => {
+    const viewParam = searchParams.get("view");
+    if (viewParam === "drafts") {
+      setViewMode("drafts");
+    } else {
+      setViewMode("jobs");
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     loadAllJobsData();
   }, []);
@@ -279,7 +292,7 @@ export function JobsPage() {
         location: extractLocationString(apiJob.locations),
         locationType: mapLocationTypeToJobFormat(apiJob.locationType),
         type: mapEmploymentTypeToJobFormat(apiJob.employmentType),
-        department: company?.industry || "Not specified",
+        department: apiJob.department || "Not specified",
         experience: mapExperienceToJobFormat(
           apiJob.seniorityLevel,
           apiJob.experienceYearsMin

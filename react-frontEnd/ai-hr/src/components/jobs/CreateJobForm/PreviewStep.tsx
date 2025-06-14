@@ -10,6 +10,7 @@ import {
   Calendar,
   CheckCircle,
   AlertCircle,
+  Check,
 } from "lucide-react";
 
 interface PreviewStepProps {
@@ -17,6 +18,8 @@ interface PreviewStepProps {
   onPrev: () => void;
   onPublish: () => void;
   isPublishing?: boolean;
+  showSuccessMessage?: boolean;
+  successMessage?: string;
 }
 
 export function PreviewStep({
@@ -24,6 +27,8 @@ export function PreviewStep({
   onPrev,
   onPublish,
   isPublishing = false,
+  showSuccessMessage = false,
+  successMessage = "",
 }: PreviewStepProps) {
   const hasSalaryInfo = () => {
     const { min, max } = formData.salary;
@@ -99,7 +104,9 @@ export function PreviewStep({
             </p>
             <div className="flex items-center text-gray-500 text-sm mb-3">
               <MapPin className="h-4 w-4 mr-1" />
-              {formData.location}
+              {formData.city && formData.country
+                ? `${formData.city}, ${formData.country}`
+                : formData.city || formData.country || "Location not specified"}
             </div>
           </div>
           <div className="text-right">
@@ -177,7 +184,7 @@ export function PreviewStep({
             <ul className="space-y-2">
               {formData.requirements.map((requirement, index) => (
                 <li key={index} className="flex items-start">
-                  <AlertCircle className="h-5 w-5 text-red-500 mr-2 mt-0.5 flex-shrink-0" />
+                  <AlertCircle className="h-5 w-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
                   <span className="text-gray-700">{requirement}</span>
                 </li>
               ))}
@@ -334,20 +341,35 @@ export function PreviewStep({
         </div>
       </div>
 
-      {/* Publishing Options */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-        <h3 className="text-lg font-semibold text-green-900 mb-4">
-          Ready to Publish?
-        </h3>
-        <p className="text-sm text-green-800 mb-4">
-          Your job posting is complete and ready to go live. Once published,
-          candidates will be able to view and apply for this position.
-        </p>
-        <div className="flex items-center gap-2 text-sm text-green-700">
-          <Users className="h-4 w-4" />
-          <span>This job will be visible to all registered candidates</span>
+      {/* Publishing Options or Success Message */}
+      {showSuccessMessage ? (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-6 shadow-sm animate-pulse">
+          <div className="flex">
+            <div className="flex-shrink-0">
+              <Check className="h-5 w-5 text-green-500" />
+            </div>
+            <div className="ml-3">
+              <p className="text-sm text-green-800 font-semibold">
+                {successMessage}
+              </p>
+            </div>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-green-900 mb-4">
+            Ready to Publish?
+          </h3>
+          <p className="text-sm text-green-800 mb-4">
+            Your job posting is complete and ready to go live. Once published,
+            candidates will be able to view and apply for this position.
+          </p>
+          <div className="flex items-center gap-2 text-sm text-green-700">
+            <Users className="h-4 w-4" />
+            <span>This job will be visible to all registered candidates</span>
+          </div>
+        </div>
+      )}
 
       {/* Navigation */}
       <div className="flex justify-between pt-6 border-t">

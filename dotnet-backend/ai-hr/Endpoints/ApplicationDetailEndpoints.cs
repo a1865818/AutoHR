@@ -45,37 +45,6 @@ public static class ApplicationDetailEndpoints
             .WithDescription("Permanently removes a job application from the system");
     }
 
-    private static async Task UpdateJobApplicantCount(Guid jobId, Supabase.Client client)
-    {
-        try
-        {
-            // Get the current count of applications for this job
-            var applicationsResponse = await client.From<ApplicationDetail>()
-                .Where(ad => ad.JobId == jobId)
-                .Get();
-
-            var currentCount = applicationsResponse.Models?.Count ?? 0;
-
-            // Get the job and update its applicant count
-            var jobResponse = await client.From<Job>()
-                .Where(j => j.Id == jobId)
-                .Get();
-
-            var job = jobResponse.Models?.FirstOrDefault();
-            if (job != null)
-            {
-                job.ApplicantCount = currentCount;
-                await client.From<Job>().Update(job);
-
-                Console.WriteLine($"✅ Updated job {jobId} applicant count to {currentCount}");
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"❌ Failed to update applicant count for job {jobId}: {ex.Message}");
-        }
-    }
-
     private static async Task<IResult> CreateApplicationDetail(CreateApplicationDetailRequest request, Supabase.Client client)
     {
         try
@@ -116,8 +85,16 @@ public static class ApplicationDetailEndpoints
 
             Console.WriteLine($"Application detail created successfully with ID: {newApplicationDetail.Id}");
 
-            // ✅ UPDATE THE APPLICANT COUNT FOR THE JOB
-            await UpdateJobApplicantCount(request.JobId, client);
+            // Update job applicant count
+            try
+            {
+                await ai_hr.Endpoints.JobEndpoints.UpdateJobApplicantCount(request.JobId, client);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to update applicant count for job {request.JobId}: {ex.Message}");
+                // Don't fail the application creation if count update fails
+            }
 
             // Return the created application with relevant details
             return Results.Ok(new
@@ -313,14 +290,38 @@ public static class ApplicationDetailEndpoints
     {
         try
         {
+            // First, get the application detail to retrieve the job ID
+            var getResponse = await client.From<ApplicationDetail>().Where(ad => ad.Id == id).Get();
+            var applicationDetail = getResponse.Models.FirstOrDefault();
+
+            if (applicationDetail == null)
+            {
+                return Results.NotFound(new { message = $"Application with ID {id} not found" });
+            }
+
+            var jobId = applicationDetail.JobId;
+
+            // Delete the application
             await client.From<ApplicationDetail>().Where(ad => ad.Id == id).Delete();
+
+            // Update job applicant count
+            try
+            {
+                await ai_hr.Endpoints.JobEndpoints.UpdateJobApplicantCount(jobId, client);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Failed to update applicant count for job {jobId} after deletion: {ex.Message}");
+                // Don't fail the deletion if count update fails
+            }
+
             return Results.NoContent();
         }
         catch (Exception ex)
         {
             Console.WriteLine($"Error deleting application detail: {ex.Message}");
-            // Consider logging ex.StackTrace here as well for more detailed debugging if needed
-            return Results.BadRequest(new { error = ex.Message });
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }
     }
 

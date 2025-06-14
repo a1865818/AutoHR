@@ -26,5 +26,18 @@ namespace ai_hr.Models
         public bool IsActive { get; set; } = true;
         [Column("Roles")]
         public string Roles { get; set; } = "User";
+
+        // Profile data stored as JSONB
+        [Column("Education")]
+        public List<Dictionary<string, object>>? Education { get; set; }
+
+        [Column("Experiences")]
+        public List<Dictionary<string, object>>? Experiences { get; set; }
+
+        [Column("SocialLink")]
+        public Dictionary<string, object>? SocialLink { get; set; }
+
+        [Column("PhoneNumber")]
+        public string? PhoneNumber { get; set; }
     }
 }

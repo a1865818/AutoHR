@@ -727,56 +727,6 @@ files = [
     {file = "colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44"},
 ]
 
-[[package]]
-name = "crawl4ai"
-version = "0.6.3"
-description = "🚀🤖 Crawl4AI: Open-source LLM Friendly Web Crawler & scraper"
-optional = false
-python-versions = ">=3.9"
-groups = ["main"]
-files = [
-    {file = "crawl4ai-0.6.3-py3-none-any.whl", hash = "sha256:c3590a3f6e5d1e636c02f7f8ede8d63cdc83cb3fee892333b8626df3106f6391"},
-    {file = "crawl4ai-0.6.3.tar.gz", hash = "sha256:38e32222969e228c57959b0dbdbef619c2cd7850960ef26a6155ce05c3bb4a2a"},
-]
-
-[package.dependencies]
-aiofiles = ">=24.1.0"
-aiohttp = ">=3.11.11"
-aiosqlite = ">=0.20,<1.0"
-beautifulsoup4 = ">=4.12,<5.0"
-brotli = ">=1.1.0"
-chardet = ">=5.2.0"
-click = ">=8.1.7"
-colorama = ">=0.4,<1.0"
-cssselect = ">=1.2.0"
-fake-useragent = ">=2.0.3"
-httpx = ">=0.27.2"
-humanize = ">=4.10.0"
-litellm = ">=1.53.1"
-lxml = ">=5.3,<6.0"
-nltk = ">=3.9.1"
-numpy = ">=1.26.0,<3"
-pillow = ">=10.4,<11.0"
-playwright = ">=1.49.0"
-psutil = ">=6.1.1"
-pydantic = ">=2.10"
-pyOpenSSL = ">=24.3.0"
-pyperclip = ">=1.8.2"
-python-dotenv = ">=1.0,<2.0"
-rank-bm25 = ">=0.2,<1.0"
-requests = ">=2.26,<3.0"
-rich = ">=13.9.4"
-snowballstemmer = ">=2.2,<3.0"
-tf-playwright-stealth = ">=1.1.0"
-xxhash = ">=3.4,<4.0"
-
-[package.extras]
-all = ["PyPDF2", "PyPDF2", "nltk", "scikit-learn", "selenium", "tokenizers", "torch", "transformers"]
-cosine = ["nltk", "torch", "transformers"]
-pdf = ["PyPDF2"]
-sync = ["selenium"]
-torch = ["nltk", "scikit-learn", "torch"]
-transformer = ["tokenizers", "transformers"]
 
 [[package]]
 name = "cryptography"
