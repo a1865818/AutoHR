@@ -1,4 +1,4 @@
-using ai_hr.Models;
+﻿using ai_hr.Models;
 using ai_hr.Contracts;
 using Supabase;
 
@@ -72,9 +72,8 @@ public static class ApplicationDetailEndpoints
             Console.WriteLine($"Creating application detail with ID: {applicationId}");
             Console.WriteLine($"JobId: {request.JobId}, CandidateUserId: {request.CandidateUserId}");
 
-            // Use Upsert instead of Insert to handle potential ID conflicts better
             var response = await client.From<ApplicationDetail>()
-                .Upsert(applicationDetail);
+         .Upsert(applicationDetail);
 
             var newApplicationDetail = response.Models.FirstOrDefault();
 
@@ -325,4 +324,7 @@ public static class ApplicationDetailEndpoints
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }
     }
+
+
+
 }

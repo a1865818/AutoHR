@@ -1,10 +1,11 @@
 "use client";
 
-import { withHiringAuth } from "@/components/auth/WithHiringAuth";
+import { withHiringAuth } from "@/components/auth/withHiringAuth";
 import { CandidateDetail } from "@/components/candidates/CandidateDetail";
 import { CandidateHeader } from "@/components/candidates/CandidateHeader";
 import { CandidatesList } from "@/components/candidates/CandidatesList";
 import { FilterSidebar } from "@/components/candidates/FilterSidebar";
+import { NotesEditModal } from "@/components/candidates/NotesEditModal";
 import { NotesList } from "@/components/candidates/NotesList";
 import { useHiringAuth } from "@/hooks/useHiringAuth";
 import { CandidateWithJobDetails } from "@/interfaces";
@@ -119,7 +120,7 @@ function EmptyState({
             No Content Available
           </h3>
           <p className="text-gray-600 mb-6 leading-relaxed">
-            There is nothing to display right now.
+            There's nothing to display right now.
           </p>
         </div>
       </div>
@@ -218,11 +219,16 @@ function CandidatesPage() {
     { id: "rejected", label: "Rejected", type: "status" as const },
   ]);
 
-  // Notes state
+  // FIXED: Notes state - Use applicationId consistently
   const [candidateNotes, setCandidateNotes] = useState<Record<string, string>>(
     {}
   );
   const [notesSearchQuery, setNotesSearchQuery] = useState("");
+
+  // Modal state for editing notes
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  const [editingCandidate, setEditingCandidate] =
+    useState<CandidateWithJobDetails | null>(null);
 
   // Load candidates data with better error handling
   useEffect(() => {
@@ -242,15 +248,46 @@ function CandidatesPage() {
         setCandidates(response.candidates);
         setCompanyName(response.companyName || "your company");
 
-        // Load any existing notes from localStorage
-        const savedNotes = localStorage.getItem(`candidate_notes_${companyId}`);
-        if (savedNotes) {
-          try {
-            setCandidateNotes(JSON.parse(savedNotes));
-          } catch (e) {
-            console.warn("Failed to parse saved notes:", e);
+        // DEBUG: Log the raw response to see what we're getting
+        console.log("🔍 DEBUG: Raw candidates response:", response.candidates);
+
+        // FIXED: Extract notes from candidate data using consistent key (applicationId)
+        const notesFromDb: Record<string, string> = {};
+        response.candidates.forEach((candidate, index) => {
+          console.log(`🔍 DEBUG: Candidate ${index}:`, {
+            id: candidate.id,
+            applicationId: candidate.applicationId,
+            candidateUserId: candidate.candidateUserId,
+            name: candidate.name,
+            hiringNotes: (candidate as any).hiringNotes,
+            notesCreatedAt: (candidate as any).notesCreatedAt,
+            notesUpdatedAt: (candidate as any).notesUpdatedAt,
+          });
+
+          // Check for notes - handle both null and empty string
+          const noteValue = (candidate as any).hiringNotes;
+          if (noteValue && noteValue.trim() !== "") {
+            // FIXED: Use applicationId as key consistently
+            notesFromDb[candidate.applicationId] = noteValue;
+            console.log(
+              `📝 DEBUG: Added note for ${candidate.name} with key ${candidate.applicationId}:`,
+              noteValue
+            );
+          } else {
+            console.log(
+              `📝 DEBUG: No valid note for ${candidate.name}. Raw value:`,
+              noteValue
+            );
           }
-        }
+        });
+
+        setCandidateNotes(notesFromDb);
+        console.log("📝 Final notes object:", notesFromDb);
+        console.log(
+          "📝 Loaded notes for",
+          Object.keys(notesFromDb).length,
+          "candidates"
+        );
       } catch (err) {
         console.error("❌ Failed to load candidates:", err);
 
@@ -563,45 +600,79 @@ function CandidatesPage() {
     }
   };
 
+  // FIXED: Save note using applicationId as key
   const handleSaveNote = async (candidateId: string, note: string) => {
     try {
-      const candidate = candidates.find((c) => c.id === candidateId);
-      if (!candidate) return;
+      // Find candidate by the passed candidateId (which should be applicationId)
+      const candidate = candidates.find((c) => c.applicationId === candidateId);
+      if (!candidate) {
+        console.error("Candidate not found for applicationId:", candidateId);
+        return;
+      }
 
-      // Update local state
+      console.log("💾 Saving note to database for application:", candidateId);
+
+      // Save to backend database using applicationId
+      await candidateService.saveCandidateNote(candidateId, note);
+
+      // FIXED: Update local state using applicationId as key
       const newNotes = {
         ...candidateNotes,
-        [candidateId]: note,
+        [candidateId]: note, // Use applicationId consistently
       };
       setCandidateNotes(newNotes);
 
-      // Save to localStorage for now
-      if (companyId) {
-        localStorage.setItem(
-          `candidate_notes_${companyId}`,
-          JSON.stringify(newNotes)
-        );
-      }
-
-      console.log("✅ Note saved successfully");
+      console.log("✅ Note saved successfully to database");
     } catch (error) {
       console.error("❌ Failed to save note:", error);
       alert("Failed to save note. Please try again.");
     }
   };
 
-  const handleDeleteNote = (candidateId: string) => {
-    const newNotes = { ...candidateNotes };
-    delete newNotes[candidateId];
-    setCandidateNotes(newNotes);
-
-    // Update localStorage
-    if (companyId) {
-      localStorage.setItem(
-        `candidate_notes_${companyId}`,
-        JSON.stringify(newNotes)
+  // FIXED: Delete note using applicationId
+  const handleDeleteNote = async (candidateId: string) => {
+    try {
+      console.log(
+        "🗑️ Deleting note from database for application:",
+        candidateId
       );
+
+      // Delete from backend database
+      await candidateService.deleteCandidateNote(candidateId);
+
+      // FIXED: Update local state using applicationId
+      const newNotes = { ...candidateNotes };
+      delete newNotes[candidateId];
+      setCandidateNotes(newNotes);
+
+      console.log("✅ Note deleted successfully from database");
+    } catch (error) {
+      console.error("❌ Failed to delete note:", error);
+      alert("Failed to delete note. Please try again.");
     }
+  };
+
+  // FIXED: Handle edit note modal using applicationId
+  const handleEditNote = (candidate: CandidateWithJobDetails) => {
+    setEditingCandidate(candidate);
+    setIsNotesModalOpen(true);
+  };
+
+  const handleCloseNotesModal = () => {
+    setIsNotesModalOpen(false);
+    setEditingCandidate(null);
+  };
+
+  // FIXED: Save note from modal using applicationId
+  const handleSaveNoteFromModal = async (candidateId: string, note: string) => {
+    await handleSaveNote(candidateId, note);
+    // Refresh candidates to get updated timestamps
+    const response = await candidateService.getCandidatesForCompany();
+    setCandidates(response.candidates);
+
+    // FIXED: Update notes state using applicationId
+    const newNotes = { ...candidateNotes, [candidateId]: note };
+    setCandidateNotes(newNotes);
   };
 
   const handleCreateJob = () => {
@@ -619,9 +690,41 @@ function CandidatesPage() {
     setNotesSearchQuery("");
   };
 
-  // Get candidates with notes for the notes tab
+  // FIXED: Get candidates with notes using applicationId
   const candidatesWithNotes = useMemo(() => {
-    return candidates.filter((candidate) => candidateNotes[candidate.id]);
+    console.log("🔍 DEBUG: Calculating candidatesWithNotes");
+    console.log(
+      "🔍 DEBUG: All candidates:",
+      candidates.map((c) => ({
+        id: c.id,
+        applicationId: c.applicationId,
+        name: c.name,
+      }))
+    );
+    console.log(
+      "🔍 DEBUG: Current candidateNotes keys:",
+      Object.keys(candidateNotes)
+    );
+
+    const withNotes = candidates.filter((candidate) => {
+      // FIXED: Use applicationId to check for notes
+      const hasNote = candidateNotes[candidate.applicationId];
+      console.log(
+        `🔍 DEBUG: Candidate ${candidate.name} (app: ${candidate.applicationId}) has note:`,
+        !!hasNote
+      );
+      return hasNote;
+    });
+
+    console.log(
+      "🔍 DEBUG: Candidates with notes:",
+      withNotes.map((c) => ({
+        id: c.id,
+        applicationId: c.applicationId,
+        name: c.name,
+      }))
+    );
+    return withNotes;
   }, [candidates, candidateNotes]);
 
   // Filter notes based on search and active filters
@@ -953,7 +1056,6 @@ function CandidatesPage() {
             />
           );
         } else {
-          // Make sure we're passing the correct type
           return (
             <EmptyState
               type="no-notes"
@@ -969,6 +1071,7 @@ function CandidatesPage() {
           selectedCandidate={selectedCandidate}
           onCandidateClick={handleCandidateClick}
           onDeleteNote={handleDeleteNote}
+          onEditNote={handleEditNote}
         />
       );
     }
@@ -1008,16 +1111,33 @@ function CandidatesPage() {
         {renderMainContent()}
       </div>
 
-      {/* Sidebar details panel */}
+      {/* FIXED: Sidebar details panel - use applicationId for note lookup */}
       {selectedCandidateData && (
         <CandidateDetail
           candidate={selectedCandidateData}
           onClose={closeSidebar}
           onAction={handleCandidateAction}
-          note={candidateNotes[selectedCandidateData.id] || ""}
-          onSaveNote={handleSaveNote}
+          note={candidateNotes[selectedCandidateData.applicationId] || ""} // FIXED: Use applicationId
+          onSaveNote={(candidateId, note) =>
+            handleSaveNote(selectedCandidateData.applicationId, note)
+          } // FIXED: Pass applicationId
         />
       )}
+
+      {/* FIXED: Notes Edit Modal - use applicationId */}
+      <NotesEditModal
+        isOpen={isNotesModalOpen}
+        candidate={editingCandidate}
+        currentNote={
+          editingCandidate
+            ? candidateNotes[editingCandidate.applicationId] || ""
+            : "" // FIXED: Use applicationId
+        }
+        onClose={handleCloseNotesModal}
+        onSave={(candidateId, note) =>
+          handleSaveNoteFromModal(editingCandidate?.applicationId || "", note)
+        } // FIXED: Use applicationId
+      />
     </div>
   );
 }

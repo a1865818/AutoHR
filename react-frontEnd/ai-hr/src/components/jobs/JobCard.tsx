@@ -8,7 +8,9 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { candidateService } from "@/services/candidateService";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface JobCardProps {
   job: Job;
@@ -16,6 +18,29 @@ interface JobCardProps {
 
 export function JobCard({ job }: JobCardProps) {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [actualApplicantCount, setActualApplicantCount] = useState(0);
+  const { user } = useAuth();
+
+  // Add this effect to get the actual applicant count
+  useEffect(() => {
+    const fetchApplicantCount = async () => {
+      if (job?.id && user?.userCategory === "HiringUserProfile") {
+        try {
+          const candidates = await candidateService.getCandidatesForJob(job.id);
+          setActualApplicantCount(candidates.length);
+        } catch (error) {
+          console.error(`Failed to fetch applicant count for job ${job.id}:`, error);
+          // Fallback to the count from job data
+          setActualApplicantCount(safeRenderNumber(job.applicants));
+        }
+      } else {
+        // For non-hiring users, use the count from job data
+        setActualApplicantCount(safeRenderNumber(job?.applicants || 0));
+      }
+    };
+
+    fetchApplicantCount();
+  }, [job, user]);
 
   // Enhanced safe rendering functions to handle .NET objects
   const safeRender = (value: any): string => {
@@ -167,7 +192,7 @@ export function JobCard({ job }: JobCardProps) {
   const department = safeRender(job.department);
   const postedDate = safeRender(job.postedDate);
   const description = safeRender(job.description);
-  const applicantCount = safeRenderNumber(job.applicants);
+  const applicantCount = actualApplicantCount;
   const requirements = safeRenderArray(job.requirements);
 
   return (
@@ -236,7 +261,7 @@ export function JobCard({ job }: JobCardProps) {
             )}
             <div className="flex items-center text-sm text-gray-600">
               <Users className="h-4 w-4 mr-1" />
-              {applicantCount} applicants
+              {applicantCount} applicant{applicantCount !== 1 ? 's' : ''}
             </div>
           </div>
 

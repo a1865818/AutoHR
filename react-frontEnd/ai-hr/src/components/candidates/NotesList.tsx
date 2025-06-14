@@ -1,5 +1,5 @@
 import { Candidate } from "@/interfaces";
-import { Calendar, Edit3, Trash2, User, Briefcase } from "lucide-react";
+import { Calendar, Edit3, Trash2, User } from "lucide-react";
 
 interface NotesListProps {
   candidates: Candidate[];
@@ -7,6 +7,7 @@ interface NotesListProps {
   selectedCandidate: string | null;
   onCandidateClick: (candidateId: string) => void;
   onDeleteNote: (candidateId: string) => void;
+  onEditNote: (candidate: Candidate) => void;
 }
 
 export function NotesList({
@@ -15,12 +16,19 @@ export function NotesList({
   selectedCandidate,
   onCandidateClick,
   onDeleteNote,
+  onEditNote,
 }: NotesListProps) {
-  const handleDeleteClick = (e: React.MouseEvent, candidateId: string) => {
+  // FIXED: Use applicationId for delete operations
+  const handleDeleteClick = (e: React.MouseEvent, candidate: Candidate) => {
     e.stopPropagation();
     if (confirm("Are you sure you want to delete this note?")) {
-      onDeleteNote(candidateId);
+      onDeleteNote(candidate.applicationId); // FIXED: Pass applicationId instead of candidate.id
     }
+  };
+
+  const handleEditClick = (e: React.MouseEvent, candidate: Candidate) => {
+    e.stopPropagation();
+    onEditNote(candidate);
   };
 
   const truncateText = (text: string, maxLength: number = 150) => {
@@ -28,17 +36,27 @@ export function NotesList({
     return text.substring(0, maxLength) + "...";
   };
 
-  // Type guard to check if candidate has job details
-  const hasJobDetails = (
-    candidate: any
-  ): candidate is Candidate & { jobTitle: string } => {
-    return "jobTitle" in candidate;
-  };
+  const formatTimestamp = (timestamp: string | undefined) => {
+    if (!timestamp) return "Unknown time";
 
-  //   const formatDate = (candidateId: string) => {
-  //     // In a real app, you'd store the actual date when the note was created/updated
-  //     return "2 days ago";
-  //   };
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+
+    if (diffInHours < 1) {
+      const minutes = Math.floor(diffInHours * 60);
+      return `${minutes} minute${minutes !== 1 ? "s" : ""} ago`;
+    } else if (diffInHours < 24) {
+      const hours = Math.floor(diffInHours);
+      return `${hours} hour${hours !== 1 ? "s" : ""} ago`;
+    } else if (diffInHours < 168) {
+      // 7 days
+      const days = Math.floor(diffInHours / 24);
+      return `${days} day${days !== 1 ? "s" : ""} ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
 
   return (
     <div
@@ -58,47 +76,44 @@ export function NotesList({
       ) : (
         <div className="space-y-4 py-4">
           {candidates.map((candidate) => {
-            const note = notes[candidate.id];
+            // FIXED: Get note using applicationId
+            const note = notes[candidate.applicationId];
             const isSelected = selectedCandidate === candidate.id;
+
+            // Get timestamp info
+            const notesUpdatedAt = (candidate as any).notesUpdatedAt;
+            const notesCreatedAt = (candidate as any).notesCreatedAt;
+            const displayTime = notesUpdatedAt || notesCreatedAt;
 
             return (
               <div
                 key={candidate.id}
                 onClick={() => onCandidateClick(candidate.id)}
-                className={`p-5 border rounded-lg cursor-pointer transition-all hover:shadow-md ${
+                className={`p-4 border rounded-lg cursor-pointer transition-all hover:shadow-md ${
                   isSelected
                     ? "border-blue-500 bg-blue-50 shadow-md"
                     : "border-gray-200 bg-white hover:border-gray-300"
                 }`}
               >
                 {/* Candidate header */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center flex-1">
-                    <div className="w-12 h-12 rounded-full bg-gray-300 flex-shrink-0 overflow-hidden">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 rounded-full bg-gray-300 flex-shrink-0 overflow-hidden">
                       <img
                         src={candidate.photo}
                         alt={candidate.name}
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    <div className="ml-4 flex-1 min-w-0">
-                      <h3 className="font-semibold text-gray-900 text-base truncate">
+                    <div className="ml-3">
+                      <h3 className="font-medium text-gray-900">
                         {candidate.name}
                       </h3>
-                      {/* Job Title with briefcase icon */}
-                      {hasJobDetails(candidate) && candidate.jobTitle && (
-                        <div className="flex items-center mt-1 text-sm text-blue-600">
-                          <Briefcase className="h-4 w-4 mr-1 flex-shrink-0" />
-                          <span className="font-medium truncate">
-                            {candidate.jobTitle}
-                          </span>
-                        </div>
-                      )}
-                      <div className="flex items-center mt-2 text-xs text-gray-500">
-                        <span className="truncate">{candidate.company}</span>
-                        <span className="mx-2 flex-shrink-0">•</span>
+                      <div className="flex items-center text-xs text-gray-500">
+                        <span>{candidate.company}</span>
+                        <span className="mx-2">•</span>
                         <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 ${
+                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                             candidate.stage === "Offer"
                               ? "bg-blue-100 text-blue-700"
                               : candidate.stage === "Interview"
@@ -112,20 +127,18 @@ export function NotesList({
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-2 ml-4">
+                  <div className="flex items-center space-x-2">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onCandidateClick(candidate.id);
-                      }}
-                      className="p-2 text-gray-400 hover:text-blue-500 rounded-lg hover:bg-blue-50 transition-colors"
+                      onClick={(e) => handleEditClick(e, candidate)}
+                      className="p-1 text-gray-400 hover:text-blue-500 rounded transition-colors"
                       title="Edit note"
                     >
                       <Edit3 className="h-4 w-4" />
                     </button>
+                    {/* FIXED: Pass entire candidate object to get applicationId */}
                     <button
-                      onClick={(e) => handleDeleteClick(e, candidate.id)}
-                      className="p-2 text-gray-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors"
+                      onClick={(e) => handleDeleteClick(e, candidate)}
+                      className="p-1 text-gray-400 hover:text-red-500 rounded transition-colors"
                       title="Delete note"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -134,18 +147,21 @@ export function NotesList({
                 </div>
 
                 {/* Note content */}
-                <div className="mb-4">
+                <div className="mb-3">
                   <p className="text-sm text-gray-700 leading-relaxed">
                     {truncateText(note)}
                   </p>
                 </div>
 
                 {/* Note metadata */}
-                <div className="flex items-center justify-between text-xs text-gray-500">
-                  <div className="flex items-center">
-                    <Calendar className="h-3 w-3 mr-1" />
-                    <span>Last updated today</span>
-                  </div>
+                <div className="flex items-center text-xs text-gray-500">
+                  <Calendar className="h-3 w-3 mr-1" />
+                  <span>
+                    {notesUpdatedAt && notesUpdatedAt !== notesCreatedAt
+                      ? `Updated ${formatTimestamp(notesUpdatedAt)}`
+                      : `Created ${formatTimestamp(notesCreatedAt)}`}
+                  </span>
+                  <span className="mx-2">•</span>
                   <span>{note.length} characters</span>
                 </div>
               </div>

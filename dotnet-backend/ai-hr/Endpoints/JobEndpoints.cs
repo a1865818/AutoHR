@@ -245,32 +245,44 @@ public static class JobEndpoints
         }
     }
 
-
     private static async Task<IResult> GetJobs(string? status, Guid? companyId, Supabase.Client client)
     {
         try
         {
+            Console.WriteLine($"🔍 GetJobs called - Status: {status}, CompanyId: {companyId}");
+
             // Start with a base query
             var query = client.From<Job>();
             var response = await query.Get();
             var jobs = response.Models;
 
-            // Apply filters after getting the data - only if parameters are provided
-            if (!string.IsNullOrEmpty(status))
-            {
-                jobs = jobs.Where(j => j.Status.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
-            }
+            Console.WriteLine($"📊 Total jobs in database: {jobs?.Count ?? 0}");
 
+            // Apply company filter FIRST (most important for hiring users)
             if (companyId.HasValue)
             {
                 jobs = jobs.Where(j => j.CompanyId == companyId.Value).ToList();
+                Console.WriteLine($"🏢 After company filter ({companyId}): {jobs.Count} jobs");
             }
 
-            // If no filters are applied, default to showing only active jobs
-            if (string.IsNullOrEmpty(status) && !companyId.HasValue)
+            // Apply status filter
+            if (!string.IsNullOrEmpty(status))
             {
-                jobs = jobs.Where(j => j.Status.Equals("active", StringComparison.OrdinalIgnoreCase)).ToList();
+                jobs = jobs.Where(j => j.Status.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
+                Console.WriteLine($"📊 After status filter ({status}): {jobs.Count} jobs");
             }
+            else
+            {
+                // If no status specified and no company filter, default to active jobs only
+                if (!companyId.HasValue)
+                {
+                    jobs = jobs.Where(j => j.Status.Equals("Open", StringComparison.OrdinalIgnoreCase)).ToList();
+                    Console.WriteLine($"📊 No filters - showing only Open jobs: {jobs.Count} jobs");
+                }
+                // If company filter is applied, show all statuses for that company
+            }
+
+            Console.WriteLine($"✅ Final filtered jobs count: {jobs.Count}");
 
             // Create DTOs to avoid serialization issues
             var jobDtos = jobs.Select(job => new
@@ -278,6 +290,7 @@ public static class JobEndpoints
                 Id = job.Id,
                 Title = job.Title,
                 CompanyId = job.CompanyId,
+                CreatedBy = job.CreatedBy,
                 Description = job.Description,
                 Department = job.Department,
                 EmploymentType = job.EmploymentType,
@@ -307,7 +320,7 @@ public static class JobEndpoints
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error retrieving jobs: {ex.Message}");
+            Console.WriteLine($"❌ Error retrieving jobs: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }

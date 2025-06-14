@@ -48,6 +48,16 @@ namespace ai_hr.Models
         [Column("status_changed_at")]
         public DateTime StatusChangedAt { get; set; } = DateTime.UtcNow;
 
+        // NEW: Add hiring notes column
+        [Column("hiring_notes")]
+        public string? HiringNotes { get; set; }
+
+        [Column("notes_created_at")]
+        public DateTime? NotesCreatedAt { get; set; }
+
+        [Column("notes_updated_at")]
+        public DateTime? NotesUpdatedAt { get; set; }
+
         // Constructor to ensure ID is always set
         public ApplicationDetail()
         {
