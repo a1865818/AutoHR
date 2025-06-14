@@ -28,6 +28,60 @@ interface Filters {
   locationType: string[];
 }
 
+// Complete .NET object sanitization function
+const deepCleanNetObjects = (obj: any): any => {
+  if (obj === null || obj === undefined) return obj;
+
+  // Handle primitives
+  if (typeof obj !== "object") return obj;
+
+  // Handle .NET DateTime objects with ValueKind
+  if (
+    obj.ValueKind !== undefined ||
+    obj.value !== undefined ||
+    obj.Value !== undefined
+  ) {
+    const dateStr = obj.value || obj.Value || obj.toString();
+    try {
+      const date = new Date(dateStr);
+      return isNaN(date.getTime()) ? null : date.toISOString();
+    } catch {
+      return null;
+    }
+  }
+
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    return obj.map((item) => deepCleanNetObjects(item));
+  }
+
+  // Handle objects recursively
+  const cleaned: any = {};
+  for (const key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      cleaned[key] = deepCleanNetObjects(obj[key]);
+    }
+  }
+  return cleaned;
+};
+
+// Helper function to safely render values
+const safeRender = (value: any): string => {
+  if (value === null || value === undefined) return "";
+  if (typeof value !== "object") return String(value);
+
+  // For objects, convert to string representation
+  if (Array.isArray(value)) {
+    return value.map((item) => safeRender(item)).join(", ");
+  }
+
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return "[Object]";
+  }
+};
+
 export function SavedJobsPage() {
   const { user, isAuthenticated } = useAuth();
   const { savedJobIds, isLoading, refreshSavedJobs, savedJobsCount } =
@@ -70,13 +124,16 @@ export function SavedJobsPage() {
       const allJobs = await jobService.getPublicJobs("Open");
       const allCompanies = await jobService.getAllCompanies();
 
-      // Filter jobs to only include saved ones
-      const savedJobs = allJobs.filter((job) => savedJobIds.includes(job.id));
+      // Filter jobs to only include saved ones and clean the data
+      const savedJobs = allJobs
+        .filter((job) => savedJobIds.includes(job.id))
+        .map((job) => deepCleanNetObjects(job));
 
-      // Create companies map
+      // Create companies map and clean the company data
       const companiesMap = new Map<string, ApiCompany>();
       allCompanies.forEach((company) => {
-        companiesMap.set(company.id, company);
+        const cleanedCompany = deepCleanNetObjects(company);
+        companiesMap.set(cleanedCompany.id, cleanedCompany);
       });
 
       setJobs(savedJobs);
@@ -96,6 +153,62 @@ export function SavedJobsPage() {
     loadSavedJobs();
   }, [savedJobIds]);
 
+  // Get unique filter options from job data
+  const filterOptions = useMemo(() => {
+    const employmentTypes = [
+      ...new Set(
+        jobs.map((job) => safeRender(job.employmentType)).filter(Boolean)
+      ),
+    ];
+    const locationTypes = [
+      ...new Set(
+        jobs.map((job) => safeRender(job.locationType)).filter(Boolean)
+      ),
+    ];
+
+    // Generate experience levels based on job data
+    const experienceLevels = new Set<string>();
+    jobs.forEach((job) => {
+      const seniorityLevel = safeRender(job.seniorityLevel).toLowerCase();
+      const minYears = Number(safeRender(job.experienceYearsMin)) || 0;
+
+      if (minYears <= 2 || seniorityLevel === "junior") {
+        experienceLevels.add("Entry Level");
+      } else if (minYears <= 5 || seniorityLevel === "mid") {
+        experienceLevels.add("Mid Level");
+      } else if (seniorityLevel === "senior" || minYears > 5) {
+        experienceLevels.add("Senior Level");
+      } else if (seniorityLevel === "executive" || seniorityLevel === "lead") {
+        experienceLevels.add("Executive");
+      } else {
+        experienceLevels.add("Entry Level");
+      }
+    });
+
+    const result = {
+      employmentTypes: employmentTypes.sort(),
+      locationTypes: locationTypes.sort(),
+      experienceLevels: Array.from(experienceLevels).sort(),
+    };
+
+    // Debug: Log the available filter options safely
+    if (jobs.length > 0) {
+      console.log("🔍 Available filter options:", result);
+      // Only log essential job data safely
+      const sampleJob = jobs[0];
+      console.log("📊 Sample job data for debugging:", {
+        id: safeRender(sampleJob.id),
+        title: safeRender(sampleJob.title),
+        employmentType: safeRender(sampleJob.employmentType),
+        locationType: safeRender(sampleJob.locationType),
+        seniorityLevel: safeRender(sampleJob.seniorityLevel),
+        experienceYearsMin: safeRender(sampleJob.experienceYearsMin),
+      });
+    }
+
+    return result;
+  }, [jobs]);
+
   // Filter and sort jobs
   const filteredAndSortedJobs = useMemo(() => {
     let filtered = [...jobs];
@@ -106,9 +219,9 @@ export function SavedJobsPage() {
       filtered = filtered.filter((job) => {
         const company = companies.get(job.companyId);
         return (
-          job.title.toLowerCase().includes(query) ||
-          company?.name?.toLowerCase().includes(query) ||
-          job.description?.toLowerCase().includes(query)
+          safeRender(job.title).toLowerCase().includes(query) ||
+          safeRender(company?.name).toLowerCase().includes(query) ||
+          safeRender(job.description).toLowerCase().includes(query)
         );
       });
     }
@@ -116,14 +229,40 @@ export function SavedJobsPage() {
     // Apply other filters
     if (filters.type.length > 0) {
       filtered = filtered.filter((job) =>
-        filters.type.includes(job.employmentType || "")
+        filters.type.includes(safeRender(job.employmentType))
       );
     }
 
     if (filters.locationType.length > 0) {
       filtered = filtered.filter((job) =>
-        filters.locationType.includes(job.locationType || "")
+        filters.locationType.includes(safeRender(job.locationType))
       );
+    }
+
+    if (filters.experience.length > 0) {
+      filtered = filtered.filter((job) => {
+        // Map job seniority level to our experience categories
+        const seniorityLevel = safeRender(job.seniorityLevel).toLowerCase();
+        const minYears = Number(safeRender(job.experienceYearsMin)) || 0;
+
+        let experienceCategory = "";
+        if (minYears <= 2 || seniorityLevel === "junior") {
+          experienceCategory = "Entry Level";
+        } else if (minYears <= 5 || seniorityLevel === "mid") {
+          experienceCategory = "Mid Level";
+        } else if (seniorityLevel === "senior" || minYears > 5) {
+          experienceCategory = "Senior Level";
+        } else if (
+          seniorityLevel === "executive" ||
+          seniorityLevel === "lead"
+        ) {
+          experienceCategory = "Executive";
+        } else {
+          experienceCategory = "Entry Level"; // Default fallback
+        }
+
+        return filters.experience.includes(experienceCategory);
+      });
     }
 
     // Apply sorting
@@ -325,11 +464,11 @@ export function SavedJobsPage() {
               {/* Filter Options */}
               <div className="space-y-6">
                 {/* Job Type Filter */}
-                <div className="border-b border-gray-200 pb-4">
-                  <h4 className="font-medium text-gray-900 mb-3">Job Type</h4>
-                  <div className="space-y-2">
-                    {["Full-time", "Part-time", "Contract", "Internship"].map(
-                      (type) => (
+                {filterOptions.employmentTypes.length > 0 && (
+                  <div className="border-b border-gray-200 pb-4">
+                    <h4 className="font-medium text-gray-900 mb-3">Job Type</h4>
+                    <div className="space-y-2">
+                      {filterOptions.employmentTypes.map((type) => (
                         <label key={type} className="flex items-center">
                           <input
                             type="checkbox"
@@ -343,65 +482,70 @@ export function SavedJobsPage() {
                             {type}
                           </span>
                         </label>
-                      )
-                    )}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Work Style Filter */}
-                <div className="border-b border-gray-200 pb-4">
-                  <h4 className="font-medium text-gray-900 mb-3">Work Style</h4>
-                  <div className="space-y-2">
-                    {["Remote", "On-site", "Hybrid"].map((style) => (
-                      <label key={style} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          checked={filters.locationType.includes(style)}
-                          onChange={(e) =>
-                            updateFilter(
-                              "locationType",
-                              style,
-                              e.target.checked
-                            )
-                          }
-                        />
-                        <span className="ml-3 text-sm text-gray-700">
-                          {style}
-                        </span>
-                      </label>
-                    ))}
+                {filterOptions.locationTypes.length > 0 && (
+                  <div className="border-b border-gray-200 pb-4">
+                    <h4 className="font-medium text-gray-900 mb-3">
+                      Work Style
+                    </h4>
+                    <div className="space-y-2">
+                      {filterOptions.locationTypes.map((style) => (
+                        <label key={style} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            checked={filters.locationType.includes(style)}
+                            onChange={(e) =>
+                              updateFilter(
+                                "locationType",
+                                style,
+                                e.target.checked
+                              )
+                            }
+                          />
+                          <span className="ml-3 text-sm text-gray-700">
+                            {style}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Experience Level Filter */}
-                <div className="border-b border-gray-200 pb-4">
-                  <h4 className="font-medium text-gray-900 mb-3">
-                    Experience Level
-                  </h4>
-                  <div className="space-y-2">
-                    {[
-                      "Entry Level",
-                      "Mid Level",
-                      "Senior Level",
-                      "Executive",
-                    ].map((level) => (
-                      <label key={level} className="flex items-center">
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                          checked={filters.experience.includes(level)}
-                          onChange={(e) =>
-                            updateFilter("experience", level, e.target.checked)
-                          }
-                        />
-                        <span className="ml-3 text-sm text-gray-700">
-                          {level}
-                        </span>
-                      </label>
-                    ))}
+                {filterOptions.experienceLevels.length > 0 && (
+                  <div className="border-b border-gray-200 pb-4">
+                    <h4 className="font-medium text-gray-900 mb-3">
+                      Experience Level
+                    </h4>
+                    <div className="space-y-2">
+                      {filterOptions.experienceLevels.map((level) => (
+                        <label key={level} className="flex items-center">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                            checked={filters.experience.includes(level)}
+                            onChange={(e) =>
+                              updateFilter(
+                                "experience",
+                                level,
+                                e.target.checked
+                              )
+                            }
+                          />
+                          <span className="ml-3 text-sm text-gray-700">
+                            {level}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           </div>
