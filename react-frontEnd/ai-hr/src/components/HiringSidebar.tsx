@@ -91,48 +91,50 @@ export function HiringSidebar() {
       >
         <div className="flex flex-col h-full">
           {/* Header */}
-          <div
-            className={`flex items-center px-4 py-5 border-b border-gray-200 ${
-              isCollapsed ? "lg:justify-center" : "justify-between"
-            }`}
-          >
-            <Link
-              href="/"
-              prefetch={false}
-              className="flex items-center"
-              title={
-                isCollapsed ? "AutoHire Dashboard" : "AutoHire Dashboard"
-              }
+          <div className="relative">
+            <div
+              className={`flex items-center py-5 ${isCollapsed ? "lg:justify-center" : "justify-between"} ${isCollapsed ? "px-4" : "px-4"}`}
             >
-              <div
-                className={`flex items-center justify-center h-8 w-8 rounded ${
-                  isCollapsed ? "" : "bg-indigo-600"
-                }`}
+              <Link
+                href="/"
+                prefetch={false}
+                className="flex items-center"
+                title={
+                  isCollapsed ? "AutoHire Dashboard" : "AutoHire Dashboard"
+                }
               >
-                <Building
-                  className={`h-6 w-6 ${
-                    isCollapsed ? "text-indigo-600" : "text-white"
+                <div
+                  className={`flex items-center justify-center h-8 w-8 rounded ${
+                    isCollapsed ? "" : "bg-indigo-600"
                   }`}
-                />
-              </div>
-              <span
-                className={`ml-2 text-lg font-semibold text-gray-900 ${
-                  isCollapsed ? "lg:hidden" : ""
-                }`}
-              >
-                AutoHire
-              </span>
-            </Link>
-            {isOpen && (
-              <button
-                type="button"
-                className="lg:hidden p-1 rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
-                onClick={() => setIsOpen(false)}
-              >
-                <span className="sr-only">Close sidebar</span>
-                <X className="h-6 w-6" />
-              </button>
-            )}
+                >
+                  <Building
+                    className={`h-6 w-6 ${
+                      isCollapsed ? "text-indigo-600" : "text-white"
+                    }`}
+                  />
+                </div>
+                <span
+                  className={`ml-2 text-lg font-semibold text-gray-900 ${
+                    isCollapsed ? "lg:hidden" : ""
+                  }`}
+                >
+                  AutoHire
+                </span>
+              </Link>
+              {isOpen && (
+                <button
+                  type="button"
+                  className="lg:hidden p-1 rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+                  onClick={() => setIsOpen(false)}
+                >
+                  <span className="sr-only">Close sidebar</span>
+                  <X className="h-6 w-6" />
+                </button>
+              )}
+            </div>
+            {/* Custom divider */}
+            <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-200" />
           </div>
 
           {/* Navigation */}

@@ -108,8 +108,9 @@ export default function HiringDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      
       {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl p-6 mb-8 text-white">
+      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl  p-6 mb-8 text-white">
         <div className="flex items-center space-x-4">
           <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
             <span className="text-white text-xl font-bold">
