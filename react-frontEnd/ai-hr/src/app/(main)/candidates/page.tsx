@@ -12,12 +12,12 @@ import { CandidateWithJobDetails } from "@/interfaces";
 import { candidateService } from "@/services/candidateService";
 import {
   Briefcase,
+  ChevronLeft,
+  ChevronRight,
   FileText,
   Plus,
   Search,
   Users,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -616,7 +616,6 @@ function CandidatesPage() {
     }
   };
 
-  // FIXED: Save note using applicationId as key
   const handleSaveNote = async (candidateId: string, note: string) => {
     try {
       // Find candidate by the passed candidateId (which should be applicationId)
@@ -628,24 +627,41 @@ function CandidatesPage() {
 
       console.log("💾 Saving note to database for application:", candidateId);
 
-      // Save to backend database using applicationId
-      await candidateService.saveCandidateNote(candidateId, note);
+      // Save to backend database using applicationId and get timestamps back
+      const timestamps = await candidateService.saveCandidateNote(
+        candidateId,
+        note
+      );
 
-      // FIXED: Update local state using applicationId as key
       const newNotes = {
         ...candidateNotes,
         [candidateId]: note, // Use applicationId consistently
       };
       setCandidateNotes(newNotes);
 
-      console.log("✅ Note saved successfully to database");
+      setCandidates((prevCandidates) =>
+        prevCandidates.map((c) => {
+          if (c.applicationId === candidateId) {
+            return {
+              ...c,
+              hiringNotes: note,
+              notesCreatedAt: timestamps.notesCreatedAt,
+              notesUpdatedAt: timestamps.notesUpdatedAt,
+            };
+          }
+          return c;
+        })
+      );
+
+      console.log(
+        "✅ Note saved successfully to database and local state updated with timestamps"
+      );
     } catch (error) {
       console.error("❌ Failed to save note:", error);
       alert("Failed to save note. Please try again.");
     }
   };
 
-  // FIXED: Delete note using applicationId
   const handleDeleteNote = async (candidateId: string) => {
     try {
       console.log(
@@ -668,7 +684,6 @@ function CandidatesPage() {
     }
   };
 
-  // FIXED: Handle edit note modal using applicationId
   const handleEditNote = (candidate: CandidateWithJobDetails) => {
     setEditingCandidate(candidate);
     setIsNotesModalOpen(true);
@@ -679,16 +694,10 @@ function CandidatesPage() {
     setEditingCandidate(null);
   };
 
-  // FIXED: Save note from modal using applicationId
   const handleSaveNoteFromModal = async (candidateId: string, note: string) => {
+    // candidateId here is actually applicationId passed from the modal
     await handleSaveNote(candidateId, note);
-    // Refresh candidates to get updated timestamps
-    const response = await candidateService.getCandidatesForCompany();
-    setCandidates(response.candidates);
-
-    // FIXED: Update notes state using applicationId
-    const newNotes = { ...candidateNotes, [candidateId]: note };
-    setCandidateNotes(newNotes);
+    // No need to manually refresh - handleSaveNote now updates local state with timestamps immediately
   };
 
   const handleCreateJob = () => {

@@ -1,4 +1,5 @@
 import { Candidate } from "@/interfaces";
+import { formatTimestampDetailed } from "@/utils/timezoneUtils";
 import { Edit, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -252,10 +253,33 @@ export function CandidateDetail({
                         {currentNote}
                       </p>
                     </div>
+                    {/* FIXED: Show actual timestamps using timezone utility */}
                     <div className="flex items-center text-xs text-gray-500">
                       <span>{currentNote.length} characters</span>
                       <span className="mx-2">•</span>
-                      <span>Last updated 2 days ago</span>
+                      <span>
+                        {(() => {
+                          const notesUpdatedAt = (candidate as any)
+                            .notesUpdatedAt;
+                          const notesCreatedAt = (candidate as any)
+                            .notesCreatedAt;
+
+                          if (
+                            notesUpdatedAt &&
+                            notesUpdatedAt !== notesCreatedAt
+                          ) {
+                            return `Updated ${formatTimestampDetailed(
+                              notesUpdatedAt
+                            )}`;
+                          } else if (notesCreatedAt) {
+                            return `Created ${formatTimestampDetailed(
+                              notesCreatedAt
+                            )}`;
+                          } else {
+                            return "No timestamp available";
+                          }
+                        })()}
+                      </span>
                     </div>
                   </div>
                 ) : (

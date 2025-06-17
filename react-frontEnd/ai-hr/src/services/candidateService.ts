@@ -1,7 +1,6 @@
 import {
   CandidateWithJobDetails,
   CandidatesResponse,
-  SaveNoteRequest,
 } from "@/interfaces/index";
 
 class CandidateService {
@@ -169,6 +168,7 @@ class CandidateService {
       throw error;
     }
   }
+
   // Update candidate status (approve/decline)
   async updateCandidateStatus(
     applicationId: string,
@@ -220,7 +220,14 @@ class CandidateService {
     }
   }
 
-  async saveCandidateNote(applicationId: string, note: string): Promise<void> {
+  // UPDATED: Save candidate note with proper timestamp handling and return timestamps
+  async saveCandidateNote(
+    applicationId: string,
+    note: string
+  ): Promise<{
+    notesCreatedAt?: string;
+    notesUpdatedAt?: string;
+  }> {
     const { token, userCategory } = this.getAuthData();
 
     if (!token) {
@@ -234,8 +241,8 @@ class CandidateService {
     console.log("📤 Saving candidate note to database:", applicationId);
 
     try {
-      const requestBody: SaveNoteRequest = {
-        notes: note,
+      const requestBody = {
+        notes: note, // Save the note as-is, let backend handle timestamps
       };
 
       const response = await fetch(
@@ -254,13 +261,19 @@ class CandidateService {
 
       const result = await response.json();
       console.log("✅ Candidate note saved to database successfully:", result);
+
+      // Return the timestamps from the backend response
+      return {
+        notesCreatedAt: result.notesCreatedAt,
+        notesUpdatedAt: result.notesUpdatedAt,
+      };
     } catch (error) {
       console.error("❌ Failed to save candidate note:", error);
       throw error;
     }
   }
 
-  // New: Delete candidate note from database
+  // Delete candidate note from database
   async deleteCandidateNote(applicationId: string): Promise<void> {
     const { token, userCategory } = this.getAuthData();
 
@@ -294,6 +307,7 @@ class CandidateService {
       throw error;
     }
   }
+
   // Get current user info
   getCurrentUser() {
     return this.getAuthData();
