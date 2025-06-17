@@ -2,7 +2,8 @@
   "dependencies": ["."],
   "graphs": {
     "job_description_generator": "./src/job_description_generator/graph.py:graph",
-    "business_context_analyzer": "./src/business_context_analyzer/graph.py:graph"
+    "business_context_analyzer": "./src/business_context_analyzer/graph.py:graph",
+    "resume_ranker": "./src/resume_ranker/graph.py:graph"
   },
   "env": "./.env"
 }
