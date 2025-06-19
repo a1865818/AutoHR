@@ -1,7 +1,7 @@
 // hooks/useJobs.ts
 import { ApiCompany, ApiJob, JobFormData } from "@/interfaces";
 import { jobService } from "@/services/jobService";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface UseJobsReturn {
   jobs: ApiJob[];
@@ -205,6 +205,87 @@ export function useJob(jobId: string): UseJobReturn {
   };
 }
 
+export function useApplicantJob(jobId: string): UseJobReturn {
+  const [job, setJob] = useState<ApiJob | null>(null);
+  const [company, setCompany] = useState<ApiCompany | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Add request deduplication
+  const requestInProgress = useRef<boolean>(false);
+  const lastJobId = useRef<string | null>(null);
+
+  const loadJob = useCallback(async () => {
+    if (!jobId) return;
+
+    // Prevent duplicate requests for the same job
+    if (requestInProgress.current && lastJobId.current === jobId) {
+      console.log(
+        `🚫 Request already in progress for applicant job ${jobId}, skipping`
+      );
+      return;
+    }
+
+    // Mark request as in progress
+    requestInProgress.current = true;
+    lastJobId.current = jobId;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log("👤 Loading applicant job data for ID:", jobId);
+      console.log(`👤 Request timestamp: ${new Date().toISOString()}`);
+
+      // Use the new applicant-specific endpoint
+      const jobData = await jobService.getApplicantJobById(jobId);
+      setJob(jobData);
+
+      // Load company data if available
+      if (jobData.companyId) {
+        try {
+          const companyData = await jobService.getCompanyById(
+            jobData.companyId
+          );
+          setCompany(companyData);
+        } catch (error) {
+          console.warn("Could not load company data:", error);
+        }
+      }
+    } catch (error) {
+      console.error("Error loading applicant job:", error);
+      setError(error instanceof Error ? error.message : "Failed to load job");
+    } finally {
+      setIsLoading(false);
+      requestInProgress.current = false;
+    }
+  }, [jobId]);
+
+  const refreshJob = useCallback(async () => {
+    // For refresh, allow duplicate requests
+    requestInProgress.current = false;
+    await loadJob();
+  }, [loadJob]);
+
+  // For applicant jobs, we don't allow updates
+  const updateJob = useCallback(async () => {
+    throw new Error("Cannot update jobs in applicant view");
+  }, []);
+
+  useEffect(() => {
+    loadJob();
+  }, [loadJob]);
+
+  return {
+    job,
+    company,
+    isLoading,
+    error,
+    refreshJob,
+    updateJob,
+  };
+}
+
 // Public hook for applicants to view jobs without authentication
 export function usePublicJob(jobId: string): UseJobReturn {
   const [job, setJob] = useState<ApiJob | null>(null);
@@ -212,14 +293,30 @@ export function usePublicJob(jobId: string): UseJobReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 🔥 Add request deduplication
+  const requestInProgress = useRef<boolean>(false);
+  const lastJobId = useRef<string | null>(null);
+
   const loadJob = useCallback(async () => {
     if (!jobId) return;
+
+    // Prevent duplicate requests for the same job
+    if (requestInProgress.current && lastJobId.current === jobId) {
+      console.log(`🚫 Request already in progress for job ${jobId}, skipping`);
+      return;
+    }
+
+    // Mark request as in progress
+    requestInProgress.current = true;
+    lastJobId.current = jobId;
 
     setIsLoading(true);
     setError(null);
 
     try {
       console.log("🌍 Loading public job data for ID:", jobId);
+      console.log(`🌍 Request timestamp: ${new Date().toISOString()}`);
+
       const jobData = await jobService.getPublicJobById(jobId);
       setJob(jobData);
 
@@ -240,20 +337,20 @@ export function usePublicJob(jobId: string): UseJobReturn {
       setError(error instanceof Error ? error.message : "Failed to load job");
     } finally {
       setIsLoading(false);
+      requestInProgress.current = false; // Reset flag when done
     }
   }, [jobId]);
 
   const refreshJob = useCallback(async () => {
+    // For refresh, allow duplicate requests
+    requestInProgress.current = false;
     await loadJob();
   }, [loadJob]);
 
   // For public jobs, we don't allow updates
-  const updateJob = useCallback(
-    async () => {
-      throw new Error("Cannot update jobs in public view");
-    },
-    []
-  );
+  const updateJob = useCallback(async () => {
+    throw new Error("Cannot update jobs in public view");
+  }, []);
 
   useEffect(() => {
     loadJob();

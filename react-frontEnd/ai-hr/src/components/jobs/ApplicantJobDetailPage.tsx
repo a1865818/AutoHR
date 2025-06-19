@@ -1,7 +1,7 @@
 "use client";
 
-import { usePublicJob } from "@/hooks/useJobs";
 import { useAuth } from "@/contexts/AuthContext";
+import { useApplicantJob } from "@/hooks/useJobs";
 import { ApiJob } from "@/interfaces";
 import {
   AlertCircle,
@@ -12,7 +12,6 @@ import {
   CheckCircle,
   Clock,
   DollarSign,
-  ExternalLink,
   Loader2,
   MapPin,
   Send,
@@ -21,14 +20,13 @@ import {
   XCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
 
 interface ApplicantJobDetailPageProps {
   jobId: string;
 }
 
 export function ApplicantJobDetailPage({ jobId }: ApplicantJobDetailPageProps) {
-  const { job, company, isLoading, error, refreshJob } = usePublicJob(jobId);
+  const { job, company, isLoading, error, refreshJob } = useApplicantJob(jobId);
   const { user } = useAuth();
 
   // Enhanced safe rendering function to handle .NET objects with ValueKind
@@ -570,7 +568,7 @@ export function ApplicantJobDetailPage({ jobId }: ApplicantJobDetailPageProps) {
                     {job.postedDate || job.createdAt
                       ? (() => {
                           try {
-                            let dateValue = job.postedDate || job.createdAt;
+                            const dateValue = job.postedDate || job.createdAt;
                             let dateStr: string;
 
                             if (

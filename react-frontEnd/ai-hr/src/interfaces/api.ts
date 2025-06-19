@@ -107,7 +107,7 @@ export interface ApplicationUserRegisterRequestEnhanced {
   firstName: string;
   lastName: string;
   userType: "application";
-} 
+}
 //Job API interfaces
 
 // API Response types based on your backend models
@@ -133,13 +133,51 @@ export interface ApiJob {
   applicationDeadline?: string;
   status: string;
   applicantCount: number;
-  viewCount: number;
+  viewCount?: number;
   aiGeneratedDescription: boolean;
   skillMatchThreshold: number;
   postedDate?: string;
   closedDate?: string;
   createdAt: string;
   interviewTemplateId?: string;
+}
+
+// Add new interfaces for view tracking API responses
+export interface JobViewTrackingResponse {
+  success: boolean;
+  message: string;
+  viewRecorded: boolean;
+  totalViews: number;
+}
+
+export interface JobAnalyticsResponse {
+  jobId: string;
+  jobTitle: string;
+  totalViews: number;
+  uniqueViewers: number;
+  viewsByUserType: {
+    HiringUser: number;
+    ApplicationUser: number;
+    Anonymous: number;
+  };
+  viewsByDate: Record<string, number>;
+  recentViews: Array<{
+    viewedAt: string;
+    userType: string;
+    ipAddress: string;
+    userAgent: string;
+  }>;
+  applicantCount: number;
+  applicationRate: number;
+  postedDate: string;
+}
+
+export interface FixViewCountsResponse {
+  message: string;
+  totalJobs: number;
+  updatedJobs: number;
+  errors: number;
+  success: boolean;
 }
 
 export interface ApiCompany {
@@ -303,4 +341,3 @@ export interface ApiErrorResponse {
   error: string;
   details?: string;
 }
-

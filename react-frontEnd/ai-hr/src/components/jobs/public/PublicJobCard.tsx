@@ -1,22 +1,28 @@
 "use client";
 
-import { ApiJob, ApiCompany } from "@/interfaces";
+import { ApiCompany, ApiJob } from "@/interfaces";
 import {
-  MapPin,
   Briefcase,
-  DollarSign,
-  Clock,
   Building2,
+  Clock,
   ExternalLink,
+  Eye,
+  MapPin, // Add Eye icon for view count
+  Users,
 } from "lucide-react";
 import Link from "next/link";
 
 interface PublicJobCardProps {
   job: ApiJob;
   company?: ApiCompany;
+  showViewCount?: boolean; // Whether to show view count
 }
 
-export function PublicJobCard({ job, company }: PublicJobCardProps) {
+export function PublicJobCard({
+  job,
+  company,
+  showViewCount = true,
+}: PublicJobCardProps) {
   const formatSalary = (job: ApiJob) => {
     if (job.salaryMin && job.salaryMax) {
       return `${
@@ -64,6 +70,24 @@ export function PublicJobCard({ job, company }: PublicJobCardProps) {
     if (diffDays <= 30) return `${Math.ceil(diffDays / 7)} weeks ago`;
     return `${Math.ceil(diffDays / 30)} months ago`;
   };
+
+  const formatViewCount = (count?: number): string => {
+    if (!count || count === 0) return "No views yet";
+    if (count === 1) return "1 view";
+    if (count < 1000) return `${count} views`;
+    if (count < 1000000) return `${(count / 1000).toFixed(1)}k views`;
+    return `${(count / 1000000).toFixed(1)}M views`;
+  };
+
+  const formatApplicantCount = (count?: number): string => {
+    if (!count || count === 0) return "No applicants yet";
+    if (count === 1) return "1 applicant";
+    return `${count} applicants`;
+  };
+
+  // Extract view count from job data
+  const viewCount = job.viewCount || (job as any).ViewCount || 0;
+  const applicantCount = job.applicantCount || (job as any).ApplicantCount || 0;
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-md transition-shadow">
@@ -120,6 +144,34 @@ export function PublicJobCard({ job, company }: PublicJobCardProps) {
               </span>
             )}
           </div>
+
+          {/* View Count and Applicant Count */}
+          {(showViewCount || applicantCount > 0) && (
+            <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
+              {/* View Count */}
+              {showViewCount && viewCount > 0 && (
+                <div className="flex items-center">
+                  <Eye className="h-4 w-4 mr-1" />
+                  <span>{formatViewCount(viewCount)}</span>
+                </div>
+              )}
+
+              {/* Applicant Count */}
+              {applicantCount > 0 && (
+                <div className="flex items-center">
+                  <Users className="h-4 w-4 mr-1" />
+                  <span>{formatApplicantCount(applicantCount)}</span>
+                </div>
+              )}
+
+              {/* Trending indicator for popular jobs */}
+              {viewCount > 100 && (
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                  🔥 Popular
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Right Side - Salary and Actions */}
@@ -128,12 +180,16 @@ export function PublicJobCard({ job, company }: PublicJobCardProps) {
             <div className="text-lg font-semibold text-green-600">
               {formatSalary(job)}
             </div>
-            {job.applicantCount !== undefined && (
-              <div className="text-sm text-gray-500">
-                {job.applicantCount} applicant
-                {job.applicantCount !== 1 ? "s" : ""}
-              </div>
-            )}
+
+            {/* Show basic stats for motivation */}
+            <div className="text-sm text-gray-500 mt-1">
+              {applicantCount > 0 && (
+                <div>{formatApplicantCount(applicantCount)}</div>
+              )}
+              {showViewCount && viewCount > 0 && (
+                <div>{formatViewCount(viewCount)}</div>
+              )}
+            </div>
           </div>
 
           {/* Action Buttons */}
@@ -154,6 +210,29 @@ export function PublicJobCard({ job, company }: PublicJobCardProps) {
           </div>
         </div>
       </div>
+
+      {/* Additional engagement indicators for popular jobs */}
+      {(viewCount > 50 || applicantCount > 10) && (
+        <div className="mt-4 pt-4 border-t border-gray-100">
+          <div className="flex items-center justify-between text-xs text-gray-500">
+            <span>High interest position</span>
+            <div className="flex items-center space-x-4">
+              {viewCount > 50 && (
+                <span className="flex items-center">
+                  <Eye className="h-3 w-3 mr-1" />
+                  {viewCount > 1000 ? "Very popular" : "Popular"}
+                </span>
+              )}
+              {applicantCount > 10 && (
+                <span className="flex items-center">
+                  <Users className="h-3 w-3 mr-1" />
+                  {applicantCount > 50 ? "Competitive" : "Active"}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

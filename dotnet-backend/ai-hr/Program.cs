@@ -63,6 +63,19 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
 builder.Services.AddScoped<IHiringUserProfileAuthenticationService, HiringUserProfileAuthenticationService>();
 builder.Services.AddScoped<ISavedJobsService, SavedJobsService>();
+builder.Services.AddScoped<IJobViewTrackingService, JobViewTrackingService>();
+
+
+//Enable session support for user tracking
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromHours(24); // Session timeout
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+    //options.Cookie.SameSite = SameSiteMode.Lax;
+});
+
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -150,9 +163,14 @@ if (urls.Contains("https://") && !app.Environment.IsDevelopment())
     app.UseHttpsRedirection();
 }
 
+app.UseRouting();
+
+
 // Add authentication and authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseSession();
+
 
 // Map endpoints by resource type
 app.MapUserEndpoints();

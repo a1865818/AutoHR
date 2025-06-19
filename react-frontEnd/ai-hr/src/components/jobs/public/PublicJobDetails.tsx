@@ -1,21 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useJobViewTracking } from "@/hooks/useJobViewTracking";
+import { ApiCompany, ApiJob } from "@/interfaces";
+import { publicJobService } from "@/services/publicJobService";
 import {
   ArrowLeft,
-  MapPin,
   Briefcase,
-  DollarSign,
-  Clock,
-  Calendar,
   Building2,
-  Users,
+  Calendar,
+  Clock,
+  DollarSign,
+  MapPin,
   Share2,
-  ExternalLink,
+  Users,
 } from "lucide-react";
-import { ApiJob, ApiCompany } from "@/interfaces";
-import { publicJobService } from "@/services/publicJobService";
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
 interface PublicJobDetailsProps {
   jobId: string;
@@ -26,6 +26,23 @@ export function PublicJobDetails({ jobId }: PublicJobDetailsProps) {
   const [error, setError] = useState<string | null>(null);
   const [job, setJob] = useState<ApiJob | null>(null);
   const [company, setCompany] = useState<ApiCompany | null>(null);
+
+  // Add view tracking for public job views
+  const { isTracking, hasTracked } = useJobViewTracking(jobId, {
+    enabled: true,
+    delay: 2000,
+  });
+
+  // Log view tracking status for debugging
+  useEffect(() => {
+    if (jobId) {
+      console.log(`🌍 Public view tracking status for job ${jobId}:`, {
+        isTracking,
+        hasTracked,
+        jobTitle: job?.title,
+      });
+    }
+  }, [jobId, isTracking, hasTracked, job?.title]);
 
   useEffect(() => {
     loadJobDetails();
@@ -247,6 +264,14 @@ export function PublicJobDetails({ jobId }: PublicJobDetailsProps) {
                   <Clock className="h-4 w-4 mr-2" />
                   <span>{formatExperience(job.experienceYearsMin)}</span>
                 </div>
+                {/* add view tracking count
+                {isTracking && (
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium">
+                      Viewed {job.viewCount} times
+                    </span>
+                  </div>
+                )} */}
               </div>
 
               {/* Tags */}
@@ -423,6 +448,7 @@ export function PublicJobDetails({ jobId }: PublicJobDetailsProps) {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Job Details
               </h3>
+
               <div className="space-y-3">
                 <div className="flex items-center text-sm">
                   <Calendar className="h-4 w-4 mr-3 text-gray-400" />

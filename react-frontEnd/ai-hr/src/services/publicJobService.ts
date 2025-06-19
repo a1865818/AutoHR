@@ -1,8 +1,39 @@
-import { ApiJob, ApiCompany } from "@/interfaces";
+import { ApiCompany, ApiJob } from "@/interfaces";
+import { sessionManager } from "@/utils/sessionManager";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5189";
 
 class PublicJobService {
+  private getAuthToken(): string | null {
+    if (typeof window !== "undefined") {
+      return (
+        localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
+      );
+    }
+    return null;
+  }
+
+  private getHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+
+    const token = this.getAuthToken();
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+      console.log("🔑 Adding auth token to public job request");
+    } else {
+      console.log("👤 No auth token found - anonymous request");
+
+      // For anonymous users, add consistent session ID
+      const sessionId = sessionManager.getOrCreateSessionId();
+      headers["X-Session-ID"] = sessionId;
+      console.log(`📱 Adding session ID header: ${sessionId}`);
+    }
+
+    return headers;
+  }
+
   // Get all public jobs (no authentication required)
   async getPublicJobs(filters?: {
     status?: string;
@@ -12,18 +43,20 @@ class PublicJobService {
     experience?: string;
   }): Promise<ApiJob[]> {
     try {
-      console.log("🌍 Fetching public jobs...");
-
+      console.log("🌍 FRONTEND: Fetching public jobs...");
       const params = new URLSearchParams();
       if (filters?.status) params.append("status", filters.status);
       if (filters?.companyId) params.append("companyId", filters.companyId);
 
       const response = await fetch(
-        `${API_BASE_URL}/public/jobs${params.toString() ? `?${params.toString()}` : ""}`,
+        `${API_BASE_URL}/public/jobs${
+          params.toString() ? `?${params.toString()}` : ""
+        }`,
         {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
+            ...this.getHeaders(), // 🔥 Use headers with optional auth
           },
         }
       );
@@ -33,10 +66,10 @@ class PublicJobService {
       }
 
       const jobs = await response.json();
-      console.log(`✅ Fetched ${jobs.length} public jobs`);
+      console.log(`✅ FRONTEND: Fetched ${jobs.length} public jobs`);
       return jobs;
     } catch (error) {
-      console.error("❌ Error fetching public jobs:", error);
+      console.error("❌ FRONTEND: Error fetching public jobs:", error);
       throw new Error("Failed to fetch public jobs");
     }
   }
@@ -48,9 +81,7 @@ class PublicJobService {
 
       const response = await fetch(`${API_BASE_URL}/public/jobs/${jobId}`, {
         method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: this.getHeaders(), // 🔥 Use headers with optional auth
       });
 
       if (!response.ok) {
@@ -78,6 +109,7 @@ class PublicJobService {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
+          ...this.getHeaders(), // 🔥 Use headers with optional auth
         },
       });
 
@@ -137,13 +169,13 @@ class PublicJobService {
       console.log(`🌍 Submitting guest application for job: ${jobId}`);
 
       const formData = new FormData();
-      
+
       // Add job ID
       formData.append("jobId", jobId);
-      
+
       // Add application type flag
       formData.append("isPublic", "true");
-      
+
       // Add personal info
       formData.append("firstName", applicationData.personalInfo.firstName);
       formData.append("lastName", applicationData.personalInfo.lastName);
@@ -152,31 +184,39 @@ class PublicJobService {
       formData.append("city", applicationData.personalInfo.city);
       formData.append("country", applicationData.personalInfo.country);
       formData.append("countryCode", applicationData.personalInfo.countryCode);
-      
+
       // Add resume file
       formData.append("resume", applicationData.resume);
-      
+
       // Add optional data
       if (applicationData.coverLetter) {
         formData.append("coverLetter", applicationData.coverLetter);
       }
-      
+
       if (applicationData.experience && applicationData.experience.length > 0) {
-        formData.append("experience", JSON.stringify(applicationData.experience));
+        formData.append(
+          "experience",
+          JSON.stringify(applicationData.experience)
+        );
       }
-      
+
       if (applicationData.education && applicationData.education.length > 0) {
         formData.append("education", JSON.stringify(applicationData.education));
       }
 
-      const response = await fetch(`${API_BASE_URL}/public/jobs/${jobId}/apply`, {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetch(
+        `${API_BASE_URL}/public/jobs/${jobId}/apply`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        );
       }
 
       const result = await response.json();
@@ -203,7 +243,9 @@ class PublicJobService {
       console.log(`🌍 Tracking guest application: ${applicationId}`);
 
       const response = await fetch(
-        `${API_BASE_URL}/public/applications/track?email=${encodeURIComponent(email)}&applicationId=${applicationId}`,
+        `${API_BASE_URL}/public/applications/track?email=${encodeURIComponent(
+          email
+        )}&applicationId=${applicationId}`,
         {
           method: "GET",
           headers: {
@@ -229,4 +271,4 @@ class PublicJobService {
   }
 }
 
-export const publicJobService = new PublicJobService(); 
+export const publicJobService = new PublicJobService();

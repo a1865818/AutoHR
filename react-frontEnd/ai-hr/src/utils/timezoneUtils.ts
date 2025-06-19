@@ -80,21 +80,21 @@ export const formatTimestamp = (
     // Use formatDistanceToNow directly with the UTC date
     const relativeTime = formatDistanceToNow(utcDate, { addSuffix: true });
 
-    // Debug info
-    if (showLocal) {
-      console.log("🕐 Timestamp Debug:", {
-        original: timestamp,
-        utcDate: utcDate.toISOString(),
-        utcTime: utcDate.getTime(),
-        nowTime: now.getTime(),
-        consistentNow: now.toISOString(),
-        diffMs: diffMs,
-        diffHours: diffMs / (1000 * 60 * 60),
-        relativeTime,
-        browserTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        needsAdjustment: diffMs < -3600000,
-      });
-    }
+    // // Debug info
+    // if (showLocal) {
+    //   console.log("🕐 Timestamp Debug:", {
+    //     original: timestamp,
+    //     utcDate: utcDate.toISOString(),
+    //     utcTime: utcDate.getTime(),
+    //     nowTime: now.getTime(),
+    //     consistentNow: now.toISOString(),
+    //     diffMs: diffMs,
+    //     diffHours: diffMs / (1000 * 60 * 60),
+    //     relativeTime,
+    //     browserTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    //     needsAdjustment: diffMs < -3600000,
+    //   });
+    // }
 
     return relativeTime;
   } catch (error) {

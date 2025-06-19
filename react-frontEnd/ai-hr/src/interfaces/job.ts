@@ -29,6 +29,7 @@ export interface Job {
   postedDate: string;
   status: "Draft" | "Active" | "Paused" | "Closed";
   applicants: number;
+  viewCount: number;
   //   urgency?: "Urgent" | "High Priority";
   createdBy: string;
   updatedAt: string;
@@ -63,6 +64,7 @@ export interface JobFormData {
     portfolioRequired?: boolean;
   };
   interviewTemplateId?: string;
+  viewCount?: number;
 }
 
 export interface JobFormErrors {
@@ -114,4 +116,34 @@ export interface CreateJobResponse {
 
 export interface JobData {
   [key: string]: unknown;
+  viewCount?: number;
+}
+
+// Add new interfaces for view tracking
+export interface JobViewStats {
+  totalViews: number;
+  viewsByUserType: Record<string, number>;
+  applicationRate: number;
+  recentViews: JobViewRecord[];
+  dailyViews: Record<string, number>;
+}
+
+export interface JobViewRecord {
+  viewedAt: string;
+  userType: "HiringUser" | "ApplicationUser" | "Anonymous";
+  ipAddress?: string;
+  userAgent?: string;
+}
+
+export interface JobAnalytics {
+  jobId: string;
+  jobTitle: string;
+  totalViews: number;
+  uniqueViewers: number;
+  viewsByUserType: Record<string, number>;
+  viewsByDate: Record<string, number>;
+  recentViews: JobViewRecord[];
+  applicantCount: number;
+  applicationRate: number;
+  postedDate: string;
 }
