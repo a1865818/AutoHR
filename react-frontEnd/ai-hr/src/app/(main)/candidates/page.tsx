@@ -9,9 +9,11 @@ import { NotesEditModal } from "@/components/candidates/NotesEditModal";
 import { NotesList } from "@/components/candidates/NotesList";
 import { RankingModal } from "@/components/candidates/RankingModal";
 import { RankingTab } from "@/components/candidates/RankingTab";
+
 import { useHiringAuth } from "@/hooks/useHiringAuth";
 import { CandidateWithJobDetails } from "@/interfaces";
 import { candidateService } from "@/services/candidateService";
+
 import {
   Briefcase,
   ChevronLeft,
