@@ -8,106 +8,118 @@ from langchain_core.messages import AIMessage
 from langgraph.graph import StateGraph, START, END
 
 from src.resume_ranker.configuration import Configuration
-from src.resume_ranker.resume_analysis_agent.skills_assessment.state import SkillsAssessmentState
-from src.resume_ranker.utils import load_chat_model
-import src.resume_ranker.prompts as prompts
+from src.resume_ranker.resume_analysis_agent.skills_assessment.state import (
+    SkillsAssessmentState,
+    SkillsAssessmentPlanning, 
+    SkillsAssessmentScores
+)
+from src.resume_ranker.utils import load_chat_model, ConfigManager
+from src.resume_ranker.resume_analysis_agent.prompts import skills_assessment
 
 logger = logging.getLogger(__file__.split("langgraph_server")[1])
 
-# JSON schema for structured output
-score_schema = {
-    "type": "object",
-    "additionalProperties": {
-        "type": "number",
-        "minimum": 1,
-        "maximum": 5
-    },
-    "properties": {
-        "justification": {"type": "string"}
-    },
-    "required": ["justification"]
-}
+# Load configuration
+config_manager = ConfigManager("src/configs/gpt_4.1_nano.json")
+configuration = Configuration.from_runnable_config(config_manager.get("resume_ranker"))
 
-async def analyze_skills(state: SkillsAssessmentState) -> Dict[str, Any]:
-    """Analyze the technical and soft skills in the resume.
+async def plan_skills_assessment_analysis(state: SkillsAssessmentState) -> Dict[str, Any]:
+    """Plan and analyze skills using a normal chat model.
     
-    This node identifies skills, assesses proficiency levels, evaluates skill currency and relevance,
-    and matches skills against job requirements.
+    This node performs comprehensive skills analysis and planning without structured output constraints.
     """
-    # Load model based on configuration
-    skills_model = load_chat_model(
-        state.model, 
-        state.provider, 
-        state.scoring_temperature, 
-        state.max_retries
-    ).with_structured_output(score_schema)
+    # Use config-loaded model for planning phase
+    planning_model = load_chat_model(
+        configuration.model, 
+        configuration.provider, 
+        configuration.temperature, 
+        configuration.max_retries
+    )
     
     # Get the resume text
     resume_text = state.current_resume.get("content", "")
     
     # Convert criteria to JSON for the prompt
     criteria_json = json.dumps(state.evaluation_criteria, indent=2)
-    
-    # Format the prompt
-    prompt = prompts.SKILLS_ASSESSMENT_PROMPT_TEMPLATE.format(
-        resume_text=resume_text,
-        criteria_json=criteria_json
-    )
-    
+
     # Get the model's response
-    response = await skills_model.ainvoke(
+    response = await planning_model.ainvoke(
         [
-            {"role": "system", "content": prompts.SKILLS_ASSESSMENT_SYSTEM_PROMPT},
-            {"role": "user", "content": prompt}
+            {"role": "system", "content": skills_assessment.SKILLS_ASSESSMENT_PLANNING_SYSTEM_PROMPT},
+            {"role": "user", "content": skills_assessment.SKILLS_ASSESSMENT_PROMPT_TEMPLATE}
         ]
     )
     
-    # Log the prompt and response for debugging
-    state.conversation_log.append(f"SKILLS_ASSESSMENT_PROMPT: {prompt}")
-    state.conversation_log.append(f"SKILLS_ASSESSMENT_RESPONSE: {json.dumps(response, indent=2)}")
+    # Extract response content
+    analysis_content = response.content if hasattr(response, 'content') else str(response)
     
-    # Extract scores and justification
-    scores = {}
-    justification = response.get("justification", "")
+    # Create planning results
+    planning_results = {
+        "analysis": analysis_content
+    }
     
-    # Remove justification from the response to isolate scores
-    if "justification" in response:
-        response_copy = response.copy()
-        del response_copy["justification"]
-        scores = response_copy
+    return {
+        "planning_results": planning_results
+    }
+
+
+async def structure_skills_assessment_scores(state: SkillsAssessmentState) -> Dict[str, Any]:
+    """Convert planning analysis into structured scores using Pydantic model.
     
-    # Extract technical and soft skills (simplified)
-    # In a real implementation, you might use more sophisticated parsing or a structured output model
-    technical_skills = {}
-    soft_skills = {}
-    skills_relevance = {}
+    This node takes the planning results and generates structured scores.
+    """
+    # Use config-loaded model with structured output
+    structuring_model = load_chat_model(
+        configuration.model, 
+        configuration.provider, 
+        configuration.scoring_temperature, 
+        configuration.max_retries
+    ).with_structured_output(SkillsAssessmentScores)
     
-    # Simple parsing logic - in production would use structured output or better parsing
-    for line in justification.split("\n"):
-        line = line.strip()
-        if "technical skill" in line.lower() and ":" in line:
-            skill, detail = line.split(":", 1)
-            technical_skills[skill.strip()] = detail.strip()
-        elif "soft skill" in line.lower() and ":" in line:
-            skill, detail = line.split(":", 1)
-            soft_skills[skill.strip()] = detail.strip()
+    # Get planning results
+    planning_analysis = state.planning_results.get("analysis", "No planning analysis available")
     
-    # Calculate relevance scores
-    for skill in technical_skills:
-        skills_relevance[skill] = 1.0  # Default high relevance
+    # Convert criteria to JSON for reference
+    criteria_json = json.dumps(state.evaluation_criteria, indent=2)
     
-    for skill in soft_skills:
-        skills_relevance[skill] = 1.0  # Default high relevance
+    # Create structuring prompt
+    structuring_prompt = skills_assessment.SKILLS_ASSESSMENT_STRUCTURING_PROMPT_TEMPLATE.format(
+        planning_analysis=planning_analysis,
+        criteria_json=criteria_json
+    )
     
-    # Return the updated state
+    # Get structured response
+    structured_response = await structuring_model.ainvoke(
+        [
+            {"role": "system", "content": skills_assessment.SKILLS_ASSESSMENT_STRUCTURING_SYSTEM_PROMPT},
+            {"role": "user", "content": structuring_prompt}
+        ]
+    )
+    
+    # Log the structuring interaction
+    state.conversation_log.append(f"SKILLS_ASSESSMENT_STRUCTURING_PROMPT: {structuring_prompt}")
+    state.conversation_log.append(f"SKILLS_ASSESSMENT_STRUCTURING_RESPONSE: {structured_response}")
+    
+    # Extract scores from the Pydantic model
+    technical_skills = structured_response["technical_skills_match"]
+    soft_skills = structured_response["soft_skills_demonstration"]
+    proficiency_level = structured_response["skill_proficiency_level"]
+    learning_adaptability = structured_response["learning_adaptability"]
+
+
+    overal_scores = (technical_skills + soft_skills + proficiency_level + learning_adaptability) / 4
+    
     return {
         "skills_assessment_scores": {
-            "scores": scores,
-            "justification": justification
+            "scores": {
+                "technical_skills": technical_skills,
+                "soft_skills": soft_skills,
+                "proficiency_level": proficiency_level,
+                "learning_adaptability": learning_adaptability,
+                "overall_scores": overal_scores
+            }, 
+            "justification": structured_response["justification"],
+            "skills_assessment_analysis": planning_analysis
         },
-        "technical_skills": technical_skills,
-        "soft_skills": soft_skills,
-        "skills_relevance": skills_relevance
     }
 
 # Define the graph
@@ -115,15 +127,17 @@ def create_graph(config: Configuration) -> StateGraph:
     """Create the skills assessment agent graph."""
     builder = StateGraph(SkillsAssessmentState)
     
-    # Add nodes
-    builder.add_node("analyze_skills", analyze_skills)
+    # Add nodes for two-step process
+    builder.add_node("plan_analysis", plan_skills_assessment_analysis)
+    builder.add_node("structure_scores", structure_skills_assessment_scores)
     
-    # Define edges
-    builder.add_edge(START, "analyze_skills")
-    builder.add_edge("analyze_skills", END)
+    # Define edges for two-step flow
+    builder.add_edge(START, "plan_analysis")
+    builder.add_edge("plan_analysis", "structure_scores")
+    builder.add_edge("structure_scores", END)
     
     # Compile the graph
     return builder.compile()
 
-# Create the graph instance
-graph = create_graph(Configuration()) 
+# Create the graph instance with config-loaded configuration
+graph = create_graph(configuration) 

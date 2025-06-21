@@ -16,5 +16,17 @@
             "max_retries": 3,
             "max_revisions": 3
         }
+    },
+    "resume_ranker": {
+        "configurable": {
+            "model": "gpt-4.1-nano",
+            "provider": "openai",
+            "temperature": 0,
+            "criteria_temperature": 0.2,
+            "scoring_temperature": 0,
+            "max_retries": 5,
+            "max_criteria": 10,
+            "parallel_resume_processing": true
+        }
     }
 }

@@ -51,4 +51,26 @@ class ResumeAnalysisConfiguration(BaseConfiguration):
         metadata={
             "description": "Default weight for cultural fit if not specified in criteria."
         }
+    )
+    
+    # Two-step process configuration
+    use_two_step_analysis: bool = field(
+        default=True,
+        metadata={
+            "description": "Whether to use two-step analysis (planning + structuring) or direct structured output."
+        }
+    )
+    
+    planning_temperature: float = field(
+        default=0.3,
+        metadata={
+            "description": "Temperature for planning phase to encourage creative analysis."
+        }
+    )
+    
+    structuring_temperature: float = field(
+        default=0.0,
+        metadata={
+            "description": "Temperature for structuring phase to ensure consistent formatting."
+        }
     ) 

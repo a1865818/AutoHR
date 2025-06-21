@@ -8,75 +8,114 @@ from langchain_core.messages import AIMessage
 from langgraph.graph import StateGraph, START, END
 
 from src.resume_ranker.configuration import Configuration
-from src.resume_ranker.criteria_discovery_agent.criteria_synthesis.state import CriteriaSynthesisState
-from src.resume_ranker.utils import load_chat_model
-import src.resume_ranker.prompts as prompts
+from src.resume_ranker.criteria_discovery_agent.criteria_synthesis.state import CriteriaSynthesisState, CriteriaSynthesisStructured
+from src.resume_ranker.utils import load_chat_model, ConfigManager
+from src.resume_ranker.criteria_discovery_agent.prompts import criteria_synthesis
 
 logger = logging.getLogger(__file__.split("langgraph_server")[1])
 
-# JSON schema for structured output
-criteria_schema = {
-    "type": "array",
-    "items": {
-        "type": "object",
-        "properties": {
-            "name": {"type": "string"},
-            "description": {"type": "string"},
-            "weight": {"type": "number"},
-            "rubric": {
-                "type": "object",
-                "properties": {
-                    "5": {"type": "string"},
-                    "3": {"type": "string"},
-                    "1": {"type": "string"}
-                },
-                "required": ["5", "3", "1"]
-            }
-        },
-        "required": ["name", "description", "weight", "rubric"]
-    }
-}
+# Load configuration
+config_manager = ConfigManager("src/configs/gpt_4.1_nano.json")
+configuration = Configuration.from_runnable_config(config_manager.get("resume_ranker"))
 
-async def generate_criteria(state: CriteriaSynthesisState) -> Dict[str, Any]:
-    """Generate evaluation criteria based on job analysis and company information.
+# Create model instance
+criteria_synthesis_model = load_chat_model(configuration.model, configuration.provider, configuration.temperature, configuration.max_retries)
+
+async def plan_criteria_strategy(state: CriteriaSynthesisState) -> Dict[str, Any]:
+    """Plan and develop a comprehensive strategy for criteria synthesis.
     
-    This node creates a structured set of weighted evaluation criteria with scoring rubrics.
+    This node develops a strategic approach for creating evaluation criteria
+    without the constraints of structured output.
     """
-    # Load model based on configuration
-    criteria_model = load_chat_model(
-        state.model, 
-        state.provider, 
-        state.criteria_synthesis_temperature, 
-        state.max_retries
-    ).with_structured_output(criteria_schema)
+    # Use pre-configured model instance for planning phase
     
-    # Format the prompt
-    prompt = prompts.CRITERIA_SYNTHESIS_PROMPT_TEMPLATE.format(
-        job_analysis=state.job_analysis.get("full_analysis", ""),
-        company_info=state.company_info
+    # Create comprehensive planning and strategy prompt
+    planning_prompt = criteria_synthesis.PLANNING_PROMPT_TEMPLATE.format(
+        job_analysis=state.job_analysis,
+        company_info=state.company_info or "No specific company information provided"
     )
     
     # Get the model's response
-    response = await criteria_model.ainvoke(
+    response = cast(
+        AIMessage,
+        await criteria_synthesis_model.ainvoke(
+            [
+                {"role": "system", "content": criteria_synthesis.SYSTEM_PROMPT},
+                {"role": "user", "content": planning_prompt}
+            ]
+        ),
+    )
+    
+    # Extract response content
+    strategy_content = response.content if hasattr(response, 'content') else str(response)
+    
+    # Log the planning interaction
+    state.conversation_log.append(f"CRITERIA_SYNTHESIS_PLANNING_PROMPT: {planning_prompt}")
+    state.conversation_log.append(f"CRITERIA_SYNTHESIS_PLANNING_RESPONSE: {strategy_content}")
+    
+    return {
+        "planning_results": strategy_content,
+        "messages": [response]
+    }
+
+
+async def structure_criteria_synthesis(state: CriteriaSynthesisState) -> Dict[str, Any]:
+    """Convert comprehensive strategy into structured evaluation criteria.
+    
+    This node takes the planning results and generates structured criteria using Pydantic model.
+    """
+    # Create model with structured output using config
+    structuring_model = load_chat_model(
+        configuration.model, 
+        configuration.provider, 
+        configuration.temperature, 
+        configuration.max_retries
+    ).with_structured_output(CriteriaSynthesisStructured)
+    
+    # Get planning strategy
+    planning_strategy = state.planning_results
+    
+    # Create structuring prompt
+    structuring_prompt = criteria_synthesis.STRUCTURING_PROMPT_TEMPLATE.format(
+        planning_analysis=planning_strategy
+    )
+    
+    # Get structured response
+    structured_response = await structuring_model.ainvoke(
         [
-            {"role": "system", "content": prompts.CRITERIA_SYNTHESIS_SYSTEM_PROMPT},
-            {"role": "user", "content": prompt}
+            {"role": "system", "content": criteria_synthesis.SYSTEM_PROMPT},
+            {"role": "user", "content": structuring_prompt}
         ]
     )
     
-    # Log the prompt and response for debugging
-    state.conversation_log.append(f"CRITERIA_SYNTHESIS_PROMPT: {prompt}")
-    state.conversation_log.append(f"CRITERIA_SYNTHESIS_RESPONSE: {json.dumps(response, indent=2)}")
+    # Log the structuring interaction
+    state.conversation_log.append(f"CRITERIA_SYNTHESIS_STRUCTURING_PROMPT: {structuring_prompt}")
+    state.conversation_log.append(f"CRITERIA_SYNTHESIS_STRUCTURING_RESPONSE: {structured_response}")
     
-    # Validate the criteria
-    validated_criteria = validate_criteria(response)
+    # Convert structured response to list format for compatibility
+    raw_criteria = []
+    validated_criteria = []
     
-    # Return the updated state
+    # Handle empty evaluation_criteria
+    evaluation_criteria = structured_response.evaluation_criteria or []
+    
+    for criterion in evaluation_criteria:
+        criterion_dict = {
+            "name": criterion.name,
+            "description": criterion.description,
+            "weight": criterion.weight,
+        }
+        raw_criteria.append(criterion_dict)
+    
+    # Validate and normalize the criteria
+    validated_criteria = validate_criteria(raw_criteria)
+    
+    # Return the updated state with all structured information
     return {
-        "raw_criteria": response,
-        "validated_criteria": validated_criteria,
-        "evaluation_criteria": validated_criteria
+        "criteria_summary": structured_response.criteria_summary,
+        "validated_criteria": validated_criteria
     }
+
 
 def validate_criteria(criteria: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Validate and normalize the generated criteria.
@@ -105,33 +144,24 @@ def validate_criteria(criteria: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             criterion["description"] = f"Evaluation of {criterion['name']}"
         if "weight" not in criterion:
             criterion["weight"] = 1.0 / len(validated)
-        if "rubric" not in criterion:
-            criterion["rubric"] = {
-                "5": "Exceptional match",
-                "3": "Adequate match",
-                "1": "Minimal/no match"
-            }
-        else:
-            for score in ["5", "3", "1"]:
-                if score not in criterion["rubric"]:
-                    criterion["rubric"][score] = f"{score} points"
-    
     return validated
 
 # Define the graph
 def create_graph(config: Configuration) -> StateGraph:
-    """Create the criteria synthesis agent graph."""
+    """Create the criteria synthesis agent graph with two-node architecture."""
     builder = StateGraph(CriteriaSynthesisState)
     
-    # Add nodes
-    builder.add_node("generate_criteria", generate_criteria)
+    # Add nodes with sync wrappers
+    builder.add_node("plan_criteria_strategy", plan_criteria_strategy)
+    builder.add_node("structure_criteria_synthesis", structure_criteria_synthesis)
     
-    # Define edges
-    builder.add_edge(START, "generate_criteria")
-    builder.add_edge("generate_criteria", END)
+    # Define edges - sequential flow from planning to structuring
+    builder.add_edge(START, "plan_criteria_strategy")
+    builder.add_edge("plan_criteria_strategy", "structure_criteria_synthesis")
+    builder.add_edge("structure_criteria_synthesis", END)
     
     # Compile the graph
     return builder.compile()
 
-# Create the graph instance
-graph = create_graph(Configuration()) 
+# Create the graph instance with config-loaded configuration
+graph = create_graph(configuration) 

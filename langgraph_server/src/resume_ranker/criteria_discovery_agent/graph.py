@@ -13,7 +13,7 @@ from src.resume_ranker.criteria_discovery_agent.criteria_synthesis.graph import 
 
 logger = logging.getLogger(__file__.split("langgraph_server")[1])
 
-def job_intelligence_node(state: CriteriaDiscoveryState) -> Dict[str, Any]:
+async def job_intelligence_node(state: CriteriaDiscoveryState) -> Dict[str, Any]:
     """Run the job intelligence agent to analyze the job description.
     
     This node delegates to the job intelligence graph to extract requirements and priorities.
@@ -22,23 +22,19 @@ def job_intelligence_node(state: CriteriaDiscoveryState) -> Dict[str, Any]:
     subgraph_state = {
         "job_description": state.job_description,
         "company_info": state.company_info,
-        "model": state.model,
-        "provider": state.provider,
-        "job_intelligence_temperature": state.job_intelligence_temperature,
-        "max_retries": state.max_retries,
         "conversation_log": state.conversation_log
     }
     
     # Run the job intelligence graph
-    result = job_intelligence_graph.invoke(subgraph_state)
+    result = await job_intelligence_graph.ainvoke(subgraph_state)
     
     # Extract the relevant information from the result
     return {
-        "job_analysis": result.get("job_analysis", {}),
-        "conversation_log": result.get("conversation_log", state.conversation_log)
+        "job_analysis": result.get("job_analysis", ""),
+        "messages": result.get("messages", [])
     }
 
-def criteria_synthesis_node(state: CriteriaDiscoveryState) -> Dict[str, Any]:
+async def criteria_synthesis_node(state: CriteriaDiscoveryState) -> Dict[str, Any]:
     """Run the criteria synthesis agent to generate evaluation criteria.
     
     This node delegates to the criteria synthesis graph to create weighted evaluation criteria.
@@ -48,20 +44,17 @@ def criteria_synthesis_node(state: CriteriaDiscoveryState) -> Dict[str, Any]:
         "job_description": state.job_description,
         "company_info": state.company_info,
         "job_analysis": state.job_analysis,
-        "model": state.model,
-        "provider": state.provider,
-        "criteria_synthesis_temperature": state.criteria_synthesis_temperature,
-        "max_retries": state.max_retries,
-        "conversation_log": state.conversation_log
+        "messages": state.messages
+
     }
     
     # Run the criteria synthesis graph
-    result = criteria_synthesis_graph.invoke(subgraph_state)
+    result = await criteria_synthesis_graph.ainvoke(subgraph_state)
     
     # Extract the relevant information from the result
     return {
-        "evaluation_criteria": result.get("evaluation_criteria", []),
-        "conversation_log": result.get("conversation_log", state.conversation_log)
+        "validated_criteria": result.get("validated_criteria", []),
+        "messages": result.get("messages", [])
     }
 
 # Define the graph
@@ -83,3 +76,4 @@ def create_graph(config: CriteriaDiscoveryConfiguration) -> StateGraph:
 
 # Create the graph instance with default configuration
 graph = create_graph(CriteriaDiscoveryConfiguration()) 
+graph.name = "criteria_discovery_graph"
