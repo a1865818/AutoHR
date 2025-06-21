@@ -95,6 +95,10 @@ export function RankingTab({
               100,
               candidate.assessment + Math.floor(Math.random() * 6) - 3
             );
+            const educationMatch = Math.min(
+              100,
+              candidate.assessment + Math.floor(Math.random() * 5) - 2
+            );
 
             return (
               <div
@@ -158,6 +162,10 @@ export function RankingTab({
                     <div className="text-center">
                       <div className="font-medium">{cultureMatch}%</div>
                       <div className="text-xs">Culture</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="font-medium">{educationMatch}%</div>
+                      <div className="text-xs">Education</div>
                     </div>
                   </div>
 

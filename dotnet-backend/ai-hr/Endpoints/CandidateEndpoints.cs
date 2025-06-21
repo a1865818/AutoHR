@@ -372,12 +372,26 @@ public static class CandidateEndpoints
 
     private static decimal CalculateAssessmentScore(ApplicationDetail application)
     {
-        decimal score = 50;
-        if (!string.IsNullOrEmpty(application.ResumeUrl)) score += 20;
-        if (!string.IsNullOrEmpty(application.CoverLetterText)) score += 15;
-        if (application.ExpectedSalary.HasValue) score += 10;
-        if (application.AvailabilityDate.HasValue) score += 5;
-        return Math.Max(0, Math.Min(100, score));
+        var random = new Random();
+
+        // Base random score between 50-100
+        var baseScore = random.Next(50, 101);
+
+        // Optional: Add slight bonuses to make it feel less completely random
+        var bonusScore = 0;
+
+        // Small bonus for having resume (0-5 points)
+        if (!string.IsNullOrEmpty(application.ResumeUrl))
+            bonusScore += random.Next(0, 6);
+
+        // Small bonus for having cover letter (0-5 points)
+        if (!string.IsNullOrEmpty(application.CoverLetterText))
+            bonusScore += random.Next(0, 6);
+
+        // Ensure we don't exceed 100
+        var finalScore = Math.Min(100, baseScore + bonusScore);
+        return finalScore;
+
     }
 
     private static string MapStageToEnum(string stage)
