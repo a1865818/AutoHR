@@ -7,7 +7,7 @@ import {
   Clock,
   ExternalLink,
   Eye,
-  MapPin, // Add Eye icon for view count
+  MapPin,
   Users,
 } from "lucide-react";
 import Link from "next/link";

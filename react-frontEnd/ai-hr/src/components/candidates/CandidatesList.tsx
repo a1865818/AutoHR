@@ -1,30 +1,40 @@
 import { Candidate } from "@/interfaces";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  ChevronUp,
+  Trophy,
+  Users,
+} from "lucide-react";
 import { CandidateCard } from "./CandidateCard";
 
 interface CandidatesListProps {
   candidates: Candidate[];
   selectedCandidate: string | null;
+  selectedForRanking: string[];
   onCandidateClick: (candidateId: string) => void;
+  onRankingSelect: (candidateId: string, selected: boolean) => void;
+  onSelectAllForRanking: (selected: boolean) => void;
+  onGoToRanking: () => void;
   sortBy: {
-    field: "name" | "company" | "assessment" | "stage" | "status";
+    field: "name" | "company" | "stage" | "status";
     direction: "asc" | "desc";
   };
-  onSort: (
-    field: "name" | "company" | "assessment" | "stage" | "status"
-  ) => void;
+  onSort: (field: "name" | "company" | "stage" | "status") => void;
 }
 
 export function CandidatesList({
   candidates,
   selectedCandidate,
+  selectedForRanking,
   onCandidateClick,
+  onRankingSelect,
+  onSelectAllForRanking,
+  onGoToRanking,
   sortBy,
   onSort,
 }: CandidatesListProps) {
-  const getSortIcon = (
-    field: "name" | "company" | "assessment" | "stage" | "status"
-  ) => {
+  const getSortIcon = (field: "name" | "company" | "stage" | "status") => {
     if (sortBy.field !== field) {
       return <ChevronDown className="ml-1 h-3 w-3 text-gray-400" />;
     }
@@ -35,11 +45,56 @@ export function CandidatesList({
     );
   };
 
+  const allSelected =
+    candidates.length > 0 &&
+    candidates.every((c) => selectedForRanking.includes(c.id));
+  const someSelected = selectedForRanking.length > 0 && !allSelected;
+
   return (
     <div className="flex flex-col flex-1 overflow-hidden">
+      {/* Bulk Actions Header */}
+      <div className="px-6 py-3 border-b bg-gray-50 flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <label className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              checked={allSelected}
+              ref={(input) => {
+                if (input) input.indeterminate = someSelected;
+              }}
+              onChange={(e) => onSelectAllForRanking(e.target.checked)}
+              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+            />
+            <span className="text-sm text-gray-700">
+              Select All for Ranking
+            </span>
+          </label>
+          {selectedForRanking.length > 0 && (
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600">
+                {selectedForRanking.length} selected
+              </span>
+              <button
+                onClick={onGoToRanking}
+                className="inline-flex items-center px-3 py-1.5 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 transition-colors"
+              >
+                <Trophy className="h-4 w-4 mr-1" />
+                Add to Ranking
+                <ArrowRight className="h-4 w-4 ml-1" />
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="text-sm text-gray-500">
+          <Users className="h-4 w-4 inline mr-1" />
+          {candidates.length} candidates
+        </div>
+      </div>
+
       {/* Table header */}
       <div className="px-6 flex-shrink-0">
         <div className="grid grid-cols-9 py-2 border-b text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <div className="col-span-1 flex items-center">Rank</div>
           <div className="col-span-3 flex items-center">
             <button
               onClick={() => onSort("name")}
@@ -58,16 +113,6 @@ export function CandidatesList({
               }`}
             >
               Company {getSortIcon("company")}
-            </button>
-          </div>
-          <div className="col-span-1 flex items-center">
-            <button
-              onClick={() => onSort("assessment")}
-              className={`flex items-center hover:text-gray-700 transition-colors ${
-                sortBy.field === "assessment" ? "text-blue-500" : ""
-              }`}
-            >
-              Score {getSortIcon("assessment")}
             </button>
           </div>
           <div className="col-span-1 flex items-center">
@@ -114,7 +159,9 @@ export function CandidatesList({
                 key={candidate.id}
                 candidate={candidate}
                 isSelected={selectedCandidate === candidate.id}
+                isSelectedForRanking={selectedForRanking.includes(candidate.id)}
                 onClick={onCandidateClick}
+                onRankingSelect={onRankingSelect}
               />
             ))}
           </div>

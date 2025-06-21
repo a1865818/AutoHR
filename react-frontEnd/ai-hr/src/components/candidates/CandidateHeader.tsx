@@ -1,12 +1,13 @@
-import { Search } from "lucide-react";
+import { NotebookIcon, Search, Trophy, User } from "lucide-react";
 
 interface CandidateHeaderProps {
-  activeTab: "candidates" | "notes";
-  onTabChange: (tab: "candidates" | "notes") => void;
+  activeTab: "candidates" | "notes" | "ranking";
+  onTabChange: (tab: "candidates" | "notes" | "ranking") => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   candidatesCount: number;
   notesCount?: number;
+  rankingCount?: number;
 }
 
 export function CandidateHeader({
@@ -16,26 +17,26 @@ export function CandidateHeader({
   onSearchChange,
   candidatesCount,
   notesCount = 0,
+  rankingCount = 0,
 }: CandidateHeaderProps) {
   return (
     <>
       {/* Header */}
       <div className="p-6 bg-white">
-        <h1 className="text-xl font-semibold text-gray-800">
-          Candidates 
-        </h1>
+        <h1 className="text-xl font-semibold text-gray-800">Candidates</h1>
 
         {/* Tabs */}
         <div className="flex mt-6 border-b">
           <button
             onClick={() => onTabChange("candidates")}
-            className={`pb-2 px-4 text-sm font-medium border-b-2 transition-colors ${
+            className={`pb-2 px-4 text-sm font-medium border-b-2 transition-colors  flex items-center space-x-2${
               activeTab === "candidates"
                 ? "border-blue-500 text-blue-500"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
-            Candidates{" "}
+            <User className="h-4 w-4 mr-2" />
+            <span>Candidates </span>
             <span
               className={`ml-1 text-xs px-2 py-0.5 rounded-full ${
                 activeTab === "candidates"
@@ -48,13 +49,14 @@ export function CandidateHeader({
           </button>
           <button
             onClick={() => onTabChange("notes")}
-            className={`pb-2 px-4 text-sm font-medium border-b-2 transition-colors ${
+            className={`pb-2 px-4 text-sm font-medium border-b-2 transition-colors   flex items-center space-x-2${
               activeTab === "notes"
                 ? "border-blue-500 text-blue-500"
                 : "border-transparent text-gray-500 hover:text-gray-700"
             }`}
           >
-            Notes{" "}
+            <NotebookIcon className="h-4 w-4 mr-2" />
+            <span>Notes </span>
             <span
               className={`ml-1 text-xs px-2 py-0.5 rounded-full ${
                 activeTab === "notes"
@@ -63,6 +65,26 @@ export function CandidateHeader({
               }`}
             >
               {notesCount}
+            </span>
+          </button>
+          <button
+            onClick={() => onTabChange("ranking")}
+            className={`pb-2 px-4 text-sm font-medium border-b-2 transition-colors flex items-center space-x-2 ${
+              activeTab === "ranking"
+                ? "border-blue-500 text-blue-500"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            <Trophy className="h-4 w-4" />
+            <span>Ranking</span>
+            <span
+              className={`ml-1 text-xs px-2 py-0.5 rounded-full ${
+                activeTab === "ranking"
+                  ? "bg-blue-100 text-blue-500"
+                  : "bg-gray-100 text-gray-500"
+              }`}
+            >
+              {rankingCount}
             </span>
           </button>
         </div>
@@ -82,7 +104,9 @@ export function CandidateHeader({
             placeholder={
               activeTab === "candidates"
                 ? "Search candidates..."
-                : "Search notes..."
+                : activeTab === "notes"
+                ? "Search notes..."
+                : "Search rankings..."
             }
           />
           {searchQuery && (
