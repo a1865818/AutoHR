@@ -437,7 +437,9 @@ public static class JobEndpoints
                 {
                     await viewTrackingService.UpdateJobViewCountAsync(job.Id, client);
                     job.ViewCount = actualViewCount;
-            // Get interview template data if available
+                    // Get interview template data if available
+                }
+            }
             object? interviewTemplate = null;
             if (job.InterviewTemplateId.HasValue)
             {
@@ -482,6 +484,7 @@ public static class JobEndpoints
                 }
             }
 
+
             // Create a simple DTO to avoid serialization issues
             var jobDto = new
             {
@@ -516,13 +519,13 @@ public static class JobEndpoints
             };
 
             return Results.Ok(new { success = true, data = jobDto });
-        }
-        catch (Exception ex)
+        } catch (Exception ex)
         {
             Console.WriteLine($"Error retrieving job: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }
+        
     }
 
     private static async Task<IResult> GetJobs(string? status, Guid? companyId, Supabase.Client client)
