@@ -13,7 +13,7 @@ export interface InterviewRound {
   name: string;
   type: InterviewType;
   duration: number; // in minutes
-  order: number;
+  roundOrder: number;
   requirements: string[];
   interviewers: string[];
   isOptional: boolean;

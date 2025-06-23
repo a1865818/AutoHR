@@ -164,7 +164,7 @@ export default function EditInterviewPage() {
       name: typeConfig.label,
       type: type,
       duration: typeConfig.duration,
-      order: (template.rounds?.length || 0) + 1,
+      roundOrder: (template.rounds?.length || 0) + 1,
       requirements: [],
       interviewers: [],
       isOptional: false,
@@ -209,7 +209,7 @@ export default function EditInterviewPage() {
 
     // Update order
     newRounds.forEach((round, index) => {
-      round.order = index + 1;
+      round.roundOrder = index + 1;
     });
 
     setTemplate((prev) => ({ ...prev, rounds: newRounds }));
@@ -256,7 +256,7 @@ export default function EditInterviewPage() {
 
     // Update order
     newRounds.forEach((round, index) => {
-      round.order = index + 1;
+      round.roundOrder = index + 1;
     });
 
     setTemplate((prev) => ({ ...prev, rounds: newRounds }));
@@ -373,7 +373,7 @@ export default function EditInterviewPage() {
           name: round.name,
           type: round.type,
           duration: round.duration,
-          roundOrder: round.order || 1,
+          roundOrder: round.roundOrder || 1,
           requirements: round.requirements || [],
           interviewers: round.interviewers || [],
           isOptional: round.isOptional || false,
@@ -604,7 +604,7 @@ export default function EditInterviewPage() {
                           {round.name}
                         </h4>
                         <p className="text-sm text-gray-500">
-                          Round {round.order}
+                          Round {round.roundOrder}
                         </p>
                       </div>
                     </div>

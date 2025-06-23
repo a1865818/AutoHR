@@ -111,6 +111,22 @@ export interface ApplicationUserRegisterRequestEnhanced {
 //Job API interfaces
 
 // API Response types based on your backend models
+export interface InterviewRound {
+  id: string;
+  type: string;
+  name: string;
+  roundOrder: number;
+  isRequired: boolean;
+  estimatedDuration?: number;
+  description?: string;
+}
+
+export interface InterviewTemplate {
+  id: string;
+  name: string;
+  rounds: InterviewRound[];
+}
+
 export interface ApiJob {
   id: string;
   title: string;
@@ -140,6 +156,8 @@ export interface ApiJob {
   closedDate?: string;
   createdAt: string;
   interviewTemplateId?: string;
+  interviewTemplate?: InterviewTemplate;
+  InterviewTemplate?: InterviewTemplate; // Backend returns PascalCase
 }
 
 export interface ApiCompany {

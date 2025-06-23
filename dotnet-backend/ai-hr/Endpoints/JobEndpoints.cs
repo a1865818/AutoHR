@@ -203,6 +203,51 @@ public static class JobEndpoints
                 job.ApplicantCount = actualApplicantCount;
             }
 
+            // Get interview template data if available
+            object? interviewTemplate = null;
+            if (job.InterviewTemplateId.HasValue)
+            {
+                try
+                {
+                    var templateResponse = await client.From<InterviewTemplate>().Get();
+                    var template = templateResponse.Models.FirstOrDefault(t => t.Id == job.InterviewTemplateId.Value);
+
+                    if (template != null)
+                    {
+                        // Get rounds for this template
+                        var roundsResponse = await client.From<InterviewRound>().Get();
+                        var rounds = roundsResponse.Models
+                            .Where(r => r.TemplateId == template.Id)
+                            .OrderBy(r => r.RoundOrder)
+                            .Select(r => new
+                            {
+                                id = r.Id.ToString(),
+                                name = r.Name,
+                                type = r.Type,
+                                duration = r.Duration,
+                                roundOrder = r.RoundOrder,
+                                passingCriteria = r.PassingCriteria,
+                                description = r.Description,
+                                requirements = r.Requirements,
+                                interviewers = r.Interviewers,
+                                isOptional = r.IsOptional
+                            })
+                            .ToList();
+
+                        interviewTemplate = new
+                        {
+                            id = template.Id.ToString(),
+                            name = template.Name,
+                            rounds = rounds
+                        };
+                    }
+                }
+                catch (Exception templateEx)
+                {
+                    Console.WriteLine($"Warning: Could not load interview template: {templateEx.Message}");
+                }
+            }
+
             // Create a simple DTO to avoid serialization issues
             var jobDto = new
             {
@@ -233,9 +278,10 @@ public static class JobEndpoints
                 PostedDate = job.PostedDate,
                 ClosedDate = job.ClosedDate,
                 InterviewTemplateId = job.InterviewTemplateId,
+                InterviewTemplate = interviewTemplate
             };
 
-            return Results.Ok(jobDto);
+            return Results.Ok(new { success = true, data = jobDto });
         }
         catch (Exception ex)
         {
