@@ -184,6 +184,7 @@ app.MapAuthenticationEndpoints();
 app.MapNotesEndpoints();
 app.MapLanggraphEndpoints();
 app.MapInterviewEndpoints();
+app.MapRoundConfigurationEndpoints();
 app.MapStorageBucketEndpoints();
 app.MapSavedJobsEndpoints();
 

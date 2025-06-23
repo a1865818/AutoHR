@@ -2,7 +2,11 @@
   "dependencies": ["."],
   "graphs": {
     "job_description_generator": "./src/job_description_generator/graph.py:graph",
-    "business_context_analyzer": "./src/business_context_analyzer/graph.py:graph"
+    "business_context_analyzer": "./src/business_context_analyzer/graph.py:graph",
+    "resume_ranker": "./src/resume_ranker/graph.py:graph",
+    "resume_analysis_agent": "./src/resume_ranker/resume_analysis_agent/graph.py:graph",
+    "criteria_discovery_agent": "./src/resume_ranker/criteria_discovery_agent/graph.py:graph",
+    "cultural_fit_agent": "./src/resume_ranker/resume_analysis_agent/cultural_fit/graph.py:graph"
   },
   "env": "./.env"
 }

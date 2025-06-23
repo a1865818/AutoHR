@@ -175,10 +175,26 @@ class JobService {
     }
 
     try {
-      const job = await this.fetchApi(`/jobs/${id}`);
+      const response = await this.fetchApi(`/jobs/${id}`);
 
+      if (!response) {
+        throw new Error("Job not found");
+      }
+
+      // Handle wrapped response from backend
+      console.log("🔍 JobService - Raw response:", response);
+      const job = response.data || response;
+      console.log("🔍 JobService - Extracted job:", job);
+      console.log("🔍 JobService - Job has InterviewTemplate:", !!(job as any)?.InterviewTemplate);
+      
       if (!job) {
         throw new Error("Job not found");
+      }
+
+      // Map PascalCase InterviewTemplate to camelCase interviewTemplate
+      if ((job as any).InterviewTemplate && !(job as any).interviewTemplate) {
+        (job as any).interviewTemplate = (job as any).InterviewTemplate;
+        console.log("🔄 Mapped InterviewTemplate to interviewTemplate");
       }
 
       return job;
