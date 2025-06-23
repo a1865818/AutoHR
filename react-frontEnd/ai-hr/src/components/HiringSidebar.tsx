@@ -1,17 +1,17 @@
 "use client";
 
 import {
-  FileText,
-  Home,
-  Menu,
-  Settings,
-  Users,
-  X,
-  PlusCircle,
   BarChart3,
   Building,
   Calendar,
+  FileText,
   GitBranch,
+  Home,
+  Menu,
+  PlusCircle,
+  Settings,
+  Users,
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
@@ -42,7 +42,11 @@ export function HiringSidebar() {
       icon: GitBranch,
     },
     { name: "Jobs", href: "/jobs", icon: FileText },
-    { name: "Interviews", href: "/interviews", icon: Calendar },
+    {
+      name: "Interview Templates",
+      href: "/interview-templates",
+      icon: Calendar,
+    },
     { name: "Analytics", href: "/analytics", icon: BarChart3 },
     { name: "Settings", href: "/settings", icon: Settings },
   ];
@@ -99,7 +103,9 @@ export function HiringSidebar() {
           {/* Header */}
           <div className="relative">
             <div
-              className={`flex items-center py-5 ${isCollapsed ? "lg:justify-center" : "justify-between"} ${isCollapsed ? "px-4" : "px-4"}`}
+              className={`flex items-center py-5 ${
+                isCollapsed ? "lg:justify-center" : "justify-between"
+              } ${isCollapsed ? "px-4" : "px-4"}`}
             >
               <Link
                 href="/"
