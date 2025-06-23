@@ -9,6 +9,7 @@ interface ApplicantJobDetailPageProps {
 export default async function ApplicantJobDetail({
   params,
 }: ApplicantJobDetailPageProps) {
-  const { id } = params;
+  // Using await to properly handle the dynamic params
+  const { id } = await params;
   return <ApplicantJobDetailPage jobId={id} />;
 }

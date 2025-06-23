@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using System.Text.Json;
+using ai_hr.Services;
 
 namespace ai_hr.Endpoints;
 
@@ -77,11 +78,20 @@ public static class JobEndpoints
             .WithSummary("Create new job")
             .WithDescription("Create a new job posting with comprehensive details for candidates to apply");
 
-        app.MapGet("/jobs/{id}", GetJobById)
-            .WithTags("Jobs")
-            .WithName("GetJobById")
-            .WithSummary("Get job by ID")
-            .WithDescription("Retrieves complete details of a specific job posting by its unique identifier");
+        app.MapGet("/jobs/{id}", async (
+             Guid id,
+             Supabase.Client client,
+             HttpContext context) =>
+        {
+            // Get the view tracking service from DI
+            var viewTrackingService = context.RequestServices.GetService<IJobViewTrackingService>();
+            return await GetJobById(id, client, context, viewTrackingService);
+        })
+         .WithTags("Jobs")
+         .WithName("GetJobById")
+         .WithSummary("Get job by ID")
+         .WithDescription("Retrieves complete details of a specific job posting by its unique identifier and tracks view count");
+
 
         app.MapGet("/jobs", GetJobs)
             .WithTags("Jobs")
@@ -114,11 +124,20 @@ public static class JobEndpoints
             .WithSummary("Browse public jobs")
             .WithDescription("Gets a list of active/open jobs for applicant browsing - no authentication required");
 
-        app.MapGet("/public/jobs/{id}", GetPublicJobById)
-            .WithTags("Public Jobs")
-            .WithName("GetPublicJobById")
-            .WithSummary("Get public job by ID")
-            .WithDescription("Retrieves complete details of a specific active job posting - no authentication required");
+        app.MapGet("/public/jobs/{id}", async (
+             Guid id,
+             Supabase.Client client,
+             HttpContext context) =>
+        {
+            // Get the view tracking service from DI
+            var viewTrackingService = context.RequestServices.GetService<IJobViewTrackingService>();
+            return await GetPublicJobById(id, client, context, viewTrackingService);
+        })
+         .WithTags("Public Jobs")
+         .WithName("GetPublicJobById")
+         .WithSummary("Get public job by ID")
+         .WithDescription("Retrieves complete details of a specific active job posting - no authentication required and tracks view count");
+
 
         app.MapGet("/jobs/interview-templates", GetInterviewTemplatesForJobs)
             .WithTags("Jobs")
@@ -133,6 +152,172 @@ public static class JobEndpoints
             .WithSummary("Fix all applicant counts")
             .WithDescription("Recalculates and updates applicant counts for all jobs")
             .RequireAuthorization();
+
+        app.MapPost("/jobs/fix-view-counts", FixAllViewCounts)
+          .WithTags("Jobs")
+          .WithName("FixAllViewCounts")
+          .WithSummary("Fix all view counts")
+          .WithDescription("Recalculates and updates view counts for all jobs")
+          .RequireAuthorization();
+
+        app.MapGet("/jobs/{id}/analytics", GetJobAnalytics)
+            .WithTags("Jobs")
+            .WithName("GetJobAnalytics")
+            .WithSummary("Get job analytics")
+            .WithDescription("Get detailed analytics for a job including view breakdown by user type")
+            .RequireAuthorization();
+
+
+        //Authenticated applicant endpoint (for logged-in applicants)
+        app.MapGet("/applicant/jobs/{id}", async (
+             Guid id,
+             Supabase.Client client,
+             HttpContext context) =>
+        {
+            var viewTrackingService = context.RequestServices.GetService<IJobViewTrackingService>();
+            return await GetApplicantJobById(id, client, context, viewTrackingService);
+        })
+         .WithTags("Applicant Jobs")
+         .WithName("GetApplicantJobById")
+         .WithSummary("Get job details for authenticated applicants")
+         .WithDescription("Retrieves job details for logged-in applicant users with proper view tracking")
+         .RequireAuthorization(); // Authenticated applicants only
+
+    }
+
+
+    private static async Task<IResult> GetApplicantJobById(
+    Guid id,
+    Supabase.Client client,
+    HttpContext context,
+    IJobViewTrackingService? viewTrackingService = null)
+    {
+        try
+        {
+            Console.WriteLine($"👤 Applicant job endpoint called for job: {id}");
+            Console.WriteLine($"👤 User authenticated: {context.User?.Identity?.IsAuthenticated}");
+
+            // Verify user is authenticated
+            if (context.User?.Identity?.IsAuthenticated != true)
+            {
+                Console.WriteLine("❌ User not authenticated for applicant endpoint");
+                return Results.Unauthorized();
+            }
+
+            // Get user ID from claims
+            var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            Console.WriteLine($"👤 Authenticated applicant user ID: {userId}");
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                Console.WriteLine("❌ No user ID found in claims");
+                return Results.Unauthorized();
+            }
+
+            // Get all jobs and filter by ID
+            var response = await client.From<Job>().Get();
+            var job = response.Models.FirstOrDefault(j => j.Id == id);
+
+            if (job == null)
+            {
+                return Results.NotFound(new { message = $"Job with ID {id} not found" });
+            }
+
+            // For applicant endpoint, only allow access to "Open" jobs
+            if (!job.Status.Equals("Open", StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.NotFound(new { message = $"Job with ID {id} is not available" });
+            }
+
+            Console.WriteLine($"👤 Found job for applicant: {job.Title}");
+
+            // Track the view with authenticated user info
+            if (viewTrackingService != null)
+            {
+                try
+                {
+                    var ipAddress = context.Connection.RemoteIpAddress?.ToString();
+                    var userAgent = context.Request.Headers.UserAgent.ToString();
+                    var referrer = context.Request.Headers.Referer.ToString();
+
+                    Console.WriteLine($"👤 Tracking view for authenticated applicant: {userId}");
+
+                    var viewRecorded = await viewTrackingService.RecordJobViewAsync(
+                        id,
+                        context.User, // Pass the authenticated user
+                        null, // No session ID needed for authenticated users
+                        ipAddress,
+                        userAgent,
+                        referrer
+                    );
+
+                    Console.WriteLine($"👤 Applicant view tracking result: {viewRecorded}");
+                }
+                catch (Exception viewEx)
+                {
+                    Console.WriteLine($"⚠️ Applicant view tracking failed (non-critical): {viewEx.Message}");
+                }
+            }
+
+            // Update applicant count if needed
+            var actualApplicantCount = await CalculateApplicantCount(job.Id, client);
+            if (job.ApplicantCount != actualApplicantCount)
+            {
+                await UpdateJobApplicantCount(job.Id, client);
+                job.ApplicantCount = actualApplicantCount;
+            }
+
+            // Update view count if needed
+            if (viewTrackingService != null)
+            {
+                var actualViewCount = await viewTrackingService.GetJobViewCountAsync(job.Id);
+                if (job.ViewCount != actualViewCount)
+                {
+                    await viewTrackingService.UpdateJobViewCountAsync(job.Id, client);
+                    job.ViewCount = actualViewCount;
+                }
+            }
+
+            // Create response DTO
+            var jobDto = new
+            {
+                Id = job.Id,
+                Title = job.Title,
+                CompanyId = job.CompanyId,
+                CreatedBy = job.CreatedBy,
+                Description = job.Description,
+                Department = job.Department,
+                Responsibilities = job.Responsibilities,
+                Requirements = job.Requirements,
+                Qualifications = job.Qualifications,
+                Benefits = job.Benefits,
+                EmploymentType = job.EmploymentType,
+                SeniorityLevel = job.SeniorityLevel,
+                ExperienceYearsMin = job.ExperienceYearsMin,
+                LocationType = job.LocationType,
+                Locations = job.Locations,
+                SalaryMin = job.SalaryMin,
+                SalaryMax = job.SalaryMax,
+                SalaryCurrency = job.SalaryCurrency,
+                ApplicationDeadline = job.ApplicationDeadline,
+                Status = job.Status,
+                ApplicantCount = job.ApplicantCount,
+                ViewCount = job.ViewCount,
+                AiGeneratedDescription = job.AiGeneratedDescription,
+                SkillMatchThreshold = job.SkillMatchThreshold,
+                PostedDate = job.PostedDate,
+                ClosedDate = job.ClosedDate,
+                InterviewTemplateId = job.InterviewTemplateId,
+            };
+
+            return Results.Ok(jobDto);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error retrieving applicant job: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
     }
 
     private static async Task<IResult> CreateJob(CreateJobRequest request, Supabase.Client client)
@@ -167,6 +352,7 @@ public static class JobEndpoints
                 SkillMatchThreshold = request.SkillMatchThreshold,
                 InterviewTemplateId = request.InterviewTemplateId,
                 PostedDate = DateTime.UtcNow,
+                ViewCount = 0,
             };
 
             Console.WriteLine($"Job.InterviewTemplateId being inserted: {job.InterviewTemplateId}");
@@ -181,11 +367,17 @@ public static class JobEndpoints
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }
     }
-
-    private static async Task<IResult> GetJobById(Guid id, Supabase.Client client)
+    private static async Task<IResult> GetJobById(
+       Guid id,
+       Supabase.Client client,
+       HttpContext context,
+       IJobViewTrackingService? viewTrackingService = null)
     {
         try
         {
+            Console.WriteLine($"🔍 Getting job {id} - tracking view...");
+            Console.WriteLine($"🔍 ViewTrackingService available: {viewTrackingService != null}");
+
             // Get all jobs and filter by ID
             var response = await client.From<Job>().Get();
             var job = response.Models.FirstOrDefault(j => j.Id == id);
@@ -193,6 +385,40 @@ public static class JobEndpoints
             if (job == null)
             {
                 return Results.NotFound(new { message = $"Job with ID {id} not found" });
+            }
+
+            // Track the view if service is available
+            if (viewTrackingService != null)
+            {
+                try
+                {
+                    var sessionId = context.Session?.Id ?? context.TraceIdentifier;
+                    var ipAddress = context.Connection.RemoteIpAddress?.ToString();
+                    var userAgent = context.Request.Headers.UserAgent.ToString();
+                    var referrer = context.Request.Headers.Referer.ToString();
+
+                    Console.WriteLine($"🔍 Attempting to track view with session: {sessionId}");
+
+                    var viewRecorded = await viewTrackingService.RecordJobViewAsync(
+                        id,
+                        context.User?.Identity?.IsAuthenticated == true ? context.User : null,
+                        sessionId,
+                        ipAddress,
+                        userAgent,
+                        referrer
+                    );
+
+                    Console.WriteLine($"🔍 View tracking result: {viewRecorded}");
+                }
+                catch (Exception viewEx)
+                {
+                    Console.WriteLine($"⚠️ View tracking failed (non-critical): {viewEx.Message}");
+                    // Don't fail the request if view tracking fails
+                }
+            }
+            else
+            {
+                Console.WriteLine("⚠️ ViewTrackingService is null - view not tracked");
             }
 
             // Update applicant count if needed (real-time fallback)
@@ -203,6 +429,14 @@ public static class JobEndpoints
                 job.ApplicantCount = actualApplicantCount;
             }
 
+            // Update view count if needed (real-time fallback)
+            if (viewTrackingService != null)
+            {
+                var actualViewCount = await viewTrackingService.GetJobViewCountAsync(job.Id);
+                if (job.ViewCount != actualViewCount)
+                {
+                    await viewTrackingService.UpdateJobViewCountAsync(job.Id, client);
+                    job.ViewCount = actualViewCount;
             // Get interview template data if available
             object? interviewTemplate = null;
             if (job.InterviewTemplateId.HasValue)
@@ -555,7 +789,11 @@ public static class JobEndpoints
         }
     }
 
-    private static async Task<IResult> GetPublicJobById(Guid id, Supabase.Client client)
+    private static async Task<IResult> GetPublicJobById(
+        Guid id,
+        Supabase.Client client,
+        HttpContext context,
+        IJobViewTrackingService? viewTrackingService = null)
     {
         try
         {
@@ -578,12 +816,71 @@ public static class JobEndpoints
 
             Console.WriteLine($"🌍 Found public job: {job.Title}");
 
+            // Track the view if service is available
+            if (viewTrackingService != null)
+            {
+                try
+                {
+                    // 🔥 IMPROVED: Better session ID extraction
+                    string sessionId;
+
+                    // First, try to get session ID from custom header (for consistency)
+                    var customSessionId = context.Request.Headers["X-Session-ID"].FirstOrDefault();
+                    if (!string.IsNullOrEmpty(customSessionId))
+                    {
+                        sessionId = customSessionId;
+                        Console.WriteLine($"🌍 Using custom session ID from header: {sessionId}");
+                    }
+                    else
+                    {
+                        // Fallback to built-in session or trace identifier
+                        sessionId = context.Session?.Id ?? context.TraceIdentifier;
+                        Console.WriteLine($"🌍 Using fallback session ID: {sessionId}");
+                    }
+
+                    var ipAddress = context.Connection.RemoteIpAddress?.ToString();
+                    var userAgent = context.Request.Headers.UserAgent.ToString();
+                    var referrer = context.Request.Headers.Referer.ToString();
+
+                    Console.WriteLine($"🌍 Attempting to track public view - Job: {id}, Session: {sessionId}");
+
+                    var viewRecorded = await viewTrackingService.RecordJobViewAsync(
+                        id,
+                        context.User?.Identity?.IsAuthenticated == true ? context.User : null,
+                        sessionId,
+                        ipAddress,
+                        userAgent,
+                        referrer
+                    );
+
+                    Console.WriteLine($"🌍 Public view tracking result: {viewRecorded}");
+                }
+                catch (Exception viewEx)
+                {
+                    Console.WriteLine($"⚠️ View tracking failed: {viewEx.Message}");
+                }
+            }
+            else
+            {
+                Console.WriteLine("⚠️ ViewTrackingService is null - public view not tracked");
+            }
+
             // Update applicant count if needed (real-time fallback)
             var actualApplicantCount = await CalculateApplicantCount(job.Id, client);
             if (job.ApplicantCount != actualApplicantCount)
             {
                 await UpdateJobApplicantCount(job.Id, client);
                 job.ApplicantCount = actualApplicantCount;
+            }
+
+            if (viewTrackingService != null)
+            {
+                var actualViewCount = await viewTrackingService.GetJobViewCountAsync(job.Id);
+                if (job.ViewCount != actualViewCount)
+                {
+                    await viewTrackingService.UpdateJobViewCountAsync(job.Id, client);
+                    job.ViewCount = actualViewCount;
+                }
             }
 
             // Create a complete DTO for applicants
@@ -616,6 +913,7 @@ public static class JobEndpoints
                 PostedDate = job.PostedDate,
                 ClosedDate = job.ClosedDate,
                 InterviewTemplateId = job.InterviewTemplateId,
+
             };
 
             return Results.Ok(jobDto);
@@ -788,6 +1086,146 @@ public static class JobEndpoints
         catch (Exception ex)
         {
             Console.WriteLine($"❌ Error fixing applicant counts: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+    private static async Task<IResult> FixAllViewCounts(Supabase.Client client)
+    {
+        try
+        {
+            Console.WriteLine("🔧 Starting bulk fix of all view counts");
+
+            var jobsResponse = await client.From<Job>().Get();
+            var jobs = jobsResponse.Models;
+
+            int updated = 0;
+            int errors = 0;
+
+            foreach (var job in jobs)
+            {
+                try
+                {
+                    // Get actual view count from job_views table
+                    var viewsResponse = await client.From<JobView>()
+                        .Where(jv => jv.JobId == job.Id)
+                        .Get();
+
+                    var actualViewCount = viewsResponse.Models?.Count ?? 0;
+
+                    if (job.ViewCount != actualViewCount)
+                    {
+                        job.ViewCount = actualViewCount;
+                        await client.From<Job>().Update(job);
+                        updated++;
+                        Console.WriteLine($"✅ Updated job {job.Id} ({job.Title}): {job.ViewCount} → {actualViewCount} views");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"✓ Job {job.Id} ({job.Title}): {actualViewCount} views (already correct)");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    errors++;
+                    Console.WriteLine($"❌ Error updating job {job.Id}: {ex.Message}");
+                }
+            }
+
+            Console.WriteLine($"🔧 View count fix completed: {updated} jobs updated, {errors} errors");
+
+            return Results.Ok(new
+            {
+                message = $"View count fix completed",
+                totalJobs = jobs.Count,
+                updatedJobs = updated,
+                errors = errors,
+                success = errors == 0
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error fixing view counts: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+
+    private static async Task<IResult> GetJobAnalytics(
+        Guid id,
+        Supabase.Client client,
+        ClaimsPrincipal user)
+    {
+        try
+        {
+            Console.WriteLine($"📊 Getting analytics for job: {id}");
+
+            // Verify user has access to this job
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
+            {
+                return Results.Unauthorized();
+            }
+
+            // Get job
+            var jobResponse = await client.From<Job>().Get();
+            var job = jobResponse.Models.FirstOrDefault(j => j.Id == id);
+
+            if (job == null)
+            {
+                return Results.NotFound(new { message = $"Job with ID {id} not found" });
+            }
+
+            // Get hiring user to verify they can access this job
+            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
+            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
+
+            if (hiringUser == null || hiringUser.CompanyId != job.CompanyId)
+            {
+                return Results.Forbid();
+            }
+
+            // Get all views for this job
+            var viewsResponse = await client.From<JobView>()
+                .Where(jv => jv.JobId == id)
+                .Get();
+
+            var views = viewsResponse.Models ?? new List<JobView>();
+
+            // Calculate analytics
+            var analytics = new
+            {
+                JobId = job.Id,
+                JobTitle = job.Title,
+                TotalViews = views.Count,
+                UniqueViewers = views.Count, // Since we enforce 1 view per user/session
+                ViewsByUserType = views.GroupBy(v => v.UserType)
+                    .ToDictionary(g => g.Key, g => g.Count()),
+                ViewsByDate = views.GroupBy(v => v.ViewedAt.Date)
+                    .OrderBy(g => g.Key)
+                    .ToDictionary(g => g.Key.ToString("yyyy-MM-dd"), g => g.Count()),
+                RecentViews = views.OrderByDescending(v => v.ViewedAt)
+                    .Take(10)
+                    .Select(v => new {
+                        ViewedAt = v.ViewedAt,
+                        UserType = v.UserType,
+                        IpAddress = v.IpAddress?.Substring(0, Math.Min(v.IpAddress.Length, 12)) + "...", // Partial IP for privacy
+                        UserAgent = !string.IsNullOrEmpty(v.UserAgent) && v.UserAgent.Length > 50
+                            ? v.UserAgent.Substring(0, 50) + "..."
+                            : v.UserAgent
+                    }).ToList(),
+                ApplicantCount = job.ApplicantCount,
+                ApplicationRate = job.ViewCount > 0 ? (double)job.ApplicantCount / job.ViewCount * 100 : 0,
+                PostedDate = job.PostedDate
+            };
+
+            return Results.Ok(analytics);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error getting job analytics: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }

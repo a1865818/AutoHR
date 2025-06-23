@@ -70,9 +70,9 @@ function Tooltip({ content, department, children }: TooltipProps) {
     >
       {children}
       {isVisible && (
-        <div className="absolute left-0 top-full mt-1 z-50 bg-gray-900 text-white text-xs rounded-md py-2 px-3 shadow-lg whitespace-nowrap max-w-xs">
-          <div className="font-medium">{content}</div>
-          {department && <div className="text-gray-300 mt-1">{department}</div>}
+        <div className="absolute left-0 top-full mt-1 z-[9999] bg-gray-900 text-white text-xs rounded-md py-2 px-3 shadow-xl max-w-36 w-max">
+          <div className="font-medium break-words">{content}</div>
+          {department && <div className="text-gray-300 mt-1 break-words">{department}</div>}
           {/* Tooltip arrow */}
           <div className="absolute bottom-full left-4 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
         </div>
@@ -201,7 +201,7 @@ export function FilterSidebar({
             </button>
 
             {showFavoriteDropdown && (
-              <div className="absolute right-0 top-6 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+              <div className="absolute right-0 top-6 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-[9999]">
                 <div className="p-2">
                   <h4 className="text-xs font-medium text-gray-500 mb-2">
                     Add to Favorites
@@ -319,7 +319,7 @@ export function FilterSidebar({
               {availableJobs.map((job) => {
                 const isChecked = activeFilters.position.includes(job.id);
                 return (
-                  <li key={job.id} className="flex items-center">
+                  <li key={job.id} className="flex items-center relative">
                     <input
                       type="checkbox"
                       id={`position-${job.id}`}

@@ -1,24 +1,28 @@
+import { useAuth } from "@/contexts/AuthContext";
 import { Job } from "@/interfaces/job";
+import { candidateService } from "@/services/candidateService";
 import {
   Briefcase,
   Clock,
   DollarSign,
+  Eye,
   MapPin,
-  MoreHorizontal,
+  MoreHorizontal, // Add Eye icon for view count
+  TrendingUp,
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { useState, useEffect } from "react";
-import { candidateService } from "@/services/candidateService";
-import { useAuth } from "@/contexts/AuthContext";
+import { useEffect, useState } from "react";
 
 interface JobCardProps {
   job: Job;
+  showAnalytics?: boolean; // Whether to show detailed analytics for hiring users
 }
 
-export function JobCard({ job }: JobCardProps) {
+export function JobCard({ job, showAnalytics = false }: JobCardProps) {
   const [showDropdown, setShowDropdown] = useState(false);
   const [actualApplicantCount, setActualApplicantCount] = useState(0);
+  const [viewCount, setViewCount] = useState(0);
   const { user } = useAuth();
 
   // Add this effect to get the actual applicant count
@@ -29,7 +33,10 @@ export function JobCard({ job }: JobCardProps) {
           const candidates = await candidateService.getCandidatesForJob(job.id);
           setActualApplicantCount(candidates.length);
         } catch (error) {
-          console.error(`Failed to fetch applicant count for job ${job.id}:`, error);
+          console.error(
+            `Failed to fetch applicant count for job ${job.id}:`,
+            error
+          );
           // Fallback to the count from job data
           setActualApplicantCount(safeRenderNumber(job.applicants));
         }
@@ -41,6 +48,13 @@ export function JobCard({ job }: JobCardProps) {
 
     fetchApplicantCount();
   }, [job, user]);
+
+  // Set view count from job data
+  useEffect(() => {
+    // Extract view count from job data - job might have viewCount property
+    const jobViewCount = (job as any).viewCount || (job as any).ViewCount || 0;
+    setViewCount(safeRenderNumber(jobViewCount));
+  }, [job]);
 
   // Enhanced safe rendering functions to handle .NET objects
   const safeRender = (value: any): string => {
@@ -165,6 +179,19 @@ export function JobCard({ job }: JobCardProps) {
     return "Salary not specified";
   };
 
+  const formatViewCount = (count: number): string => {
+    if (count === 0) return "No views yet";
+    if (count === 1) return "1 view";
+    if (count < 1000) return `${count} views`;
+    if (count < 1000000) return `${(count / 1000).toFixed(1)}k views`;
+    return `${(count / 1000000).toFixed(1)}M views`;
+  };
+
+  const getApplicationRate = (): number => {
+    if (viewCount === 0) return 0;
+    return Math.round((actualApplicantCount / viewCount) * 100);
+  };
+
   const handleStatusChange = (newStatus: string) => {
     console.log(`Changing job ${job.id} status to ${newStatus}`);
     setShowDropdown(false);
@@ -245,7 +272,7 @@ export function JobCard({ job }: JobCardProps) {
             </div>
           </div>
 
-          {/* Job type, department and applicants */}
+          {/* Job type, department and stats */}
           <div className="flex items-center gap-3 mb-3">
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(
@@ -259,10 +286,30 @@ export function JobCard({ job }: JobCardProps) {
                 {department}
               </span>
             )}
+
+            {/* Applicants count */}
             <div className="flex items-center text-sm text-gray-600">
               <Users className="h-4 w-4 mr-1" />
-              {applicantCount} applicant{applicantCount !== 1 ? 's' : ''}
+              {applicantCount} applicant{applicantCount !== 1 ? "s" : ""}
             </div>
+
+            {/* View count - always show for hiring users, conditionally for others */}
+            {(user?.userCategory === "HiringUserProfile" || viewCount > 0) && (
+              <div className="flex items-center text-sm text-gray-600">
+                <Eye className="h-4 w-4 mr-1" />
+                {formatViewCount(viewCount)}
+              </div>
+            )}
+
+            {/* Application rate - only for hiring users with views */}
+            {user?.userCategory === "HiringUserProfile" &&
+              viewCount > 0 &&
+              showAnalytics && (
+                <div className="flex items-center text-sm text-gray-600">
+                  <TrendingUp className="h-4 w-4 mr-1" />
+                  {getApplicationRate()}% rate
+                </div>
+              )}
           </div>
 
           {/* Description */}
@@ -333,6 +380,7 @@ export function JobCard({ job }: JobCardProps) {
                   >
                     Close Job
                   </button>
+
                   <div className="border-t">
                     <button
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

@@ -106,7 +106,9 @@ class JobService {
           console.error("❌ JSON Parse Error:", parseError);
           console.error("❌ Response text:", text);
           throw new Error(
-            `Invalid JSON response from server: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`
+            `Invalid JSON response from server: ${
+              parseError instanceof Error ? parseError.message : "Unknown error"
+            }`
           );
         }
       }
@@ -120,7 +122,11 @@ class JobService {
           return JSON.parse(text);
         } catch (parseError) {
           console.error("❌ Failed to parse JSON-like text:", text);
-          throw new Error(`Invalid JSON response: ${parseError instanceof Error ? parseError.message : 'Unknown error'}`);
+          throw new Error(
+            `Invalid JSON response: ${
+              parseError instanceof Error ? parseError.message : "Unknown error"
+            }`
+          );
         }
       }
 
@@ -128,12 +134,19 @@ class JobService {
       return text || null;
     } catch (error) {
       // Don't log fetch errors twice
-      if (error instanceof Error && (error.message.includes("JSON") || error.message.includes("HTTP"))) {
+      if (
+        error instanceof Error &&
+        (error.message.includes("JSON") || error.message.includes("HTTP"))
+      ) {
         throw error;
       }
 
       console.error("🚨 Network/Fetch Error:", { url, error });
-      throw new Error(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(
+        `Network error: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   }
   // Check if user is authenticated
@@ -148,7 +161,10 @@ class JobService {
       await this.getJobById(id);
       return true;
     } catch (error) {
-      console.log("Job existence check failed:", error instanceof Error ? error.message : 'Unknown error');
+      console.log(
+        "Job existence check failed:",
+        error instanceof Error ? error.message : "Unknown error"
+      );
       return false;
     }
   }
@@ -239,40 +255,46 @@ class JobService {
     if (typeof window === "undefined") {
       return { token: null, userId: null, userCategory: null, companyId: null };
     }
-  
+
     const token = this.getAuthToken();
-    const userCategory = localStorage.getItem("userCategory") || sessionStorage.getItem("userCategory");
-  
+    const userCategory =
+      localStorage.getItem("userCategory") ||
+      sessionStorage.getItem("userCategory");
+
     // Get user data to extract userId and companyId
-    const currentUserStr = localStorage.getItem("currentUser") || sessionStorage.getItem("currentUser");
+    const currentUserStr =
+      localStorage.getItem("currentUser") ||
+      sessionStorage.getItem("currentUser");
     let userId = null;
     let companyId = null;
-  
+
     if (currentUserStr) {
       try {
         const currentUser = JSON.parse(currentUserStr);
         userId = currentUser.id;
         companyId = currentUser.companyId;
-        console.log("👤 getCurrentUser - parsed user data:", { userId, companyId });
+        console.log("👤 getCurrentUser - parsed user data:", {
+          userId,
+          companyId,
+        });
       } catch (error) {
         console.warn("Failed to parse currentUser from storage:", error);
       }
     }
-  
+
     return { token, userId, userCategory, companyId };
   }
 
-  
   async createJob(data: CreateJobRequest): Promise<void> {
     if (!this.isAuthenticated()) {
       throw new Error("Authentication required to create jobs");
     }
-    
+
     console.log("🚀 JobService createJob called with data:", {
       ...data,
-      interviewTemplateId: data.interviewTemplateId
+      interviewTemplateId: data.interviewTemplateId,
     });
-    
+
     return this.fetchApi("/jobs", {
       method: "POST",
       body: JSON.stringify(data),
@@ -455,6 +477,104 @@ class JobService {
     }
   }
 
+  // Get job analytics (for hiring users)
+  async getJobAnalytics(jobId: string): Promise<any> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to view job analytics");
+    }
+
+    try {
+      const analytics = await this.fetchApi(`/jobs/${jobId}/analytics`);
+      return analytics;
+    } catch (error) {
+      console.error("❌ Failed to load job analytics:", error);
+      throw error;
+    }
+  }
+
+  // Fix all view counts (admin function)
+  async fixAllViewCounts(): Promise<{
+    message: string;
+    totalJobs: number;
+    updatedJobs: number;
+    errors: number;
+    success: boolean;
+  }> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to fix view counts");
+    }
+
+    try {
+      const result = await this.fetchApi("/jobs/fix-view-counts", {
+        method: "POST",
+      });
+      return result;
+    } catch (error) {
+      console.error("❌ Failed to fix view counts:", error);
+      throw error;
+    }
+  }
+
+  //Create session ID for job view tracking
+  getOrCreateSessionId(): string {
+    if (typeof window === "undefined") return "server-side";
+
+    let sessionId = sessionStorage.getItem("viewSessionId");
+    if (!sessionId) {
+      sessionId =
+        "view_" + Math.random().toString(36).substr(2, 9) + "_" + Date.now();
+      sessionStorage.setItem("viewSessionId", sessionId);
+    }
+    return sessionId;
+  }
+
+  // Check if user has viewed a specific job (client-side tracking)
+  hasViewedJob(jobId: string): boolean {
+    if (typeof window === "undefined") return false;
+
+    const viewedJobs = JSON.parse(localStorage.getItem("viewedJobs") || "[]");
+    return viewedJobs.includes(jobId);
+  }
+
+  // Mark job as viewed (client-side tracking)
+  markJobAsViewed(jobId: string): void {
+    if (typeof window === "undefined") return;
+
+    const viewedJobs = JSON.parse(localStorage.getItem("viewedJobs") || "[]");
+    if (!viewedJobs.includes(jobId)) {
+      viewedJobs.push(jobId);
+      localStorage.setItem("viewedJobs", JSON.stringify(viewedJobs));
+      console.log(`📊 Marked job ${jobId} as viewed (client-side)`);
+    }
+  }
+
+  // Get view statistics for a job (hiring users only)
+  async getJobViewStats(jobId: string): Promise<{
+    totalViews: number;
+    viewsByUserType: Record<string, number>;
+    applicationRate: number;
+  }> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to view job statistics");
+    }
+
+    try {
+      const analytics = await this.getJobAnalytics(jobId);
+      return {
+        totalViews: analytics.TotalViews || 0,
+        viewsByUserType: analytics.ViewsByUserType || {},
+        applicationRate: analytics.ApplicationRate || 0,
+      };
+    } catch (error) {
+      console.error("❌ Failed to load job view stats:", error);
+      return {
+        totalViews: 0,
+        viewsByUserType: {},
+        applicationRate: 0,
+      };
+    }
+  }
+
   // Utility methods to convert between API and frontend formats - updated for city/country
   convertApiJobToFormData(apiJob: ApiJob, company?: ApiCompany): JobFormData {
     const location = this.extractLocationFromObject(apiJob.locations);
@@ -489,6 +609,55 @@ class JobService {
         coverLetterRequired: false,
         portfolioRequired: false,
       },
+      interviewTemplateId: apiJob.interviewTemplateId,
+      viewCount: apiJob.viewCount || 0,
+    };
+  }
+
+  // Convert API job to frontend Job interface (with view count)
+  convertApiJobToJob(apiJob: ApiJob, company?: ApiCompany): Job {
+    const location = this.extractLocationFromObject(apiJob.locations);
+    return {
+      id: apiJob.id,
+      title: apiJob.title,
+      company: company?.name || "Unknown Company",
+      location: this.formatLocationString(location),
+      locationType: this.mapLocationTypeToFormData(apiJob.locationType),
+      type: apiJob.employmentType as
+        | "Full-Time"
+        | "Part-Time"
+        | "Contract"
+        | "Internship",
+      department: apiJob.department || "Not specified",
+      experience: this.mapExperienceToFormData(
+        apiJob.seniorityLevel,
+        apiJob.experienceYearsMin
+      ),
+      salary: {
+        min: apiJob.salaryMin || 0,
+        max: apiJob.salaryMax || 0,
+        currency: apiJob.salaryCurrency || "USD",
+        period: "per year",
+      },
+      description: apiJob.description,
+      requirements: apiJob.requirements || [],
+      qualifications: apiJob.qualifications || [],
+      responsibilities: apiJob.responsibilities || [],
+      benefits: apiJob.benefits || [],
+      skills: [],
+      applicationSettings: {
+        deadline: apiJob.applicationDeadline || "",
+        questionsRequired: false,
+        resumeRequired: true,
+        coverLetterRequired: false,
+        portfolioRequired: false,
+      },
+      postedDate: this.formatPostedDate(apiJob.postedDate || apiJob.createdAt),
+      status: this.mapBackendStatusToFrontend(apiJob.status),
+      applicants: apiJob.applicantCount || 0,
+      viewCount: apiJob.viewCount || 0, // Include view count
+      createdBy: apiJob.createdBy,
+      updatedAt: apiJob.createdAt,
     };
   }
 
@@ -527,8 +696,11 @@ class JobService {
     companyId: string,
     createdBy: string
   ): CreateJobRequest {
-    console.log("🔧 Converting form data to create request. FormData.interviewTemplateId:", formData.interviewTemplateId);
-    
+    console.log(
+      "🔧 Converting form data to create request. FormData.interviewTemplateId:",
+      formData.interviewTemplateId
+    );
+
     const updateRequest = this.convertFormDataToUpdateRequest(formData);
     const createRequest = {
       ...updateRequest,
@@ -555,20 +727,55 @@ class JobService {
       skillMatchThreshold: 0.7,
       interviewTemplateId: formData.interviewTemplateId,
     };
-    
-    console.log("🔧 Created request with interviewTemplateId:", createRequest.interviewTemplateId);
+
+    console.log(
+      "🔧 Created request with interviewTemplateId:",
+      createRequest.interviewTemplateId
+    );
     return createRequest;
   }
 
+  // Helper method to format location string
+  private formatLocationString(location: {
+    city: string;
+    country: string;
+  }): string {
+    if (location.city && location.country) {
+      return `${location.city}, ${location.country}`;
+    }
+    return location.city || location.country || "Location not specified";
+  }
+
+  // Helper method to format posted date
+  private formatPostedDate(dateString: string): string {
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - date.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) return "1 day ago";
+      if (diffDays < 7) return `${diffDays} days ago`;
+      if (diffDays < 14) return "1 week ago";
+      if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
+      return `${Math.floor(diffDays / 30)} months ago`;
+    } catch (error) {
+      return "Recently posted";
+    }
+  }
+
   // Helper methods for data transformation - updated to extract city and country
-  private extractLocationFromObject(locations: Record<string, any>): { city: string; country: string } {
+  private extractLocationFromObject(locations: Record<string, any>): {
+    city: string;
+    country: string;
+  } {
     if (!locations) return { city: "", country: "" };
 
     // Direct city and country fields
     if (locations.city || locations.country) {
       return {
         city: locations.city || "",
-        country: locations.country || ""
+        country: locations.country || "",
       };
     }
 
@@ -577,16 +784,18 @@ class JobService {
       const parts = locations.address.split(",").map((p: string) => p.trim());
       return {
         city: parts[0] || "",
-        country: parts[1] || ""
+        country: parts[1] || "",
       };
     }
 
     // Legacy support: try description
     if (locations.description && typeof locations.description === "string") {
-      const parts = locations.description.split(",").map((p: string) => p.trim());
+      const parts = locations.description
+        .split(",")
+        .map((p: string) => p.trim());
       return {
         city: parts[0] || "",
-        country: parts[1] || ""
+        country: parts[1] || "",
       };
     }
 
@@ -734,9 +943,57 @@ class JobService {
       city: cityStr,
       country: countryStr,
       type: locationType.toLowerCase(),
-      address: cityStr && countryStr ? `${cityStr}, ${countryStr}` : cityStr || countryStr,
-      description: cityStr && countryStr ? `${cityStr}, ${countryStr}` : cityStr || countryStr || "Location not specified",
+      address:
+        cityStr && countryStr
+          ? `${cityStr}, ${countryStr}`
+          : cityStr || countryStr,
+      description:
+        cityStr && countryStr
+          ? `${cityStr}, ${countryStr}`
+          : cityStr || countryStr || "Location not specified",
     };
+  }
+
+  async getApplicantJobById(id: string): Promise<ApiJob> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to view job details");
+    }
+
+    try {
+      console.log(`👤 FRONTEND: API call for applicant job ${id}`);
+      console.log(`👤 FRONTEND: Timestamp: ${new Date().toISOString()}`);
+
+      const job = await this.fetchApi(`/applicant/jobs/${id}`);
+
+      console.log(`👤 FRONTEND: Applicant job API call completed for ${id}`);
+      console.log(`👤 FRONTEND: Job title: ${job?.title}`);
+      console.log(
+        `👤 FRONTEND: Current view count in response: ${
+          job?.viewCount || job?.ViewCount
+        }`
+      );
+
+      if (!job) {
+        throw new Error("Job not found");
+      }
+
+      return job;
+    } catch (error) {
+      console.error("❌ FRONTEND: Failed to load applicant job:", error);
+
+      // Provide more helpful error messages
+      if (error instanceof Error) {
+        if (error.message.includes("404")) {
+          throw new Error("Job not found. It may have been deleted.");
+        } else if (error.message.includes("401")) {
+          throw new Error("Authentication required. Please log in again.");
+        } else if (error.message.includes("403")) {
+          throw new Error("You do not have permission to view this job.");
+        }
+      }
+
+      throw error;
+    }
   }
 
   async getInterviewTemplatesForJobs(): Promise<any[]> {

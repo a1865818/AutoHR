@@ -1,4 +1,5 @@
 import { Candidate } from "@/interfaces";
+import { formatTimestamp } from "@/utils/timezoneUtils";
 import { Calendar, Edit3, Trash2, User } from "lucide-react";
 
 interface NotesListProps {
@@ -34,28 +35,6 @@ export function NotesList({
   const truncateText = (text: string, maxLength: number = 150) => {
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength) + "...";
-  };
-
-  const formatTimestamp = (timestamp: string | undefined) => {
-    if (!timestamp) return "Unknown time";
-
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-
-    if (diffInHours < 1) {
-      const minutes = Math.floor(diffInHours * 60);
-      return `${minutes} minute${minutes !== 1 ? "s" : ""} ago`;
-    } else if (diffInHours < 24) {
-      const hours = Math.floor(diffInHours);
-      return `${hours} hour${hours !== 1 ? "s" : ""} ago`;
-    } else if (diffInHours < 168) {
-      // 7 days
-      const days = Math.floor(diffInHours / 24);
-      return `${days} day${days !== 1 ? "s" : ""} ago`;
-    } else {
-      return date.toLocaleDateString();
-    }
   };
 
   return (
@@ -111,9 +90,8 @@ export function NotesList({
                       </h3>
                       <div className="flex items-center text-xs text-gray-500">
                         <span>{candidate.company}</span>
-                        <span className="mx-2">•</span>
                         <span
-                          className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          className={`mx-3 px-2 py-0.5 rounded-full text-xs font-medium ${
                             candidate.stage === "Offer"
                               ? "bg-blue-100 text-blue-700"
                               : candidate.stage === "Interview"
@@ -153,16 +131,15 @@ export function NotesList({
                   </p>
                 </div>
 
-                {/* Note metadata */}
+                {/* FIXED: Use the new timezone utility for timestamp display */}
                 <div className="flex items-center text-xs text-gray-500">
                   <Calendar className="h-3 w-3 mr-1" />
                   <span>
                     {notesUpdatedAt && notesUpdatedAt !== notesCreatedAt
-                      ? `Updated ${formatTimestamp(notesUpdatedAt)}`
-                      : `Created ${formatTimestamp(notesCreatedAt)}`}
+                      ? `Updated ${formatTimestamp(notesUpdatedAt, true)}` // Enable debug for now
+                      : `Created ${formatTimestamp(notesCreatedAt, true)}`}{" "}
+                    {/* Enable debug for now */}
                   </span>
-                  <span className="mx-2">•</span>
-                  <span>{note.length} characters</span>
                 </div>
               </div>
             );

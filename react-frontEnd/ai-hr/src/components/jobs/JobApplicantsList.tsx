@@ -1,20 +1,8 @@
 import { CandidateWithJobDetails } from "@/interfaces";
 import { candidateService } from "@/services/candidateService";
-import {
-  AlertCircle,
-  Calendar,
-  Loader2,
-  Mail,
-  User,
-  FileText,
-  DollarSign,
-  Search,
-  Filter,
-  SortAsc,
-  ChevronDown,
-} from "lucide-react";
-import { useEffect, useState } from "react";
+import { Calendar, DollarSign, Loader2, Mail, Search } from "lucide-react";
 import Image from "next/image";
+import { useEffect, useState } from "react";
 
 interface JobApplicantsListProps {
   jobId: string;
@@ -123,8 +111,8 @@ export function JobApplicantsList({
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (candidate) =>
-          (candidate.name?.toLowerCase() || '').includes(query) ||
-          (candidate.email?.toLowerCase() || '').includes(query) 
+          (candidate.name?.toLowerCase() || "").includes(query) ||
+          (candidate.email?.toLowerCase() || "").includes(query)
       );
     }
 
@@ -316,8 +304,9 @@ export function JobApplicantsList({
               <div className="flex items-start gap-4">
                 {/* Avatar/Initials - using local rendering instead of ui-avatars.com service */}
                 <div className="flex-shrink-0">
-                  {candidate.photo && candidate.photo.startsWith("https://") && 
-                   !candidate.photo.includes("ui-avatars.com") ? (
+                  {candidate.photo &&
+                  candidate.photo.startsWith("https://") &&
+                  !candidate.photo.includes("ui-avatars.com") ? (
                     <Image
                       src={candidate.photo}
                       alt={`${candidate.name}`}
@@ -339,7 +328,6 @@ export function JobApplicantsList({
                       <h3 className="font-medium text-gray-900">
                         {candidate.name}
                       </h3>
-                   
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -348,7 +336,7 @@ export function JobApplicantsList({
                           className={`px-2 py-1 rounded-full text-xs font-medium ${
                             candidate.status === "Hired"
                               ? "bg-green-100 text-green-800"
-                              : candidate.status === "Disqualified"
+                              : candidate.status === "Rejected"
                               ? "bg-red-100 text-red-800"
                               : "bg-blue-100 text-blue-800"
                           }`}

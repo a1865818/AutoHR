@@ -26,6 +26,7 @@ export function Sidebar() {
     { name: "Candidates", href: "/candidates", icon: Users },
     { name: "Jobs", href: "/jobs", icon: FileText },
     { name: "Settings", href: "/settings", icon: Settings },
+    { name: "Analytics", href: "/analytics", icon: FileText },
   ];
 
   if (isCollapsed === null) return null;

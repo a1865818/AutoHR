@@ -72,8 +72,8 @@ public static class ApplicationDetailEndpoints
                 AiAnalysis = request.AiAnalysis,
                 Status = "applied", // Explicitly set default status
                 Stage = "initial_review", // Explicitly set default stage
-                AppliedAt = DateTime.UtcNow.AddHours(7),
-                StatusChangedAt = DateTime.UtcNow.AddHours(7)
+                AppliedAt = DateTime.UtcNow,
+                StatusChangedAt = DateTime.UtcNow
             };
 
             Console.WriteLine($"Creating application detail with ID: {applicationId}");
@@ -278,7 +278,7 @@ public static class ApplicationDetailEndpoints
             if (request.AiAnalysis != null) applicationDetail.AiAnalysis = request.AiAnalysis;
 
             // Always update the status changed timestamp
-            applicationDetail.StatusChangedAt = DateTime.UtcNow.AddHours(7);
+            applicationDetail.StatusChangedAt = DateTime.UtcNow;
 
             // Update the record
             var response = await client.From<ApplicationDetail>().Update(applicationDetail);
@@ -406,7 +406,7 @@ public static class ApplicationDetailEndpoints
                 ["fileName"] = resumeFileName,
                 ["originalName"] = resumeFile.FileName,
                 ["fileSize"] = resumeFile.Length,
-                ["uploadedAt"] = DateTime.UtcNow.AddHours(7),
+                ["uploadedAt"] = DateTime.UtcNow
             };
 
             // Add resume to guest user's ResumeList
@@ -424,8 +424,8 @@ public static class ApplicationDetailEndpoints
                 JobSource = "guest_application",
                 Status = "applied",
                 Stage = "initial_review",
-                AppliedAt = DateTime.UtcNow.AddHours(7),
-                StatusChangedAt = DateTime.UtcNow.AddHours(7),
+                AppliedAt = DateTime.UtcNow,
+                StatusChangedAt = DateTime.UtcNow,
             };
 
             // Save to database
@@ -584,7 +584,7 @@ public static class ApplicationDetailEndpoints
             Password = "guest_user_no_password", // Guest users don't have passwords
             FirstName = firstName,
             LastName = lastName,
-            CreatedAt = DateTime.UtcNow.AddHours(7),
+            CreatedAt = DateTime.UtcNow,
             IsActive = false, // Guest users are inactive (can't log in)
             IsPublic = true, // Mark as public/guest user
             Roles = "Guest",

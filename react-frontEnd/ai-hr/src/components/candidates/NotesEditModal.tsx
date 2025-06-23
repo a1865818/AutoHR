@@ -1,4 +1,5 @@
 import { Candidate } from "@/interfaces";
+import { formatTimestampDetailed } from "@/utils/timezoneUtils";
 import { Calendar, Save, User, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -43,28 +44,6 @@ export function NotesEditModal({
   const handleCancel = () => {
     setNote(currentNote); // Reset to original note
     onClose();
-  };
-
-  const formatTimestamp = (timestamp: string | undefined) => {
-    if (!timestamp) return "Never";
-
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-
-    if (diffInHours < 1) {
-      const minutes = Math.floor(diffInHours * 60);
-      return `${minutes} minute${minutes !== 1 ? "s" : ""} ago`;
-    } else if (diffInHours < 24) {
-      const hours = Math.floor(diffInHours);
-      return `${hours} hour${hours !== 1 ? "s" : ""} ago`;
-    } else if (diffInHours < 168) {
-      // 7 days
-      const days = Math.floor(diffInHours / 24);
-      return `${days} day${days !== 1 ? "s" : ""} ago`;
-    } else {
-      return date.toLocaleDateString();
-    }
   };
 
   if (!isOpen || !candidate) return null;
@@ -112,20 +91,22 @@ export function NotesEditModal({
 
           {/* Content */}
           <div className="p-6">
-            {/* Timestamp Info */}
+            {/* Timestamp Info - FIXED: Use new timezone utility */}
             {(candidate as any).notesCreatedAt && (
               <div className="mb-4 p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center text-sm text-gray-600">
                   <Calendar className="h-4 w-4 mr-2" />
                   <span>
                     Created:{" "}
-                    {formatTimestamp((candidate as any).notesCreatedAt)}
+                    {formatTimestampDetailed((candidate as any).notesCreatedAt)}
                     {(candidate as any).notesUpdatedAt &&
                       (candidate as any).notesUpdatedAt !==
                         (candidate as any).notesCreatedAt && (
                         <span className="ml-4">
                           Last updated:{" "}
-                          {formatTimestamp((candidate as any).notesUpdatedAt)}
+                          {formatTimestampDetailed(
+                            (candidate as any).notesUpdatedAt
+                          )}
                         </span>
                       )}
                   </span>

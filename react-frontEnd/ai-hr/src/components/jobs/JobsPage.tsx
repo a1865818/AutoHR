@@ -12,8 +12,8 @@ import {
   Search,
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { JobCard } from "./JobCard";
 import { JobFilterSidebar } from "./JobFilterSidebar";
 
@@ -296,6 +296,10 @@ export function JobsPage() {
       const mappedStatus = mapStatusToJobFormat(apiJob.status);
       console.log(`📊 Mapped status: "${mappedStatus}"`);
 
+      // Extract view count from API job
+      const viewCount = apiJob.viewCount || (apiJob as any).ViewCount || 0;
+      console.log(`👀 View count for job ${apiJob.title}: ${viewCount}`);
+
       const transformedJob: Job = {
         id: apiJob.id,
         title: apiJob.title,
@@ -330,6 +334,7 @@ export function JobsPage() {
         postedDate: formatPostedDate(apiJob.postedDate || apiJob.createdAt),
         status: mappedStatus, // Use the mapped status
         applicants: apiJob.applicantCount || 0,
+        viewCount: viewCount,
         createdBy: apiJob.createdBy,
         updatedAt: apiJob.createdAt,
       };
@@ -859,7 +864,7 @@ export function JobsPage() {
           <div id="job-list-container" className="flex-1 overflow-y-auto p-6">
             <div className="space-y-4">
               {paginatedJobs.map((job) => (
-                <JobCard key={job.id} job={job} />
+                <JobCard key={job.id} job={job} showAnalytics={true} />
               ))}
 
               {filteredAndSortedJobs.length === 0 && (

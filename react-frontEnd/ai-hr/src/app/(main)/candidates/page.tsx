@@ -7,17 +7,21 @@ import { CandidatesList } from "@/components/candidates/CandidatesList";
 import { FilterSidebar } from "@/components/candidates/FilterSidebar";
 import { NotesEditModal } from "@/components/candidates/NotesEditModal";
 import { NotesList } from "@/components/candidates/NotesList";
+import { RankingModal } from "@/components/candidates/RankingModal";
+import { RankingTab } from "@/components/candidates/RankingTab";
+
 import { useHiringAuth } from "@/hooks/useHiringAuth";
 import { CandidateWithJobDetails } from "@/interfaces";
 import { candidateService } from "@/services/candidateService";
+
 import {
   Briefcase,
+  ChevronLeft,
+  ChevronRight,
   FileText,
   Plus,
   Search,
   Users,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -191,12 +195,22 @@ function CandidatesPage() {
   const [selectedCandidate, setSelectedCandidate] = useState<string | null>(
     null
   );
-  const [activeTab, setActiveTab] = useState<"candidates" | "notes">(
-    "candidates"
-  );
+
+  const [rankingCandidates, setRankingCandidates] = useState<
+    CandidateWithJobDetails[]
+  >([]);
+  const [selectedForRanking, setSelectedForRanking] = useState<string[]>([]);
+  const [selectedRankingCandidate, setSelectedRankingCandidate] = useState<
+    string | null
+  >(null);
+  const [isRankingModalOpen, setIsRankingModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<
+    "candidates" | "notes" | "ranking"
+  >("candidates");
+
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<{
-    field: "name" | "company" | "assessment" | "stage" | "status";
+    field: "name" | "company" | "stage" | "status";
     direction: "asc" | "desc";
   }>({ field: "name", direction: "asc" });
 
@@ -471,6 +485,51 @@ function CandidatesPage() {
     setCurrentPage(1);
   };
 
+  // Add these handler functions:
+  const handleRankingSelect = (candidateId: string, selected: boolean) => {
+    if (selected) {
+      setSelectedForRanking((prev) => [...prev, candidateId]);
+    } else {
+      setSelectedForRanking((prev) => prev.filter((id) => id !== candidateId));
+    }
+  };
+
+  const handleSelectAllForRanking = (selectAll: boolean) => {
+    if (selectAll) {
+      setSelectedForRanking(filteredAndSortedCandidates.map((c) => c.id));
+    } else {
+      setSelectedForRanking([]);
+    }
+  };
+
+  const handleGoToRanking = () => {
+    const newRankingCandidates = filteredAndSortedCandidates.filter((c) =>
+      selectedForRanking.includes(c.id)
+    );
+    setRankingCandidates((prev) => {
+      const existingIds = prev.map((c) => c.id);
+      const toAdd = newRankingCandidates.filter(
+        (c) => !existingIds.includes(c.id)
+      );
+      return [...prev, ...toAdd];
+    });
+    setActiveTab("ranking");
+    setSelectedForRanking([]);
+  };
+
+  const handleRemoveFromRanking = (candidateId: string) => {
+    setRankingCandidates((prev) => prev.filter((c) => c.id !== candidateId));
+    if (selectedRankingCandidate === candidateId) {
+      setSelectedRankingCandidate(null);
+      setIsRankingModalOpen(false);
+    }
+  };
+
+  const handleRankingCandidateSelect = (candidateId: string) => {
+    setSelectedRankingCandidate(candidateId);
+    setIsRankingModalOpen(true);
+  };
+
   const handleFavoriteToggle = (filterId: string) => {
     const favorite = favoriteFilters.find((f) => f.id === filterId);
     if (favorite) {
@@ -549,9 +608,7 @@ function CandidatesPage() {
     setCurrentPage(1);
   };
 
-  const handleSort = (
-    field: "name" | "company" | "assessment" | "stage" | "status"
-  ) => {
+  const handleSort = (field: "name" | "company" | "stage" | "status") => {
     setSortBy((prev) => ({
       field,
       direction:
@@ -616,7 +673,6 @@ function CandidatesPage() {
     }
   };
 
-  // FIXED: Save note using applicationId as key
   const handleSaveNote = async (candidateId: string, note: string) => {
     try {
       // Find candidate by the passed candidateId (which should be applicationId)
@@ -628,24 +684,41 @@ function CandidatesPage() {
 
       console.log("💾 Saving note to database for application:", candidateId);
 
-      // Save to backend database using applicationId
-      await candidateService.saveCandidateNote(candidateId, note);
+      // Save to backend database using applicationId and get timestamps back
+      const timestamps = await candidateService.saveCandidateNote(
+        candidateId,
+        note
+      );
 
-      // FIXED: Update local state using applicationId as key
       const newNotes = {
         ...candidateNotes,
         [candidateId]: note, // Use applicationId consistently
       };
       setCandidateNotes(newNotes);
 
-      console.log("✅ Note saved successfully to database");
+      setCandidates((prevCandidates) =>
+        prevCandidates.map((c) => {
+          if (c.applicationId === candidateId) {
+            return {
+              ...c,
+              hiringNotes: note,
+              notesCreatedAt: timestamps.notesCreatedAt,
+              notesUpdatedAt: timestamps.notesUpdatedAt,
+            };
+          }
+          return c;
+        })
+      );
+
+      console.log(
+        "✅ Note saved successfully to database and local state updated with timestamps"
+      );
     } catch (error) {
       console.error("❌ Failed to save note:", error);
       alert("Failed to save note. Please try again.");
     }
   };
 
-  // FIXED: Delete note using applicationId
   const handleDeleteNote = async (candidateId: string) => {
     try {
       console.log(
@@ -668,9 +741,10 @@ function CandidatesPage() {
     }
   };
 
-  // FIXED: Handle edit note modal using applicationId
-  const handleEditNote = (candidate: CandidateWithJobDetails) => {
-    setEditingCandidate(candidate);
+  const handleEditNote = (candidate: any) => {
+    // Find the full candidate data with job details
+    const fullCandidateData = candidates.find((c) => c.id === candidate.id);
+    setEditingCandidate(fullCandidateData || candidate);
     setIsNotesModalOpen(true);
   };
 
@@ -679,16 +753,10 @@ function CandidatesPage() {
     setEditingCandidate(null);
   };
 
-  // FIXED: Save note from modal using applicationId
   const handleSaveNoteFromModal = async (candidateId: string, note: string) => {
+    // candidateId here is actually applicationId passed from the modal
     await handleSaveNote(candidateId, note);
-    // Refresh candidates to get updated timestamps
-    const response = await candidateService.getCandidatesForCompany();
-    setCandidates(response.candidates);
-
-    // FIXED: Update notes state using applicationId
-    const newNotes = { ...candidateNotes, [candidateId]: note };
-    setCandidateNotes(newNotes);
+    // No need to manually refresh - handleSaveNote now updates local state with timestamps immediately
   };
 
   const handleCreateJob = () => {
@@ -870,10 +938,10 @@ function CandidatesPage() {
           aValue = a.company;
           bValue = b.company;
           break;
-        case "assessment":
-          aValue = a.assessment;
-          bValue = b.assessment;
-          break;
+        // case "assessment":
+        //   aValue = a.assessment;
+        //   bValue = b.assessment;
+        //   break;
         case "stage":
           aValue = a.stage;
           bValue = b.stage;
@@ -1091,10 +1159,22 @@ function CandidatesPage() {
       }
       return (
         <div className="flex flex-col flex-1 overflow-hidden">
-          <CandidatesList
+          {/* <CandidatesList
             candidates={paginatedCandidates}
             selectedCandidate={selectedCandidate}
             onCandidateClick={handleCandidateClick}
+            sortBy={sortBy}
+            onSort={handleSort}
+          /> */}
+
+          <CandidatesList
+            candidates={paginatedCandidates}
+            selectedCandidate={selectedCandidate}
+            selectedForRanking={selectedForRanking}
+            onCandidateClick={handleCandidateClick}
+            onRankingSelect={handleRankingSelect}
+            onSelectAllForRanking={handleSelectAllForRanking}
+            onGoToRanking={handleGoToRanking}
             sortBy={sortBy}
             onSort={handleSort}
           />
@@ -1174,7 +1254,8 @@ function CandidatesPage() {
           )}
         </div>
       );
-    } else {
+    }
+    if (activeTab === "notes") {
       // Notes tab
       if (filteredNoteCandidates.length === 0) {
         if (notesSearchQuery) {
@@ -1280,6 +1361,19 @@ function CandidatesPage() {
         </div>
       );
     }
+    // Add ranking tab rendering
+    if (activeTab === "ranking") {
+      return (
+        <div className="flex flex-col flex-1 overflow-hidden">
+          <RankingTab
+            candidates={rankingCandidates}
+            selectedCandidateId={selectedRankingCandidate}
+            onCandidateSelect={handleRankingCandidateSelect}
+            onRemoveFromRanking={handleRemoveFromRanking}
+          />
+        </div>
+      );
+    }
   };
 
   return (
@@ -1301,7 +1395,7 @@ function CandidatesPage() {
 
       {/* Main content area */}
       <div className="flex-1 overflow-hidden flex flex-col">
-        <CandidateHeader
+        {/* <CandidateHeader
           activeTab={activeTab}
           onTabChange={setActiveTab}
           searchQuery={
@@ -1312,6 +1406,29 @@ function CandidatesPage() {
           }
           candidatesCount={filteredAndSortedCandidates.length} // Show filtered candidates count
           notesCount={filteredNoteCandidates.length} // Show filtered notes count
+        /> */}
+        {/* {renderMainContent()} */}
+
+        <CandidateHeader
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          searchQuery={
+            activeTab === "candidates"
+              ? searchQuery
+              : activeTab === "notes"
+              ? notesSearchQuery
+              : searchQuery
+          }
+          onSearchChange={
+            activeTab === "candidates"
+              ? setSearchQuery
+              : activeTab === "notes"
+              ? setNotesSearchQuery
+              : setSearchQuery
+          }
+          candidatesCount={filteredAndSortedCandidates.length}
+          notesCount={filteredNoteCandidates.length}
+          rankingCount={rankingCandidates.length}
         />
         {renderMainContent()}
       </div>
@@ -1342,6 +1459,23 @@ function CandidatesPage() {
         onSave={(candidateId, note) =>
           handleSaveNoteFromModal(editingCandidate?.applicationId || "", note)
         } // FIXED: Use applicationId
+      />
+      {/* Add ranking modal at the end of your JSX */}
+      <RankingModal
+        candidate={
+          rankingCandidates.find((c) => c.id === selectedRankingCandidate) ||
+          null
+        }
+        isOpen={isRankingModalOpen}
+        onClose={() => {
+          setIsRankingModalOpen(false);
+          setSelectedRankingCandidate(null);
+        }}
+        rank={
+          rankingCandidates
+            .sort((a, b) => b.assessment - a.assessment)
+            .findIndex((c) => c.id === selectedRankingCandidate) + 1
+        }
       />
     </div>
   );

@@ -1,7 +1,8 @@
 "use client";
 
-import { useJob } from "@/hooks/useJobs";
 import { useAuth } from "@/contexts/AuthContext";
+import { useJob } from "@/hooks/useJobs";
+import { useJobViewTracking } from "@/hooks/useJobViewTracking";
 import { ApiJob, CandidateWithJobDetails } from "@/interfaces";
 import {
   AlertCircle,
@@ -27,19 +28,60 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
-import { JobApplicantsList } from "./JobApplicantsList";
 import { CandidateProfileModal } from "../candidates/CandidateProfileModal";
+import { JobApplicantsList } from "./JobApplicantsList";
 
-import { useEffect } from "react";
 import { candidateService } from "@/services/candidateService";
+import { useEffect } from "react";
 
 interface JobDetailsPageProps {
   jobId: string;
 }
 
 export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
+  useEffect(() => {
+    const mountTime = Date.now();
+    console.log(
+      `🔍 COMPONENT: JobDetailsPage mounted for job ${jobId} at ${new Date().toISOString()}`
+    );
+
+    return () => {
+      const unmountTime = Date.now();
+      console.log(
+        `🔍 COMPONENT: JobDetailsPage unmounted for job ${jobId} at ${new Date().toISOString()}`
+      );
+      console.log(
+        `🔍 COMPONENT: Component was mounted for ${unmountTime - mountTime}ms`
+      );
+    };
+  }, [jobId]);
   const { job, company, isLoading, error, refreshJob } = useJob(jobId);
+
   const { user } = useAuth();
+
+  useEffect(() => {
+    if (job) {
+      console.log(
+        `🔍 COMPONENT: Job data updated - Title: ${job.title}, ViewCount: ${
+          job.viewCount || (job as any).ViewCount
+        }`
+      );
+    }
+  }, [job]);
+
+  //Add view tracking for the job
+  // Add view tracking
+  const { isTracking, hasTracked } = useJobViewTracking(jobId, {
+    enabled: true,
+    delay: 3000, // 3 seconds minimum view time
+  });
+
+  useEffect(() => {
+    console.log(
+      `🔍 COMPONENT: View tracking status - isTracking: ${isTracking}, hasTracked: ${hasTracked}`
+    );
+  }, [isTracking, hasTracked]);
+
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "applicants">(
     "overview"
@@ -48,6 +90,19 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
     useState<CandidateWithJobDetails | null>(null);
   const [showCandidateModal, setShowCandidateModal] = useState(false);
   const [actualApplicantCount, setActualApplicantCount] = useState(0);
+
+  //Log view tracking status
+  // Log view tracking status for debugging
+  useEffect(() => {
+    if (jobId) {
+      console.log(`👀 View tracking status for job ${jobId}:`, {
+        isTracking,
+        hasTracked,
+        jobTitle: job?.title,
+      });
+    }
+  }, [jobId, isTracking, hasTracked, job?.title]);
+
   // Add this useEffect to get the actual applicant count for this job
   useEffect(() => {
     const fetchApplicantCount = async () => {
@@ -708,14 +763,17 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                     <span className="text-sm text-gray-600">
                       Total Applications
                     </span>
-                      <span className="text-sm font-semibold text-gray-900">
-                        {applicantCount}
-                      </span>
+                    <span className="text-sm font-semibold text-gray-900">
+                      {applicantCount}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Views</span>
-                    <span className="text-sm font-semibold text-gray-900">
+                    {/* <span className="text-sm font-semibold text-gray-900">
                       {viewCount}
+                    </span> */}
+                    <span className="text-sm font-semibold text-gray-900">
+                      {safeRenderNumber(job.viewCount)}
                     </span>
                   </div>
                   <div className="flex justify-between items-center">
@@ -724,7 +782,7 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                       {job.postedDate || job.createdAt
                         ? (() => {
                             try {
-                              let dateValue = job.postedDate || job.createdAt;
+                              const dateValue = job.postedDate || job.createdAt;
                               let dateStr: string;
 
                               // Handle .NET DateTime objects
@@ -868,13 +926,13 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                     Job Applicants
                   </h3>
                   <p className="text-sm text-gray-600 mt-1">
-                    {applicantCount} candidate{applicantCount !== 1 ? 's' : ''} applied for this position
+                    {applicantCount} candidate{applicantCount !== 1 ? "s" : ""}{" "}
+                    applied for this position
                   </p>
                 </div>
-              
               </div>
             </div>
-            
+
             <div className="p-6">
               <JobApplicantsList
                 jobId={jobId}
@@ -884,7 +942,7 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
           </div>
         )}
       </div>
-      
+
       {/* Candidate Profile Modal */}
       <CandidateProfileModal
         isOpen={showCandidateModal}

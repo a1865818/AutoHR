@@ -5,8 +5,8 @@ import UserDropdown from "./auth/UserDropdown";
 
 export function Header() {
   return (
-    <header className="bg-white border-b border-gray-200">
-      <div className="flex items-center justify-between px-4 py-4 pl-16 md:pl-14 lg:pl-4">
+    <header className="bg-white border-b border-gray-200 ">
+      <div className="flex items-center justify-between px-4 py-[10px] pl-16 md:pl-14 lg:pl-4">
         {/* Search Bar - Full width on mobile, constrained on larger screens */}
         <div className="relative w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-xl">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
