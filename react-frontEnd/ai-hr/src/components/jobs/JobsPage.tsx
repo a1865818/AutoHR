@@ -1,24 +1,35 @@
 "use client";
 
+import { BulkActionToolbar } from "@/components/jobs/BulkActionToolbar";
+import { JobFilterSidebar } from "@/components/jobs/JobFilterSidebar";
 import { ApiCompany, ApiJob } from "@/interfaces";
 import { Job } from "@/interfaces/job";
 import { jobService } from "@/services/jobService";
 import {
   AlertCircle,
+  CheckSquare,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Plus,
   Search,
+  Square,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { JobCard } from "./JobCard";
-import { JobFilterSidebar } from "./JobFilterSidebar";
 
 type SortOption = "newest" | "oldest" | "applicants" | "salary";
-type ViewMode = "jobs" | "drafts";
+type ViewMode =
+  | "All"
+  | "Active"
+  | "Paused"
+  | "Closed"
+  | "Draft"
+  | "Expired"
+  | "Cancelled";
 
 interface Filters {
   status: string[];
@@ -27,7 +38,7 @@ interface Filters {
   workType: string[];
 }
 
-// Helper functions moved outside component to avoid hoisting issues
+// Helper functions for data transformation
 const extractLocationString = (locations: Record<string, any>): string => {
   if (!locations) return "Location not specified";
 
@@ -92,42 +103,38 @@ const mapExperienceToJobFormat = (
 };
 
 const mapStatusToJobFormat = (
-  status: string
-): "Draft" | "Active" | "Paused" | "Closed" => {
-  // Handle null/undefined/empty status
-  if (!status || typeof status !== "string") {
-    console.warn("🚨 Invalid status received:", status);
+  status: any
+): "Draft" | "Active" | "Paused" | "Closed" | "Expired" | "Cancelled" => {
+  if (typeof status !== "string") {
+    console.warn("Invalid status, defaulting to Draft:", status);
     return "Draft";
   }
 
-  // Trim whitespace and convert to lowercase for comparison
-  const normalizedStatus = status.trim().toLowerCase();
+  // Since jobService already converted to frontend format, just validate and return
+  const validStatuses = [
+    "Active",
+    "Draft",
+    "Paused",
+    "Closed",
+    "Expired",
+    "Cancelled",
+  ];
+  const titleCaseStatus =
+    status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 
-  console.log(
-    `🔄 Mapping status: "${status}" -> normalized: "${normalizedStatus}"`
-  );
-
-  switch (normalizedStatus) {
-    case "open": // Backend uses "Open" for active jobs
-    case "active": // Also handle "Active" just in case
-      console.log("✅ Mapped to Active");
-      return "Active";
-    case "draft": // Backend uses "Draft" for draft jobs
-      console.log("✅ Mapped to Draft");
-      return "Draft";
-    case "paused": // Backend uses "Paused" for paused jobs
-      console.log("✅ Mapped to Paused");
-      return "Paused";
-    case "closed": // Backend uses "Closed" for closed jobs
-      console.log("✅ Mapped to Closed");
-      return "Closed";
-    default:
-      console.warn("🚨 Unknown status received from backend:", status);
-      console.warn(
-        "🚨 Available values should be: Open, Draft, Paused, Closed"
-      );
-      return "Draft"; // Default fallback
+  if (validStatuses.includes(titleCaseStatus as any)) {
+    console.log(`✅ Valid frontend status: ${status} -> ${titleCaseStatus}`);
+    return titleCaseStatus as
+      | "Draft"
+      | "Active"
+      | "Paused"
+      | "Closed"
+      | "Expired"
+      | "Cancelled";
   }
+
+  console.warn(`⚠️ Unknown status "${status}", defaulting to Draft`);
+  return "Draft";
 };
 
 const formatPostedDate = (dateString: string): string => {
@@ -151,6 +158,12 @@ export function JobsPage() {
     new Map()
   );
 
+  // Bulk selection state
+  const [selectedJobs, setSelectedJobs] = useState<string[]>([]);
+  const [isSelectAllMode, setIsSelectAllMode] = useState(false);
+  const [isBulkUpdating, setIsBulkUpdating] = useState(false);
+
+  // Filter and view state
   const [expandedFilters, setExpandedFilters] = useState({
     status: true,
     type: true,
@@ -161,11 +174,11 @@ export function JobsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<SortOption>("newest");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
-  const [viewMode, setViewMode] = useState<ViewMode>("jobs");
+  const [viewMode, setViewMode] = useState<ViewMode>("All");
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [jobsPerPage] = useState(5);
+  const [jobsPerPage] = useState(6);
 
   const [activeFilters, setActiveFilters] = useState<Filters>({
     status: [],
@@ -180,9 +193,9 @@ export function JobsPage() {
   useEffect(() => {
     const viewParam = searchParams.get("view");
     if (viewParam === "drafts") {
-      setViewMode("drafts");
+      setViewMode("Draft");
     } else {
-      setViewMode("jobs");
+      setViewMode("All");
     }
   }, [searchParams]);
 
@@ -194,24 +207,24 @@ export function JobsPage() {
     console.log("🔄 Loading jobs data for hiring user's company...");
     setIsLoading(true);
     setError(null);
+    setSelectedJobs([]); // Clear selections when reloading
 
     try {
       if (!jobService.isAuthenticated()) {
         throw new Error("Please log in to view jobs");
       }
 
-      // 🔥 GET THE CURRENT USER'S COMPANY ID
+      // Get the current user's company ID
       const authData = jobService.getCurrentUser();
       console.log("👤 Current user auth data:", authData);
 
-      // Extract company ID from auth data
       let userCompanyId: string | null = null;
 
       if (authData.companyId) {
         userCompanyId = authData.companyId;
         console.log("🏢 User's company ID:", userCompanyId);
       } else {
-        // If no company ID in auth, try to get it from currentUser in storage
+        // If no company ID in auth, try to get it from storage
         const currentUserStr =
           localStorage.getItem("currentUser") ||
           sessionStorage.getItem("currentUser");
@@ -232,27 +245,118 @@ export function JobsPage() {
         );
       }
 
-      // 🔥 LOAD JOBS FILTERED BY COMPANY ID
-      console.log("📊 Loading jobs for company:", userCompanyId);
-      const [activeJobs, draftJobs] = await Promise.all([
-        jobService.getAllJobs("Open", userCompanyId), // Pass company ID
-        jobService.getAllJobs("Draft", userCompanyId), // Pass company ID
+      //   // Load ALL jobs for the company (all statuses)
+      //   console.log("📊 Loading all jobs for company:", userCompanyId);
+      //   const allJobsData = await jobService.getAllJobs(undefined, userCompanyId);
+
+      //   console.log("📊 Company-filtered jobs data:", allJobsData);
+      //   console.log("📊 Number of company jobs:", allJobsData?.length || 0);
+
+      //   setAllJobs(allJobsData || []);
+      console.log("🔍 DEBUGGING: Testing individual API calls...");
+
+      try {
+        console.log(
+          "📞 Calling jobService.getAllJobs('Open', userCompanyId)..."
+        );
+        const activeJobs = await jobService.getAllJobs("Open", userCompanyId);
+        console.log("📞 Response for Open jobs:", activeJobs);
+        console.log("📞 Open jobs count:", activeJobs?.length || 0);
+        if (activeJobs && activeJobs.length > 0) {
+          console.log("📞 First Open job status:", activeJobs[0].status);
+          console.log("📞 First Open job title:", activeJobs[0].title);
+        }
+      } catch (error) {
+        console.error("❌ Error fetching Open jobs:", error);
+      }
+
+      try {
+        console.log(
+          "📞 Calling jobService.getAllJobs('Draft', userCompanyId)..."
+        );
+        const draftJobs = await jobService.getAllJobs("Draft", userCompanyId);
+        console.log("📞 Response for Draft jobs:", draftJobs);
+        console.log("📞 Draft jobs count:", draftJobs?.length || 0);
+        if (draftJobs && draftJobs.length > 0) {
+          console.log("📞 First Draft job status:", draftJobs[0].status);
+          console.log("📞 First Draft job title:", draftJobs[0].title);
+        }
+      } catch (error) {
+        console.error("❌ Error fetching Draft jobs:", error);
+      }
+
+      // ✅ Continue with the parallel loading approach
+      const [
+        activeJobs,
+        draftJobs,
+        pausedJobs,
+        closedJobs,
+        expiredJobs,
+        cancelledJobs,
+      ] = await Promise.all([
+        jobService.getAllJobs("Open", userCompanyId),
+        jobService.getAllJobs("Draft", userCompanyId),
+        jobService.getAllJobs("Paused", userCompanyId),
+        jobService.getAllJobs("Closed", userCompanyId),
+        jobService.getAllJobs("Expired", userCompanyId),
+        jobService.getAllJobs("Cancelled", userCompanyId),
       ]);
 
-      const allJobsData = [...(activeJobs || []), ...(draftJobs || [])];
+      // ✅ ADD MORE DEBUGGING: Check what we got back
+      console.log("🔍 DEBUGGING: Results from parallel calls:");
+      console.log(
+        "- Active jobs from API:",
+        activeJobs?.length || 0,
+        activeJobs
+      );
+      console.log("- Draft jobs from API:", draftJobs?.length || 0, draftJobs);
+      console.log("- Paused jobs from API:", pausedJobs?.length || 0);
+      console.log("- Closed jobs from API:", closedJobs?.length || 0);
+      console.log("- Expired jobs from API:", expiredJobs?.length || 0);
+      console.log("- Cancelled jobs from API:", cancelledJobs?.length || 0);
 
-      console.log("📊 Company-filtered jobs data:", allJobsData);
-      console.log("📊 Number of company jobs:", allJobsData?.length || 0);
-      console.log("📊 Active company jobs:", activeJobs?.length || 0);
-      console.log("📊 Draft company jobs:", draftJobs?.length || 0);
-
-      // Log first job for structure analysis
-      if (allJobsData && allJobsData.length > 0) {
-        console.log(
-          "🔍 First company job structure:",
-          JSON.stringify(allJobsData[0], null, 2)
-        );
+      // Check status values in the returned jobs
+      if (activeJobs && activeJobs.length > 0) {
+        console.log("🔍 DEBUGGING: Status values in activeJobs:");
+        activeJobs.forEach((job, index) => {
+          console.log(
+            `  ${index + 1}. "${job.title}" - Status: "${
+              job.status
+            }" (${typeof job.status})`
+          );
+        });
       }
+
+      if (draftJobs && draftJobs.length > 0) {
+        console.log("🔍 DEBUGGING: Status values in draftJobs:");
+        draftJobs.slice(0, 3).forEach((job, index) => {
+          console.log(
+            `  ${index + 1}. "${job.title}" - Status: "${
+              job.status
+            }" (${typeof job.status})`
+          );
+        });
+      }
+
+      // Combine all jobs
+      const allJobsData = [
+        ...(activeJobs || []),
+        ...(draftJobs || []),
+        ...(pausedJobs || []),
+        ...(closedJobs || []),
+        ...(expiredJobs || []),
+        ...(cancelledJobs || []),
+      ];
+
+      console.log("🔍 DEBUGGING: Combined allJobsData:");
+      console.log("- Total combined jobs:", allJobsData.length);
+      allJobsData.forEach((job, index) => {
+        console.log(
+          `  ${index + 1}. "${job.title}" - Status: "${
+            job.status
+          }" (${typeof job.status})`
+        );
+      });
 
       setAllJobs(allJobsData || []);
 
@@ -281,24 +385,27 @@ export function JobsPage() {
 
   // Transform API jobs to your existing Job interface format
   const transformedJobs = useMemo(() => {
-    console.log("🔄 Starting job transformation...");
-    console.log("📊 Raw jobs to transform:", allJobs.length);
+    console.log(
+      "🔄 TRANSFORMATION START:",
+      allJobs.length,
+      "jobs to transform"
+    );
+
+    if (allJobs.length > 0) {
+      console.log("🔍 Raw jobs from API (first 5):");
+      allJobs.slice(0, 5).forEach((job, index) => {
+        console.log(`  ${index + 1}. "${job.title}" - Status: "${job.status}"`);
+      });
+    }
 
     const transformed = allJobs.map((apiJob, index): Job => {
-      console.log(
-        `🔄 Transforming job ${index + 1}/${allJobs.length}:`,
-        apiJob.title
-      );
-      console.log(`📊 Original status: "${apiJob.status}"`);
+      console.log(`\n🔄 Transforming job ${index + 1}: "${apiJob.title}"`);
+      console.log(`📊 Input status: "${apiJob.status}"`);
 
       const company = companies.get(apiJob.companyId);
-
       const mappedStatus = mapStatusToJobFormat(apiJob.status);
-      console.log(`📊 Mapped status: "${mappedStatus}"`);
 
-      // Extract view count from API job
-      const viewCount = apiJob.viewCount || (apiJob as any).ViewCount || 0;
-      console.log(`👀 View count for job ${apiJob.title}: ${viewCount}`);
+      console.log(`📊 Output status: "${mappedStatus}"`);
 
       const transformedJob: Job = {
         id: apiJob.id,
@@ -332,44 +439,40 @@ export function JobsPage() {
           portfolioRequired: false,
         },
         postedDate: formatPostedDate(apiJob.postedDate || apiJob.createdAt),
-        status: mappedStatus, // Use the mapped status
+        status: mappedStatus, // ← This is the key line
         applicants: apiJob.applicantCount || 0,
-        viewCount: viewCount,
+        viewCount: apiJob.viewCount || 0,
         createdBy: apiJob.createdBy,
         updatedAt: apiJob.createdAt,
       };
 
-      console.log(
-        `✅ Transformed job ${index + 1}: Status "${transformedJob.status}"`
-      );
       return transformedJob;
     });
 
-    // Count by status
+    // Count final statuses
     const statusCounts = {
       Active: transformed.filter((job) => job.status === "Active").length,
       Draft: transformed.filter((job) => job.status === "Draft").length,
       Paused: transformed.filter((job) => job.status === "Paused").length,
       Closed: transformed.filter((job) => job.status === "Closed").length,
+      Expired: transformed.filter((job) => job.status === "Expired").length,
+      Cancelled: transformed.filter((job) => job.status === "Cancelled").length,
     };
 
-    console.log("📊 Status counts after transformation:", statusCounts);
-    console.log("✅ Total transformed jobs:", transformed.length);
+    console.log("📊 FINAL STATUS COUNTS:", statusCounts);
+    console.log("✅ TRANSFORMATION COMPLETE");
 
     return transformed;
   }, [allJobs, companies]);
 
-  // Calculate tab counts - apply filters to get accurate counts
+  // Calculate tab counts
   const tabCounts = useMemo(() => {
-    console.log("🔄 Calculating tab counts with filters...");
+    console.log("🔄 Calculating tab counts...");
 
     let filtered = transformedJobs;
 
-    // Apply the same filtering logic as filteredAndSortedJobs but without view mode filter
-
-    // Search filter
+    // Apply the same filtering logic but count all statuses for tabs
     if (searchQuery) {
-      console.log("🔍 Applying search filter to tab counts:", searchQuery);
       filtered = filtered.filter(
         (job) =>
           job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -380,34 +483,14 @@ export function JobsPage() {
       );
     }
 
-    // Status filter (but don't filter out drafts/active completely - we need both for tab counts)
-    const hasStatusFilters = activeFilters.status.length > 0;
-    if (hasStatusFilters) {
-      console.log(
-        "📊 Applying status filter to tab counts:",
-        activeFilters.status
-      );
-      filtered = filtered.filter((job) =>
-        activeFilters.status.includes(job.status)
-      );
-    }
-
-    // Type filter
-    const hasTypeFilters = activeFilters.type.length > 0;
-    if (hasTypeFilters) {
-      console.log("💼 Applying type filter to tab counts:", activeFilters.type);
+    // Apply filters except status (for accurate tab counts)
+    if (activeFilters.type.length > 0) {
       filtered = filtered.filter((job) =>
         activeFilters.type.includes(job.type)
       );
     }
 
-    // Experience filter
-    const hasExperienceFilters = activeFilters.experience.length > 0;
-    if (hasExperienceFilters) {
-      console.log(
-        "🎯 Applying experience filter to tab counts:",
-        activeFilters.experience
-      );
+    if (activeFilters.experience.length > 0) {
       filtered = filtered.filter((job) => {
         if (
           activeFilters.experience.includes("Senior") &&
@@ -428,37 +511,24 @@ export function JobsPage() {
       });
     }
 
-    // Work Type filter
-    const hasWorkTypeFilters = activeFilters.workType.length > 0;
-    if (hasWorkTypeFilters) {
-      console.log(
-        "📍 Applying work type filter to tab counts:",
-        activeFilters.workType
-      );
+    if (activeFilters.workType.length > 0) {
       filtered = filtered.filter((job) => {
         return activeFilters.workType.includes(job.locationType);
       });
     }
 
-    // Now calculate counts from filtered jobs
-    const activeJobsCount = filtered.filter(
-      (job) => job.status !== "Draft"
-    ).length;
-    const draftJobsCount = filtered.filter(
-      (job) => job.status === "Draft"
-    ).length;
-
-    console.log(
-      "📊 Filtered tab counts - Active:",
-      activeJobsCount,
-      "Draft:",
-      draftJobsCount
-    );
-
-    return {
-      activeJobs: activeJobsCount,
-      draftJobs: draftJobsCount,
+    const counts = {
+      All: filtered.length,
+      Active: filtered.filter((job) => job.status === "Active").length,
+      Paused: filtered.filter((job) => job.status === "Paused").length,
+      Closed: filtered.filter((job) => job.status === "Closed").length,
+      Draft: filtered.filter((job) => job.status === "Draft").length,
+      Expired: filtered.filter((job) => job.status === "Expired").length,
+      Cancelled: filtered.filter((job) => job.status === "Cancelled").length,
     };
+
+    console.log("📊 Tab counts:", counts);
+    return counts;
   }, [transformedJobs, searchQuery, activeFilters]);
 
   // Calculate filter counts
@@ -510,7 +580,6 @@ export function JobsPage() {
         ? [...prev[category], value]
         : prev[category].filter((item) => item !== value),
     }));
-    // Reset to first page when filters change
     setCurrentPage(1);
   };
 
@@ -521,7 +590,6 @@ export function JobsPage() {
       experience: [],
       workType: [],
     });
-    // Reset to first page when clearing filters
     setCurrentPage(1);
   };
 
@@ -542,18 +610,11 @@ export function JobsPage() {
 
   const filteredAndSortedJobs = useMemo(() => {
     console.log("🔍 Filtering and sorting jobs...");
-    console.log("📊 Input jobs:", transformedJobs);
-    console.log("🔍 Search query:", searchQuery);
-    console.log("🔧 Active filters:", activeFilters);
-    console.log("📈 Sort by:", sortBy);
-
     let filtered = transformedJobs;
 
     // Filter by view mode first
-    if (viewMode === "jobs") {
-      filtered = filtered.filter((job) => job.status !== "Draft");
-    } else {
-      filtered = filtered.filter((job) => job.status === "Draft");
+    if (viewMode !== "All") {
+      filtered = filtered.filter((job) => job.status === viewMode);
     }
 
     // Search filter
@@ -567,33 +628,24 @@ export function JobsPage() {
             req.toLowerCase().includes(searchQuery.toLowerCase())
           )
       );
-      console.log("🔍 After search filter:", filtered.length, "jobs");
     }
 
     // Status filter
-    const hasStatusFilters = activeFilters.status.length > 0;
-    if (hasStatusFilters) {
-      console.log("📊 Applying status filter:", activeFilters.status);
+    if (activeFilters.status.length > 0) {
       filtered = filtered.filter((job) =>
         activeFilters.status.includes(job.status)
       );
-      console.log("📊 After status filter:", filtered.length, "jobs");
     }
 
     // Type filter
-    const hasTypeFilters = activeFilters.type.length > 0;
-    if (hasTypeFilters) {
-      console.log("💼 Applying type filter:", activeFilters.type);
+    if (activeFilters.type.length > 0) {
       filtered = filtered.filter((job) =>
         activeFilters.type.includes(job.type)
       );
-      console.log("💼 After type filter:", filtered.length, "jobs");
     }
 
     // Experience filter
-    const hasExperienceFilters = activeFilters.experience.length > 0;
-    if (hasExperienceFilters) {
-      console.log("🎯 Applying experience filter:", activeFilters.experience);
+    if (activeFilters.experience.length > 0) {
       filtered = filtered.filter((job) => {
         if (
           activeFilters.experience.includes("Senior") &&
@@ -612,17 +664,13 @@ export function JobsPage() {
           return true;
         return false;
       });
-      console.log("🎯 After experience filter:", filtered.length, "jobs");
     }
 
     // Work Type filter
-    const hasWorkTypeFilters = activeFilters.workType.length > 0;
-    if (hasWorkTypeFilters) {
-      console.log("📍 Applying work type filter:", activeFilters.workType);
+    if (activeFilters.workType.length > 0) {
       filtered = filtered.filter((job) => {
         return activeFilters.workType.includes(job.locationType);
       });
-      console.log("📍 After work type filter:", filtered.length, "jobs");
     }
 
     // Sorting
@@ -652,12 +700,8 @@ export function JobsPage() {
   // Reset to first page when view mode changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [viewMode]);
-
-  // Reset to first page when search query changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
+    setSelectedJobs([]); // Clear selections when changing view
+  }, [viewMode, searchQuery, activeFilters]);
 
   // Calculate pagination
   const totalJobs = filteredAndSortedJobs.length;
@@ -668,11 +712,81 @@ export function JobsPage() {
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
-    // Scroll to top of job list when page changes
+    setSelectedJobs([]); // Clear selections when changing page
     document
       .getElementById("job-list-container")
       ?.scrollTo({ top: 0, behavior: "smooth" });
   };
+
+  //   // Bulk selection handlers
+  //   const handleSelectJob = (jobId: string, isSelected: boolean) => {
+  //     if (isSelected) {
+  //       setSelectedJobs((prev) => [...prev, jobId]);
+  //     } else {
+  //       setSelectedJobs((prev) => prev.filter((id) => id !== jobId));
+  //     }
+  //   };
+
+  const handleSelectAll = () => {
+    if (isSelectAllMode) {
+      setSelectedJobs([]);
+      setIsSelectAllMode(false);
+    } else {
+      setSelectedJobs(paginatedJobs.map((job) => job.id));
+      setIsSelectAllMode(true);
+    }
+  };
+
+  const handleBulkStatusChange = async (status: string) => {
+    if (selectedJobs.length === 0) return;
+
+    setIsBulkUpdating(true);
+    try {
+      // Convert frontend status to backend format if needed
+      const backendStatus = status === "Active" ? "Active" : status; // JobService will handle conversion
+
+      await jobService.bulkChangeJobStatus({
+        jobIds: selectedJobs,
+        status: backendStatus,
+        reason: `Bulk status change to ${status}`,
+      });
+
+      console.log(
+        `✅ Bulk status change completed: ${selectedJobs.length} jobs changed to ${status}`
+      );
+
+      // Refresh data
+      await loadAllJobsData();
+
+      // Clear selections
+      setSelectedJobs([]);
+      setIsSelectAllMode(false);
+    } catch (error) {
+      console.error("❌ Bulk status change failed:", error);
+      // Show error notification here
+    } finally {
+      setIsBulkUpdating(false);
+    }
+  };
+
+  const handleJobUpdated = useCallback(() => {
+    loadAllJobsData();
+  }, []);
+
+  // Tab configuration - all properly capitalized
+  const tabs = [
+    { id: "All" as ViewMode, label: "All Jobs", count: tabCounts.All },
+    { id: "Active" as ViewMode, label: "Active", count: tabCounts.Active },
+    { id: "Paused" as ViewMode, label: "Paused", count: tabCounts.Paused },
+    { id: "Closed" as ViewMode, label: "Closed", count: tabCounts.Closed },
+    { id: "Draft" as ViewMode, label: "Drafts", count: tabCounts.Draft },
+    { id: "Expired" as ViewMode, label: "Expired", count: tabCounts.Expired },
+    {
+      id: "Cancelled" as ViewMode,
+      label: "Cancelled",
+      count: tabCounts.Cancelled,
+    },
+  ];
 
   console.log("🎯 Current state:");
   console.log("- isLoading:", isLoading);
@@ -681,7 +795,7 @@ export function JobsPage() {
   console.log("- transformedJobs.length:", transformedJobs.length);
   console.log("- filteredAndSortedJobs.length:", filteredAndSortedJobs.length);
   console.log("- viewMode:", viewMode);
-  console.log("- tabCounts:", tabCounts);
+  console.log("- selectedJobs:", selectedJobs.length);
 
   // Loading state
   if (isLoading) {
@@ -749,72 +863,81 @@ export function JobsPage() {
         {/* Header */}
         <div className="bg-white border-b px-6 py-4">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-semibold text-gray-900">
-              {viewMode === "jobs" ? "Active jobs" : "Draft jobs"}
-            </h1>
+            <div>
+              <h1 className="text-2xl font-semibold text-gray-900">
+                Job Management
+              </h1>
+              <p className="text-sm text-gray-600 mt-1">
+                Manage your company&apos;s job postings and applications
+              </p>
+            </div>
             <Link
-              href="create-job"
-              className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors"
+              href="/create-job"
+              className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors flex items-center"
             >
+              <Plus className="h-4 w-4 mr-2" />
               Create Job
             </Link>
           </div>
 
-          {/* Tabs */}
-          <div className="flex space-x-8 mb-4">
-            <button
-              className={`pb-2 px-1 ${
-                viewMode === "jobs"
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-              onClick={() => setViewMode("jobs")}
-            >
-              <span className="font-medium">Jobs</span>
-              <span
-                className={`ml-2 text-sm px-2 py-0.5 rounded-full ${
-                  viewMode === "jobs"
-                    ? "bg-blue-100 text-blue-600"
-                    : "bg-gray-100 text-gray-600"
+          {/* Enhanced Tabs */}
+          <div className="flex space-x-1 mb-4 overflow-x-auto">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                className={`whitespace-nowrap pb-2 px-3 ${
+                  viewMode === tab.id
+                    ? "text-blue-600 border-b-2 border-blue-600 font-medium"
+                    : "text-gray-500 hover:text-gray-700"
                 }`}
+                onClick={() => setViewMode(tab.id)}
               >
-                {tabCounts.activeJobs}
-              </span>
-            </button>
-            <button
-              className={`pb-2 px-1 ${
-                viewMode === "drafts"
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-              onClick={() => setViewMode("drafts")}
-            >
-              <span>Drafts</span>
-              <span
-                className={`ml-2 text-sm px-2 py-0.5 rounded-full ${
-                  viewMode === "drafts"
-                    ? "bg-blue-100 text-blue-600"
-                    : "bg-gray-100 text-gray-600"
-                }`}
-              >
-                {tabCounts.draftJobs}
-              </span>
-            </button>
+                <span>{tab.label}</span>
+                <span
+                  className={`ml-2 text-sm px-2 py-0.5 rounded-full ${
+                    viewMode === tab.id
+                      ? "bg-blue-100 text-blue-600"
+                      : "bg-gray-100 text-gray-600"
+                  }`}
+                >
+                  {tab.count}
+                </span>
+              </button>
+            ))}
           </div>
 
           {/* Search and Sort */}
           <div className="flex items-center justify-between">
-            <div className="relative flex-1 max-w-md">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-gray-400" />
+            <div className="flex items-center space-x-4 flex-1">
+              <div className="relative flex-1 max-w-md">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Search jobs..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
               </div>
-              <input
-                type="text"
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Search jobs..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+
+              {/* Select All Checkbox */}
+              {paginatedJobs.length > 0 && (
+                <div className="flex items-center">
+                  <button
+                    onClick={handleSelectAll}
+                    className="flex items-center text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                    {isSelectAllMode ? (
+                      <CheckSquare className="h-4 w-4 mr-1 text-blue-600" />
+                    ) : (
+                      <Square className="h-4 w-4 mr-1" />
+                    )}
+                    Select All
+                  </button>
+                </div>
+              )}
             </div>
 
             <div className="relative ml-4">
@@ -859,44 +982,78 @@ export function JobsPage() {
           </div>
         </div>
 
+        {/* Bulk Actions Toolbar */}
+        <BulkActionToolbar
+          selectedJobs={selectedJobs}
+          onBulkStatusChange={handleBulkStatusChange}
+          onClearSelection={() => {
+            setSelectedJobs([]);
+            setIsSelectAllMode(false);
+          }}
+          isLoading={isBulkUpdating}
+        />
+
         {/* Job List */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <div id="job-list-container" className="flex-1 overflow-y-auto p-6">
             <div className="space-y-4">
-              {paginatedJobs.map((job) => (
-                <JobCard key={job.id} job={job} showAnalytics={true} />
-              ))}
-
-              {filteredAndSortedJobs.length === 0 && (
+              {filteredAndSortedJobs.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-gray-500">
-                    {searchQuery
-                      ? "No jobs found matching your search."
-                      : viewMode === "drafts"
-                      ? "No draft jobs found."
-                      : "No active jobs found."}
-                  </p>
-                  {Object.values(activeFilters).some(
-                    (arr) => arr.length > 0
-                  ) && (
-                    <button
-                      onClick={clearAllFilters}
-                      className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
-                    >
-                      Clear all filters
-                    </button>
-                  )}
-                  {viewMode === "drafts" &&
-                    filteredAndSortedJobs.length === 0 &&
-                    !searchQuery && (
-                      <Link
-                        href="create-job"
-                        className="mt-2 inline-block text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  <div className="bg-white rounded-lg shadow-sm border p-8">
+                    <div className="h-12 w-12 text-gray-400 mx-auto mb-4">
+                      💼
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                      No{" "}
+                      {viewMode === "All"
+                        ? ""
+                        : tabs.find((t) => t.id === viewMode)?.label}{" "}
+                      Jobs Found
+                    </h3>
+                    <p className="text-gray-600 mb-4">
+                      {viewMode === "Draft"
+                        ? "You haven't created any draft jobs yet"
+                        : Object.values(activeFilters).some(
+                            (arr) => arr.length > 0
+                          ) || searchQuery
+                        ? "Try adjusting your filters or search terms"
+                        : `No ${
+                            viewMode === "All" ? "" : viewMode.toLowerCase()
+                          } jobs available`}
+                    </p>
+                    {Object.values(activeFilters).some(
+                      (arr) => arr.length > 0
+                    ) || searchQuery ? (
+                      <button
+                        onClick={() => {
+                          clearAllFilters();
+                          setSearchQuery("");
+                        }}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                       >
-                        Create your first job
+                        Clear Filters
+                      </button>
+                    ) : viewMode === "Draft" ? (
+                      <Link
+                        href="/jobs/create"
+                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                      >
+                        Create Your First Job
                       </Link>
-                    )}
+                    ) : null}
+                  </div>
                 </div>
+              ) : (
+                <>
+                  {paginatedJobs.map((job) => (
+                    <JobCard
+                      key={job.id}
+                      job={job}
+                      showAnalytics={true}
+                      onJobUpdated={handleJobUpdated}
+                    />
+                  ))}
+                </>
               )}
             </div>
           </div>
@@ -908,6 +1065,11 @@ export function JobsPage() {
                 <div className="text-sm text-gray-700">
                   Showing {startIndex + 1} to {Math.min(endIndex, totalJobs)} of{" "}
                   {totalJobs} jobs
+                  {selectedJobs.length > 0 && (
+                    <span className="ml-2 text-blue-600 font-medium">
+                      ({selectedJobs.length} selected)
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center space-x-2">
@@ -926,7 +1088,6 @@ export function JobsPage() {
                   <div className="flex space-x-1">
                     {Array.from({ length: totalPages }, (_, i) => i + 1)
                       .filter((page) => {
-                        // Show first page, last page, current page, and 2 pages around current page
                         return (
                           page === 1 ||
                           page === totalPages ||
@@ -934,7 +1095,6 @@ export function JobsPage() {
                         );
                       })
                       .map((page, index, filteredPages) => {
-                        // Add ellipsis if there's a gap
                         const showEllipsis =
                           index > 0 && page - filteredPages[index - 1] > 1;
 

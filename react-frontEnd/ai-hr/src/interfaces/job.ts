@@ -27,10 +27,9 @@ export interface Job {
     portfolioRequired: boolean;
   };
   postedDate: string;
-  status: "Draft" | "Active" | "Paused" | "Closed";
+  status: "Draft" | "Active" | "Paused" | "Closed" | "Expired" | "Cancelled";
   applicants: number;
   viewCount: number;
-  //   urgency?: "Urgent" | "High Priority";
   createdBy: string;
   updatedAt: string;
 }
@@ -146,4 +145,45 @@ export interface JobAnalytics {
   applicantCount: number;
   applicationRate: number;
   postedDate: string;
+}
+
+// Job status type with all available statuses
+export type JobStatus =
+  | "Draft"
+  | "Active"
+  | "Paused"
+  | "Closed"
+  | "Expired"
+  | "Cancelled";
+
+// Request interface for changing job status
+export interface JobStatusChangeRequest {
+  status: string; // "Active", "Paused", etc. - always capitalized
+  reason?: string; // Optional reason for the status change
+  effectiveDate?: string; // When the status change should take effect (ISO date string)
+}
+
+// Request interface for bulk status changes
+export interface BulkJobStatusChangeRequest {
+  jobIds: string[]; // Array of job IDs to update
+  status: string; // "Active", "Paused", etc. - always capitalized
+  reason?: string; // Optional reason for bulk status change
+}
+
+// Request interface for job duplication
+export interface JobDuplicateRequest {
+  newTitle?: string; // Optional new title for the duplicated job
+  copyApplications?: boolean; // Whether to copy existing applications (usually false)
+  status?: string; // Initial status for the duplicated job ("Active", "Draft", etc.)
+}
+
+// Job status history record
+export interface JobStatusHistory {
+  id: string;
+  jobId: string;
+  fromStatus: string; // Previous status (frontend format: "Active", "Draft", etc.)
+  toStatus: string; // New status (frontend format: "Active", "Draft", etc.)
+  changedBy: string; // User ID who made the change
+  changedAt: string; // ISO date string of when the change occurred
+  reason?: string; // Optional reason for the status change
 }
