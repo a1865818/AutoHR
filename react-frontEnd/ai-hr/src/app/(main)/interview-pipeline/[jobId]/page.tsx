@@ -40,16 +40,16 @@ import {
   InterviewType,
 } from "@/interfaces/interview";
 import { Candidate } from "@/interfaces";
-import { PipelineCandidateCard } from "../components/PipelineCandidateCard";
+import { PipelineCandidateCard } from "@/components/interview_pipeline/PipelineCandidateCard";
 import {
   DragDropCandidateCard,
   DroppableColumn,
   BulkActions,
-} from "../components/DragDropPipeline";
-import { RoundSpecificActions } from "../components/RoundSpecificActions";
-import { InterviewManager } from "../components/InterviewManager";
+} from "@/components/interview_pipeline/DragDropPipeline";
+import { RoundSpecificActions } from "@/components/interview_pipeline/RoundSpecificActions";
+import { InterviewManager } from "@/components/interview_pipeline/InterviewManager";
 
-interface JobWithTemplate extends ApiJob {
+interface JobWithTemplate extends Omit<ApiJob, "interviewTemplate"> {
   interviewTemplate?: InterviewTemplate;
 }
 
@@ -143,7 +143,10 @@ export default function JobPipelinePage() {
         (jobData as any).InterviewTemplate
       );
 
-      let jobWithTemplate: JobWithTemplate = jobData;
+      let jobWithTemplate: JobWithTemplate = {
+        ...jobData,
+        interviewTemplate: undefined,
+      };
 
       // Check if interview template is already included in the response
       if ((jobData as any).InterviewTemplate) {

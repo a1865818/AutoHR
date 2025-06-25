@@ -34,6 +34,7 @@ interface Interviewer {
 }
 
 interface VideoInterviewConfiguration {
+  name: string;
   platform: "zoom" | "teams" | "meet" | "custom";
   customPlatformUrl?: string;
   duration: number;
@@ -102,6 +103,7 @@ export function VideoInterviewConfig({
   onConfigurationChange,
 }: VideoInterviewConfigProps) {
   const [config, setConfig] = useState<VideoInterviewConfiguration>({
+    name: "Video Interview Configuration",
     platform: "zoom",
     duration: 60,
     bufferTime: 10,
@@ -300,6 +302,27 @@ export function VideoInterviewConfig({
 
   return (
     <div className="p-6 space-y-8">
+      {/* Configuration Name */}
+      <div className="mb-4">
+        <label
+          htmlFor="configName"
+          className="block text-sm font-medium text-gray-700 mb-1"
+        >
+          Configuration Name
+        </label>
+        <input
+          id="configName"
+          type="text"
+          value={config.name}
+          onChange={(e) => handleConfigChange({ name: e.target.value })}
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+          placeholder="Enter configuration name"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Give your video interview configuration a descriptive name
+        </p>
+      </div>
+
       {/* Platform Settings */}
       <div className="border border-gray-200 rounded-lg">
         <div
@@ -384,9 +407,19 @@ export function VideoInterviewConfig({
                 <input
                   type="number"
                   value={config.duration}
-                  onChange={(e) =>
-                    handleConfigChange({ duration: parseInt(e.target.value) })
-                  }
+                  onChange={(e) => {
+                    // Allow the field to be cleared for typing
+                    if (e.target.value === "") {
+                      handleConfigChange({ duration: 15 });
+                    } else {
+                      const value = parseInt(e.target.value);
+                      // Handle NaN and enforce min/max
+                      if (!isNaN(value)) {
+                        const validValue = Math.max(15, Math.min(180, value));
+                        handleConfigChange({ duration: validValue });
+                      }
+                    }
+                  }}
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                   min="15"
                   max="180"
@@ -400,9 +433,19 @@ export function VideoInterviewConfig({
                 <input
                   type="number"
                   value={config.bufferTime}
-                  onChange={(e) =>
-                    handleConfigChange({ bufferTime: parseInt(e.target.value) })
-                  }
+                  onChange={(e) => {
+                    // Allow the field to be cleared for typing
+                    if (e.target.value === "") {
+                      handleConfigChange({ bufferTime: 0 });
+                    } else {
+                      const value = parseInt(e.target.value);
+                      // Handle NaN and enforce min/max
+                      if (!isNaN(value)) {
+                        const validValue = Math.max(0, Math.min(30, value));
+                        handleConfigChange({ bufferTime: validValue });
+                      }
+                    }
+                  }}
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                   min="0"
                   max="30"

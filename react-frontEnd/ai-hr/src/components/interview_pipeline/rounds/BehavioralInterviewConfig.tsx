@@ -47,6 +47,7 @@ interface ScoringLevel {
 }
 
 interface BehavioralInterviewConfiguration {
+  name: string;
   competencies: Competency[];
   questions: Question[];
   duration: number;
@@ -171,6 +172,7 @@ export function BehavioralInterviewConfig({
   onConfigurationChange,
 }: BehavioralInterviewConfigProps) {
   const [config, setConfig] = useState<BehavioralInterviewConfiguration>({
+    name: "Behavioral Interview",
     competencies: defaultCompetencies,
     questions: [],
     duration: 60,
@@ -955,9 +957,19 @@ export function BehavioralInterviewConfig({
               <input
                 type="number"
                 value={config.duration}
-                onChange={(e) =>
-                  handleConfigChange({ duration: parseInt(e.target.value) })
-                }
+                onChange={(e) => {
+                  // Allow the field to be cleared for typing
+                  if (e.target.value === "") {
+                    handleConfigChange({ duration: 30 });
+                  } else {
+                    const value = parseInt(e.target.value);
+                    // Handle NaN and enforce min/max
+                    if (!isNaN(value)) {
+                      const validValue = Math.max(30, Math.min(180, value));
+                      handleConfigChange({ duration: validValue });
+                    }
+                  }
+                }}
                 className="w-32 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                 min="30"
                 max="180"

@@ -1,9 +1,9 @@
-import { Question } from '../app/(main)/interview-pipeline/[jobId]/rounds/[roundId]/components/shared/QuestionBuilder';
-import { ScoringCriteria } from '../app/(main)/interview-pipeline/[jobId]/rounds/[roundId]/components/shared/ScoringMatrix';
-import { Interviewer } from '../app/(main)/interview-pipeline/[jobId]/rounds/[roundId]/components/shared/InterviewerSelector';
-import { TimeSlot, ScheduleConfig } from '../app/(main)/interview-pipeline/[jobId]/rounds/[roundId]/components/shared/TimeSlotPicker';
+import { Question } from '@/components/interview_pipeline/rounds/shared/QuestionBuilder';
+import { ScoringCriteria } from '@/components/interview_pipeline/rounds/shared/ScoringMatrix';
+import { Interviewer } from '@/components/interview_pipeline/rounds/shared/InterviewerSelector';
+import { TimeSlot, ScheduleConfig } from '@/components/interview_pipeline/rounds/shared/TimeSlotPicker';
 
-// Base configuration interface
+// Base configuration interface 
 export interface BaseRoundConfiguration {
   id: string;
   jobId: string;
