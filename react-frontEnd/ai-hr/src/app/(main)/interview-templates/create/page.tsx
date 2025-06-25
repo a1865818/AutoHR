@@ -1,35 +1,31 @@
 "use client";
 
-import React, { useState } from "react";
 import {
-  ArrowLeft,
-  ArrowRight,
-  Calendar,
-  Clock,
-  Users,
-  Plus,
-  X,
-  Phone,
-  Video,
-  Code,
-  MessageSquare,
-  Crown,
-  Heart,
-  GripVertical,
-  Check,
-  AlertCircle,
-  Save,
-  Eye,
-  Loader2,
-} from "lucide-react";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import {
-  InterviewTemplate,
   InterviewRound,
+  InterviewTemplate,
   InterviewType,
 } from "@/interfaces/interview";
 import { interviewService } from "@/services/interviewService";
+import {
+  AlertCircle,
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Code,
+  Crown,
+  GripVertical,
+  Heart,
+  Loader2,
+  MessageSquare,
+  Phone,
+  Save,
+  Users,
+  Video,
+  X,
+} from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import React, { useState } from "react";
 
 type Step = 1 | 2 | 3;
 
@@ -610,7 +606,7 @@ export default function CreateInterviewPage() {
       }
 
       // Redirect to the interviews list page
-      router.push("/interviews");
+      router.push("/interview-templates");
     } catch (error: any) {
       console.error("Error creating interview template:", error);
       setError(error.message || "Failed to create interview template");
@@ -626,7 +622,7 @@ export default function CreateInterviewPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Link
-              href="/interviews"
+              href="/interview-templates"
               className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />

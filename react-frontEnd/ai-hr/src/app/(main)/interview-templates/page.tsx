@@ -1,39 +1,37 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
 import {
+  InterviewStats,
+  InterviewTemplate,
+  InterviewType,
+} from "@/interfaces/interview";
+import { interviewService } from "@/services/interviewService";
+import {
+  AlertTriangle,
   Calendar,
+  CheckCircle,
   Clock,
-  Users,
-  TrendingUp,
-  Plus,
-  Search,
-  Filter,
-  Edit,
-  Settings as SettingsIcon,
-  Copy,
-  Trash2,
-  Star,
-  Phone,
-  Video,
   Code,
-  MessageSquare,
-  UserCheck,
+  Copy,
   Crown,
+  Edit,
+  Filter,
   Heart,
   Loader2,
+  MessageSquare,
+  Phone,
+  Plus,
+  Search,
+  Star,
+  Trash2,
+  TrendingUp,
+  Users,
+  Video,
   X,
-  AlertTriangle,
-  CheckCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  InterviewTemplate,
-  InterviewType,
-  InterviewStats,
-} from "@/interfaces/interview";
-import { interviewService } from "@/services/interviewService";
+import React, { useEffect, useState } from "react";
 
 export default function InterviewsPage() {
   const router = useRouter();
@@ -248,7 +246,7 @@ export default function InterviewsPage() {
           </p>
         </div>
         <Link
-          href="/interviews/create"
+          href="/interview-templates/create"
           className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2 shadow-lg"
         >
           <Plus className="w-5 h-5" />
@@ -446,7 +444,7 @@ export default function InterviewsPage() {
                     </button>
                   )}
                   <Link
-                    href={`/interviews/edit?id=${template.id}`}
+                    href={`/interview-templates/edit?id=${template.id}`}
                     className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                     title="Edit template"
                   >
@@ -522,7 +520,7 @@ export default function InterviewsPage() {
               : "Create your first interview template to get started"}
           </p>
           <Link
-            href="/interviews/create"
+            href="/interview-templates/create"
             className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
           >
             <Plus className="w-5 h-5 mr-2" />

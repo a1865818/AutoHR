@@ -1,6 +1,11 @@
 import { useAuth } from "@/contexts/AuthContext";
-import { Job } from "@/interfaces/job";
+import {
+  Job,
+  JobDuplicateRequest,
+  JobStatusChangeRequest,
+} from "@/interfaces/job";
 import { candidateService } from "@/services/candidateService";
+import { jobService } from "@/services/jobService";
 import {
   Briefcase,
   Clock,
@@ -13,14 +18,23 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { DuplicateJobModal } from "./DuplicateJobModal";
 
 interface JobCardProps {
   job: Job;
   showAnalytics?: boolean; // Whether to show detailed analytics for hiring users
+  onJobUpdated?: () => void;
 }
 
-export function JobCard({ job, showAnalytics = false }: JobCardProps) {
+export function JobCard({
+  job,
+  showAnalytics = false,
+  onJobUpdated,
+}: JobCardProps) {
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [showStatusModal, setShowStatusModal] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [actualApplicantCount, setActualApplicantCount] = useState(0);
   const [viewCount, setViewCount] = useState(0);
   const { user } = useAuth();
@@ -133,7 +147,7 @@ export function JobCard({ job, showAnalytics = false }: JobCardProps) {
       case "Paused":
         return "bg-yellow-100 text-yellow-800";
       case "Closed":
-        return "bg-gray-100 text-gray-800";
+        return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -192,21 +206,76 @@ export function JobCard({ job, showAnalytics = false }: JobCardProps) {
     return Math.round((actualApplicantCount / viewCount) * 100);
   };
 
-  const handleStatusChange = (newStatus: string) => {
-    console.log(`Changing job ${job.id} status to ${newStatus}`);
-    setShowDropdown(false);
+  const handleStatusChange = async (newStatus: string, reason?: string) => {
+    if (isUpdating) return;
+
+    setIsUpdating(true);
+    try {
+      const request: JobStatusChangeRequest = {
+        status: newStatus,
+        reason: reason,
+      };
+
+      await jobService.changeJobStatus(job.id, request);
+
+      // Show success notification
+      console.log(`✅ Job status changed to ${newStatus}`);
+
+      // Refresh job list
+      onJobUpdated?.();
+
+      setShowDropdown(false);
+    } catch (error) {
+      console.error("Failed to change job status:", error);
+      // Show error notification
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   const handleEdit = () => {
     window.location.href = `/jobs/${job.id}/edit`;
   };
 
-  const handleDuplicate = () => {
-    console.log(`Duplicating job ${job.id}`);
+  const handleDuplicate = async (request: JobDuplicateRequest) => {
+    if (isUpdating) return;
+
+    setIsUpdating(true);
+    try {
+      await jobService.duplicateJob(job.id, request);
+
+      console.log("✅ Job duplicated successfully");
+      onJobUpdated?.();
+      setShowDuplicateModal(false);
+      setShowDropdown(false);
+    } catch (error) {
+      console.error("Failed to duplicate job:", error);
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
-  const handleDelete = () => {
-    console.log(`Deleting job ${job.id}`);
+  const handleDelete = async () => {
+    if (isUpdating) return;
+
+    if (
+      !confirm(
+        "Are you sure you want to delete this job? This action cannot be undone."
+      )
+    ) {
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      await jobService.deleteJob(job.id);
+      console.log("✅ Job deleted successfully");
+      onJobUpdated?.();
+    } catch (error) {
+      console.error("Failed to delete job:", error);
+    } finally {
+      setIsUpdating(false);
+    }
   };
 
   // Safely extract values
@@ -357,47 +426,89 @@ export function JobCard({ job, showAnalytics = false }: JobCardProps) {
             </button>
 
             {showDropdown && (
-              <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-10">
+              <div className="absolute right-0 mt-1 w-56 bg-white border border-gray-200 rounded-md shadow-lg z-10">
                 <div className="py-1">
+                  {/* Status Change Section */}
                   <div className="px-3 py-2 text-xs font-medium text-gray-500 border-b">
                     Change Status
                   </div>
-                  <button
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => handleStatusChange("Active")}
-                  >
-                    Mark as Active
-                  </button>
-                  <button
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => handleStatusChange("Paused")}
-                  >
-                    Pause Job
-                  </button>
-                  <button
-                    className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => handleStatusChange("Closed")}
-                  >
-                    Close Job
-                  </button>
+
+                  {job.status !== "Active" && (
+                    <button
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                      onClick={() => handleStatusChange("Active")}
+                      disabled={isUpdating}
+                    >
+                      {isUpdating ? "Updating..." : "✅ Mark as Active"}
+                    </button>
+                  )}
+
+                  {job.status === "Active" && (
+                    <button
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                      onClick={() => handleStatusChange("Paused")}
+                      disabled={isUpdating}
+                    >
+                      {isUpdating ? "Updating..." : "⏸️ Pause Job"}
+                    </button>
+                  )}
+
+                  {/* {job.status === "Paused" && (
+                    <button
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                      onClick={() => handleStatusChange("Active")}
+                      disabled={isUpdating}
+                    >
+                      {isUpdating ? "Updating..." : "▶️ Resume Job"}
+                    </button>
+                  )} */}
+
+                  {(job.status === "Active" || job.status === "Paused") && (
+                    <button
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                      onClick={() => handleStatusChange("Closed")}
+                      disabled={isUpdating}
+                    >
+                      {isUpdating ? "Updating..." : "🔒 Close Job"}
+                    </button>
+                  )}
 
                   <div className="border-t">
+                    {/* Job Actions Section */}
                     <button
-                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                      onClick={handleDuplicate}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                      onClick={() => setShowDuplicateModal(true)}
+                      disabled={isUpdating}
                     >
-                      Duplicate Job
+                      📋 Duplicate Job
                     </button>
-                    <button
-                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                      onClick={handleDelete}
+
+                    <Link
+                      href={`/jobs/${job.id}/edit`}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
-                      Delete Job
+                      ✏️ Edit Job
+                    </Link>
+
+                    <button
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      onClick={handleDelete}
+                      disabled={isUpdating}
+                    >
+                      {isUpdating ? "Deleting..." : "🗑️ Delete Job"}
                     </button>
                   </div>
                 </div>
               </div>
             )}
+
+            <DuplicateJobModal
+              isOpen={showDuplicateModal}
+              onClose={() => setShowDuplicateModal(false)}
+              onDuplicate={handleDuplicate}
+              originalTitle={job.title}
+              isLoading={isUpdating}
+            />
           </div>
         </div>
       </div>

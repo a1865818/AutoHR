@@ -1,4 +1,10 @@
-import { JobFormData } from "@/interfaces";
+import {
+  BulkJobStatusChangeRequest,
+  JobDuplicateRequest,
+  JobFormData,
+  JobStatusChangeRequest,
+  JobStatusHistory,
+} from "@/interfaces";
 import {
   ApiCompany,
   ApiJob,
@@ -185,8 +191,11 @@ class JobService {
       console.log("🔍 JobService - Raw response:", response);
       const job = response.data || response;
       console.log("🔍 JobService - Extracted job:", job);
-      console.log("🔍 JobService - Job has InterviewTemplate:", !!(job as any)?.InterviewTemplate);
-      
+      console.log(
+        "🔍 JobService - Job has InterviewTemplate:",
+        !!(job as any)?.InterviewTemplate
+      );
+
       if (!job) {
         throw new Error("Job not found");
       }
@@ -197,7 +206,12 @@ class JobService {
         console.log("🔄 Mapped InterviewTemplate to interviewTemplate");
       }
 
-      return job;
+      //   return job;
+      // Normalize status
+      return {
+        ...job,
+        status: this.normalizeStatus(job.status),
+      };
     } catch (error) {
       console.error("❌ Failed to load job:", error);
 
@@ -221,18 +235,21 @@ class JobService {
       throw new Error("Authentication required to view jobs");
     }
 
+    // ✅ SIMPLE MAPPING - Use the old successful method
     let backendStatus = status;
     if (status === "active") {
-      backendStatus = "Open";
+      backendStatus = "Open"; // Only handle this legacy case
     }
+    // Don't do complex conversions - pass status directly to backend
 
     // Build query parameters
     const params = new URLSearchParams();
     if (backendStatus && backendStatus.trim()) {
       params.append("status", backendStatus);
+      console.log("📊 Requesting jobs with backend status:", backendStatus);
     }
 
-    // 🔥 ALWAYS INCLUDE COMPANY ID FOR HIRING USERS
+    // Always include company ID for hiring users
     if (companyId && companyId.trim()) {
       params.append("companyId", companyId);
       console.log("📊 Filtering jobs by company ID:", companyId);
@@ -243,12 +260,13 @@ class JobService {
     const queryString = params.toString();
     const endpoint = `/jobs${queryString ? `?${queryString}` : ""}`;
 
-    console.log("📊 Fetching jobs from endpoint:", endpoint);
+    console.log("📊 Final API endpoint:", endpoint);
 
     const jobs = await this.fetchApi(endpoint);
-    console.log("📊 Received jobs:", jobs?.length || 0);
+    console.log("📊 Received jobs from API:", jobs?.length || 0);
 
-    return jobs;
+    // ✅ MINIMAL PROCESSING - Don't convert statuses, let the frontend handle it
+    return jobs || [];
   }
 
   getCurrentUser() {
@@ -362,6 +380,140 @@ class JobService {
     return this.fetchApi(endpoint);
   }
 
+  //   Status Change
+
+  async changeJobStatus(
+    jobId: string,
+    request: JobStatusChangeRequest
+  ): Promise<void> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to change job status");
+    }
+
+    try {
+      console.log(`🔄 Changing job ${jobId} status to ${request.status}`);
+
+      // Ensure status is properly capitalized before sending to backend
+      const normalizedRequest = {
+        ...request,
+        status: this.toBackendStatus(request.status),
+      };
+
+      const response = await this.fetchApi(`/jobs/${jobId}/status`, {
+        method: "PATCH",
+        body: JSON.stringify(normalizedRequest),
+      });
+
+      console.log(`✅ Successfully changed job status`);
+      return response;
+    } catch (error) {
+      console.error("❌ Failed to change job status:", error);
+      throw error;
+    }
+  }
+
+  async bulkChangeJobStatus(request: BulkJobStatusChangeRequest): Promise<any> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to change job statuses");
+    }
+
+    try {
+      console.log(`🔄 Bulk changing status for ${request.jobIds.length} jobs`);
+
+      // Ensure status is properly capitalized
+      const normalizedRequest = {
+        ...request,
+        status: this.toBackendStatus(request.status),
+      };
+
+      const response = await this.fetchApi("/jobs/bulk-status", {
+        method: "PATCH",
+        body: JSON.stringify(normalizedRequest),
+      });
+
+      console.log(`✅ Bulk status change completed`);
+      return response;
+    } catch (error) {
+      console.error("❌ Failed to bulk change job statuses:", error);
+      throw error;
+    }
+  }
+
+  async duplicateJob(
+    jobId: string,
+    request: JobDuplicateRequest
+  ): Promise<any> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to duplicate job");
+    }
+
+    try {
+      console.log(`📋 Duplicating job ${jobId}`);
+
+      // Ensure status is properly capitalized
+      const normalizedRequest = {
+        ...request,
+        status: request.status ? this.toBackendStatus(request.status) : "Draft",
+      };
+
+      const response = await this.fetchApi(`/jobs/${jobId}/duplicate`, {
+        method: "POST",
+        body: JSON.stringify(normalizedRequest),
+      });
+
+      console.log(`✅ Successfully duplicated job`);
+      return response;
+    } catch (error) {
+      console.error("❌ Failed to duplicate job:", error);
+      throw error;
+    }
+  }
+
+  async getJobsByStatus(status: string): Promise<ApiJob[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to view jobs");
+    }
+
+    try {
+      console.log(`📊 Getting jobs with status: ${status}`);
+
+      // Convert frontend status to backend format for API call
+      const backendStatus =
+        status === "All" ? "All" : this.toBackendStatus(status);
+
+      const jobs = await this.fetchApi(`/jobs/by-status/${backendStatus}`);
+
+      // Normalize status in response
+      return jobs.map((job: any) => ({
+        ...job,
+        status: this.normalizeStatus(job.status),
+      }));
+    } catch (error) {
+      console.error("❌ Failed to get jobs by status:", error);
+      throw error;
+    }
+  }
+
+  async getJobStatusHistory(jobId: string): Promise<JobStatusHistory[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to view job status history");
+    }
+
+    try {
+      const history = await this.fetchApi(`/jobs/${jobId}/status-history`);
+
+      // Normalize statuses in history
+      return history.map((record: any) => ({
+        ...record,
+        fromStatus: this.normalizeStatus(record.fromStatus),
+        toStatus: this.normalizeStatus(record.toStatus),
+      }));
+    } catch (error) {
+      console.error("❌ Failed to get job status history:", error);
+      throw error;
+    }
+  }
+
   // Test method to check API connectivity and auth
   async testConnection(): Promise<boolean> {
     try {
@@ -381,7 +533,7 @@ class JobService {
   // Public methods for applicant job browsing (no auth required)
   async getPublicJobs(status?: string, companyId?: string): Promise<ApiJob[]> {
     let backendStatus = status;
-    if (status === "active") {
+    if (status === "Active") {
       backendStatus = "Open";
     }
 
@@ -875,36 +1027,86 @@ class JobService {
 
   // 🔧 FIXED: Helper method to convert frontend status to backend status
   private mapFrontendStatusToBackend(frontendStatus: string): string {
-    switch (frontendStatus.toLowerCase()) {
-      case "active":
-        return "Open"; // Frontend "Active" -> Backend "Open"
-      case "draft":
-        return "Draft"; // Frontend "Draft" -> Backend "Draft"
-      case "paused":
-        return "paused"; // Frontend "Paused" -> Backend "Paused"
-      case "closed":
-        return "closed"; // Frontend "Closed" -> Backend "Closed"
-      default:
-        return "draft"; // Default fallback
-    }
+    return this.toBackendStatus(frontendStatus);
   }
 
   // 🔧 FIXED: Helper method to convert backend status to frontend status
   private mapBackendStatusToFrontend(
     backendStatus: string
-  ): "Draft" | "Active" | "Paused" | "Closed" {
-    switch (backendStatus.toLowerCase()) {
+  ): "Draft" | "Active" | "Paused" | "Closed" | "Expired" | "Cancelled" {
+    const normalized = this.normalizeStatus(backendStatus);
+    return normalized as
+      | "Draft"
+      | "Active"
+      | "Paused"
+      | "Closed"
+      | "Expired"
+      | "Cancelled";
+  }
+
+  private normalizeStatus(backendStatus: string): string {
+    switch (backendStatus) {
       case "Open":
-        return "Active"; // Backend "Open" -> Frontend "Active"
+        return "Active"; // ✅ Backend "Open" -> Frontend "Active"
       case "Draft":
-        return "Draft"; // Backend "Draft" -> Frontend "Draft"
-      case "paused":
-        return "Paused"; // Backend "Paused" -> Frontend "Paused"
-      case "closed":
-        return "Closed"; // Backend "Closed" -> Frontend "Closed"
+        return "Draft";
+      case "Paused":
+        return "Paused";
+      case "Closed":
+        return "Closed";
+      case "Expired":
+        return "Expired";
+      case "Cancelled":
+        return "Cancelled";
       default:
-        console.warn("🚨 Unknown backend status:", backendStatus);
-        return "Draft"; // Default fallback
+        return "Draft";
+    }
+  }
+
+  // Helper method to convert frontend status to backend format
+  private toBackendStatus(frontendStatus: string): string {
+    switch (frontendStatus) {
+      case "Active":
+        return "Open"; // ✅ Fixed: Frontend "Active" -> Backend "Open"
+      case "Draft":
+        return "Draft";
+      case "Paused":
+        return "Paused";
+      case "Closed":
+        return "Closed";
+      case "Expired":
+        return "Expired";
+      case "Cancelled":
+        return "Cancelled";
+      case "All":
+        return "All"; // Special case for filtering
+      default:
+        return "Draft";
+    }
+  }
+  getStatusDisplayName(status: string): string {
+    // Normalize first, then return
+    return this.normalizeStatus(status);
+  }
+
+  // Helper method to get status color
+  getStatusColor(status: string): string {
+    const normalizedStatus = this.normalizeStatus(status);
+    switch (normalizedStatus) {
+      case "Active":
+        return "bg-green-100 text-green-800";
+      case "Draft":
+        return "bg-gray-100 text-gray-800";
+      case "Paused":
+        return "bg-yellow-100 text-yellow-800";
+      case "Closed":
+        return "bg-red-100 text-red-800";
+      case "Expired":
+        return "bg-orange-100 text-orange-800";
+      case "Cancelled":
+        return "bg-red-100 text-red-800";
+      default:
+        return "bg-gray-100 text-gray-800";
     }
   }
 
