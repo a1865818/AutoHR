@@ -1,4 +1,3 @@
-// components/ErrorBoundary.tsx
 "use client";
 
 import { AlertCircle, RefreshCw } from "lucide-react";

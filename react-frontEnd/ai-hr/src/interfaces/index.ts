@@ -64,8 +64,8 @@ export * from "./profile";
 export * from "./job";
 
 // Export API interfaces (including CreateJobRequest)
-export type { CreateJobRequest } from "./api";
 export * from "./api";
+export type { CreateJobRequest } from "./api";
 
 // Export notification interfaces
 export * from "./notifications";
