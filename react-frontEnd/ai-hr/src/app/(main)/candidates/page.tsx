@@ -28,7 +28,7 @@ import {
   Search,
   Users,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 // Empty State Component
 interface EmptyStateProps {
@@ -241,13 +241,15 @@ function CandidatesPage() {
     position: [] as string[],
   });
 
-  // Initialize stage filters when stage configs are loaded
+  // Only initialize stage filters on first load
+  const didInitStageFilters = useRef(false);
   useEffect(() => {
-    if (stageConfigs.length > 0 && activeFilters.stage.length === 0) {
+    if (!didInitStageFilters.current && stageConfigs.length > 0 && activeFilters.stage.length === 0) {
       setActiveFilters((prev) => ({
         ...prev,
         stage: stageConfigs.map((config) => config.id), // All stages by default
       }));
+      didInitStageFilters.current = true;
     }
   }, [stageConfigs, activeFilters.stage.length]);
 
@@ -468,7 +470,7 @@ function CandidatesPage() {
 
   const clearFilters = () => {
     setActiveFilters({
-      status: ["in-progress"],
+      status: [],
       stage: [],
       position: [],
     });
@@ -633,7 +635,7 @@ function CandidatesPage() {
 
   const handleClearFilters = () => {
     setActiveFilters({
-      status: ["in-progress"],
+      status: [],
       stage: [],
       position: [],
     });

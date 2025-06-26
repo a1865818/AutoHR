@@ -360,6 +360,14 @@ export class DynamicCandidateFilterUtils {
     candidates: Candidate[],
     activeFilters: ActiveFilters
   ): Candidate[] {
+    // If all filters are empty, return no candidates
+    if (
+      activeFilters.status.length === 0 &&
+      activeFilters.stage.length === 0 &&
+      activeFilters.position.length === 0
+    ) {
+      return [];
+    }
     let filtered = candidates;
 
     // Apply position filter
