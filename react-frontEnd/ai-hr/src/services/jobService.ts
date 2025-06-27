@@ -1033,15 +1033,9 @@ class JobService {
   // 🔧 FIXED: Helper method to convert backend status to frontend status
   private mapBackendStatusToFrontend(
     backendStatus: string
-  ): "Draft" | "Active" | "Paused" | "Closed" | "Expired" | "Cancelled" {
+  ): "Draft" | "Active" | "Paused" | "Closed" | "Expired" {
     const normalized = this.normalizeStatus(backendStatus);
-    return normalized as
-      | "Draft"
-      | "Active"
-      | "Paused"
-      | "Closed"
-      | "Expired"
-      | "Cancelled";
+    return normalized as "Draft" | "Active" | "Paused" | "Closed" | "Expired";
   }
 
   private normalizeStatus(backendStatus: string): string {
@@ -1056,8 +1050,6 @@ class JobService {
         return "Closed";
       case "Expired":
         return "Expired";
-      case "Cancelled":
-        return "Cancelled";
       default:
         return "Draft";
     }
@@ -1076,8 +1068,6 @@ class JobService {
         return "Closed";
       case "Expired":
         return "Expired";
-      case "Cancelled":
-        return "Cancelled";
       case "All":
         return "All"; // Special case for filtering
       default:
@@ -1103,8 +1093,6 @@ class JobService {
         return "bg-red-100 text-red-800";
       case "Expired":
         return "bg-orange-100 text-orange-800";
-      case "Cancelled":
-        return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
     }

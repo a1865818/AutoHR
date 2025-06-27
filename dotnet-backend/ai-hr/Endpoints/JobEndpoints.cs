@@ -286,7 +286,7 @@ public static class JobEndpoints
                 }
                 job.ClosedDate = null; // Clear closed date if reopening
             }
-            else if (backendStatus == "Closed" || backendStatus == "Expired" || backendStatus == "Cancelled")
+            else if (backendStatus == "Closed" || backendStatus == "Expired")
             {
                 job.ClosedDate = request.EffectiveDate ?? DateTime.UtcNow;
                 Console.WriteLine($"📅 Set ClosedDate for job transitioning to {backendStatus}");
@@ -391,7 +391,7 @@ public static class JobEndpoints
                     {
                         job.PostedDate = DateTime.UtcNow;
                     }
-                    else if (backendStatus == "Closed" || backendStatus == "Expired" || backendStatus == "Cancelled")
+                    else if (backendStatus == "Closed" || backendStatus == "Expired")
                     {
                         job.ClosedDate = DateTime.UtcNow;
                     }
@@ -441,7 +441,6 @@ public static class JobEndpoints
             "Paused" => "Paused",
             "Closed" => "Closed",
             "Expired" => "Expired",
-            "Cancelled" => "Cancelled",
             "All" => "All",        // Special case for "All"
             _ => frontendStatus    // Default passthrough
         };
@@ -451,13 +450,11 @@ public static class JobEndpoints
     {
         return backendStatus switch
         {
-
             "Open" => "Active",    // Backend "Open" -> Frontend "Active"
             "Draft" => "Draft",
             "Paused" => "Paused",
             "Closed" => "Closed",
             "Expired" => "Expired",
-            "Cancelled" => "Cancelled",
             _ => backendStatus     // Default passthrough
         };
     }
@@ -469,33 +466,34 @@ public static class JobEndpoints
         {
             // From Draft
             ("Draft", "Open") => true,
-            ("Draft", "Cancelled") => true,
 
             // From Open (Active in frontend)
             ("Open", "Paused") => true,
             ("Open", "Closed") => true,
-            ("Open", "Cancelled") => true,
             ("Open", "Draft") => true, // Allow back to draft for editing
             ("Open", "Expired") => true,
 
             // From Paused
             ("Paused", "Open") => true,
             ("Paused", "Closed") => true,
-            ("Paused", "Cancelled") => true,
+            ("Paused", "Expired") => true,
 
             // From Closed
             ("Closed", "Open") => true, // Allow reopening
-            ("Closed", "Cancelled") => true,
+            ("Closed", "Expired") => true,
 
             // From Expired
-            ("Expired", "Open") => true,
+            ("Expired", "Open") => true, // Allow reopening
             ("Expired", "Closed") => true,
-            ("Expired", "Cancelled") => true,
 
-            // Same status (no-op)
-            var (f, t) when f == t => true,
+            // Same status transitions (no-op)
+            ("Draft", "Draft") => true,
+            ("Open", "Open") => true,
+            ("Paused", "Paused") => true,
+            ("Closed", "Closed") => true,
+            ("Expired", "Expired") => true,
 
-            // All other transitions are invalid
+            // Default: invalid transition
             _ => false
         };
     }

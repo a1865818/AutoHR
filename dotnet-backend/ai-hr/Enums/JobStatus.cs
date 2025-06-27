@@ -2,12 +2,11 @@
 {
     public enum JobStatus
     {
-        Draft,      // Job saved but not published
-        Active,     // Active job accepting applications (Backend: Open)
-        Paused,     // Temporarily stopped accepting applications  
-        Closed,     // No longer accepting applications
-        Expired,    // Past application deadline
-        Cancelled   // Job cancelled/removed from posting
+        Draft,      // Job is in draft mode, not yet posted
+        Open,       // Job is active and accepting applications
+        Paused,     // Job is temporarily paused
+        Closed,     // Job is closed, no longer accepting applications
+        Expired     // Job posting has expired
     }
 
     public static class JobStatusExtensions
@@ -17,53 +16,48 @@
             return status switch
             {
                 JobStatus.Draft => "Draft",
-                JobStatus.Active => "Active",
+                JobStatus.Open => "Active",
                 JobStatus.Paused => "Paused",
                 JobStatus.Closed => "Closed",
                 JobStatus.Expired => "Expired",
-                JobStatus.Cancelled => "Cancelled",
-                _ => status.ToString()
+                _ => "Unknown"
             };
         }
 
-        // Convert from database/API string to enum (handles both "Open" and "Active")
-        public static JobStatus FromString(string status)
+        public static JobStatus FromString(string statusString)
         {
-            return status?.Trim() switch
+            return statusString.ToLower() switch
             {
-                "Draft" => JobStatus.Draft,
-                "Open" or "Active" => JobStatus.Active,
-                "Paused" => JobStatus.Paused,
-                "Closed" => JobStatus.Closed,
-                "Expired" => JobStatus.Expired,
-                "Cancelled" => JobStatus.Cancelled,
+                "draft" => JobStatus.Draft,
+                "open" or "active" => JobStatus.Open,
+                "paused" => JobStatus.Paused,
+                "closed" => JobStatus.Closed,
+                "expired" => JobStatus.Expired,
                 _ => JobStatus.Draft
             };
         }
 
-        // Convert to database string (Open for backend compatibility)
-        public static string ToDatabaseString(this JobStatus status)
+        public static string ToBackendString(this JobStatus status)
         {
             return status switch
             {
                 JobStatus.Draft => "Draft",
-                JobStatus.Active => "Open",  // Store as "Open" in database
+                JobStatus.Open => "Open",
                 JobStatus.Paused => "Paused",
                 JobStatus.Closed => "Closed",
                 JobStatus.Expired => "Expired",
-                JobStatus.Cancelled => "Cancelled",
                 _ => "Draft"
             };
         }
 
         public static bool IsActive(this JobStatus status)
         {
-            return status == JobStatus.Active;
+            return status == JobStatus.Open;
         }
 
         public static bool AcceptsApplications(this JobStatus status)
         {
-            return status == JobStatus.Active;
+            return status == JobStatus.Open;
         }
     }
 }

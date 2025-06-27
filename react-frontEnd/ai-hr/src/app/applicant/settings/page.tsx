@@ -1,25 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import {
-  SettingsLayout,
-  Toast,
-} from "@/components/settings";
-import {
-  NotificationSetting,
-} from "@/interfaces";
+import { SettingsLayout, Toast } from "@/components/settings";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiService } from "@/services/api";
+import { NotificationSetting } from "@/interfaces";
 import { ApplicationUserData } from "@/interfaces/applicantProfile";
+import { apiService } from "@/services/api";
+import { useState } from "react";
 
 // Applicant-specific settings components
-import { ApplicantPersonalSettings } from "@/components/settings/applicants/ApplicantPersonalSettings";
-import { ApplicantNotificationSettings } from "@/components/settings/applicants/ApplicantNotificationSettings";
-import { ApplicantSecuritySettings } from "@/components/settings/applicants/ApplicantSecuritySettings";
-import { ApplicantPrivacySettings } from "@/components/settings/applicants/ApplicantPrivacySettings";
-import { ApplicantPreferencesSettings } from "@/components/settings/applicants/ApplicantPreferencesSettings";
-import { ApplicantIntegrationsSettings } from "@/components/settings/applicants/ApplicantIntegrationsSettings";
 import { ApplicantDataExportSettings } from "@/components/settings/applicants/ApplicantDataExportSettings";
+import { ApplicantIntegrationsSettings } from "@/components/settings/applicants/ApplicantIntegrationsSettings";
+import { ApplicantNotificationSettings } from "@/components/settings/applicants/ApplicantNotificationSettings";
+import { ApplicantPersonalSettings } from "@/components/settings/applicants/ApplicantPersonalSettings";
+import { ApplicantPreferencesSettings } from "@/components/settings/applicants/ApplicantPreferencesSettings";
+import { ApplicantPrivacySettings } from "@/components/settings/applicants/ApplicantPrivacySettings";
+import { ApplicantSecuritySettings } from "@/components/settings/applicants/ApplicantSecuritySettings";
 
 export default function ApplicantSettingsPage() {
   const [activeTab, setActiveTab] = useState("personal");
@@ -38,7 +33,8 @@ export default function ApplicantSettingsPage() {
   });
 
   // Applicant data state
-  const [applicantData, setApplicantData] = useState<ApplicationUserData | null>(null);
+  const [applicantData, setApplicantData] =
+    useState<ApplicationUserData | null>(null);
 
   // Notifications state
   const [notifications, setNotifications] = useState<NotificationSetting[]>([
@@ -101,11 +97,13 @@ export default function ApplicantSettingsPage() {
     );
   };
 
-  const handlePersonalInfoUpdate = async (updatedData: Partial<ApplicationUserData>) => {
+  const handlePersonalInfoUpdate = async (
+    updatedData: Partial<ApplicationUserData>
+  ) => {
     setIsLoading(true);
     try {
       await apiService.updateApplicationUserProfile(updatedData);
-      setApplicantData((prev) => prev ? { ...prev, ...updatedData } : null);
+      setApplicantData((prev) => (prev ? { ...prev, ...updatedData } : null));
       showToast("Personal information updated successfully", "success");
     } catch (error) {
       console.error("Failed to update personal info:", error);
@@ -123,8 +121,8 @@ export default function ApplicantSettingsPage() {
     try {
       // Simulate API call for security settings
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      
-      setApplicantData((prev) => 
+
+      setApplicantData((prev) =>
         prev ? { ...prev, ...updatedSecurity } : null
       );
       showToast("Security settings updated successfully", "success");
@@ -146,12 +144,16 @@ export default function ApplicantSettingsPage() {
   }) => {
     setIsLoading(true);
     try {
-      await apiService.updateApplicationUserProfile({ preferences: updatedPreferences });
-      setApplicantData((prev) => 
-        prev ? { 
-          ...prev, 
-          preferences: { ...prev.preferences, ...updatedPreferences } 
-        } : null
+      await apiService.updateApplicationUserProfile({
+        preferences: updatedPreferences,
+      });
+      setApplicantData((prev) =>
+        prev
+          ? {
+              ...prev,
+              preferences: { ...prev.preferences, ...updatedPreferences },
+            }
+          : null
       );
       showToast("Preferences updated successfully", "success");
     } catch {
@@ -172,12 +174,16 @@ export default function ApplicantSettingsPage() {
   }) => {
     setIsLoading(true);
     try {
-      await apiService.updateApplicationUserProfile({ privacySettings: updatedPrivacy });
-      setApplicantData((prev) => 
-        prev ? { 
-          ...prev, 
-          privacySettings: { ...prev.privacySettings, ...updatedPrivacy } 
-        } : null
+      await apiService.updateApplicationUserProfile({
+        privacySettings: updatedPrivacy,
+      });
+      setApplicantData((prev) =>
+        prev
+          ? {
+              ...prev,
+              privacySettings: { ...prev.privacySettings, ...updatedPrivacy },
+            }
+          : null
       );
       showToast("Privacy settings updated successfully", "success");
     } catch {
@@ -190,8 +196,8 @@ export default function ApplicantSettingsPage() {
   const handleIntegrationToggle = async (integrationId: string) => {
     if (!applicantData) return;
 
-    const updatedIntegrations = applicantData.connectedIntegrations?.map(
-      (integration) =>
+    const updatedIntegrations =
+      applicantData.connectedIntegrations?.map((integration) =>
         integration.id === integrationId
           ? {
               ...integration,
@@ -203,7 +209,7 @@ export default function ApplicantSettingsPage() {
                 | "error",
             }
           : integration
-    ) || [];
+      ) || [];
 
     setApplicantData((prev) =>
       prev
@@ -229,7 +235,10 @@ export default function ApplicantSettingsPage() {
     try {
       // Simulate data export
       await new Promise((resolve) => setTimeout(resolve, 2000));
-      showToast("Data export initiated. You'll receive an email when ready.", "success");
+      showToast(
+        "Data export initiated. You'll receive an email when ready.",
+        "success"
+      );
     } catch {
       showToast("Failed to initiate data export", "error");
     } finally {

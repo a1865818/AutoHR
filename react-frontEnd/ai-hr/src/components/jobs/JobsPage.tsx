@@ -28,8 +28,7 @@ type ViewMode =
   | "Paused"
   | "Closed"
   | "Draft"
-  | "Expired"
-  | "Cancelled";
+  | "Expired";
 
 interface Filters {
   status: string[];
@@ -104,7 +103,7 @@ const mapExperienceToJobFormat = (
 
 const mapStatusToJobFormat = (
   status: any
-): "Draft" | "Active" | "Paused" | "Closed" | "Expired" | "Cancelled" => {
+): "Draft" | "Active" | "Paused" | "Closed" | "Expired" => {
   if (typeof status !== "string") {
     console.warn("Invalid status, defaulting to Draft:", status);
     return "Draft";
@@ -117,7 +116,6 @@ const mapStatusToJobFormat = (
     "Paused",
     "Closed",
     "Expired",
-    "Cancelled",
   ];
   const titleCaseStatus =
     status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
@@ -129,8 +127,7 @@ const mapStatusToJobFormat = (
       | "Active"
       | "Paused"
       | "Closed"
-      | "Expired"
-      | "Cancelled";
+      | "Expired";
   }
 
   console.warn(`⚠️ Unknown status "${status}", defaulting to Draft`);
@@ -292,14 +289,12 @@ export function JobsPage() {
         pausedJobs,
         closedJobs,
         expiredJobs,
-        cancelledJobs,
       ] = await Promise.all([
         jobService.getAllJobs("Open", userCompanyId),
         jobService.getAllJobs("Draft", userCompanyId),
         jobService.getAllJobs("Paused", userCompanyId),
         jobService.getAllJobs("Closed", userCompanyId),
         jobService.getAllJobs("Expired", userCompanyId),
-        jobService.getAllJobs("Cancelled", userCompanyId),
       ]);
 
       // ✅ ADD MORE DEBUGGING: Check what we got back
@@ -313,7 +308,6 @@ export function JobsPage() {
       console.log("- Paused jobs from API:", pausedJobs?.length || 0);
       console.log("- Closed jobs from API:", closedJobs?.length || 0);
       console.log("- Expired jobs from API:", expiredJobs?.length || 0);
-      console.log("- Cancelled jobs from API:", cancelledJobs?.length || 0);
 
       // Check status values in the returned jobs
       if (activeJobs && activeJobs.length > 0) {
@@ -345,7 +339,6 @@ export function JobsPage() {
         ...(pausedJobs || []),
         ...(closedJobs || []),
         ...(expiredJobs || []),
-        ...(cancelledJobs || []),
       ];
 
       console.log("🔍 DEBUGGING: Combined allJobsData:");
@@ -456,7 +449,6 @@ export function JobsPage() {
       Paused: transformed.filter((job) => job.status === "Paused").length,
       Closed: transformed.filter((job) => job.status === "Closed").length,
       Expired: transformed.filter((job) => job.status === "Expired").length,
-      Cancelled: transformed.filter((job) => job.status === "Cancelled").length,
     };
 
     console.log("📊 FINAL STATUS COUNTS:", statusCounts);
@@ -524,7 +516,6 @@ export function JobsPage() {
       Closed: filtered.filter((job) => job.status === "Closed").length,
       Draft: filtered.filter((job) => job.status === "Draft").length,
       Expired: filtered.filter((job) => job.status === "Expired").length,
-      Cancelled: filtered.filter((job) => job.status === "Cancelled").length,
     };
 
     console.log("📊 Tab counts:", counts);
@@ -542,8 +533,15 @@ export function JobsPage() {
       workType: {} as Record<string, number>,
     };
 
+    // Count all jobs for status filter
     transformedJobs.forEach((job) => {
       counts.status[job.status] = (counts.status[job.status] || 0) + 1;
+    });
+
+    // Only count Active jobs for type, experience, and workType filters
+    const activeJobs = transformedJobs.filter((job) => job.status === "Active");
+    
+    activeJobs.forEach((job) => {
       counts.type[job.type] = (counts.type[job.type] || 0) + 1;
 
       let expCategory = "Entry";
@@ -558,7 +556,7 @@ export function JobsPage() {
         (counts.workType[job.locationType] || 0) + 1;
     });
 
-    console.log("📊 Filter counts:", counts);
+    console.log("📊 Filter counts (Active jobs only for type/experience/workType):", counts);
     return counts;
   }, [transformedJobs]);
 
@@ -781,11 +779,6 @@ export function JobsPage() {
     { id: "Closed" as ViewMode, label: "Closed", count: tabCounts.Closed },
     { id: "Draft" as ViewMode, label: "Drafts", count: tabCounts.Draft },
     { id: "Expired" as ViewMode, label: "Expired", count: tabCounts.Expired },
-    {
-      id: "Cancelled" as ViewMode,
-      label: "Cancelled",
-      count: tabCounts.Cancelled,
-    },
   ];
 
   console.log("🎯 Current state:");
