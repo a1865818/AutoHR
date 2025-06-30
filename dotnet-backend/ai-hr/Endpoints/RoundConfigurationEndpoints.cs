@@ -89,6 +89,8 @@ public static class RoundConfigurationEndpoints
                 .Where(rc => rc.JobId == jobId && rc.RoundId == roundId)
                 .Get();
 
+            // BUG: configuration_data returns as nested emoty array for some reasons 
+
             var config = configResponse.Models.FirstOrDefault();
             if (config == null)
             {
