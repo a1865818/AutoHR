@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Plus,
   Trash2,
@@ -14,7 +14,9 @@ import {
   Brain,
   Award,
   TrendingUp,
+  Loader2,
 } from "lucide-react";
+import { useRoundConfiguration } from "@/hooks/useRoundConfiguration";
 
 interface Competency {
   id: string;
@@ -165,41 +167,73 @@ const defaultScoringLevels: ScoringLevel[] = [
   },
 ];
 
+const defaultConfig: BehavioralInterviewConfiguration = {
+  name: "Behavioral Interview",
+  competencies: defaultCompetencies,
+  questions: [],
+  duration: 60,
+  scoringMethod: "combined",
+  biasPreventionMeasures: {
+    structuredInterview: true,
+    diversePanel: false,
+    standardizedScoring: true,
+    unconsciousBiasTips: true,
+  },
+  interviewerGuidelines:
+    "Use the STAR method to evaluate responses. Focus on specific examples and probe for details about the candidate's personal contribution. Avoid leading questions and maintain consistency across all candidates.",
+  candidatePreparation:
+    "Prepare specific examples from your experience that demonstrate leadership, teamwork, problem-solving, and communication skills. Use the STAR method (Situation, Task, Action, Result) to structure your responses.",
+  consistencyChecks: {
+    calibrationQuestions: true,
+    interRaterReliability: true,
+    followUpRequired: true,
+  },
+};
+
 export function BehavioralInterviewConfig({
   jobId,
   roundId,
   round,
   onConfigurationChange,
 }: BehavioralInterviewConfigProps) {
-  const [config, setConfig] = useState<BehavioralInterviewConfiguration>({
-    name: "Behavioral Interview",
-    competencies: defaultCompetencies,
-    questions: [],
-    duration: 60,
-    scoringMethod: "combined",
-    biasPreventionMeasures: {
-      structuredInterview: true,
-      diversePanel: false,
-      standardizedScoring: true,
-      unconsciousBiasTips: true,
-    },
-    interviewerGuidelines:
-      "Use the STAR method to evaluate responses. Focus on specific examples and probe for details about the candidate's personal contribution. Avoid leading questions and maintain consistency across all candidates.",
-    candidatePreparation:
-      "Prepare specific examples from your experience that demonstrate leadership, teamwork, problem-solving, and communication skills. Use the STAR method (Situation, Task, Action, Result) to structure your responses.",
-    consistencyChecks: {
-      calibrationQuestions: true,
-      interRaterReliability: true,
-      followUpRequired: true,
-    },
-  });
+  const {
+    config: savedConfig,
+    loading,
+    error,
+    saveConfiguration,
+  } = useRoundConfiguration(jobId, roundId);
+  const [config, setConfig] =
+    useState<BehavioralInterviewConfiguration>(defaultConfig);
+  const [saving, setSaving] = useState(false);
+
+  // Load configuration from the backend when available
+  useEffect(() => {
+    if (savedConfig) {
+      const configurationData = savedConfig.configurationData || {};
+
+      // Merge saved configuration with defaults
+      setConfig((prevConfig) => ({
+        ...prevConfig,
+        ...configurationData,
+        // Ensure nested objects are properly merged
+        biasPreventionMeasures: {
+          ...prevConfig.biasPreventionMeasures,
+          ...(configurationData.biasPreventionMeasures || {}),
+        },
+        consistencyChecks: {
+          ...prevConfig.consistencyChecks,
+          ...(configurationData.consistencyChecks || {}),
+        },
+      }));
+    }
+  }, [savedConfig]);
 
   const [expandedSections, setExpandedSections] = useState({
     competencies: true,
     questions: true,
     scoring: true,
     bias: false,
-    instructions: false,
+    guidelines: false,
   });
 
   const [newCompetency, setNewCompetency] = useState({
@@ -231,6 +265,44 @@ export function BehavioralInterviewConfig({
     const newConfig = { ...config, ...updates };
     setConfig(newConfig);
     onConfigurationChange(newConfig);
+  };
+
+  const handleSaveConfiguration = async () => {
+    // Prepare the configuration for saving
+    setSaving(true);
+
+    // Extract only the configuration data needed by the backend
+    // Exclude any component-specific state or derived values
+    const configDataToSave = {
+      name: config.name,
+      duration: config.duration,
+      scoringMethod: config.scoringMethod,
+      biasPreventionMeasures: config.biasPreventionMeasures,
+      interviewerGuidelines: config.interviewerGuidelines,
+      candidatePreparation: config.candidatePreparation,
+      consistencyChecks: config.consistencyChecks,
+      // Don't include questions and competencies here as they can be stored separately
+    };
+
+    const configToSave = {
+      name: savedConfig?.name || "Behavioral Interview Configuration",
+      description:
+        savedConfig?.description ||
+        "Configuration for behavioral interview round",
+      duration: config.duration,
+      status: savedConfig?.status || "draft",
+      configurationData: configDataToSave,
+    };
+
+    try {
+      const result = await saveConfiguration(configToSave);
+      if (result) {
+        // If needed, you can also save questions separately
+        // await saveQuestions(config.questions);
+      }
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -409,8 +481,43 @@ export function BehavioralInterviewConfig({
     return labels[weight as keyof typeof labels] || "Unknown";
   };
 
+  // Loading and error states
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        <span className="ml-2">Loading configuration...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+        <p className="font-medium">Error loading configuration</p>
+        <p className="text-sm">{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-8">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">
+          Behavioral Interview Configuration
+        </h2>
+        <button
+          onClick={handleSaveConfiguration}
+          disabled={saving}
+          className={`px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center ${
+            saving ? "opacity-70 cursor-not-allowed" : ""
+          }`}
+        >
+          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {saving ? "Saving..." : "Save Configuration"}
+        </button>
+      </div>
+
       {/* Competencies Framework */}
       <div className="border border-gray-200 rounded-lg">
         <div
@@ -1195,7 +1302,7 @@ export function BehavioralInterviewConfig({
       <div className="border border-gray-200 rounded-lg">
         <div
           className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
-          onClick={() => toggleSection("instructions")}
+          onClick={() => toggleSection("guidelines")}
         >
           <div className="flex items-center space-x-3">
             <FileText className="h-5 w-5 text-green-600" />
@@ -1203,14 +1310,14 @@ export function BehavioralInterviewConfig({
               Instructions & Guidelines
             </h3>
           </div>
-          {expandedSections.instructions ? (
+          {expandedSections.guidelines ? (
             <ChevronUp className="h-5 w-5" />
           ) : (
             <ChevronDown className="h-5 w-5" />
           )}
         </div>
 
-        {expandedSections.instructions && (
+        {expandedSections.guidelines && (
           <div className="p-4 border-t border-gray-200 space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

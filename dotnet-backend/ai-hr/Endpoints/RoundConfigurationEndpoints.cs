@@ -3,6 +3,8 @@ using ai_hr.Contracts.Interview;
 using Supabase;
 using System.Security.Claims;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
+using System.Collections;
 
 namespace ai_hr.Endpoints;
 
@@ -13,7 +15,9 @@ public static class RoundConfigurationEndpoints
         var group = routes.MapGroup("/api").WithTags("Round Configuration");
 
         // GET /api/jobs/{jobId}/rounds/{roundId}/configuration
-        group.MapGet("/jobs/{jobId:guid}/rounds/{roundId:guid}/configuration", GetRoundConfiguration)
+        group.MapGet("/jobs/{jobId:guid}/rounds/{roundId:guid}/configuration",
+            (Guid jobId, Guid roundId, Supabase.Client client, ClaimsPrincipal user, ILogger<Program> logger) =>
+                GetRoundConfiguration(jobId, roundId, client, user, logger))
             .WithName("GetRoundConfiguration")
             .WithSummary("Get configuration for a specific round in a job")
             .RequireAuthorization();
@@ -22,6 +26,12 @@ public static class RoundConfigurationEndpoints
         group.MapPut("/jobs/{jobId:guid}/rounds/{roundId:guid}/configuration", SaveRoundConfiguration)
             .WithName("SaveRoundConfiguration")
             .WithSummary("Save or update configuration for a specific round")
+            .RequireAuthorization();
+
+        // GET /api/jobs/{jobId}/rounds/{roundId}/configuration/debug
+        group.MapGet("/jobs/{jobId:guid}/rounds/{roundId:guid}/configuration/debug", GetRawConfiguration)
+            .WithName("GetRawConfiguration")
+            .WithSummary("Get raw configuration data for debugging purposes")
             .RequireAuthorization();
 
         // GET /api/interview-templates/rounds/{roundType}/defaults
@@ -59,7 +69,8 @@ public static class RoundConfigurationEndpoints
         Guid jobId,
         Guid roundId,
         Supabase.Client client,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        ILogger<Program> logger)
     {
         try
         {
@@ -103,7 +114,37 @@ public static class RoundConfigurationEndpoints
                 .Order(x => x.OrderIndex, Supabase.Postgrest.Constants.Ordering.Ascending)
                 .Get();
 
+            // Log the configuration data before processing
+            logger.LogInformation("Retrieved configuration ID: {Id} for job: {JobId}, round: {RoundId}",
+                config.Id, jobId, roundId);
+
+            if (config.ConfigurationData != null)
+            {
+                logger.LogInformation("Raw ConfigurationData has {Count} keys: {Keys}",
+                    config.ConfigurationData.Count,
+                    string.Join(", ", config.ConfigurationData.Keys));
+
+                // Log details about questions and interviewers before processing
+                if (config.ConfigurationData.TryGetValue("questions", out var rawQuestionsObj))
+                {
+                    logger.LogInformation("Raw Questions type: {Type}, Value preview: {Value}",
+                        rawQuestionsObj?.GetType().Name,
+                        rawQuestionsObj?.ToString()?.Substring(0, Math.Min(100, rawQuestionsObj.ToString()?.Length ?? 0)));
+                }
+                if (config.ConfigurationData.TryGetValue("interviewers", out var rawInterviewersObj))
+                {
+                    logger.LogInformation("Raw Interviewers type: {Type}, Value preview: {Value}",
+                        rawInterviewersObj?.GetType().Name,
+                        rawInterviewersObj?.ToString()?.Substring(0, Math.Min(100, rawInterviewersObj.ToString()?.Length ?? 0)));
+                }
+            }
+
             var response = MapToResponseDto(config, questionsResponse.Models, criteriaResponse.Models);
+
+            // Log the final response data
+            logger.LogInformation("Final response ConfigurationData type: {Type}",
+                response.ConfigurationData?.GetType().Name);
+
             return Results.Ok(new { success = true, data = response });
         }
         catch (Exception ex)
@@ -117,10 +158,40 @@ public static class RoundConfigurationEndpoints
         Guid roundId,
         RoundConfigurationRequest request,
         Supabase.Client client,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        ILogger<Program> logger)
     {
         try
         {
+            // Log the incoming request for debugging
+            logger.LogInformation("SaveRoundConfiguration request received for jobId: {JobId}, roundId: {RoundId}", jobId, roundId);
+            logger.LogInformation("Request data: Name: {Name}, Description: {Description}, Duration: {Duration}",
+                request.Name, request.Description, request.Duration);
+
+            // Process the configuration data if available
+            Dictionary<string, object>? processedConfigData = null;
+            if (request.ConfigurationData != null)
+            {
+                // We need to convert the incoming data to ensure we're not storing JsonElement objects
+                processedConfigData = new Dictionary<string, object>();
+
+                // Process each key in the dictionary
+                foreach (var key in request.ConfigurationData.Keys)
+                {
+                    // Get the value and convert any JsonElement objects to their .NET equivalents
+                    var value = request.ConfigurationData[key];
+                    processedConfigData[key] = ConvertFromJsonElement(value);
+                }
+
+                logger.LogInformation("Processed ConfigurationData: {Count} keys", processedConfigData.Count);
+                logger.LogInformation("ConfigurationData keys: {Keys}",
+                    string.Join(", ", processedConfigData.Keys));
+            }
+            else
+            {
+                logger.LogWarning("ConfigurationData is null");
+            }
+
             var userId = GetUserId(user);
             if (userId == null) return Results.Unauthorized();
 
@@ -146,13 +217,23 @@ public static class RoundConfigurationEndpoints
                 existing.Description = request.Description;
                 existing.Duration = request.Duration;
                 existing.Status = request.Status;
-                existing.ConfigurationData = JsonSerializer.SerializeToElement(request.ConfigurationData);
+                existing.ConfigurationData = processedConfigData;
                 existing.UpdatedAt = DateTime.UtcNow;
                 existing.LastModifiedBy = userId.Value;
                 existing.Version += 1;
 
+                logger.LogInformation("Updating configuration with processed ConfigurationData");
+
                 var updateResponse = await client.From<RoundConfiguration>().Update(existing);
                 config = updateResponse.Models.FirstOrDefault()!;
+
+                // Log the result after update
+                logger.LogInformation("Configuration updated successfully. Config ID: {ConfigId}", config.Id);
+                if (config.ConfigurationData != null)
+                {
+                    logger.LogInformation("Updated ConfigurationData: {Count} keys",
+                        config.ConfigurationData.Count);
+                }
             }
             else
             {
@@ -164,6 +245,8 @@ public static class RoundConfigurationEndpoints
                 var round = roundResponse.Models.FirstOrDefault();
                 if (round == null) return Results.NotFound("Round not found");
 
+                logger.LogInformation("Creating new config with processed ConfigurationData");
+
                 config = new RoundConfiguration
                 {
                     JobId = jobId,
@@ -173,7 +256,7 @@ public static class RoundConfigurationEndpoints
                     Description = request.Description,
                     Duration = request.Duration,
                     Status = request.Status,
-                    ConfigurationData = JsonSerializer.SerializeToElement(request.ConfigurationData),
+                    ConfigurationData = processedConfigData ?? new Dictionary<string, object>(),
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow,
                     CreatedBy = userId.Value,
@@ -184,13 +267,140 @@ public static class RoundConfigurationEndpoints
                 config = insertResponse.Models.FirstOrDefault()!;
             }
 
+            // Log the saved configuration
+            logger.LogInformation("Configuration saved successfully with ID: {Id}", config.Id);
+            if (config.ConfigurationData != null)
+            {
+                logger.LogInformation("Final ConfigurationData has {Count} keys: {Keys}",
+                    config.ConfigurationData.Count,
+                    string.Join(", ", config.ConfigurationData.Keys));
+
+                // Log details about questions and interviewers if they exist
+                if (config.ConfigurationData.TryGetValue("questions", out var questionsObj))
+                {
+                    logger.LogInformation("Questions found in ConfigurationData: {Type}, {Value}",
+                        questionsObj?.GetType().Name,
+                        questionsObj?.ToString()?.Substring(0, Math.Min(200, questionsObj.ToString()?.Length ?? 0)));
+                }
+                if (config.ConfigurationData.TryGetValue("interviewers", out var interviewersObj))
+                {
+                    logger.LogInformation("Interviewers found in ConfigurationData: {Type}, {Value}",
+                        interviewersObj?.GetType().Name,
+                        interviewersObj?.ToString()?.Substring(0, Math.Min(200, interviewersObj.ToString()?.Length ?? 0)));
+                }
+            }
+
             var response = MapToResponseDto(config, new List<RoundQuestion>(), new List<RoundScoringCriteria>());
             return Results.Ok(new { success = true, data = response });
         }
         catch (Exception ex)
         {
+            logger.LogError(ex, "Error saving round configuration");
             return Results.Problem($"Error saving round configuration: {ex.Message}");
         }
+    }
+
+    // Helper method to convert JsonElement objects to .NET types
+    private static object ConvertFromJsonElement(object value)
+    {
+        if (value is JsonElement jsonElement)
+        {
+            return jsonElement.ValueKind switch
+            {
+                JsonValueKind.Object => ConvertJsonElementObject(jsonElement),
+                JsonValueKind.Array => ConvertJsonElementArray(jsonElement),
+                JsonValueKind.String => jsonElement.GetString() ?? string.Empty,
+                JsonValueKind.Number => jsonElement.TryGetInt64(out long l) ? l : jsonElement.GetDouble(),
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                JsonValueKind.Null => null,
+                _ => null
+            };
+        }
+        else if (value is Dictionary<string, JsonElement> jsonElementDict)
+        {
+            // Convert dictionary with JsonElement values
+            var result = new Dictionary<string, object>();
+            foreach (var kvp in jsonElementDict)
+            {
+                result[kvp.Key] = ConvertFromJsonElement(kvp.Value);
+            }
+            return result;
+        }
+        else if (value is IList list && list.Count > 0 && list[0] is JsonElement)
+        {
+            // Convert list of JsonElement values
+            var result = new List<object>();
+            foreach (var item in list)
+            {
+                result.Add(ConvertFromJsonElement(item));
+            }
+            return result;
+        }
+
+        return value; // Not a JsonElement, return as is
+    }
+
+    // NEW METHOD: Process configuration data retrieved from database
+    private static Dictionary<string, object> ProcessRetrievedConfigurationData(Dictionary<string, object>? configData)
+    {
+        if (configData == null)
+            return new Dictionary<string, object>();
+
+        var processedData = new Dictionary<string, object>();
+
+        foreach (var kvp in configData)
+        {
+            processedData[kvp.Key] = ConvertFromJsonElement(kvp.Value);
+        }
+
+        return processedData;
+    }
+
+    // TEST METHOD: Validate configuration data processing (for debugging)
+    private static Dictionary<string, object> TestConfigurationDataProcessing(Dictionary<string, object> testData, ILogger logger)
+    {
+        logger.LogInformation("Testing configuration data processing with {Count} keys", testData.Count);
+
+        foreach (var kvp in testData)
+        {
+            logger.LogInformation("Before processing - Key: {Key}, Type: {Type}, Value: {Value}",
+                kvp.Key,
+                kvp.Value?.GetType().Name ?? "null",
+                kvp.Value?.ToString()?.Substring(0, Math.Min(50, kvp.Value?.ToString()?.Length ?? 0)) ?? "null");
+        }
+
+        var processed = ProcessRetrievedConfigurationData(testData);
+
+        foreach (var kvp in processed)
+        {
+            logger.LogInformation("After processing - Key: {Key}, Type: {Type}, Value: {Value}",
+                kvp.Key,
+                kvp.Value?.GetType().Name ?? "null",
+                kvp.Value?.ToString()?.Substring(0, Math.Min(50, kvp.Value?.ToString()?.Length ?? 0)) ?? "null");
+        }
+
+        return processed;
+    }
+
+    private static Dictionary<string, object> ConvertJsonElementObject(JsonElement element)
+    {
+        var result = new Dictionary<string, object>();
+        foreach (var property in element.EnumerateObject())
+        {
+            result[property.Name] = ConvertFromJsonElement(property.Value);
+        }
+        return result;
+    }
+
+    private static List<object> ConvertJsonElementArray(JsonElement element)
+    {
+        var result = new List<object>();
+        foreach (var item in element.EnumerateArray())
+        {
+            result.Add(ConvertFromJsonElement(item));
+        }
+        return result;
     }
 
     private static async Task<IResult> GetDefaultConfiguration(
@@ -323,7 +533,7 @@ public static class RoundConfigurationEndpoints
         string roundType,
         Guid userId)
     {
-        var defaultConfig = GetBasicDefaultConfiguration(roundType);
+        var configDict = GetBasicDefaultConfiguration(roundType);
 
         var config = new RoundConfiguration
         {
@@ -334,7 +544,7 @@ public static class RoundConfigurationEndpoints
             Description = $"Default configuration for {roundType}",
             Duration = 30,
             Status = "draft",
-            ConfigurationData = JsonSerializer.SerializeToElement(defaultConfig),
+            ConfigurationData = configDict,
             CreatedBy = userId,
             LastModifiedBy = userId
         };
@@ -343,9 +553,10 @@ public static class RoundConfigurationEndpoints
         return insertResponse.Models.First();
     }
 
-    private static object GetBasicDefaultConfiguration(string roundType)
+    private static Dictionary<string, object> GetBasicDefaultConfiguration(string roundType)
     {
-        return roundType switch
+        // First create the anonymous object
+        object defaultConfig = roundType switch
         {
             "phone_screening" => new { duration = 30, recordCall = false, requirePhone = true },
             "video_interview" => new { duration = 45, platform = "zoom", recordMeeting = true },
@@ -357,6 +568,11 @@ public static class RoundConfigurationEndpoints
             "culture_fit" => new { duration = 45, focusAreas = new[] { "values", "team_fit" } },
             _ => new { duration = 30 }
         };
+
+        // Convert it to Dictionary<string, object> using our helper methods
+        var jsonString = System.Text.Json.JsonSerializer.Serialize(defaultConfig);
+        var jsonDoc = JsonDocument.Parse(jsonString);
+        return ConvertJsonElementObject(jsonDoc.RootElement);
     }
 
     private static RoundConfigurationResponse MapToResponseDto(
@@ -364,24 +580,6 @@ public static class RoundConfigurationEndpoints
         List<RoundQuestion> questions,
         List<RoundScoringCriteria> criteria)
     {
-        // Convert JsonElement to object for serialization
-        object configurationData;
-        try
-        {
-            if (config.ConfigurationData.ValueKind == JsonValueKind.Undefined)
-            {
-                configurationData = new { };
-            }
-            else
-            {
-                configurationData = JsonSerializer.Deserialize<object>(config.ConfigurationData.GetRawText()) ?? new { };
-            }
-        }
-        catch
-        {
-            configurationData = new { };
-        }
-
         return new RoundConfigurationResponse
         {
             Id = config.Id,
@@ -392,7 +590,7 @@ public static class RoundConfigurationEndpoints
             Description = config.Description,
             Duration = config.Duration,
             Status = config.Status,
-            ConfigurationData = configurationData,
+            ConfigurationData = ProcessRetrievedConfigurationData(config.ConfigurationData),
             CreatedAt = config.CreatedAt,
             UpdatedAt = config.UpdatedAt,
             CreatedBy = config.CreatedBy,
@@ -578,6 +776,64 @@ public static class RoundConfigurationEndpoints
         catch (Exception ex)
         {
             return Results.Problem($"Error cloning configuration: {ex.Message}");
+        }
+    }
+
+    private static async Task<IResult> GetRawConfiguration(
+        Guid jobId,
+        Guid roundId,
+        Supabase.Client client,
+        ClaimsPrincipal user,
+        ILogger<Program> logger)
+    {
+        try
+        {
+            var userId = GetUserId(user);
+            if (userId == null) return Results.Unauthorized();
+
+            var companyId = await GetUserCompanyId(client, userId.Value);
+            if (companyId == null) return Results.Unauthorized();
+
+            // Verify job belongs to user's company
+            if (!await VerifyJobAccess(client, jobId, companyId.Value))
+                return Results.StatusCode(403);
+
+            // Get round configuration
+            var configResponse = await client.From<RoundConfiguration>()
+                .Where(rc => rc.JobId == jobId && rc.RoundId == roundId)
+                .Get();
+
+            var config = configResponse.Models.FirstOrDefault();
+            if (config == null)
+            {
+                return Results.NotFound("Configuration not found");
+            }
+
+            // Return both raw and processed configuration data for comparison
+            var processedConfigData = ProcessRetrievedConfigurationData(config.ConfigurationData);
+
+            return Results.Ok(new
+            {
+                id = config.Id,
+                jobId = config.JobId,
+                roundId = config.RoundId,
+                rawConfigurationData = config.ConfigurationData,
+                processedConfigurationData = processedConfigData,
+                comparison = new
+                {
+                    rawKeys = config.ConfigurationData?.Keys.ToList() ?? new List<string>(),
+                    processedKeys = processedConfigData.Keys.ToList(),
+                    rawQuestionsType = config.ConfigurationData?.TryGetValue("questions", out var rawQ) == true ? rawQ?.GetType().Name : "Not Found",
+                    processedQuestionsType = processedConfigData.TryGetValue("questions", out var procQ) ? procQ?.GetType().Name : "Not Found",
+                    rawInterviewersType = config.ConfigurationData?.TryGetValue("interviewers", out var rawI) == true ? rawI?.GetType().Name : "Not Found",
+                    processedInterviewersType = processedConfigData.TryGetValue("interviewers", out var procI) ? procI?.GetType().Name : "Not Found"
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error retrieving raw configuration data");
+            return Results.Problem($"Error retrieving raw configuration data: {ex.Message}");
         }
     }
 }

@@ -1,28 +1,25 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Plus,
   Trash2,
   Video,
-  Clock,
   Users,
   FileText,
   ChevronDown,
   ChevronUp,
   AlertCircle,
-  Settings,
-  Camera,
-  Mic,
-  Monitor,
+  Loader2,
 } from "lucide-react";
+import { useRoundConfiguration } from "@/hooks/useRoundConfiguration";
+import { cleanJsonObject } from "@/utils/jsonUtils";
 
 interface Question {
   id: string;
   text: string;
   category: "technical" | "behavioral" | "culture" | "experience" | "scenario";
   followUpPrompts: string[];
-  timeAllocation: number; // minutes
 }
 
 interface Interviewer {
@@ -38,21 +35,10 @@ interface VideoInterviewConfiguration {
   platform: "zoom" | "teams" | "meet" | "custom";
   customPlatformUrl?: string;
   duration: number;
-  bufferTime: number;
-  autoRecord: boolean;
-  recordingStorage: "cloud" | "local";
-  waitingRoomEnabled: boolean;
   questions: Question[];
   interviewers: Interviewer[];
-  techCheckRequired: boolean;
   candidatePreparation: string;
   interviewerGuidelines: string;
-  meetingSettings: {
-    allowScreenShare: boolean;
-    allowChat: boolean;
-    muteOnEntry: boolean;
-    videoOnEntry: boolean;
-  };
 }
 
 interface VideoInterviewConfigProps {
@@ -72,7 +58,6 @@ const defaultQuestions: Question[] = [
       "How did you overcome obstacles?",
       "What would you do differently?",
     ],
-    timeAllocation: 10,
   },
   {
     id: "vq2",
@@ -82,7 +67,6 @@ const defaultQuestions: Question[] = [
       "How did you handle the situation?",
       "What was the outcome?",
     ],
-    timeAllocation: 8,
   },
 ];
 
@@ -96,34 +80,127 @@ const defaultInterviewers: Interviewer[] = [
   },
 ];
 
+const defaultConfig: VideoInterviewConfiguration = {
+  name: "Video Interview Configuration",
+  platform: "zoom",
+  duration: 60,
+  questions: defaultQuestions,
+  interviewers: defaultInterviewers,
+  candidatePreparation:
+    "Please join the video call 5 minutes early to test your audio and video. Ensure you have a stable internet connection and are in a quiet, well-lit environment.",
+  interviewerGuidelines:
+    "Welcome the candidate warmly, explain the interview structure, and ensure both parties can see and hear clearly before beginning.",
+};
+
 export function VideoInterviewConfig({
   jobId,
   roundId,
   round,
   onConfigurationChange,
 }: VideoInterviewConfigProps) {
-  const [config, setConfig] = useState<VideoInterviewConfiguration>({
-    name: "Video Interview Configuration",
-    platform: "zoom",
-    duration: 60,
-    bufferTime: 10,
-    autoRecord: true,
-    recordingStorage: "cloud",
-    waitingRoomEnabled: true,
-    questions: defaultQuestions,
-    interviewers: defaultInterviewers,
-    techCheckRequired: true,
-    candidatePreparation:
-      "Please join the video call 5 minutes early to test your audio and video. Ensure you have a stable internet connection and are in a quiet, well-lit environment.",
-    interviewerGuidelines:
-      "Welcome the candidate warmly, explain the interview structure, and ensure both parties can see and hear clearly before beginning.",
-    meetingSettings: {
-      allowScreenShare: true,
-      allowChat: true,
-      muteOnEntry: false,
-      videoOnEntry: true,
-    },
-  });
+  const {
+    config: savedConfig,
+    loading,
+    error,
+    saveConfiguration,
+  } = useRoundConfiguration(jobId, roundId);
+  const [config, setConfig] =
+    useState<VideoInterviewConfiguration>(defaultConfig);
+
+  // Load configuration from the backend when available
+  useEffect(() => {
+    if (savedConfig) {
+      console.log("Received saved config:", savedConfig);
+
+      // First set the top-level properties
+      const baseConfig = {
+        ...defaultConfig,
+        name: savedConfig.name || defaultConfig.name,
+        duration: savedConfig.duration || defaultConfig.duration,
+      };
+
+      // Then merge in configuration data if available
+      if (
+        savedConfig.configurationData &&
+        typeof savedConfig.configurationData === "object"
+      ) {
+        console.log("Found configuration data:", savedConfig.configurationData);
+
+        // Clean the configuration data using our utility function
+        const cleanConfigData = cleanJsonObject(savedConfig.configurationData);
+        console.log("Cleaned configuration data:", cleanConfigData);
+
+        // Sanitize questions if present to ensure followUpPrompts is always defined
+        let sanitizedQuestions = defaultConfig.questions;
+        if (
+          cleanConfigData.questions &&
+          Array.isArray(cleanConfigData.questions)
+        ) {
+          sanitizedQuestions = cleanConfigData.questions.map(
+            (question: any) => {
+              return {
+                ...question,
+                // Ensure followUpPrompts is defined
+                followUpPrompts: question.followUpPrompts || [],
+              };
+            }
+          );
+        }
+
+        // Sanitize interviewers if present
+        let sanitizedInterviewers = defaultConfig.interviewers;
+        if (
+          cleanConfigData.interviewers &&
+          Array.isArray(cleanConfigData.interviewers)
+        ) {
+          sanitizedInterviewers = cleanConfigData.interviewers.map(
+            (interviewer: any) => {
+              // Check if interviewer is malformed (has numeric keys or missing required fields)
+              const hasNumericKeys =
+                typeof interviewer === "object" &&
+                interviewer !== null &&
+                Object.keys(interviewer).some((key) => !isNaN(Number(key)));
+
+              if (hasNumericKeys || !interviewer.id) {
+                // Create a valid interviewer object, preserving valid fields
+                return {
+                  id:
+                    // TODO: Remove this once we have a proper id for the interviewer
+                    interviewer.id ||
+                    `int_${Date.now()}_${Math.random()
+                      .toString(36)
+                      .substr(2, 9)}`,
+                  name: interviewer.name || "Unknown",
+                  email: interviewer.email || "unknown@example.com",
+                  role: interviewer.role || "Interviewer",
+                  isBackup: interviewer.isBackup || false,
+                };
+              }
+              return interviewer;
+            }
+          );
+          console.log("Sanitized interviewers:", sanitizedInterviewers);
+        }
+
+        // Create a clean merged config
+        const mergedConfig = {
+          ...baseConfig,
+          ...cleanConfigData,
+          // Use sanitized arrays
+          questions: sanitizedQuestions,
+          interviewers: sanitizedInterviewers,
+        };
+
+        console.log("Setting merged config:", mergedConfig);
+        setConfig(mergedConfig);
+      } else {
+        console.warn(
+          "No configuration data found in saved config, using defaults"
+        );
+        setConfig(baseConfig);
+      }
+    }
+  }, [savedConfig]);
 
   const [expandedSections, setExpandedSections] = useState({
     platform: true,
@@ -137,7 +214,6 @@ export function VideoInterviewConfig({
     text: "",
     category: "technical" as Question["category"],
     followUpPrompts: [""],
-    timeAllocation: 5,
   });
 
   const [newInterviewer, setNewInterviewer] = useState({
@@ -149,6 +225,7 @@ export function VideoInterviewConfig({
 
   const [showAddQuestion, setShowAddQuestion] = useState(false);
   const [showAddInterviewer, setShowAddInterviewer] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const handleConfigChange = (
     updates: Partial<VideoInterviewConfiguration>
@@ -156,6 +233,132 @@ export function VideoInterviewConfig({
     const newConfig = { ...config, ...updates };
     setConfig(newConfig);
     onConfigurationChange(newConfig);
+  };
+
+  const handleSaveConfiguration = async () => {
+    // Prepare the configuration for saving
+    setSaving(true);
+
+    // Ensure config.questions is an array
+    const safeQuestions = Array.isArray(config.questions)
+      ? config.questions
+      : defaultConfig.questions;
+
+    const simplifiedQuestions = safeQuestions.map((q) => ({
+      id: q.id || `q_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      text: q.text || "",
+      category: q.category || "experience",
+      followUpPrompts: q.followUpPrompts || [],
+    }));
+
+    // Log the questions that will be saved - this is for debugging
+    console.log(
+      `Preparing to save ${simplifiedQuestions.length} questions:`,
+      simplifiedQuestions
+    );
+
+    // Validate and sanitize interviewers to ensure they have the correct structure
+    const sanitizedInterviewers = Array.isArray(config.interviewers)
+      ? config.interviewers.map((interviewer: any) => {
+          // Check if interviewer has numeric keys, which indicates an issue
+          const hasNumericKeys =
+            typeof interviewer === "object" &&
+            interviewer !== null &&
+            Object.keys(interviewer).some((key) => !isNaN(Number(key)));
+
+          if (hasNumericKeys || !interviewer.id) {
+            // Create a new valid interviewer object
+            return {
+              id:
+                interviewer.id ||
+                `int_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              name: interviewer.name || "Unknown",
+              email: interviewer.email || "unknown@example.com",
+              role: interviewer.role || "Interviewer",
+              isBackup: interviewer.isBackup || false,
+            };
+          }
+
+          return interviewer;
+        })
+      : defaultConfig.interviewers;
+
+    console.log("Sanitized interviewers:", sanitizedInterviewers);
+    console.log("Simplified questions:", simplifiedQuestions);
+
+    // Create a clean configuration data object with only the properties we need
+    const configDataToSave = {
+      platform: config.platform,
+      customPlatformUrl: config.customPlatformUrl,
+      questions: simplifiedQuestions, // Ensure questions are included
+      interviewers: sanitizedInterviewers,
+      interviewerGuidelines: config.interviewerGuidelines,
+      candidatePreparation: config.candidatePreparation,
+    };
+
+    // Make sure questions are logged before cleaning
+    console.log("Pre-clean configuration:", configDataToSave);
+    console.log(
+      "Pre-clean questions count:",
+      configDataToSave.questions?.length || 0
+    );
+
+    // Create a backup copy of the questions for extra safety
+    const questionsBackup = [...simplifiedQuestions];
+
+    // Clean the configuration data using our utility function
+    const cleanConfigData = cleanJsonObject(configDataToSave);
+
+    // Verify questions are still there after cleaning
+    console.log("Post-clean configuration:", cleanConfigData);
+    console.log(
+      "Post-clean questions count:",
+      cleanConfigData.questions?.length || 0
+    );
+
+    // Double check questions are present
+    if (
+      !cleanConfigData.questions ||
+      !Array.isArray(cleanConfigData.questions) ||
+      cleanConfigData.questions.length === 0
+    ) {
+      console.warn(
+        "Questions missing or empty after cleaning, restoring from backup"
+      );
+      cleanConfigData.questions = questionsBackup;
+    }
+
+    // Create the request object to send to the backend
+    const configToSave = {
+      name: config.name, // Use the name from our current config
+      description:
+        savedConfig?.description || "Configuration for video interview round",
+      duration: config.duration, // We still keep duration at the top level as it's a base property
+      status: savedConfig?.status || "draft",
+      configurationData: cleanConfigData, // Clean configuration data
+      // Add questions directly at top level as well for extra safety
+      questions: questionsBackup,
+    };
+
+    console.log("Final configuration to save:", configToSave);
+    console.log(
+      "Final questions count:",
+      configToSave.configurationData.questions?.length || 0
+    );
+    console.log("Backup questions count:", configToSave.questions?.length || 0);
+
+    try {
+      const result = await saveConfiguration(configToSave);
+      if (result) {
+        console.log("Configuration saved successfully");
+      } else {
+        console.error("Failed to save configuration");
+      }
+    } catch (error) {
+      console.error("Error saving configuration:", error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -175,7 +378,6 @@ export function VideoInterviewConfig({
       followUpPrompts: newQuestion.followUpPrompts.filter(
         (p) => p.trim() !== ""
       ),
-      timeAllocation: newQuestion.timeAllocation,
     };
 
     handleConfigChange({
@@ -186,7 +388,6 @@ export function VideoInterviewConfig({
       text: "",
       category: "technical",
       followUpPrompts: [""],
-      timeAllocation: 5,
     });
     setShowAddQuestion(false);
   };
@@ -251,8 +452,8 @@ export function VideoInterviewConfig({
       technical: "bg-blue-100 text-blue-800",
       behavioral: "bg-green-100 text-green-800",
       culture: "bg-purple-100 text-purple-800",
-      experience: "bg-orange-100 text-orange-800",
-      scenario: "bg-pink-100 text-pink-800",
+      experience: "bg-amber-100 text-amber-800",
+      scenario: "bg-rose-100 text-rose-800",
     };
     return colors[category];
   };
@@ -269,21 +470,20 @@ export function VideoInterviewConfig({
   };
 
   const addFollowUpPrompt = (questionId: string) => {
-    updateQuestion(questionId, {
-      followUpPrompts: [
-        ...(config.questions.find((q) => q.id === questionId)
-          ?.followUpPrompts || []),
-        "",
-      ],
-    });
+    const question = config.questions.find((q) => q.id === questionId);
+    if (question) {
+      updateQuestion(questionId, {
+        followUpPrompts: [...question.followUpPrompts, ""],
+      });
+    }
   };
 
   const removeFollowUpPrompt = (questionId: string, index: number) => {
     const question = config.questions.find((q) => q.id === questionId);
     if (question) {
-      updateQuestion(questionId, {
-        followUpPrompts: question.followUpPrompts.filter((_, i) => i !== index),
-      });
+      const newPrompts = [...question.followUpPrompts];
+      newPrompts.splice(index, 1);
+      updateQuestion(questionId, { followUpPrompts: newPrompts });
     }
   };
 
@@ -294,14 +494,49 @@ export function VideoInterviewConfig({
   ) => {
     const question = config.questions.find((q) => q.id === questionId);
     if (question) {
-      const updatedPrompts = [...question.followUpPrompts];
-      updatedPrompts[index] = value;
-      updateQuestion(questionId, { followUpPrompts: updatedPrompts });
+      const newPrompts = [...question.followUpPrompts];
+      newPrompts[index] = value;
+      updateQuestion(questionId, { followUpPrompts: newPrompts });
     }
   };
 
+  // Loading, error and return states
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        <span className="ml-2">Loading configuration...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+        <p className="font-medium">Error loading configuration</p>
+        <p className="text-sm">{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-8">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">
+          Video Interview Configuration
+        </h2>
+        <button
+          onClick={handleSaveConfiguration}
+          disabled={saving}
+          className={`px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center ${
+            saving ? "opacity-70 cursor-not-allowed" : ""
+          }`}
+        >
+          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {saving ? "Saving..." : "Save Configuration"}
+        </button>
+      </div>
+
       {/* Configuration Name */}
       <div className="mb-4">
         <label
@@ -311,8 +546,8 @@ export function VideoInterviewConfig({
           Configuration Name
         </label>
         <input
-          id="configName"
           type="text"
+          id="configName"
           value={config.name}
           onChange={(e) => handleConfigChange({ name: e.target.value })}
           className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
@@ -336,50 +571,33 @@ export function VideoInterviewConfig({
             </h3>
           </div>
           {expandedSections.platform ? (
-            <ChevronUp className="h-5 w-5" />
+            <ChevronUp key="platform-up" className="h-5 w-5" />
           ) : (
-            <ChevronDown className="h-5 w-5" />
+            <ChevronDown key="platform-down" className="h-5 w-5" />
           )}
         </div>
 
         {expandedSections.platform && (
-          <div className="p-4 border-t border-gray-200 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Video Platform
-                </label>
-                <select
-                  value={config.platform}
-                  onChange={(e) =>
-                    handleConfigChange({ platform: e.target.value as any })
-                  }
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="zoom">Zoom</option>
-                  <option value="teams">Microsoft Teams</option>
-                  <option value="meet">Google Meet</option>
-                  <option value="custom">Custom Platform</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Recording Storage
-                </label>
-                <select
-                  value={config.recordingStorage}
-                  onChange={(e) =>
-                    handleConfigChange({
-                      recordingStorage: e.target.value as any,
-                    })
-                  }
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                >
-                  <option value="cloud">Cloud Storage</option>
-                  <option value="local">Local Storage</option>
-                </select>
-              </div>
+          <div
+            key="platform-expanded"
+            className="p-4 border-t border-gray-200 space-y-4"
+          >
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Video Platform
+              </label>
+              <select
+                value={config.platform}
+                onChange={(e) =>
+                  handleConfigChange({ platform: e.target.value as any })
+                }
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+              >
+                <option value="zoom">Zoom</option>
+                <option value="teams">Microsoft Teams</option>
+                <option value="meet">Google Meet</option>
+                <option value="custom">Custom Platform</option>
+              </select>
             </div>
 
             {config.platform === "custom" && (
@@ -399,183 +617,30 @@ export function VideoInterviewConfig({
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Duration (minutes)
-                </label>
-                <input
-                  type="number"
-                  value={config.duration}
-                  onChange={(e) => {
-                    // Allow the field to be cleared for typing
-                    if (e.target.value === "") {
-                      handleConfigChange({ duration: 15 });
-                    } else {
-                      const value = parseInt(e.target.value);
-                      // Handle NaN and enforce min/max
-                      if (!isNaN(value)) {
-                        const validValue = Math.max(15, Math.min(180, value));
-                        handleConfigChange({ duration: validValue });
-                      }
-                    }
-                  }}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                  min="15"
-                  max="180"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Buffer Time (minutes)
-                </label>
-                <input
-                  type="number"
-                  value={config.bufferTime}
-                  onChange={(e) => {
-                    // Allow the field to be cleared for typing
-                    if (e.target.value === "") {
-                      handleConfigChange({ bufferTime: 0 });
-                    } else {
-                      const value = parseInt(e.target.value);
-                      // Handle NaN and enforce min/max
-                      if (!isNaN(value)) {
-                        const validValue = Math.max(0, Math.min(30, value));
-                        handleConfigChange({ bufferTime: validValue });
-                      }
-                    }
-                  }}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                  min="0"
-                  max="30"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={config.autoRecord}
-                  onChange={(e) =>
-                    handleConfigChange({ autoRecord: e.target.checked })
-                  }
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">
-                  Auto-start recording
-                </span>
-              </label>
-
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={config.waitingRoomEnabled}
-                  onChange={(e) =>
-                    handleConfigChange({ waitingRoomEnabled: e.target.checked })
-                  }
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">
-                  Enable waiting room
-                </span>
-              </label>
-
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={config.techCheckRequired}
-                  onChange={(e) =>
-                    handleConfigChange({ techCheckRequired: e.target.checked })
-                  }
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                />
-                <span className="ml-2 text-sm text-gray-700">
-                  Require pre-interview tech check
-                </span>
-              </label>
-            </div>
-
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-3">
-                Meeting Settings
-              </h4>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={config.meetingSettings.allowScreenShare}
-                    onChange={(e) =>
-                      handleConfigChange({
-                        meetingSettings: {
-                          ...config.meetingSettings,
-                          allowScreenShare: e.target.checked,
-                        },
-                      })
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Duration (minutes)
+              </label>
+              <input
+                type="number"
+                value={config.duration}
+                onChange={(e) => {
+                  // Allow the field to be cleared for typing
+                  if (e.target.value === "") {
+                    handleConfigChange({ duration: 15 });
+                  } else {
+                    const value = parseInt(e.target.value);
+                    // Handle NaN and enforce min/max
+                    if (!isNaN(value)) {
+                      const validValue = Math.max(15, Math.min(180, value));
+                      handleConfigChange({ duration: validValue });
                     }
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">
-                    Allow screen sharing
-                  </span>
-                </label>
-
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={config.meetingSettings.allowChat}
-                    onChange={(e) =>
-                      handleConfigChange({
-                        meetingSettings: {
-                          ...config.meetingSettings,
-                          allowChat: e.target.checked,
-                        },
-                      })
-                    }
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">Allow chat</span>
-                </label>
-
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={config.meetingSettings.muteOnEntry}
-                    onChange={(e) =>
-                      handleConfigChange({
-                        meetingSettings: {
-                          ...config.meetingSettings,
-                          muteOnEntry: e.target.checked,
-                        },
-                      })
-                    }
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">
-                    Mute on entry
-                  </span>
-                </label>
-
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={config.meetingSettings.videoOnEntry}
-                    onChange={(e) =>
-                      handleConfigChange({
-                        meetingSettings: {
-                          ...config.meetingSettings,
-                          videoOnEntry: e.target.checked,
-                        },
-                      })
-                    }
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">
-                    Video on entry
-                  </span>
-                </label>
-              </div>
+                  }
+                }}
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                min="15"
+                max="180"
+              />
             </div>
           </div>
         )}
@@ -593,60 +658,61 @@ export function VideoInterviewConfig({
               Interview Questions
             </h3>
             <span className="text-sm text-gray-500">
-              ({config.questions.length} questions)
+              ({Array.isArray(config.questions) ? config.questions.length : 0}{" "}
+              questions)
             </span>
           </div>
           {expandedSections.questions ? (
-            <ChevronUp className="h-5 w-5" />
+            <ChevronUp key="questions-up" className="h-5 w-5" />
           ) : (
-            <ChevronDown className="h-5 w-5" />
+            <ChevronDown key="questions-down" className="h-5 w-5" />
           )}
         </div>
 
         {expandedSections.questions && (
-          <div className="p-4 border-t border-gray-200 space-y-4">
-            {config.questions.map((question) => (
-              <div
-                key={question.id}
-                className="border border-gray-200 rounded-lg p-4"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center space-x-2">
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(
-                        question.category
-                      )}`}
+          <div
+            key="questions-expanded"
+            className="p-4 border-t border-gray-200 space-y-4"
+          >
+            {(Array.isArray(config.questions) ? config.questions : []).map(
+              (question) => (
+                <div
+                  key={question.id}
+                  className="border border-gray-200 rounded-lg p-4"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center space-x-2">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(
+                          question.category
+                        )}`}
+                      >
+                        {getCategoryLabel(question.category)}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => removeQuestion(question.id)}
+                      className="text-red-600 hover:text-red-800"
                     >
-                      {getCategoryLabel(question.category)}
-                    </span>
-                    <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">
-                      {question.timeAllocation} min
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => removeQuestion(question.id)}
-                    className="text-red-600 hover:text-red-800"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Question
-                    </label>
-                    <textarea
-                      value={question.text}
-                      onChange={(e) =>
-                        updateQuestion(question.id, { text: e.target.value })
-                      }
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                      rows={2}
-                    />
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Question
+                      </label>
+                      <textarea
+                        value={question.text}
+                        onChange={(e) =>
+                          updateQuestion(question.id, { text: e.target.value })
+                        }
+                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                        rows={2}
+                      />
+                    </div>
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Category
@@ -670,70 +736,57 @@ export function VideoInterviewConfig({
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Time Allocation (minutes)
+                        Follow-up Prompts
                       </label>
-                      <input
-                        type="number"
-                        value={question.timeAllocation}
-                        onChange={(e) =>
-                          updateQuestion(question.id, {
-                            timeAllocation: parseInt(e.target.value),
-                          })
-                        }
-                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        min="1"
-                        max="30"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Follow-up Prompts
-                    </label>
-                    <div className="space-y-2">
-                      {question.followUpPrompts.map((prompt, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center space-x-2"
+                      <div className="space-y-2">
+                        {(question.followUpPrompts || []).map(
+                          (prompt, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center space-x-2"
+                            >
+                              <input
+                                type="text"
+                                value={prompt}
+                                onChange={(e) =>
+                                  updateFollowUpPrompt(
+                                    question.id,
+                                    index,
+                                    e.target.value
+                                  )
+                                }
+                                className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                                placeholder="Follow-up question..."
+                              />
+                              <button
+                                onClick={() =>
+                                  removeFollowUpPrompt(question.id, index)
+                                }
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          )
+                        )}
+                        <button
+                          onClick={() => addFollowUpPrompt(question.id)}
+                          className="text-indigo-600 hover:text-indigo-800 text-sm"
                         >
-                          <input
-                            type="text"
-                            value={prompt}
-                            onChange={(e) =>
-                              updateFollowUpPrompt(
-                                question.id,
-                                index,
-                                e.target.value
-                              )
-                            }
-                            className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                            placeholder="Follow-up question..."
-                          />
-                          <button
-                            onClick={() =>
-                              removeFollowUpPrompt(question.id, index)
-                            }
-                            className="text-red-600 hover:text-red-800"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      ))}
-                      <button
-                        onClick={() => addFollowUpPrompt(question.id)}
-                        className="text-indigo-600 hover:text-indigo-800 text-sm"
-                      >
-                        + Add follow-up prompt
-                      </button>
+                          + Add follow-up prompt
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
 
             {showAddQuestion ? (
-              <div className="border border-dashed border-gray-300 rounded-lg p-4">
+              <div
+                key="add-question-form"
+                className="border border-dashed border-gray-300 rounded-lg p-4"
+              >
                 <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -750,47 +803,26 @@ export function VideoInterviewConfig({
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Category
-                      </label>
-                      <select
-                        value={newQuestion.category}
-                        onChange={(e) =>
-                          setNewQuestion({
-                            ...newQuestion,
-                            category: e.target.value as Question["category"],
-                          })
-                        }
-                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                      >
-                        <option value="technical">Technical</option>
-                        <option value="behavioral">Behavioral</option>
-                        <option value="culture">Culture</option>
-                        <option value="experience">Experience</option>
-                        <option value="scenario">Scenario</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Time Allocation (minutes)
-                      </label>
-                      <input
-                        type="number"
-                        value={newQuestion.timeAllocation}
-                        onChange={(e) =>
-                          setNewQuestion({
-                            ...newQuestion,
-                            timeAllocation: parseInt(e.target.value),
-                          })
-                        }
-                        className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                        min="1"
-                        max="30"
-                      />
-                    </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Category
+                    </label>
+                    <select
+                      value={newQuestion.category}
+                      onChange={(e) =>
+                        setNewQuestion({
+                          ...newQuestion,
+                          category: e.target.value as Question["category"],
+                        })
+                      }
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="technical">Technical</option>
+                      <option value="behavioral">Behavioral</option>
+                      <option value="culture">Culture</option>
+                      <option value="experience">Experience</option>
+                      <option value="scenario">Scenario</option>
+                    </select>
                   </div>
 
                   <div className="flex space-x-3">
@@ -811,6 +843,7 @@ export function VideoInterviewConfig({
               </div>
             ) : (
               <button
+                key="add-question-button"
                 onClick={() => setShowAddQuestion(true)}
                 className="w-full border border-dashed border-gray-300 rounded-lg p-4 text-center text-gray-600 hover:text-indigo-600 hover:border-indigo-300"
               >
@@ -834,19 +867,29 @@ export function VideoInterviewConfig({
               Interviewers
             </h3>
             <span className="text-sm text-gray-500">
-              ({config.interviewers.length} assigned)
+              (
+              {Array.isArray(config.interviewers)
+                ? config.interviewers.length
+                : 0}{" "}
+              assigned)
             </span>
           </div>
           {expandedSections.interviewers ? (
-            <ChevronUp className="h-5 w-5" />
+            <ChevronUp key="interviewers-up" className="h-5 w-5" />
           ) : (
-            <ChevronDown className="h-5 w-5" />
+            <ChevronDown key="interviewers-down" className="h-5 w-5" />
           )}
         </div>
 
         {expandedSections.interviewers && (
-          <div className="p-4 border-t border-gray-200 space-y-4">
-            {config.interviewers.map((interviewer) => (
+          <div
+            key="interviewers-expanded"
+            className="p-4 border-t border-gray-200 space-y-4"
+          >
+            {(Array.isArray(config.interviewers)
+              ? config.interviewers
+              : []
+            ).map((interviewer) => (
               <div
                 key={interviewer.id}
                 className="border border-gray-200 rounded-lg p-4"
@@ -944,7 +987,10 @@ export function VideoInterviewConfig({
             ))}
 
             {showAddInterviewer ? (
-              <div className="border border-dashed border-gray-300 rounded-lg p-4">
+              <div
+                key="add-interviewer-form"
+                className="border border-dashed border-gray-300 rounded-lg p-4"
+              >
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -1041,6 +1087,7 @@ export function VideoInterviewConfig({
               </div>
             ) : (
               <button
+                key="add-interviewer-button"
                 onClick={() => setShowAddInterviewer(true)}
                 className="w-full border border-dashed border-gray-300 rounded-lg p-4 text-center text-gray-600 hover:text-indigo-600 hover:border-indigo-300"
               >
@@ -1065,14 +1112,17 @@ export function VideoInterviewConfig({
             </h3>
           </div>
           {expandedSections.instructions ? (
-            <ChevronUp className="h-5 w-5" />
+            <ChevronUp key="instructions-up" className="h-5 w-5" />
           ) : (
-            <ChevronDown className="h-5 w-5" />
+            <ChevronDown key="instructions-down" className="h-5 w-5" />
           )}
         </div>
 
         {expandedSections.instructions && (
-          <div className="p-4 border-t border-gray-200 space-y-4">
+          <div
+            key="instructions-expanded"
+            className="p-4 border-t border-gray-200 space-y-4"
+          >
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Interviewer Guidelines
@@ -1119,22 +1169,23 @@ export function VideoInterviewConfig({
                 •{" "}
                 {config.platform.charAt(0).toUpperCase() +
                   config.platform.slice(1)}{" "}
-                platform with {config.duration} minute duration
+                platform
               </p>
-              <p>• {config.questions.length} interview questions configured</p>
               <p>
-                • {config.interviewers.filter((i) => !i.isBackup).length}{" "}
+                •{" "}
+                {Array.isArray(config.questions) ? config.questions.length : 0}{" "}
+                interview questions configured
+              </p>
+              <p>
+                •{" "}
+                {Array.isArray(config.interviewers)
+                  ? config.interviewers.filter((i) => !i.isBackup).length
+                  : 0}{" "}
                 primary interviewer(s),{" "}
-                {config.interviewers.filter((i) => i.isBackup).length} backup(s)
-              </p>
-              <p>
-                • Recording {config.autoRecord ? "enabled" : "disabled"}, tech
-                check {config.techCheckRequired ? "required" : "optional"}
-              </p>
-              <p>
-                • Total estimated time:{" "}
-                {config.questions.reduce((sum, q) => sum + q.timeAllocation, 0)}{" "}
-                minutes for questions
+                {Array.isArray(config.interviewers)
+                  ? config.interviewers.filter((i) => i.isBackup).length
+                  : 0}{" "}
+                backup(s)
               </p>
             </div>
           </div>

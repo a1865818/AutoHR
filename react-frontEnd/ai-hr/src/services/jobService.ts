@@ -2,6 +2,7 @@ import {
   BulkJobStatusChangeRequest,
   JobDuplicateRequest,
   JobFormData,
+  Job,
   JobStatusChangeRequest,
   JobStatusHistory,
 } from "@/interfaces";

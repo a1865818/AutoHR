@@ -157,7 +157,6 @@ export interface ApiJob {
   createdAt: string;
   interviewTemplateId?: string;
   interviewTemplate?: InterviewTemplate;
-  InterviewTemplate?: InterviewTemplate; // Backend returns PascalCase
 }
 
 // Add new interfaces for view tracking API responses
