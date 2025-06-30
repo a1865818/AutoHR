@@ -280,7 +280,7 @@ We offer a dynamic work environment where creativity and innovation are valued, 
         formData,
         user.companyId, // Use logged-in user's company ID
         user.id, // Use logged-in user's ID
-        "Open", // Set status as open/published
+        "Active", // Set status as open/published
         false // Not AI generated (unless description was AI generated)
       );
 
@@ -298,10 +298,33 @@ We offer a dynamic work environment where creativity and innovation are valued, 
         setSuccessMessage("Job published successfully!");
         setShowSuccessMessage(true);
 
-        // Redirect after a brief delay
-        setTimeout(() => {
-          router.push("/jobs");
-        }, 200);
+        // Get the most recently created job and redirect to share page
+        setTimeout(async () => {
+          try {
+            // Fetch all jobs and find the most recent one created by the user
+            const allJobs = await jobService.getAllJobs();
+            const userJobs = allJobs.filter(
+              (job: any) => job.createdBy === user?.id
+            );
+
+            if (userJobs.length > 0) {
+              // Sort by creation date and get the most recent
+              const mostRecentJob = userJobs.sort(
+                (a: any, b: any) =>
+                  new Date(b.createdAt).getTime() -
+                  new Date(a.createdAt).getTime()
+              )[0];
+
+              router.push(`/share-job/${mostRecentJob.id}`);
+            } else {
+              // Fallback to jobs page if we can't find the job
+              router.push("/jobs");
+            }
+          } catch (error) {
+            console.error("Failed to fetch recent job:", error);
+            router.push("/jobs");
+          }
+        }, 500); // Slightly longer delay to ensure backend has processed the creation
       } else {
         notifications.error(
           "Failed to publish job",

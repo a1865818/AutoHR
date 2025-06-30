@@ -221,7 +221,6 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
   const getStatusIcon = (status: string) => {
     switch (status?.toLowerCase()) {
       case "active":
-      case "open":
         return <CheckCircle className="h-4 w-4 text-green-600" />;
       case "paused":
         return <Pause className="h-4 w-4 text-yellow-600" />;
@@ -235,7 +234,6 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case "active":
-      case "open":
         return "bg-green-100 text-green-800";
       case "paused":
         return "bg-yellow-100 text-yellow-800";
@@ -488,10 +486,13 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
             </div>
 
             <div className="flex items-center space-x-3">
-              <button className="flex items-center px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+              <Link
+                href={`/share-job/${job.id}`}
+                className="flex items-center px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+              >
                 <Share2 className="h-4 w-4 mr-2" />
                 Share
-              </button>
+              </Link>
 
               {/* Show Edit Job button only for HiringUserProfile */}
               {user?.userCategory === "HiringUserProfile" && (

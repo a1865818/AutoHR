@@ -608,7 +608,7 @@ public static class CompanyEndpoints
 
             // Get job counts for each company
             var jobsResponse = await client.From<Job>().Get();
-            var openJobs = jobsResponse.Models.Where(j => j.Status.Equals("Open", StringComparison.OrdinalIgnoreCase)).ToList();
+            var openJobs = jobsResponse.Models.Where(j => j.Status.Equals("Active", StringComparison.OrdinalIgnoreCase)).ToList();
 
             // Create DTOs with job counts
             var companyDtos = companies.Select(company => new
@@ -663,7 +663,7 @@ public static class CompanyEndpoints
             // Get open jobs for this company
             var jobsResponse = await client.From<Job>().Get();
             var openJobs = jobsResponse.Models
-                .Where(j => j.CompanyId == company.Id && j.Status.Equals("Open", StringComparison.OrdinalIgnoreCase))
+                .Where(j => j.CompanyId == company.Id && j.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(j => j.PostedDate)
                 .ToList();
 

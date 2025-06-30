@@ -207,11 +207,9 @@ class JobService {
         console.log("🔄 Mapped InterviewTemplate to interviewTemplate");
       }
 
-      //   return job;
-      // Normalize status
       return {
         ...job,
-        status: this.normalizeStatus(job.status),
+        status: job.status,
       };
     } catch (error) {
       console.error("❌ Failed to load job:", error);
@@ -236,18 +234,13 @@ class JobService {
       throw new Error("Authentication required to view jobs");
     }
 
-    // ✅ SIMPLE MAPPING - Use the old successful method
-    let backendStatus = status;
-    if (status === "active") {
-      backendStatus = "Open"; // Only handle this legacy case
-    }
     // Don't do complex conversions - pass status directly to backend
 
     // Build query parameters
     const params = new URLSearchParams();
-    if (backendStatus && backendStatus.trim()) {
-      params.append("status", backendStatus);
-      console.log("📊 Requesting jobs with backend status:", backendStatus);
+    if (status && status.trim()) {
+      params.append("status", status);
+      console.log("📊 Requesting jobs with backend status:", status);
     }
 
     // Always include company ID for hiring users
@@ -477,17 +470,12 @@ class JobService {
 
     try {
       console.log(`📊 Getting jobs with status: ${status}`);
-
-      // Convert frontend status to backend format for API call
-      const backendStatus =
-        status === "All" ? "All" : this.toBackendStatus(status);
-
-      const jobs = await this.fetchApi(`/jobs/by-status/${backendStatus}`);
+      const jobs = await this.fetchApi(`/jobs/by-status/${status}`);
 
       // Normalize status in response
       return jobs.map((job: any) => ({
         ...job,
-        status: this.normalizeStatus(job.status),
+        status: job.status,
       }));
     } catch (error) {
       console.error("❌ Failed to get jobs by status:", error);
@@ -506,8 +494,8 @@ class JobService {
       // Normalize statuses in history
       return history.map((record: any) => ({
         ...record,
-        fromStatus: this.normalizeStatus(record.fromStatus),
-        toStatus: this.normalizeStatus(record.toStatus),
+        fromStatus: record.fromStatus,
+        toStatus: record.toStatus,
       }));
     } catch (error) {
       console.error("❌ Failed to get job status history:", error);
@@ -533,15 +521,9 @@ class JobService {
 
   // Public methods for applicant job browsing (no auth required)
   async getPublicJobs(status?: string, companyId?: string): Promise<ApiJob[]> {
-    let backendStatus = status;
-    if (status === "Active") {
-      backendStatus = "Open";
-    }
-
     // Build query parameters for public endpoint
     const params = new URLSearchParams();
-    if (backendStatus && backendStatus.trim())
-      params.append("status", backendStatus);
+    if (status && status.trim()) params.append("status", status);
     if (companyId && companyId.trim()) params.append("companyId", companyId);
 
     const queryString = params.toString();
@@ -806,7 +788,7 @@ class JobService {
         portfolioRequired: false,
       },
       postedDate: this.formatPostedDate(apiJob.postedDate || apiJob.createdAt),
-      status: this.mapBackendStatusToFrontend(apiJob.status),
+      status: apiJob.status,
       applicants: apiJob.applicantCount || 0,
       viewCount: apiJob.viewCount || 0, // Include view count
       createdBy: apiJob.createdBy,
@@ -1026,74 +1008,10 @@ class JobService {
     return "mid";
   }
 
-  // 🔧 FIXED: Helper method to convert frontend status to backend status
-  private mapFrontendStatusToBackend(frontendStatus: string): string {
-    return this.toBackendStatus(frontendStatus);
-  }
-
-  // 🔧 FIXED: Helper method to convert backend status to frontend status
-  private mapBackendStatusToFrontend(
-    backendStatus: string
-  ): "Draft" | "Active" | "Paused" | "Closed" | "Expired" | "Cancelled" {
-    const normalized = this.normalizeStatus(backendStatus);
-    return normalized as
-      | "Draft"
-      | "Active"
-      | "Paused"
-      | "Closed"
-      | "Expired"
-      | "Cancelled";
-  }
-
-  private normalizeStatus(backendStatus: string): string {
-    switch (backendStatus) {
-      case "Open":
-        return "Active"; // ✅ Backend "Open" -> Frontend "Active"
-      case "Draft":
-        return "Draft";
-      case "Paused":
-        return "Paused";
-      case "Closed":
-        return "Closed";
-      case "Expired":
-        return "Expired";
-      case "Cancelled":
-        return "Cancelled";
-      default:
-        return "Draft";
-    }
-  }
-
-  // Helper method to convert frontend status to backend format
-  private toBackendStatus(frontendStatus: string): string {
-    switch (frontendStatus) {
-      case "Active":
-        return "Open"; // ✅ Fixed: Frontend "Active" -> Backend "Open"
-      case "Draft":
-        return "Draft";
-      case "Paused":
-        return "Paused";
-      case "Closed":
-        return "Closed";
-      case "Expired":
-        return "Expired";
-      case "Cancelled":
-        return "Cancelled";
-      case "All":
-        return "All"; // Special case for filtering
-      default:
-        return "Draft";
-    }
-  }
-  getStatusDisplayName(status: string): string {
-    // Normalize first, then return
-    return this.normalizeStatus(status);
-  }
 
   // Helper method to get status color
   getStatusColor(status: string): string {
-    const normalizedStatus = this.normalizeStatus(status);
-    switch (normalizedStatus) {
+    switch (status) {
       case "Active":
         return "bg-green-100 text-green-800";
       case "Draft":

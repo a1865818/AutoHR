@@ -91,7 +91,7 @@ export default function InterviewPipelinePage() {
       }
 
       // Load active jobs for the company
-      const activeJobs = await jobService.getAllJobs("Open", userCompanyId);
+      const activeJobs = await jobService.getAllJobs("Active", userCompanyId);
 
       if (!activeJobs || activeJobs.length === 0) {
         setJobs([]);

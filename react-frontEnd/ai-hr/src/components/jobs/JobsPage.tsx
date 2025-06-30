@@ -257,9 +257,9 @@ export function JobsPage() {
 
       try {
         console.log(
-          "📞 Calling jobService.getAllJobs('Open', userCompanyId)..."
+          "📞 Calling jobService.getAllJobs('Active', userCompanyId)..."
         );
-        const activeJobs = await jobService.getAllJobs("Open", userCompanyId);
+        const activeJobs = await jobService.getAllJobs("Active", userCompanyId);
         console.log("📞 Response for Open jobs:", activeJobs);
         console.log("📞 Open jobs count:", activeJobs?.length || 0);
         if (activeJobs && activeJobs.length > 0) {
@@ -294,7 +294,7 @@ export function JobsPage() {
         expiredJobs,
         cancelledJobs,
       ] = await Promise.all([
-        jobService.getAllJobs("Open", userCompanyId),
+        jobService.getAllJobs("Active", userCompanyId),
         jobService.getAllJobs("Draft", userCompanyId),
         jobService.getAllJobs("Paused", userCompanyId),
         jobService.getAllJobs("Closed", userCompanyId),

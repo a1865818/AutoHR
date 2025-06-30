@@ -26,13 +26,12 @@
             };
         }
 
-        // Convert from database/API string to enum (handles both "Open" and "Active")
         public static JobStatus FromString(string status)
         {
             return status?.Trim() switch
             {
                 "Draft" => JobStatus.Draft,
-                "Open" or "Active" => JobStatus.Active,
+                "Active" => JobStatus.Active,
                 "Paused" => JobStatus.Paused,
                 "Closed" => JobStatus.Closed,
                 "Expired" => JobStatus.Expired,
@@ -47,7 +46,7 @@
             return status switch
             {
                 JobStatus.Draft => "Draft",
-                JobStatus.Active => "Open",  // Store as "Open" in database
+                JobStatus.Active => "Active",  
                 JobStatus.Paused => "Paused",
                 JobStatus.Closed => "Closed",
                 JobStatus.Expired => "Expired",
