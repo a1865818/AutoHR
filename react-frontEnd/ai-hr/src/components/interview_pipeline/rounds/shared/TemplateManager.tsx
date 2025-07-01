@@ -24,7 +24,7 @@ import {
 import {
   RoundConfiguration,
   DEFAULT_CONFIGURATIONS,
-} from "../../../../../../../../services/roundConfigurationApi";
+} from "@/services/roundConfigurationApi";
 
 export interface ConfigurationTemplate {
   id: string;

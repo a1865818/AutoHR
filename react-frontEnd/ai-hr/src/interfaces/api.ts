@@ -147,7 +147,7 @@ export interface ApiJob {
   salaryMax?: number;
   salaryCurrency: string;
   applicationDeadline?: string;
-  status: string;
+  status: "Draft" | "Active" | "Paused" | "Closed" | "Expired";
   applicantCount: number;
   viewCount?: number;
   aiGeneratedDescription: boolean;
@@ -157,7 +157,6 @@ export interface ApiJob {
   createdAt: string;
   interviewTemplateId?: string;
   interviewTemplate?: InterviewTemplate;
-  InterviewTemplate?: InterviewTemplate; // Backend returns PascalCase
 }
 
 // Add new interfaces for view tracking API responses

@@ -1,9 +1,10 @@
-import { Question } from '../app/(main)/interview-pipeline/[jobId]/rounds/[roundId]/components/shared/QuestionBuilder';
-import { ScoringCriteria } from '../app/(main)/interview-pipeline/[jobId]/rounds/[roundId]/components/shared/ScoringMatrix';
-import { Interviewer } from '../app/(main)/interview-pipeline/[jobId]/rounds/[roundId]/components/shared/InterviewerSelector';
-import { TimeSlot, ScheduleConfig } from '../app/(main)/interview-pipeline/[jobId]/rounds/[roundId]/components/shared/TimeSlotPicker';
+import { Question } from '@/components/interview_pipeline/rounds/shared/QuestionBuilder';
+import { ScoringCriteria } from '@/components/interview_pipeline/rounds/shared/ScoringMatrix';
+import { Interviewer } from '@/components/interview_pipeline/rounds/shared/InterviewerSelector';
+import { TimeSlot, ScheduleConfig } from '@/components/interview_pipeline/rounds/shared/TimeSlotPicker';
+import { cleanJsonObject } from '@/utils/jsonUtils';
 
-// Base configuration interface
+// Base configuration interface 
 export interface BaseRoundConfiguration {
   id: string;
   jobId: string;
@@ -257,21 +258,93 @@ export class RoundConfigurationAPI {
     try {
       const response = await fetch(`${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration`, {
         method: 'GET',
-        headers: this.getAuthHeaders(),
+        headers: this.getAuthHeaders()
       });
-      
+
       if (!response.ok) {
         if (response.status === 404) {
-          // Configuration doesn't exist yet, return empty success response
-          return { success: false, data: null as any, message: 'Configuration not found' };
+          // If the configuration doesn't exist, fetch the default configuration
+          // based on the round type by getting the round first
+          console.log('Configuration not found, will use default configuration');
+          return this.getDefaultForRound(jobId, roundId);
         }
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(`Error ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      console.error('Failed to get round configuration:', error);
+      throw error;
+    }
+  }
+
+  // Helper method to fetch default configuration for a round when none exists
+  private async getDefaultForRound(jobId: string, roundId: string): Promise<ConfigurationResponse> {
+    try {
+      // First, get the round to determine its type
+      const roundResponse = await fetch(`${this.baseUrl}/jobs/${jobId}/rounds/${roundId}`, {
+        headers: this.getAuthHeaders()
+      });
+      
+      if (!roundResponse.ok) {
+        throw new Error(`Error ${roundResponse.status}: ${roundResponse.statusText}`);
       }
       
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching round configuration:', error);
-      throw error;
+      const roundData = await roundResponse.json();
+      const roundType = roundData.data?.type || 'unknown';
+      
+      // Now get default config for this round type
+      const defaultResponse = await this.getDefaultConfiguration(roundType);
+      
+      // Create a properly structured response with the default configuration
+      return {
+        success: true,
+        data: {
+          id: '',
+          jobId: jobId,
+          roundId: roundId,
+          roundType: roundType,
+          name: `${roundType.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} Configuration`,
+          description: `Configuration for ${roundType.replace('_', ' ')} round`,
+          duration: 60,
+          status: 'draft',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: '',
+          lastModifiedBy: '',
+          version: 1,
+          // Properly include configuration data as an object that will be serialized
+          configurationData: defaultResponse.data as any,
+          questions: [],
+          scoringCriteria: []
+        } as any // Type assertion since our response might not match exactly
+      };
+    } catch (error: any) {
+      console.error('Failed to get default configuration for round:', error);
+      // Return basic default if we can't get anything else
+      return {
+        success: true,
+        data: {
+          id: '',
+          jobId: jobId,
+          roundId: roundId,
+          roundType: 'unknown',
+          name: 'New Round Configuration',
+          description: 'Default configuration',
+          duration: 60,
+          status: 'draft',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          createdBy: '',
+          lastModifiedBy: '',
+          version: 1,
+          // Properly include configuration data as an empty object
+          configurationData: {} as any,
+          questions: [],
+          scoringCriteria: []
+        } as any // Type assertion since our response might not match exactly
+      };
     }
   }
 
@@ -279,17 +352,23 @@ export class RoundConfigurationAPI {
   async saveConfiguration(
     jobId: string, 
     roundId: string, 
-    configuration: Partial<RoundConfiguration>
+    configuration: any // Use any here to accommodate the configurationData property
   ): Promise<ConfigurationResponse> {
     try {
-      // Transform frontend configuration to match backend format
+      // Ensure we have valid configurationData to send
+      // This is critical - we need to make sure the configurationData field is
+      // not lost or overwritten in the process
       const backendPayload = {
         name: configuration.name || `${configuration.roundType?.replace('_', ' ') || 'Round'} Configuration`,
         description: configuration.description || '',
         duration: configuration.duration || 30,
         status: configuration.status || 'draft',
-        configurationData: this.transformToBackendFormat(configuration),
+        configurationData: configuration.configurationData 
+          ? cleanJsonObject(configuration.configurationData) 
+          : this.transformToBackendFormat(configuration),
       };
+      
+      console.log('Payload being sent to backend:', backendPayload);
 
       const response = await fetch(`${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration`, {
         method: 'PUT',
@@ -302,7 +381,14 @@ export class RoundConfigurationAPI {
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
       
-      return await response.json();
+      const responseData = await response.json();
+      
+      // Clean the response data before returning it
+      if (responseData.data && responseData.data.configurationData) {
+        responseData.data.configurationData = cleanJsonObject(responseData.data.configurationData);
+      }
+      
+      return responseData;
     } catch (error) {
       console.error('Error saving round configuration:', error);
       throw error;
@@ -310,10 +396,23 @@ export class RoundConfigurationAPI {
   }
 
   // Transform frontend configuration to backend format
-  private transformToBackendFormat(config: Partial<RoundConfiguration>): any {
-    // Remove metadata fields that shouldn't be in configurationData
-    const { id, jobId, roundId, roundType, name, description, duration, status, createdAt, updatedAt, createdBy, lastModifiedBy, ...configurationData } = config;
-    return configurationData;
+  private transformToBackendFormat(config: Partial<RoundConfiguration> | any): any {
+    // If the config has a configurationData property, that's what we should use
+    if (config.configurationData) {
+      return config.configurationData;
+    }
+    
+    // Otherwise, remove metadata fields that shouldn't be in configurationData
+    // IMPORTANT: Do NOT remove the questions property as it's needed for the backend
+    const { id, jobId, roundId, roundType, name, description, duration, status, 
+            createdAt, updatedAt, createdBy, lastModifiedBy, version, ...configData } = config;
+    
+    // Make sure questions are included
+    if (config.questions && !configData.questions) {
+      configData.questions = config.questions;
+    }
+    
+    return configData;
   }
 
   // Get default configuration for round type

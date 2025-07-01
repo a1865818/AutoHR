@@ -121,7 +121,7 @@ export function SavedJobsPage() {
       setError(null);
 
       // Fetch all jobs to filter by saved IDs
-      const allJobs = await jobService.getPublicJobs("Open");
+      const allJobs = await jobService.getPublicJobs("Active");
       const allCompanies = await jobService.getAllCompanies();
 
       // Filter jobs to only include saved ones and clean the data

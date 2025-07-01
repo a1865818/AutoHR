@@ -102,7 +102,6 @@ export function ApplicantJobDetailPage({ jobId }: ApplicantJobDetailPageProps) {
   const getStatusIcon = (status: string) => {
     switch (status?.toLowerCase()) {
       case "active":
-      case "open":
         return <CheckCircle className="h-4 w-4 text-green-600" />;
       case "paused":
         return <XCircle className="h-4 w-4 text-yellow-600" />;
@@ -116,7 +115,6 @@ export function ApplicantJobDetailPage({ jobId }: ApplicantJobDetailPageProps) {
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
       case "active":
-      case "open":
         return "bg-green-100 text-green-800";
       case "paused":
         return "bg-yellow-100 text-yellow-800";

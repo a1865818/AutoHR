@@ -32,7 +32,7 @@ public class RoundConfiguration : BaseModel
     public string Status { get; set; } = "draft"; // draft, configured, active, archived
 
     [Column("configuration_data")]
-    public JsonElement ConfigurationData { get; set; }
+    public Dictionary<string, object>? ConfigurationData { get; set; }
 
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

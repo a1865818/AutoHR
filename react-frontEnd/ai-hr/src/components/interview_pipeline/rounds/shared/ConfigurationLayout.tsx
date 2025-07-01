@@ -107,18 +107,6 @@ export function ConfigurationLayout({
     onSave();
   };
 
-  const handleBack = () => {
-    if (hasUnsavedChanges) {
-      if (
-        confirm("You have unsaved changes. Are you sure you want to leave?")
-      ) {
-        onBack();
-      }
-    } else {
-      onBack();
-    }
-  };
-
   return (
     <div className="min-h-full bg-gray-50">
       {/* Fixed Header - positioned to avoid sidebar overlap */}
@@ -131,7 +119,7 @@ export function ConfigurationLayout({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <button
-                onClick={handleBack}
+                onClick={onBack}
                 className="inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
               >
                 <ArrowLeft className="mr-2 h-4 w-4" />

@@ -223,7 +223,7 @@ export function ApplicantJobsPage() {
     setError(null);
 
     try {
-      const activeJobs = await jobService.getPublicJobs("Open");
+      const activeJobs = await jobService.getPublicJobs("Active");
       console.log("✅ Loaded jobs:", activeJobs?.length || 0);
 
       if (activeJobs && activeJobs.length > 0) {

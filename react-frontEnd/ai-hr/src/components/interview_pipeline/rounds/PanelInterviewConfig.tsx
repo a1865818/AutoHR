@@ -43,6 +43,7 @@ interface VotingRule {
 }
 
 interface PanelInterviewConfiguration {
+  name: string;
   panelSize: number;
   minPanelSize: number;
   maxPanelSize: number;
@@ -104,6 +105,7 @@ export function PanelInterviewConfig({
   onConfigurationChange,
 }: PanelInterviewConfigProps) {
   const [config, setConfig] = useState<PanelInterviewConfiguration>({
+    name: "Panel Interview",
     panelSize: 3,
     minPanelSize: 2,
     maxPanelSize: 5,
@@ -325,9 +327,19 @@ export function PanelInterviewConfig({
                 <input
                   type="number"
                   value={config.panelSize}
-                  onChange={(e) =>
-                    handleConfigChange({ panelSize: parseInt(e.target.value) })
-                  }
+                  onChange={(e) => {
+                    // Allow the field to be cleared for typing
+                    if (e.target.value === "") {
+                      handleConfigChange({ panelSize: 2 });
+                    } else {
+                      const value = parseInt(e.target.value);
+                      // Handle NaN and enforce min/max
+                      if (!isNaN(value)) {
+                        const validValue = Math.max(2, Math.min(8, value));
+                        handleConfigChange({ panelSize: validValue });
+                      }
+                    }
+                  }}
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                   min="2"
                   max="8"
@@ -341,11 +353,22 @@ export function PanelInterviewConfig({
                 <input
                   type="number"
                   value={config.minPanelSize}
-                  onChange={(e) =>
-                    handleConfigChange({
-                      minPanelSize: parseInt(e.target.value),
-                    })
-                  }
+                  onChange={(e) => {
+                    // Allow the field to be cleared for typing
+                    if (e.target.value === "") {
+                      handleConfigChange({ minPanelSize: 1 });
+                    } else {
+                      const value = parseInt(e.target.value);
+                      // Handle NaN and enforce min/max
+                      if (!isNaN(value)) {
+                        const validValue = Math.max(
+                          1,
+                          Math.min(config.maxPanelSize, value)
+                        );
+                        handleConfigChange({ minPanelSize: validValue });
+                      }
+                    }
+                  }}
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                   min="1"
                   max={config.maxPanelSize}
@@ -359,11 +382,24 @@ export function PanelInterviewConfig({
                 <input
                   type="number"
                   value={config.maxPanelSize}
-                  onChange={(e) =>
-                    handleConfigChange({
-                      maxPanelSize: parseInt(e.target.value),
-                    })
-                  }
+                  onChange={(e) => {
+                    // Allow the field to be cleared for typing
+                    if (e.target.value === "") {
+                      handleConfigChange({
+                        maxPanelSize: Math.max(config.minPanelSize, 2),
+                      });
+                    } else {
+                      const value = parseInt(e.target.value);
+                      // Handle NaN and enforce min/max
+                      if (!isNaN(value)) {
+                        const validValue = Math.max(
+                          config.minPanelSize,
+                          Math.min(8, value)
+                        );
+                        handleConfigChange({ maxPanelSize: validValue });
+                      }
+                    }
+                  }}
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                   min={config.minPanelSize}
                   max="8"

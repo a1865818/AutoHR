@@ -32,9 +32,9 @@ import {
   InterviewRound,
   InterviewType,
 } from "@/interfaces/interview";
-import { PipelineJobCard } from "./components/PipelineJobCard";
+import { PipelineJobCard } from "@/components/interview_pipeline/PipelineJobCard";
 
-interface JobWithTemplate extends ApiJob {
+interface JobWithTemplate extends Omit<ApiJob, "interviewTemplate"> {
   interviewTemplate?: InterviewTemplate;
   candidateCount?: number;
 }
@@ -91,7 +91,7 @@ export default function InterviewPipelinePage() {
       }
 
       // Load active jobs for the company
-      const activeJobs = await jobService.getAllJobs("Open", userCompanyId);
+      const activeJobs = await jobService.getAllJobs("Active", userCompanyId);
 
       if (!activeJobs || activeJobs.length === 0) {
         setJobs([]);
@@ -101,7 +101,10 @@ export default function InterviewPipelinePage() {
       // Load interview templates and candidate counts for each job
       const jobsWithTemplates = await Promise.all(
         activeJobs.map(async (job) => {
-          const jobWithTemplate: JobWithTemplate = { ...job };
+          const jobWithTemplate: JobWithTemplate = {
+            ...job,
+            interviewTemplate: undefined,
+          };
 
           // Load interview template if job has one
           if (job.interviewTemplateId) {
@@ -170,7 +173,6 @@ export default function InterviewPipelinePage() {
 
       // Update the job with new template
       await jobService.updateJob(selectedJobForTemplate.id, {
-        ...selectedJobForTemplate,
         interviewTemplateId: templateId,
       });
 

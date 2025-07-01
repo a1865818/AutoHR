@@ -139,8 +139,6 @@ class CandidateService {
       throw new Error("Access denied - only hiring users can view candidates");
     }
 
-    console.log("📤 Fetching candidates for job:", jobId);
-
     try {
       const response = await fetch(`${this.baseUrl}/candidates/job/${jobId}`, {
         method: "GET",

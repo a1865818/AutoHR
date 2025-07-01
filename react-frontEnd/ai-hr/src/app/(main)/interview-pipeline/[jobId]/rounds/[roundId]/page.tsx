@@ -20,22 +20,21 @@ import {
   FileText,
   Loader,
 } from "lucide-react";
-import { ConfigurationLayout } from "./components/shared/ConfigurationLayout";
-import { TemplateManager } from "./components/shared/TemplateManager";
-import { PhoneScreeningConfig } from "./components/PhoneScreeningConfig";
-import { VideoInterviewConfig } from "./components/VideoInterviewConfig";
-import { TechnicalAssessmentConfig } from "./components/TechnicalAssessmentConfig";
-import { CodingChallengeConfig } from "./components/CodingChallengeConfig";
-import { BehavioralInterviewConfig } from "./components/BehavioralInterviewConfig";
-import { PanelInterviewConfig } from "./components/PanelInterviewConfig";
-import { FinalInterviewConfig } from "./components/FinalInterviewConfig";
-import { CultureFitConfig } from "./components/CultureFitConfig";
-import { ConfigurationTemplate } from "./components/shared/TemplateManager";
+import { ConfigurationLayout } from "@/components/interview_pipeline/rounds/shared/ConfigurationLayout";
+import { PhoneScreeningConfig } from "@/components/interview_pipeline/rounds/PhoneScreeningConfig";
+import { VideoInterviewConfig } from "@/components/interview_pipeline/rounds/VideoInterviewConfig";
+import { TechnicalAssessmentConfig } from "@/components/interview_pipeline/rounds/TechnicalAssessmentConfig";
+import { CodingChallengeConfig } from "@/components/interview_pipeline/rounds/CodingChallengeConfig";
+import { BehavioralInterviewConfig } from "@/components/interview_pipeline/rounds/BehavioralInterviewConfig";
+import { PanelInterviewConfig } from "@/components/interview_pipeline/rounds/PanelInterviewConfig";
+import { FinalInterviewConfig } from "@/components/interview_pipeline/rounds/FinalInterviewConfig";
+import { CultureFitConfig } from "@/components/interview_pipeline/rounds/CultureFitConfig";
+import { ConfirmationModal } from "@/components/interview_pipeline/rounds/shared/ConfirmationModal";
 import {
   roundConfigurationAPI,
   RoundConfiguration,
   DEFAULT_CONFIGURATIONS,
-} from "../../../../../../services/roundConfigurationApi";
+} from "@/services/roundConfigurationApi";
 
 // Types
 interface InterviewType {
@@ -92,8 +91,21 @@ export default function RoundConfigurationPage() {
   const [status, setStatus] = useState<
     "not_configured" | "draft" | "configured" | "active" | "archived"
   >("not_configured");
-  const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+  // Confirmation modal state
+  const [confirmationModal, setConfirmationModal] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    confirmLabel: "Confirm",
+    cancelLabel: "Cancel",
+    confirmType: "warning" as "warning" | "danger" | "info",
+    action: "" as "reset" | "back" | "",
+  });
+
+  // Navigation target for back action
+  const [navigationTarget, setNavigationTarget] = useState("");
 
   useEffect(() => {
     fetchJobAndRound();
@@ -169,8 +181,26 @@ export default function RoundConfigurationPage() {
       if (defaultResponse.success && defaultResponse.data) {
         console.log("✅ Loaded default configuration:", defaultResponse.data);
 
+        // Get the hard-coded defaults for this round type
+        const hardcodedDefaults =
+          DEFAULT_CONFIGURATIONS[
+            roundType as keyof typeof DEFAULT_CONFIGURATIONS
+          ];
+        console.log("📚 Hard-coded defaults:", hardcodedDefaults);
+
+        // Make sure we're using the full default configuration
         const defaultConfig = {
+          ...hardcodedDefaults,
           ...defaultResponse.data,
+          // Ensure questions and scoring criteria are preserved from hardcoded defaults
+          questions:
+            hardcodedDefaults && "questions" in hardcodedDefaults
+              ? hardcodedDefaults.questions
+              : [],
+          scoringCriteria:
+            hardcodedDefaults && "scoringCriteria" in hardcodedDefaults
+              ? hardcodedDefaults.scoringCriteria
+              : [],
           roundType,
           name: `${roundType
             .replace("_", " ")
@@ -179,6 +209,7 @@ export default function RoundConfigurationPage() {
           status: "draft" as const,
         };
 
+        console.log("🔄 Final combined default configuration:", defaultConfig);
         setConfiguration(defaultConfig);
         setOriginalConfiguration(defaultConfig);
         setStatus("not_configured");
@@ -199,6 +230,7 @@ export default function RoundConfigurationPage() {
         status: "draft" as const,
       };
 
+      console.log("🆘 Using pure hard-coded defaults:", defaultConfig);
       setConfiguration(defaultConfig);
       setOriginalConfiguration(defaultConfig);
       setStatus("not_configured");
@@ -234,17 +266,44 @@ export default function RoundConfigurationPage() {
     newConfig: Partial<RoundConfiguration>
   ) => {
     setConfiguration(newConfig);
+
+    // Close any open confirmation modal when the user makes changes
+    if (confirmationModal.isOpen) {
+      closeConfirmationModal();
+    }
+
     validateConfiguration(newConfig);
   };
 
   const validateConfiguration = async (config: Partial<RoundConfiguration>) => {
     try {
-      const result = await roundConfigurationAPI.validateConfiguration(
-        jobId as string,
-        roundId as string,
-        config
-      );
-      setValidationErrors(result.errors || []);
+      // Client-side validation for duration
+      const errors: string[] = [];
+
+      // Check duration limits
+      if (config.duration !== undefined) {
+        const duration = Number(config.duration);
+        // Fix for NaN by checking if duration is a valid number
+        if (isNaN(duration)) {
+          errors.push("Duration must be a valid number");
+        } else if (duration < 15) {
+          errors.push("Duration must be at least 15 minutes");
+        } else if (duration > 480) {
+          errors.push("Duration cannot exceed 480 minutes (8 hours)");
+        }
+      }
+
+      // Only call API validation if we passed client validations
+      if (errors.length === 0) {
+        const result = await roundConfigurationAPI.validateConfiguration(
+          jobId as string,
+          roundId as string,
+          config
+        );
+        setValidationErrors(result.errors || []);
+      } else {
+        setValidationErrors(errors);
+      }
     } catch (error) {
       console.error("Error validating configuration:", error);
       setValidationErrors([]);
@@ -305,48 +364,76 @@ export default function RoundConfigurationPage() {
   };
 
   const handleReset = async () => {
-    if (confirm("Are you sure you want to reset all changes?")) {
-      try {
-        // Reload the original configuration
-        if (Object.keys(originalConfiguration).length > 0) {
-          setConfiguration(originalConfiguration);
-        } else {
-          // Load default configuration
-          await loadConfiguration(round?.type || "phone_screening");
-        }
-        setHasUnsavedChanges(false);
-        setValidationErrors([]);
-      } catch (error) {
-        console.error("Error resetting configuration:", error);
+    // Open confirmation modal instead of using confirm()
+    setConfirmationModal({
+      isOpen: true,
+      title: "Reset Changes",
+      message:
+        "Are you sure you want to reset all changes? This action cannot be undone.",
+      confirmLabel: "Reset",
+      cancelLabel: "Cancel",
+      confirmType: "warning",
+      action: "reset",
+    });
+  };
+
+  const handleResetConfirmed = async () => {
+    try {
+      // Reload the original configuration
+      if (Object.keys(originalConfiguration).length > 0) {
+        setConfiguration(originalConfiguration);
+      } else {
+        // Load default configuration
+        await loadConfiguration(round?.type || "phone_screening");
       }
+      setHasUnsavedChanges(false);
+      setValidationErrors([]);
+    } catch (error) {
+      console.error("Error resetting configuration:", error);
+    } finally {
+      // Close the modal
+      closeConfirmationModal();
     }
   };
 
   const handleBack = () => {
     if (hasUnsavedChanges) {
-      if (
-        confirm("You have unsaved changes. Are you sure you want to leave?")
-      ) {
-        router.push(`/interview-pipeline/${jobId}`);
-      }
+      // Open confirmation modal instead of using confirm()
+      setConfirmationModal({
+        isOpen: true,
+        title: "Unsaved Changes",
+        message: "You have unsaved changes. Are you sure you want to leave?",
+        confirmLabel: "Leave",
+        cancelLabel: "Stay",
+        confirmType: "info",
+        action: "back",
+      });
+      setNavigationTarget(`/interview-pipeline/${jobId}`);
     } else {
       router.push(`/interview-pipeline/${jobId}`);
     }
   };
 
-  const handleTemplateApplied = (template: ConfigurationTemplate) => {
-    // Ensure the configuration includes required fields
-    const configWithRequiredFields = {
-      ...template.configuration,
-      name: template.name,
-      description: template.description,
-      roundType: round?.type,
-      status: "draft" as const,
-    };
+  const handleBackConfirmed = () => {
+    router.push(navigationTarget);
+    closeConfirmationModal();
+  };
 
-    setConfiguration(configWithRequiredFields);
-    setShowTemplateManager(false);
-    console.log("Template applied:", template.name);
+  const closeConfirmationModal = () => {
+    setConfirmationModal((prev) => ({ ...prev, isOpen: false }));
+  };
+
+  const handleConfirmAction = () => {
+    switch (confirmationModal.action) {
+      case "reset":
+        handleResetConfirmed();
+        break;
+      case "back":
+        handleBackConfirmed();
+        break;
+      default:
+        closeConfirmationModal();
+    }
   };
 
   const isValidConfiguration = () => {
@@ -394,7 +481,6 @@ export default function RoundConfigurationPage() {
       round,
       configuration,
       onConfigurationChange: handleConfigurationChange,
-      validationErrors,
     };
 
     switch (round.type) {
@@ -460,85 +546,79 @@ export default function RoundConfigurationPage() {
   }
 
   return (
-    <ConfigurationLayout
-      title={getInterviewTypeTitle(round.type)}
-      subtitle={`Configure the ${getInterviewTypeTitle(
-        round.type
-      ).toLowerCase()} for ${job.title}`}
-      roundType={round.type}
-      jobTitle={job.title}
-      duration={round.duration}
-      hasUnsavedChanges={hasUnsavedChanges}
-      isValid={isValidConfiguration()}
-      saving={saving}
-      onSave={handleSave}
-      onReset={handleReset}
-      onBack={handleBack}
-      status={status}
-      actions={
-        <button
-          onClick={() => setShowTemplateManager(!showTemplateManager)}
-          className={`inline-flex items-center px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium transition-colors ${
-            showTemplateManager
-              ? "text-indigo-700 bg-indigo-50 border-indigo-300"
-              : "text-gray-700 bg-white hover:bg-gray-50"
-          }`}
-        >
-          <FileText className="mr-2 h-4 w-4" />
-          {showTemplateManager ? "Hide Templates" : "Templates"}
-        </button>
-      }
-    >
-      <div className="space-y-6">
-        {/* Template Manager */}
-        {showTemplateManager && (
-          <div className="border-b border-gray-200 pb-6">
-            <TemplateManager
-              currentConfig={configuration}
-              roundType={round.type}
-              jobId={jobId as string}
-              roundId={roundId as string}
-              onConfigurationChange={handleConfigurationChange}
-              onTemplateApplied={handleTemplateApplied}
+    <>
+      {/* Confirmation Banner - Positioned at the right side */}
+      {confirmationModal.isOpen && (
+        <div className="fixed top-[148px] right-67 z-50">
+          <div className="w-96 shadow-lg">
+            <ConfirmationModal
+              isOpen={true}
+              title={confirmationModal.title}
+              message={confirmationModal.message}
+              confirmLabel={confirmationModal.confirmLabel}
+              cancelLabel={confirmationModal.cancelLabel}
+              confirmType={confirmationModal.confirmType}
+              onConfirm={handleConfirmAction}
+              onCancel={closeConfirmationModal}
             />
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Validation Errors */}
-        {validationErrors.length > 0 && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="flex items-center mb-3">
-              <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
-              <h4 className="text-sm font-medium text-red-800">
-                Configuration Issues
-              </h4>
+      <ConfigurationLayout
+        title={getInterviewTypeTitle(round?.type)}
+        subtitle={`Configure the ${getInterviewTypeTitle(
+          round?.type
+        ).toLowerCase()} for ${job?.title}`}
+        roundType={round?.type}
+        jobTitle={job?.title}
+        duration={round?.duration}
+        hasUnsavedChanges={hasUnsavedChanges}
+        isValid={isValidConfiguration()}
+        saving={saving}
+        onSave={handleSave}
+        onReset={handleReset}
+        onBack={handleBack}
+        status={status}
+        actions={null}
+      >
+        <div className="space-y-6">
+          {/* Validation Errors - Only show when no confirmation modal is active */}
+          {validationErrors.length > 0 && !confirmationModal.isOpen && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+              <div className="flex items-center mb-3">
+                <AlertCircle className="w-5 h-5 text-red-500 mr-2" />
+                <h4 className="text-sm font-medium text-red-800">
+                  Configuration Issues
+                </h4>
+              </div>
+              <ul className="text-sm text-red-700 space-y-1">
+                {validationErrors.map((error, index) => (
+                  <li key={index} className="flex items-start">
+                    <span className="mr-2">•</span>
+                    <span>{error}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <ul className="text-sm text-red-700 space-y-1">
-              {validationErrors.map((error, index) => (
-                <li key={index} className="flex items-start">
-                  <span className="mr-2">•</span>
-                  <span>{error}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+          )}
 
-        {/* Success Message */}
-        {status === "configured" && !hasUnsavedChanges && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <div className="flex items-center">
-              <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-              <p className="text-sm text-green-800">
-                Configuration is saved and up to date
-              </p>
+          {/* Success Message */}
+          {status === "configured" && !hasUnsavedChanges && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                <p className="text-sm text-green-800">
+                  Configuration is saved and up to date
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Round Configuration */}
-        {renderRoundConfiguration()}
-      </div>
-    </ConfigurationLayout>
+          {/* Round Configuration */}
+          {renderRoundConfiguration()}
+        </div>
+      </ConfigurationLayout>
+    </>
   );
 }
