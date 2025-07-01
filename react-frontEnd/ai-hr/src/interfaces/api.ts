@@ -147,7 +147,7 @@ export interface ApiJob {
   salaryMax?: number;
   salaryCurrency: string;
   applicationDeadline?: string;
-  status: "Draft" | "Active" | "Paused" | "Closed" | "Expired" | "Cancelled";
+  status: "Draft" | "Active" | "Paused" | "Closed" | "Expired";
   applicantCount: number;
   viewCount?: number;
   aiGeneratedDescription: boolean;

@@ -1,24 +1,24 @@
 "use client";
 
-import { useState } from "react";
 import {
-  SettingsNavigation,
-  SettingsLayout,
+  BillingSettings,
   CompanySettings,
-  TeamManagement,
-  RecruitmentSettings,
   IntegrationsSettings,
   NotificationSettings,
+  RecruitmentSettings,
   SecuritySettings,
-  BillingSettings,
+  SettingsLayout,
+  SettingsNavigation,
+  TeamManagement,
   Toast,
 } from "@/components/settings";
 import {
   CompanyData,
-  User,
-  RecruitmentConfig,
   NotificationSetting,
+  RecruitmentConfig,
+  User,
 } from "@/interfaces";
+import { useState } from "react";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("company");

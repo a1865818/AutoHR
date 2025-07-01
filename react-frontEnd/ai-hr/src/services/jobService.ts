@@ -387,15 +387,9 @@ class JobService {
     try {
       console.log(`🔄 Changing job ${jobId} status to ${request.status}`);
 
-      // Ensure status is properly capitalized before sending to backend
-      const normalizedRequest = {
-        ...request,
-        status: this.toBackendStatus(request.status),
-      };
-
       const response = await this.fetchApi(`/jobs/${jobId}/status`, {
         method: "PATCH",
-        body: JSON.stringify(normalizedRequest),
+        body: JSON.stringify(request),
       });
 
       console.log(`✅ Successfully changed job status`);
@@ -414,15 +408,9 @@ class JobService {
     try {
       console.log(`🔄 Bulk changing status for ${request.jobIds.length} jobs`);
 
-      // Ensure status is properly capitalized
-      const normalizedRequest = {
-        ...request,
-        status: this.toBackendStatus(request.status),
-      };
-
       const response = await this.fetchApi("/jobs/bulk-status", {
         method: "PATCH",
-        body: JSON.stringify(normalizedRequest),
+        body: JSON.stringify(request),
       });
 
       console.log(`✅ Bulk status change completed`);
@@ -444,15 +432,10 @@ class JobService {
     try {
       console.log(`📋 Duplicating job ${jobId}`);
 
-      // Ensure status is properly capitalized
-      const normalizedRequest = {
-        ...request,
-        status: request.status ? this.toBackendStatus(request.status) : "Draft",
-      };
 
       const response = await this.fetchApi(`/jobs/${jobId}/duplicate`, {
         method: "POST",
-        body: JSON.stringify(normalizedRequest),
+        body: JSON.stringify(request),
       });
 
       console.log(`✅ Successfully duplicated job`);
@@ -1009,6 +992,23 @@ class JobService {
   }
 
 
+  private normalizeStatus(backendStatus: string): string {
+    switch (backendStatus) {
+      case "Open":
+        return "Active"; // ✅ Backend "Open" -> Frontend "Active"
+      case "Draft":
+        return "Draft";
+      case "Paused":
+        return "Paused";
+      case "Closed":
+        return "Closed";
+      case "Expired":
+        return "Expired";
+      default:
+        return "Draft";
+    }
+  }
+
   // Helper method to get status color
   getStatusColor(status: string): string {
     switch (status) {
@@ -1022,8 +1022,6 @@ class JobService {
         return "bg-red-100 text-red-800";
       case "Expired":
         return "bg-orange-100 text-orange-800";
-      case "Cancelled":
-        return "bg-red-100 text-red-800";
       default:
         return "bg-gray-100 text-gray-800";
     }

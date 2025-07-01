@@ -2,12 +2,11 @@
 {
     public enum JobStatus
     {
-        Draft,      // Job saved but not published
-        Active,     // Active job accepting applications (Backend: Open)
-        Paused,     // Temporarily stopped accepting applications  
-        Closed,     // No longer accepting applications
-        Expired,    // Past application deadline
-        Cancelled   // Job cancelled/removed from posting
+        Draft,      // Job is in draft mode, not yet posted
+        Active,       // Job is active and accepting applications
+        Paused,     // Job is temporarily paused
+        Closed,     // Job is closed, no longer accepting applications
+        Expired     // Job posting has expired
     }
 
     public static class JobStatusExtensions
@@ -21,27 +20,24 @@
                 JobStatus.Paused => "Paused",
                 JobStatus.Closed => "Closed",
                 JobStatus.Expired => "Expired",
-                JobStatus.Cancelled => "Cancelled",
-                _ => status.ToString()
+                _ => "Unknown"
             };
         }
 
-        public static JobStatus FromString(string status)
+        public static JobStatus FromString(string statusString)
         {
-            return status?.Trim() switch
+            return statusString.ToLower() switch
             {
                 "Draft" => JobStatus.Draft,
                 "Active" => JobStatus.Active,
                 "Paused" => JobStatus.Paused,
                 "Closed" => JobStatus.Closed,
                 "Expired" => JobStatus.Expired,
-                "Cancelled" => JobStatus.Cancelled,
                 _ => JobStatus.Draft
             };
         }
 
-        // Convert to database string (Open for backend compatibility)
-        public static string ToDatabaseString(this JobStatus status)
+        public static string ToBackendString(this JobStatus status)
         {
             return status switch
             {
@@ -50,7 +46,6 @@
                 JobStatus.Paused => "Paused",
                 JobStatus.Closed => "Closed",
                 JobStatus.Expired => "Expired",
-                JobStatus.Cancelled => "Cancelled",
                 _ => "Draft"
             };
         }

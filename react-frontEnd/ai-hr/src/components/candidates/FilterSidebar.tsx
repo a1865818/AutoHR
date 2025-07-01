@@ -1,50 +1,32 @@
 import { FilterOption } from "@/interfaces";
+import { InterviewStageConfig } from "@/utils/dynamicInterviewStageConfig";
 import {
+  Briefcase,
   ChevronDown,
   ChevronRight,
   Plus,
-  Settings,
   X,
-  Briefcase,
 } from "lucide-react";
 import { useState } from "react";
 
-// Available filters that can be added to favorites
-const availableStatusFilters = [
-  { id: "in-progress", label: "In Progress" },
-  { id: "hired", label: "Hired" },
-  { id: "rejected", label: "Rejected" },
-];
-
-const availableStageFilters = [
-  { id: "hired", label: "Hired" },
-  { id: "applied", label: "Applied" },
-  { id: "interview", label: "Interview" },
-  { id: "phone-interview", label: "Phone Interview" },
-  { id: "offer", label: "Offer" },
-  { id: "evaluation", label: "Evaluation" },
-];
-
+// Status filters (static - same as original)
 const statusFilters: Omit<FilterOption, "count">[] = [
   { id: "in-progress", label: "In Progress" },
+  { id: "offered", label: "Offered" },
   { id: "hired", label: "Hired" },
   { id: "rejected", label: "Rejected" },
 ];
 
-const stageFilters: Omit<FilterOption, "count">[] = [
-  { id: "hired", label: "Hired" },
-  { id: "applied", label: "Applied" },
-  { id: "interview", label: "Interview" },
-  { id: "phone-interview", label: "Phone Interview" },
-  { id: "offer", label: "Offer" },
-  { id: "evaluation", label: "Evaluation" },
-];
-
-interface FavoriteFilter {
-  id: string;
-  label: string;
-  type: "status" | "stage" | "position";
-}
+// Status color mapping
+const getStatusColor = (statusId: string) => {
+  const colorMap: Record<string, string> = {
+    "in-progress": "text-blue-600",
+    offered: "text-purple-600",
+    hired: "text-green-600",
+    rejected: "text-red-600",
+  };
+  return colorMap[statusId] || "text-gray-600";
+};
 
 interface JobFilter {
   id: string;
@@ -52,7 +34,16 @@ interface JobFilter {
   department?: string;
 }
 
-// Tooltip component for job titles
+interface StageConfig {
+  id: string;
+  label: string;
+  color: string;
+  icon: string;
+  order: number;
+  description: string;
+}
+
+// Tooltip component for job titles (same as original)
 interface TooltipProps {
   content: string;
   department?: string;
@@ -72,8 +63,9 @@ function Tooltip({ content, department, children }: TooltipProps) {
       {isVisible && (
         <div className="absolute left-0 top-full mt-1 z-[9999] bg-gray-900 text-white text-xs rounded-md py-2 px-3 shadow-xl max-w-36 w-max">
           <div className="font-medium break-words">{content}</div>
-          {department && <div className="text-gray-300 mt-1 break-words">{department}</div>}
-          {/* Tooltip arrow */}
+          {department && (
+            <div className="text-gray-300 mt-1 break-words">{department}</div>
+          )}
           <div className="absolute bottom-full left-4 w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-gray-900"></div>
         </div>
       )}
@@ -89,32 +81,23 @@ interface FilterSidebarProps {
   };
   toggleFilter: (filterType: "status" | "stage" | "position") => void;
   activeFilters: {
-    favorites: string[];
     status: string[];
     stage: string[];
     position: string[];
   };
   onFilterChange: (
-    filterType: "favorites" | "status" | "stage" | "position",
+    filterType: "status" | "stage" | "position",
     filterId: string,
     checked: boolean
   ) => void;
-  onFavoriteToggle: (filterId: string) => void;
-  onAddFavorite: (
-    filterId: string,
-    label: string,
-    type: "status" | "stage" | "position"
-  ) => void;
-  onRemoveFavorite: (filterId: string) => void;
   onClearFilters: () => void;
   filterCounts: {
-    favorites: Record<string, number>;
     status: Record<string, number>;
     stage: Record<string, number>;
     position: Record<string, number>;
   };
-  favoriteFilters: FavoriteFilter[];
   availableJobs: JobFilter[];
+  stageConfigs: StageConfig[];
 }
 
 export function FilterSidebar({
@@ -122,56 +105,11 @@ export function FilterSidebar({
   toggleFilter,
   activeFilters,
   onFilterChange,
-  onFavoriteToggle,
-  onAddFavorite,
-  onRemoveFavorite,
   onClearFilters,
   filterCounts,
-  favoriteFilters,
   availableJobs,
+  stageConfigs,
 }: FilterSidebarProps) {
-  const [showFavoriteDropdown, setShowFavoriteDropdown] = useState(false);
-
-  const handleFavoriteClick = (favoriteId: string) => {
-    onFavoriteToggle(favoriteId);
-  };
-
-  const isFavoriteActive = (
-    favoriteId: string,
-    favoriteType: "status" | "stage" | "position"
-  ) => {
-    if (favoriteType === "status") {
-      return activeFilters.status.includes(favoriteId);
-    } else if (favoriteType === "stage") {
-      return activeFilters.stage.includes(favoriteId);
-    } else {
-      return activeFilters.position.includes(favoriteId);
-    }
-  };
-
-  const getAvailableFiltersToAdd = () => {
-    const currentFavoriteIds = favoriteFilters.map((f) => f.id);
-    const availableStatus = availableStatusFilters.filter(
-      (f) => !currentFavoriteIds.includes(f.id)
-    );
-    const availableStage = availableStageFilters.filter(
-      (f) => !currentFavoriteIds.includes(f.id)
-    );
-    const availablePosition = availableJobs.filter(
-      (f) => !currentFavoriteIds.includes(f.id)
-    );
-
-    return [
-      ...availableStatus.map((f) => ({ ...f, type: "status" as const })),
-      ...availableStage.map((f) => ({ ...f, type: "stage" as const })),
-      ...availablePosition.map((f) => ({
-        id: f.id,
-        label: f.title,
-        type: "position" as const,
-      })),
-    ];
-  };
-
   const handleCheckboxChange = (
     filterType: "status" | "stage" | "position",
     filterId: string,
@@ -180,110 +118,13 @@ export function FilterSidebar({
     onFilterChange(filterType, filterId, checked);
   };
 
-  const handleAddFilter = () => {
-    // In a real app, this would open a modal or dropdown to add custom filters
-    alert("Add filter functionality would open a modal here");
-  };
-
   return (
     <div className="w-52 bg-white border-r flex-shrink-0 flex flex-col">
-      {/* Favorites section */}
-      <div className="px-4 py-3">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xs font-medium text-gray-500">Favorites</h3>
-          <div className="relative">
-            <button
-              onClick={() => setShowFavoriteDropdown(!showFavoriteDropdown)}
-              className="p-1 text-gray-400 hover:text-gray-600 rounded"
-              title="Add favorite filter"
-            >
-              <Settings className="h-3 w-3" />
-            </button>
-
-            {showFavoriteDropdown && (
-              <div className="absolute right-0 top-6 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-[9999]">
-                <div className="p-2">
-                  <h4 className="text-xs font-medium text-gray-500 mb-2">
-                    Add to Favorites
-                  </h4>
-                  <div className="space-y-1 max-h-32 overflow-y-auto">
-                    {getAvailableFiltersToAdd().map((filter) => (
-                      <button
-                        key={`${filter.type}-${filter.id}`}
-                        onClick={() => {
-                          onAddFavorite(filter.id, filter.label, filter.type);
-                          setShowFavoriteDropdown(false);
-                        }}
-                        className="w-full text-left px-2 py-1 text-xs hover:bg-gray-100 rounded flex items-center justify-between"
-                      >
-                        <span className="truncate">{filter.label}</span>
-                        <span className="text-gray-400 text-xs capitalize flex-shrink-0 ml-1">
-                          {filter.type === "position" ? "job" : filter.type}
-                        </span>
-                      </button>
-                    ))}
-                    {getAvailableFiltersToAdd().length === 0 && (
-                      <p className="text-xs text-gray-400 text-center py-2">
-                        All filters added
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <ul className="space-y-1">
-          {favoriteFilters.map((item) => {
-            const isActive = isFavoriteActive(item.id, item.type);
-            return (
-              <li key={item.id} className="group">
-                <div className="flex items-center">
-                  <button
-                    onClick={() => handleFavoriteClick(item.id)}
-                    className={`flex-1 flex items-center justify-between px-2 py-1 rounded-md text-left transition-colors ${
-                      isActive
-                        ? "bg-blue-50 text-blue-600 ring-1 ring-blue-200"
-                        : "text-gray-700 hover:bg-gray-100"
-                    }`}
-                  >
-                    <div className="flex items-center min-w-0">
-                      {item.type === "position" && (
-                        <Briefcase className="h-3 w-3 mr-1 text-blue-500 flex-shrink-0" />
-                      )}
-                      <span className="text-sm truncate">{item.label}</span>
-                    </div>
-                    <span className="text-xs text-gray-500 ml-1 flex-shrink-0">
-                      {filterCounts.favorites[item.id] || 0}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => onRemoveFavorite(item.id)}
-                    className="ml-1 p-1 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Remove from favorites"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-              </li>
-            );
-          })}
-
-          {favoriteFilters.length === 0 && (
-            <li className="text-center py-4">
-              <p className="text-xs text-gray-400">No favorites yet</p>
-              <p className="text-xs text-gray-400">Click settings to add</p>
-            </li>
-          )}
-        </ul>
-      </div>
-
       {/* Filters section */}
       <div className="px-4 py-3 border-t flex-1 overflow-y-auto">
         <h3 className="text-xs font-medium text-gray-500 mb-2">Filters</h3>
 
-        {/* Position filter */}
+        {/* Position filter (SAME AS ORIGINAL) */}
         <div className="mb-4">
           <div
             className="flex items-center justify-between cursor-pointer hover:bg-gray-50 rounded px-1 py-1"
@@ -304,7 +145,6 @@ export function FilterSidebar({
               className="text-gray-400 hover:text-gray-600 p-1"
               onClick={(e) => {
                 e.stopPropagation();
-                // Clear all position filters
                 activeFilters.position.forEach((filterId) => {
                   onFilterChange("position", filterId, false);
                 });
@@ -370,7 +210,7 @@ export function FilterSidebar({
           )}
         </div>
 
-        {/* Status filter */}
+        {/* Status filter (SAME AS ORIGINAL) */}
         <div className="mb-4">
           <div
             className="flex items-center justify-between cursor-pointer hover:bg-gray-50 rounded px-1 py-1"
@@ -388,7 +228,6 @@ export function FilterSidebar({
               className="text-gray-400 hover:text-gray-600 p-1"
               onClick={(e) => {
                 e.stopPropagation();
-                // Clear all status filters
                 activeFilters.status.forEach((filterId) => {
                   onFilterChange("status", filterId, false);
                 });
@@ -421,7 +260,24 @@ export function FilterSidebar({
                       htmlFor={`status-${item.id}`}
                       className="ml-2 flex flex-1 items-center justify-between text-sm text-gray-700 cursor-pointer"
                     >
-                      <span>{item.label}</span>
+                      <div className="flex items-center">
+                        <span
+                          className={`h-2 w-2 rounded-full mr-2 ${
+                            item.id === "in-progress"
+                              ? "bg-blue-500"
+                              : item.id === "offered"
+                              ? "bg-purple-500"
+                              : item.id === "hired"
+                              ? "bg-green-500"
+                              : item.id === "rejected"
+                              ? "bg-red-500"
+                              : "bg-gray-500"
+                          }`}
+                        />
+                        <span className={getStatusColor(item.id)}>
+                          {item.label}
+                        </span>
+                      </div>
                       <span className="text-xs text-gray-500">
                         {filterCounts.status[item.id] || 0}
                       </span>
@@ -433,7 +289,7 @@ export function FilterSidebar({
           )}
         </div>
 
-        {/* Stage filter */}
+        {/* UPDATED: Dynamic Stage filter */}
         <div className="mb-4">
           <div
             className="flex items-center justify-between cursor-pointer hover:bg-gray-50 rounded px-1 py-1"
@@ -451,7 +307,6 @@ export function FilterSidebar({
               className="text-gray-400 hover:text-gray-600 p-1"
               onClick={(e) => {
                 e.stopPropagation();
-                // Clear all stage filters
                 activeFilters.stage.forEach((filterId) => {
                   onFilterChange("stage", filterId, false);
                 });
@@ -463,39 +318,55 @@ export function FilterSidebar({
 
           {expandedFilters.stage && (
             <ul className="ml-4 mt-1 space-y-1">
-              {stageFilters.map((item) => {
-                const isChecked = activeFilters.stage.includes(item.id);
+              {stageConfigs.map((stageConfig) => {
+                const isChecked = activeFilters.stage.includes(stageConfig.id);
                 return (
-                  <li key={item.id} className="flex items-center">
+                  <li key={stageConfig.id} className="flex items-center">
                     <input
                       type="checkbox"
-                      id={`stage-${item.id}`}
+                      id={`stage-${stageConfig.id}`}
                       checked={isChecked}
                       onChange={(e) =>
-                        handleCheckboxChange("stage", item.id, e.target.checked)
+                        onFilterChange(
+                          "stage",
+                          stageConfig.id,
+                          e.target.checked
+                        )
                       }
                       className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                     />
                     <label
-                      htmlFor={`stage-${item.id}`}
+                      htmlFor={`stage-${stageConfig.id}`}
                       className="ml-2 flex flex-1 items-center justify-between text-sm text-gray-700 cursor-pointer"
                     >
-                      <span>{item.label}</span>
+                      <div className="flex items-center">
+                        {InterviewStageConfig.getStageIcon(stageConfig.id)}
+                        <span className="ml-2" title={stageConfig.description}>
+                          {stageConfig.label}
+                        </span>
+                      </div>
                       <span className="text-xs text-gray-500">
-                        {filterCounts.stage[item.id] || 0}
+                        {filterCounts.stage[stageConfig.id] || 0}
                       </span>
                     </label>
                   </li>
                 );
               })}
+              {stageConfigs.length === 0 && (
+                <li className="text-center py-2">
+                  <p className="text-xs text-gray-400">Loading stages...</p>
+                </li>
+              )}
             </ul>
           )}
         </div>
 
-        {/* Filter buttons */}
+        {/* Filter buttons (SAME AS ORIGINAL) */}
         <div className="flex space-x-2 mt-6">
           <button
-            onClick={handleAddFilter}
+            onClick={() => {
+              /* Add custom filter functionality */
+            }}
             className="flex-1 bg-blue-500 text-white rounded-md py-1.5 text-xs font-medium hover:bg-blue-600 flex items-center justify-center transition-colors"
           >
             <Plus className="h-3 w-3 mr-1" /> Add filter
@@ -511,3 +382,5 @@ export function FilterSidebar({
     </div>
   );
 }
+
+export default FilterSidebar;

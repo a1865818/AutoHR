@@ -13,6 +13,11 @@ import { RankingTab } from "@/components/candidates/RankingTab";
 import { useHiringAuth } from "@/hooks/useHiringAuth";
 import { CandidateWithJobDetails } from "@/interfaces";
 import { candidateService } from "@/services/candidateService";
+import {
+  DynamicCandidateFilterUtils,
+  InterviewStageConfig,
+  useDynamicStageConfigs,
+} from "@/utils/dynamicInterviewStageConfig";
 
 import {
   Briefcase,
@@ -23,7 +28,7 @@ import {
   Search,
   Users,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 // Empty State Component
 interface EmptyStateProps {
@@ -196,6 +201,10 @@ function CandidatesPage() {
     null
   );
 
+  // Use dynamic stage configurations
+  const { stageConfigs, loading: stageConfigsLoading } =
+    useDynamicStageConfigs();
+
   const [rankingCandidates, setRankingCandidates] = useState<
     CandidateWithJobDetails[]
   >([]);
@@ -225,27 +234,26 @@ function CandidatesPage() {
     position: true,
   });
 
+  // Updated: Default active filters now use dynamic stages
   const [activeFilters, setActiveFilters] = useState({
-    favorites: [] as string[],
     status: ["in-progress"],
-    stage: ["applied", "interview", "offer"],
+    stage: [] as string[],
     position: [] as string[],
   });
 
-  // Customizable favorites
-  const [favoriteFilters, setFavoriteFilters] = useState<
-    Array<{
-      id: string;
-      label: string;
-      type: "status" | "stage" | "position";
-    }>
-  >([
-    { id: "in-progress", label: "In Progress", type: "status" as const },
-    { id: "hired", label: "Hired", type: "status" as const },
-    { id: "rejected", label: "Rejected", type: "status" as const },
-  ]);
+  // Only initialize stage filters on first load
+  const didInitStageFilters = useRef(false);
+  useEffect(() => {
+    if (!didInitStageFilters.current && stageConfigs.length > 0 && activeFilters.stage.length === 0) {
+      setActiveFilters((prev) => ({
+        ...prev,
+        stage: stageConfigs.map((config) => config.id), // All stages by default
+      }));
+      didInitStageFilters.current = true;
+    }
+  }, [stageConfigs, activeFilters.stage.length]);
 
-  // FIXED: Notes state - Use applicationId consistently
+  // Notes state
   const [candidateNotes, setCandidateNotes] = useState<Record<string, string>>(
     {}
   );
@@ -277,7 +285,7 @@ function CandidatesPage() {
         // DEBUG: Log the raw response to see what we're getting
         console.log("🔍 DEBUG: Raw candidates response:", response.candidates);
 
-        // FIXED: Extract notes from candidate data using consistent key (applicationId)
+        // Extract notes from candidate data using consistent key (applicationId)
         const notesFromDb: Record<string, string> = {};
         response.candidates.forEach((candidate, index) => {
           console.log(`🔍 DEBUG: Candidate ${index}:`, {
@@ -293,7 +301,6 @@ function CandidatesPage() {
           // Check for notes - handle both null and empty string
           const noteValue = (candidate as any).hiringNotes;
           if (noteValue && noteValue.trim() !== "") {
-            // FIXED: Use applicationId as key consistently
             notesFromDb[candidate.applicationId] = noteValue;
             console.log(
               `📝 DEBUG: Added note for ${candidate.name} with key ${candidate.applicationId}:`,
@@ -360,100 +367,32 @@ function CandidatesPage() {
     return Array.from(jobsMap.values());
   }, [candidates]);
 
-  // Calculate filter counts based on real candidates data and active filters
+  // Calculate filter counts using dynamic utilities
   const filterCounts = useMemo(() => {
-    const counts = {
-      favorites: {} as Record<string, number>,
-      status: {
-        "in-progress": 0,
-        hired: 0,
-        rejected: 0,
-      },
-      stage: {
-        applied: 0,
-        interview: 0,
-        offer: 0,
-      },
-      position: {} as Record<string, number>,
-    };
+    if (stageConfigsLoading || stageConfigs.length === 0) {
+      return {
+        status: { "in-progress": 0, offered: 0, hired: 0, rejected: 0 },
+        stage: {} as Record<string, number>,
+        position: {} as Record<string, number>,
+      };
+    }
 
-    // For position counts, we need to consider active status and stage filters
-    // but NOT active position filters (to avoid circular dependency)
-    const getFilteredCandidatesForCounts = () => {
-      let filtered = candidates;
-
-      // Apply status filter (but not position filter for position counts)
-      if (activeFilters.status.length > 0) {
-        filtered = filtered.filter((candidate) => {
-          let statusKey =
-            candidate.status?.toLowerCase().replace(" ", "-") || "in-progress";
-          // Map "disqualified" to "rejected" for consistency
-          if (statusKey === "disqualified") {
-            statusKey = "rejected";
-          }
-          return activeFilters.status.includes(statusKey);
-        });
+    const counts = DynamicCandidateFilterUtils.calculateFilterCounts(
+      candidates,
+      {
+        status: activeFilters.status,
+        stage: activeFilters.stage,
+        position: activeFilters.position,
       }
-
-      // Apply stage filter (but not position filter for position counts)
-      if (activeFilters.stage.length > 0) {
-        filtered = filtered.filter((candidate) =>
-          activeFilters.stage.includes(candidate.stage.toLowerCase())
-        );
-      }
-
-      return filtered;
-    };
-
-    const filteredCandidatesForCounts = getFilteredCandidatesForCounts();
-
-    // Count by status and stage (using all candidates)
-    candidates.forEach((candidate) => {
-      // Count for status filters
-      let statusKey =
-        candidate.status?.toLowerCase().replace(" ", "-") || "in-progress";
-      // Map "disqualified" to "rejected" for consistency
-      if (statusKey === "disqualified") {
-        statusKey = "rejected";
-      }
-      const status = statusKey as keyof typeof counts.status;
-      if (counts.status[status] !== undefined) {
-        counts.status[status]++;
-      }
-
-      // Count for stage filters
-      const stage = candidate.stage.toLowerCase() as keyof typeof counts.stage;
-      if (stage in counts.stage) {
-        counts.stage[stage]++;
-      }
-    });
-
-    // Count for position filters (using filtered candidates that respect status/stage filters)
-    filteredCandidatesForCounts.forEach((candidate) => {
-      const hasJobDetails = "jobId" in candidate;
-      if (hasJobDetails) {
-        const jobId = (candidate as any).jobId;
-        if (jobId) {
-          counts.position[jobId] = (counts.position[jobId] || 0) + 1;
-        }
-      }
-    });
-
-    // Calculate favorite counts based on current favorite filters
-    favoriteFilters.forEach((favorite) => {
-      if (favorite.type === "status") {
-        counts.favorites[favorite.id] =
-          counts.status[favorite.id as keyof typeof counts.status] || 0;
-      } else if (favorite.type === "stage") {
-        counts.favorites[favorite.id] =
-          counts.stage[favorite.id as keyof typeof counts.stage] || 0;
-      } else if (favorite.type === "position") {
-        counts.favorites[favorite.id] = counts.position[favorite.id] || 0;
-      }
-    });
+    );
 
     return counts;
-  }, [candidates, favoriteFilters, activeFilters.status, activeFilters.stage]);
+  }, [
+    candidates,
+    activeFilters,
+    stageConfigs,
+    stageConfigsLoading,
+  ]);
 
   const handleCandidateClick = (candidateId: string) => {
     setSelectedCandidate(candidateId);
@@ -471,7 +410,7 @@ function CandidatesPage() {
   };
 
   const handleFilterChange = (
-    filterType: "favorites" | "status" | "stage" | "position",
+    filterType: "status" | "stage" | "position",
     filterId: string,
     checked: boolean
   ) => {
@@ -481,7 +420,6 @@ function CandidatesPage() {
         ? [...prev[filterType], filterId]
         : prev[filterType].filter((id) => id !== filterId),
     }));
-    // Reset to first page when filters change
     setCurrentPage(1);
   };
 
@@ -530,76 +468,8 @@ function CandidatesPage() {
     setIsRankingModalOpen(true);
   };
 
-  const handleFavoriteToggle = (filterId: string) => {
-    const favorite = favoriteFilters.find((f) => f.id === filterId);
-    if (favorite) {
-      const isCurrentlyActive =
-        favorite.type === "status"
-          ? activeFilters.status.includes(filterId)
-          : favorite.type === "stage"
-          ? activeFilters.stage.includes(filterId)
-          : activeFilters.position.includes(filterId);
-
-      if (isCurrentlyActive) {
-        if (favorite.type === "status") {
-          handleFilterChange("status", filterId, false);
-        } else if (favorite.type === "stage") {
-          handleFilterChange("stage", filterId, false);
-        } else if (favorite.type === "position") {
-          handleFilterChange("position", filterId, false);
-        }
-        setActiveFilters((prev) => ({ ...prev, favorites: [] }));
-      } else {
-        setActiveFilters((prev) => ({
-          ...prev,
-          status: [],
-          stage: [],
-          position: [],
-          favorites: [filterId],
-        }));
-
-        if (favorite.type === "status") {
-          handleFilterChange("status", filterId, true);
-        } else if (favorite.type === "stage") {
-          handleFilterChange("stage", filterId, true);
-        } else if (favorite.type === "position") {
-          handleFilterChange("position", filterId, true);
-        }
-      }
-    }
-  };
-
-  const handleAddFavorite = (
-    filterId: string,
-    label: string,
-    type: "status" | "stage" | "position"
-  ) => {
-    if (!favoriteFilters.find((f) => f.id === filterId)) {
-      setFavoriteFilters((prev) => [...prev, { id: filterId, label, type }]);
-    }
-  };
-
-  const handleRemoveFavorite = (filterId: string) => {
-    setFavoriteFilters((prev) => prev.filter((f) => f.id !== filterId));
-    const favorite = favoriteFilters.find((f) => f.id === filterId);
-    if (favorite) {
-      if (favorite.type === "status") {
-        handleFilterChange("status", filterId, false);
-      } else if (favorite.type === "stage") {
-        handleFilterChange("stage", filterId, false);
-      } else if (favorite.type === "position") {
-        handleFilterChange("position", filterId, false);
-      }
-      setActiveFilters((prev) => ({
-        ...prev,
-        favorites: prev.favorites.filter((id) => id !== filterId),
-      }));
-    }
-  };
-
   const clearFilters = () => {
     setActiveFilters({
-      favorites: [],
       status: [],
       stage: [],
       position: [],
@@ -729,7 +599,7 @@ function CandidatesPage() {
       // Delete from backend database
       await candidateService.deleteCandidateNote(candidateId);
 
-      // FIXED: Update local state using applicationId
+      // Update local state using applicationId
       const newNotes = { ...candidateNotes };
       delete newNotes[candidateId];
       setCandidateNotes(newNotes);
@@ -765,7 +635,6 @@ function CandidatesPage() {
 
   const handleClearFilters = () => {
     setActiveFilters({
-      favorites: [],
       status: [],
       stage: [],
       position: [],
@@ -774,7 +643,7 @@ function CandidatesPage() {
     setNotesSearchQuery("");
   };
 
-  // FIXED: Get candidates with notes using applicationId
+  // Get candidates with notes using applicationId
   const candidatesWithNotes = useMemo(() => {
     console.log("🔍 DEBUG: Calculating candidatesWithNotes");
     console.log(
@@ -791,7 +660,7 @@ function CandidatesPage() {
     );
 
     const withNotes = candidates.filter((candidate) => {
-      // FIXED: Use applicationId to check for notes
+      // Use applicationId to check for notes
       const hasNote = candidateNotes[candidate.applicationId];
       console.log(
         `🔍 DEBUG: Candidate ${candidate.name} (app: ${candidate.applicationId}) has note:`,
@@ -825,7 +694,7 @@ function CandidatesPage() {
           candidate.company
             .toLowerCase()
             .includes(notesSearchQuery.toLowerCase()) ||
-          candidateNotes[candidate.id]
+          candidateNotes[candidate.applicationId]
             ?.toLowerCase()
             .includes(notesSearchQuery.toLowerCase())
       );
@@ -846,21 +715,21 @@ function CandidatesPage() {
     // Apply status filter
     if (activeFilters.status.length > 0) {
       filtered = filtered.filter((candidate) => {
-        let statusKey =
-          candidate.status?.toLowerCase().replace(" ", "-") || "in-progress";
-        // Map "disqualified" to "rejected" for consistency
-        if (statusKey === "disqualified") {
-          statusKey = "rejected";
-        }
-        return activeFilters.status.includes(statusKey);
+        const statusFilterId = DynamicCandidateFilterUtils.mapStatusToFilterId(
+          candidate.status || ""
+        );
+        return activeFilters.status.includes(statusFilterId);
       });
     }
 
     // Apply stage filter
     if (activeFilters.stage.length > 0) {
-      filtered = filtered.filter((candidate) =>
-        activeFilters.stage.includes(candidate.stage.toLowerCase())
-      );
+      filtered = filtered.filter((candidate) => {
+        const stageFilterId = InterviewStageConfig.mapStageToFilterId(
+          candidate.stage || ""
+        );
+        return activeFilters.stage.includes(stageFilterId);
+      });
     }
 
     return filtered;
@@ -876,9 +745,17 @@ function CandidatesPage() {
     notesEndIndex
   );
 
-  // Filter and sort candidates
+  // Filter and sort candidates using dynamic utilities
   const filteredAndSortedCandidates = useMemo(() => {
-    let filtered = candidates;
+    if (stageConfigsLoading || stageConfigs.length === 0) {
+      return []; // Return empty while loading stage configs
+    }
+
+    let filtered = DynamicCandidateFilterUtils.applyFilters(candidates, {
+      status: activeFilters.status,
+      stage: activeFilters.stage,
+      position: activeFilters.position,
+    });
 
     // Apply search filter
     if (searchQuery) {
@@ -889,38 +766,6 @@ function CandidatesPage() {
           (candidate.role &&
             candidate.role.toLowerCase().includes(searchQuery.toLowerCase())) ||
           candidate.email.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    // Apply position filter
-    if (activeFilters.position.length > 0) {
-      filtered = filtered.filter((candidate) => {
-        const hasJobDetails = "jobId" in candidate;
-        if (hasJobDetails) {
-          const jobId = (candidate as any).jobId;
-          return activeFilters.position.includes(jobId);
-        }
-        return false;
-      });
-    }
-
-    // Apply status filter
-    if (activeFilters.status.length > 0) {
-      filtered = filtered.filter((candidate) => {
-        let statusKey =
-          candidate.status?.toLowerCase().replace(" ", "-") || "in-progress";
-        // Map "disqualified" to "rejected" for consistency
-        if (statusKey === "disqualified") {
-          statusKey = "rejected";
-        }
-        return activeFilters.status.includes(statusKey);
-      });
-    }
-
-    // Apply stage filter
-    if (activeFilters.stage.length > 0) {
-      filtered = filtered.filter((candidate) =>
-        activeFilters.stage.includes(candidate.stage.toLowerCase())
       );
     }
 
@@ -938,10 +783,6 @@ function CandidatesPage() {
           aValue = a.company;
           bValue = b.company;
           break;
-        // case "assessment":
-        //   aValue = a.assessment;
-        //   bValue = b.assessment;
-        //   break;
         case "stage":
           aValue = a.stage;
           bValue = b.stage;
@@ -967,7 +808,14 @@ function CandidatesPage() {
     });
 
     return filtered;
-  }, [candidates, searchQuery, activeFilters, sortBy]);
+  }, [
+    candidates,
+    searchQuery,
+    activeFilters,
+    sortBy,
+    stageConfigs,
+    stageConfigsLoading,
+  ]);
 
   // Reset to first page when active tab changes
   useEffect(() => {
@@ -1002,7 +850,20 @@ function CandidatesPage() {
     (candidate) => candidate.id === selectedCandidate
   );
 
-  // Loading state
+  const stagesWithCandidates = useMemo(() => {
+    const stageIds = new Set<string>();
+    candidates.forEach((candidate) => {
+      const stageId = InterviewStageConfig.mapStageToFilterId(candidate.stage || "");
+      stageIds.add(stageId);
+    });
+    return stageIds;
+  }, [candidates]);
+
+  const filteredStageConfigs = useMemo(() => {
+    return stageConfigs.filter((config) => stagesWithCandidates.has(config.id));
+  }, [stageConfigs, stagesWithCandidates]);
+
+  // Loading state with animation
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -1048,13 +909,10 @@ function CandidatesPage() {
                 toggleFilter={toggleFilter}
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
-                onFavoriteToggle={handleFavoriteToggle}
-                onAddFavorite={handleAddFavorite}
-                onRemoveFavorite={handleRemoveFavorite}
-                onClearFilters={clearFilters}
                 filterCounts={filterCounts}
-                favoriteFilters={favoriteFilters}
                 availableJobs={availableJobs}
+                stageConfigs={filteredStageConfigs}
+                onClearFilters={clearFilters}
               />
               <div className="flex-1 overflow-hidden flex flex-col">
                 <CandidateHeader
@@ -1062,13 +920,14 @@ function CandidatesPage() {
                   onTabChange={setActiveTab}
                   searchQuery={searchQuery}
                   onSearchChange={setSearchQuery}
-                  candidatesCount={0} // No candidates when no jobs
-                  notesCount={0} // No notes when no jobs
+                  candidatesCount={0}
+                  notesCount={0}
+                  rankingCount={0}
                 />
                 <EmptyState
                   type="no-jobs"
                   companyName={companyName}
-                  onCreateJob={handleCreateJob}
+                  onCreateJob={() => (window.location.href = "/jobs/create")}
                 />
               </div>
             </div>
@@ -1082,13 +941,10 @@ function CandidatesPage() {
                 toggleFilter={toggleFilter}
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
-                onFavoriteToggle={handleFavoriteToggle}
-                onAddFavorite={handleAddFavorite}
-                onRemoveFavorite={handleRemoveFavorite}
-                onClearFilters={clearFilters}
                 filterCounts={filterCounts}
-                favoriteFilters={favoriteFilters}
                 availableJobs={availableJobs}
+                stageConfigs={filteredStageConfigs}
+                onClearFilters={clearFilters}
               />
               <div className="flex-1 overflow-hidden flex flex-col">
                 <CandidateHeader
@@ -1096,8 +952,9 @@ function CandidatesPage() {
                   onTabChange={setActiveTab}
                   searchQuery={searchQuery}
                   onSearchChange={setSearchQuery}
-                  candidatesCount={0} // No candidates when no applications
-                  notesCount={0} // No notes when no applications
+                  candidatesCount={0}
+                  notesCount={0}
+                  rankingCount={0}
                 />
                 <EmptyState type="no-applications" companyName={companyName} />
               </div>
@@ -1159,14 +1016,6 @@ function CandidatesPage() {
       }
       return (
         <div className="flex flex-col flex-1 overflow-hidden">
-          {/* <CandidatesList
-            candidates={paginatedCandidates}
-            selectedCandidate={selectedCandidate}
-            onCandidateClick={handleCandidateClick}
-            sortBy={sortBy}
-            onSort={handleSort}
-          /> */}
-
           <CandidatesList
             candidates={paginatedCandidates}
             selectedCandidate={selectedCandidate}
@@ -1384,31 +1233,14 @@ function CandidatesPage() {
         toggleFilter={toggleFilter}
         activeFilters={activeFilters}
         onFilterChange={handleFilterChange}
-        onFavoriteToggle={handleFavoriteToggle}
-        onAddFavorite={handleAddFavorite}
-        onRemoveFavorite={handleRemoveFavorite}
         onClearFilters={clearFilters}
         filterCounts={filterCounts}
-        favoriteFilters={favoriteFilters}
         availableJobs={availableJobs}
+        stageConfigs={filteredStageConfigs}
       />
 
       {/* Main content area */}
       <div className="flex-1 overflow-hidden flex flex-col">
-        {/* <CandidateHeader
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          searchQuery={
-            activeTab === "candidates" ? searchQuery : notesSearchQuery
-          }
-          onSearchChange={
-            activeTab === "candidates" ? setSearchQuery : setNotesSearchQuery
-          }
-          candidatesCount={filteredAndSortedCandidates.length} // Show filtered candidates count
-          notesCount={filteredNoteCandidates.length} // Show filtered notes count
-        /> */}
-        {/* {renderMainContent()} */}
-
         <CandidateHeader
           activeTab={activeTab}
           onTabChange={setActiveTab}
@@ -1433,32 +1265,32 @@ function CandidatesPage() {
         {renderMainContent()}
       </div>
 
-      {/* FIXED: Sidebar details panel - use applicationId for note lookup */}
+      {/* Sidebar details panel - use applicationId for note lookup */}
       {selectedCandidateData && (
         <CandidateDetail
           candidate={selectedCandidateData}
           onClose={closeSidebar}
           onAction={handleCandidateAction}
-          note={candidateNotes[selectedCandidateData.applicationId] || ""} // FIXED: Use applicationId
+          note={candidateNotes[selectedCandidateData.applicationId] || ""}
           onSaveNote={(candidateId, note) =>
             handleSaveNote(selectedCandidateData.applicationId, note)
-          } // FIXED: Pass applicationId
+          }
         />
       )}
 
-      {/* FIXED: Notes Edit Modal - use applicationId */}
+      {/* Notes Edit Modal - use applicationId */}
       <NotesEditModal
         isOpen={isNotesModalOpen}
         candidate={editingCandidate}
         currentNote={
           editingCandidate
             ? candidateNotes[editingCandidate.applicationId] || ""
-            : "" // FIXED: Use applicationId
+            : ""
         }
         onClose={handleCloseNotesModal}
         onSave={(candidateId, note) =>
           handleSaveNoteFromModal(editingCandidate?.applicationId || "", note)
-        } // FIXED: Use applicationId
+        }
       />
       {/* Add ranking modal at the end of your JSX */}
       <RankingModal

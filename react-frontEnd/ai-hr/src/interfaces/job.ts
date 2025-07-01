@@ -27,7 +27,7 @@ export interface Job {
     portfolioRequired: boolean;
   };
   postedDate: string;
-  status: "Draft" | "Active" | "Paused" | "Closed" | "Expired" | "Cancelled";
+  status: "Draft" | "Active" | "Paused" | "Closed" | "Expired";
   applicants: number;
   viewCount: number;
   createdBy: string;
@@ -148,13 +148,7 @@ export interface JobAnalytics {
 }
 
 // Job status type with all available statuses
-export type JobStatus =
-  | "Draft"
-  | "Active"
-  | "Paused"
-  | "Closed"
-  | "Expired"
-  | "Cancelled";
+export type JobStatus = "Draft" | "Active" | "Paused" | "Closed" | "Expired";
 
 // Request interface for changing job status
 export interface JobStatusChangeRequest {
