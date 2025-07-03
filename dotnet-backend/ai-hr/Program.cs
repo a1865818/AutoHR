@@ -177,6 +177,7 @@ app.MapUserEndpoints();
 app.MapApplicationDetailEndpoints();
 app.MapJobEndpoints();
 app.MapCandidateEndpoints();
+app.MapCandidateRankingEndpoints();
 app.MapCompanyEndpoints();
 app.MapHiringUserProfileEndpoints();
 app.MapHiringUserProfileAuthenticationEndpoints();

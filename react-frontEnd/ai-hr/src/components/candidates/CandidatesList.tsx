@@ -12,6 +12,7 @@ interface CandidatesListProps {
   candidates: Candidate[];
   selectedCandidate: string | null;
   selectedForRanking: string[];
+  rankedCandidates: Set<string>;
   onCandidateClick: (candidateId: string) => void;
   onRankingSelect: (candidateId: string, selected: boolean) => void;
   onSelectAllForRanking: (selected: boolean) => void;
@@ -27,6 +28,7 @@ export function CandidatesList({
   candidates,
   selectedCandidate,
   selectedForRanking,
+  rankedCandidates,
   onCandidateClick,
   onRankingSelect,
   onSelectAllForRanking,
@@ -160,6 +162,7 @@ export function CandidatesList({
                 candidate={candidate}
                 isSelected={selectedCandidate === candidate.id}
                 isSelectedForRanking={selectedForRanking.includes(candidate.id)}
+                isRanked={rankedCandidates.has(candidate.applicationId)}
                 onClick={onCandidateClick}
                 onRankingSelect={onRankingSelect}
               />

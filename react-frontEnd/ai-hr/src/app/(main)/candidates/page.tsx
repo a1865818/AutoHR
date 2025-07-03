@@ -7,11 +7,17 @@ import { CandidatesList } from "@/components/candidates/CandidatesList";
 import { FilterSidebar } from "@/components/candidates/FilterSidebar";
 import { NotesEditModal } from "@/components/candidates/NotesEditModal";
 import { NotesList } from "@/components/candidates/NotesList";
+import { PositionRankingSelector } from "@/components/candidates/PositionRankingSelector";
 import { RankingModal } from "@/components/candidates/RankingModal";
 import { RankingTab } from "@/components/candidates/RankingTab";
 
 import { useHiringAuth } from "@/hooks/useHiringAuth";
-import { CandidateWithJobDetails, CandidateStage } from "@/interfaces";
+import {
+  Candidate,
+  CandidateWithJobDetails,
+  CandidateStage,
+} from "@/interfaces";
+import { candidateRankingService } from "@/services/candidateRankingService";
 import { candidateService } from "@/services/candidateService";
 import {
   DynamicCandidateFilterUtils,
@@ -206,9 +212,6 @@ function CandidatesPage() {
   const { stageConfigs, loading: stageConfigsLoading } =
     useDynamicStageConfigs();
 
-  const [rankingCandidates, setRankingCandidates] = useState<
-    CandidateWithJobDetails[]
-  >([]);
   const [selectedForRanking, setSelectedForRanking] = useState<string[]>([]);
   const [selectedRankingCandidate, setSelectedRankingCandidate] = useState<
     string | null
@@ -218,6 +221,16 @@ function CandidatesPage() {
     "candidates" | "notes" | "ranking"
   >("candidates");
 
+  // NEW: Add state for position-based rankings
+  const [rankingsByPosition, setRankingsByPosition] = useState<
+    Record<string, CandidateWithJobDetails[]>
+  >({});
+  const [selectedPosition, setSelectedPosition] = useState<string | null>(null);
+  const [rankedCandidates, setRankedCandidates] = useState<Set<string>>(
+    new Set()
+  );
+  const [loadingRankings, setLoadingRankings] = useState(false);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<{
     field: "name" | "company" | "stage" | "status";
@@ -226,7 +239,7 @@ function CandidatesPage() {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [candidatesPerPage] = useState(5);
+  const [candidatesPerPage] = useState(11);
 
   // Filter states
   const [expandedFilters, setExpandedFilters] = useState({
@@ -277,8 +290,9 @@ function CandidatesPage() {
 
   // Modal state for editing notes
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
-  const [editingCandidate, setEditingCandidate] =
-    useState<CandidateWithJobDetails | null>(null);
+  const [editingCandidate, setEditingCandidate] = useState<
+    CandidateWithJobDetails | Candidate | null
+  >(null);
 
   // Load candidates data with better error handling
   useEffect(() => {
@@ -337,6 +351,9 @@ function CandidatesPage() {
           Object.keys(notesFromDb).length,
           "candidates"
         );
+
+        // Load existing rankings from backend
+        await loadRankingsFromBackend();
       } catch (err) {
         console.error("❌ Failed to load candidates:", err);
 
@@ -361,15 +378,58 @@ function CandidatesPage() {
     loadCandidates();
   }, [isAuthorized, companyId]);
 
+  // Load rankings from backend
+  const loadRankingsFromBackend = async () => {
+    try {
+      setLoadingRankings(true);
+      console.log("🔄 Loading rankings from backend...");
+
+      const rankingsResponse =
+        await candidateRankingService.getRankingsByCompany();
+
+      // Group rankings by job
+      const rankingsByJob: Record<string, CandidateWithJobDetails[]> = {};
+      const rankedApplicationIds = new Set<string>();
+
+      rankingsResponse.forEach((jobRanking) => {
+        const jobId = jobRanking.jobId;
+        const candidates = jobRanking.rankings.map((ranking) =>
+          candidateRankingService.convertRankingToCandidate(ranking)
+        );
+
+        rankingsByJob[jobId] = candidates;
+
+        // Track which candidates are ranked
+        candidates.forEach((candidate) => {
+          rankedApplicationIds.add(candidate.applicationId);
+        });
+      });
+
+      setRankingsByPosition(rankingsByJob);
+      setRankedCandidates(rankedApplicationIds);
+
+      console.log("✅ Rankings loaded from backend:", {
+        jobsWithRankings: Object.keys(rankingsByJob).length,
+        totalRankedCandidates: rankedApplicationIds.size,
+      });
+    } catch (error) {
+      console.error("❌ Failed to load rankings from backend:", error);
+      // Don't fail the entire page load, just log the error
+    } finally {
+      setLoadingRankings(false);
+    }
+  };
+
   // Get available jobs from candidates for filtering
   const availableJobs = useMemo(() => {
     const jobsMap = new Map();
     candidates.forEach((candidate) => {
       const hasJobDetails = "jobTitle" in candidate && "jobId" in candidate;
       if (hasJobDetails) {
-        const jobId = (candidate as any).jobId;
-        const jobTitle = (candidate as any).jobTitle;
-        const jobDepartment = (candidate as any).jobDepartment;
+        const candidateWithDetails = candidate as CandidateWithJobDetails;
+        const jobId = candidateWithDetails.jobId;
+        const jobTitle = candidateWithDetails.jobTitle;
+        const jobDepartment = candidateWithDetails.jobDepartment;
 
         if (!jobsMap.has(jobId)) {
           jobsMap.set(jobId, {
@@ -436,6 +496,16 @@ function CandidatesPage() {
 
   // Add these handler functions:
   const handleRankingSelect = (candidateId: string, selected: boolean) => {
+    // Find the candidate to check if they're already ranked
+    const candidate = filteredAndSortedCandidates.find(
+      (c) => c.id === candidateId
+    );
+
+    if (candidate && rankedCandidates.has(candidate.applicationId)) {
+      console.log("Candidate is already ranked, cannot select for ranking");
+      return;
+    }
+
     if (selected) {
       setSelectedForRanking((prev) => [...prev, candidateId]);
     } else {
@@ -445,33 +515,145 @@ function CandidatesPage() {
 
   const handleSelectAllForRanking = (selectAll: boolean) => {
     if (selectAll) {
-      setSelectedForRanking(filteredAndSortedCandidates.map((c) => c.id));
+      // Only select candidates that are not already ranked
+      const unrankedCandidates = filteredAndSortedCandidates.filter(
+        (c) => !rankedCandidates.has(c.applicationId)
+      );
+      setSelectedForRanking(unrankedCandidates.map((c) => c.id));
     } else {
       setSelectedForRanking([]);
     }
   };
 
-  const handleGoToRanking = () => {
-    const newRankingCandidates = filteredAndSortedCandidates.filter((c) =>
-      selectedForRanking.includes(c.id)
-    );
-    setRankingCandidates((prev) => {
-      const existingIds = prev.map((c) => c.id);
-      const toAdd = newRankingCandidates.filter(
-        (c) => !existingIds.includes(c.id)
+  const handleGoToRanking = async () => {
+    const selectedCandidates: CandidateWithJobDetails[] =
+      filteredAndSortedCandidates.filter((c) =>
+        selectedForRanking.includes(c.id)
       );
-      return [...prev, ...toAdd];
+
+    // NEW: Group candidates by job ID to ensure same-role ranking
+    const candidatesByPosition: Record<string, CandidateWithJobDetails[]> = {};
+
+    selectedCandidates.forEach((candidate) => {
+      // Use jobId as the position key for reliable role distinction
+      const positionKey = candidate.jobId || "unknown-job";
+      if (!candidatesByPosition[positionKey]) {
+        candidatesByPosition[positionKey] = [];
+      }
+      candidatesByPosition[positionKey].push(candidate);
     });
-    setActiveTab("ranking");
-    setSelectedForRanking([]);
+
+    try {
+      // Add candidates to backend ranking system
+      for (const [jobId, candidates] of Object.entries(candidatesByPosition)) {
+        const applicationIds = candidates.map((c) => c.applicationId);
+
+        console.log(
+          `📤 Adding ${candidates.length} candidates to ranking for job ${jobId}`
+        );
+
+        const result = await candidateRankingService.addCandidatesToRanking(
+          jobId,
+          applicationIds
+        );
+
+        console.log(`✅ Ranking result for job ${jobId}:`, result);
+
+        if (result.success) {
+          // Update local state with new rankings
+          const updatedRankings =
+            await candidateRankingService.getRankingsByJob(jobId);
+          const rankedCandidates = updatedRankings.rankings.map((ranking) =>
+            candidateRankingService.convertRankingToCandidate(ranking)
+          );
+
+          setRankingsByPosition((prev) => ({
+            ...prev,
+            [jobId]: rankedCandidates,
+          }));
+
+          // Update ranked candidates set
+          setRankedCandidates((prev) => {
+            const newSet = new Set(prev);
+            applicationIds.forEach((id) => newSet.add(id));
+            return newSet;
+          });
+        }
+      }
+
+      // Set the first position as selected if none is selected
+      if (!selectedPosition && Object.keys(candidatesByPosition).length > 0) {
+        setSelectedPosition(Object.keys(candidatesByPosition)[0]);
+      }
+
+      setActiveTab("ranking");
+      setSelectedForRanking([]);
+    } catch (error) {
+      console.error("❌ Failed to add candidates to ranking:", error);
+      alert("Failed to add candidates to ranking. Please try again.");
+    }
   };
 
-  const handleRemoveFromRanking = (candidateId: string) => {
-    setRankingCandidates((prev) => prev.filter((c) => c.id !== candidateId));
-    if (selectedRankingCandidate === candidateId) {
-      setSelectedRankingCandidate(null);
-      setIsRankingModalOpen(false);
+  const handleRemoveFromRanking = async (candidateId: string) => {
+    try {
+      // Find the candidate and their job
+      const candidate = Object.values(rankingsByPosition)
+        .flat()
+        .find((c) => c.id === candidateId);
+
+      if (!candidate) {
+        console.error("Candidate not found in rankings:", candidateId);
+        return;
+      }
+
+      console.log(
+        `📤 Removing candidate ${candidate.name} from ranking for job ${candidate.jobId}`
+      );
+
+      // Remove from backend
+      await candidateRankingService.removeCandidateFromRanking(
+        candidate.jobId,
+        candidate.applicationId
+      );
+
+      // Remove from local state
+      setRankingsByPosition((prev) => {
+        const updated = { ...prev };
+        Object.keys(updated).forEach((position) => {
+          updated[position] = updated[position].filter(
+            (c) => c.id !== candidateId
+          );
+        });
+        // Remove empty positions
+        Object.keys(updated).forEach((position) => {
+          if (updated[position].length === 0) {
+            delete updated[position];
+          }
+        });
+        return updated;
+      });
+
+      // Remove from ranked candidates set
+      setRankedCandidates((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(candidate.applicationId);
+        return newSet;
+      });
+
+      if (selectedRankingCandidate === candidateId) {
+        setSelectedRankingCandidate(null);
+        setIsRankingModalOpen(false);
+      }
+
+      console.log("✅ Candidate removed from ranking successfully");
+    } catch (error) {
+      console.error("❌ Failed to remove candidate from ranking:", error);
+      alert("Failed to remove candidate from ranking. Please try again.");
     }
+  };
+
+  const handlePositionSelect = (positionId: string) => {
+    setSelectedPosition(positionId);
   };
 
   const handleRankingCandidateSelect = (candidateId: string) => {
@@ -629,7 +811,7 @@ function CandidatesPage() {
     }
   };
 
-  const handleEditNote = (candidate: any) => {
+  const handleEditNote = (candidate: Candidate) => {
     // Find the full candidate data with job details
     const fullCandidateData = candidates.find((c) => c.id === candidate.id);
     setEditingCandidate(fullCandidateData || candidate);
@@ -645,10 +827,6 @@ function CandidatesPage() {
     // candidateId here is actually applicationId passed from the modal
     await handleSaveNote(candidateId, note);
     // No need to manually refresh - handleSaveNote now updates local state with timestamps immediately
-  };
-
-  const handleCreateJob = () => {
-    window.location.href = "/jobs/create";
   };
 
   const handleClearFilters = () => {
@@ -723,7 +901,8 @@ function CandidatesPage() {
       filtered = filtered.filter((candidate) => {
         const hasJobDetails = "jobId" in candidate;
         if (hasJobDetails) {
-          const jobId = (candidate as any).jobId;
+          const candidateWithDetails = candidate as CandidateWithJobDetails;
+          const jobId = candidateWithDetails.jobId;
           return activeFilters.position.includes(jobId);
         }
         return false;
@@ -764,7 +943,7 @@ function CandidatesPage() {
   );
 
   // Filter and sort candidates using dynamic utilities
-  const filteredAndSortedCandidates = useMemo(() => {
+  const filteredAndSortedCandidates: CandidateWithJobDetails[] = useMemo(() => {
     if (stageConfigsLoading || stageConfigs.length === 0) {
       return []; // Return empty while loading stage configs
     }
@@ -773,7 +952,7 @@ function CandidatesPage() {
       status: activeFilters.status,
       stage: activeFilters.stage,
       position: activeFilters.position,
-    });
+    }) as CandidateWithJobDetails[];
 
     // Apply search filter
     if (searchQuery) {
@@ -825,7 +1004,7 @@ function CandidatesPage() {
       return 0;
     });
 
-    return filtered;
+    return filtered as CandidateWithJobDetails[];
   }, [
     candidates,
     searchQuery,
@@ -1040,6 +1219,7 @@ function CandidatesPage() {
             candidates={paginatedCandidates}
             selectedCandidate={selectedCandidate}
             selectedForRanking={selectedForRanking}
+            rankedCandidates={rankedCandidates}
             onCandidateClick={handleCandidateClick}
             onRankingSelect={handleRankingSelect}
             onSelectAllForRanking={handleSelectAllForRanking}
@@ -1232,10 +1412,79 @@ function CandidatesPage() {
     }
     // Add ranking tab rendering
     if (activeTab === "ranking") {
+      // NEW: Show position selector if multiple positions, or direct ranking if single position
+      const positions = Object.keys(rankingsByPosition);
+
+      if (positions.length === 0) {
+        return (
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <div className="px-6 py-12 text-center">
+              <div className="text-gray-500">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No Rankings Yet
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Select candidates from the same position in the Candidates tab
+                  to start ranking
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      if (positions.length === 1) {
+        // Single position - show direct ranking
+        const positionCandidates = rankingsByPosition[positions[0]];
+        return (
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <RankingTab
+              candidates={positionCandidates}
+              selectedCandidateId={selectedRankingCandidate}
+              onCandidateSelect={handleRankingCandidateSelect}
+              onRemoveFromRanking={handleRemoveFromRanking}
+            />
+          </div>
+        );
+      }
+
+      // Multiple positions - show position selector
+      if (!selectedPosition) {
+        return (
+          <div className="flex flex-col flex-1 overflow-hidden">
+            <PositionRankingSelector
+              rankingsByPosition={rankingsByPosition}
+              selectedPosition={selectedPosition}
+              onPositionSelect={handlePositionSelect}
+            />
+          </div>
+        );
+      }
+
+      // Show ranking for selected position
+      const positionCandidates = rankingsByPosition[selectedPosition] || [];
       return (
         <div className="flex flex-col flex-1 overflow-hidden">
+          <div className="px-6 py-4 border-b bg-white">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Ranking: {selectedPosition}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {positionCandidates.length} candidates
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedPosition(null)}
+                className="text-blue-500 hover:text-blue-700 text-sm"
+              >
+                Change Position
+              </button>
+            </div>
+          </div>
           <RankingTab
-            candidates={rankingCandidates}
+            candidates={positionCandidates}
             selectedCandidateId={selectedRankingCandidate}
             onCandidateSelect={handleRankingCandidateSelect}
             onRemoveFromRanking={handleRemoveFromRanking}
@@ -1280,7 +1529,10 @@ function CandidatesPage() {
           }
           candidatesCount={filteredAndSortedCandidates.length}
           notesCount={filteredNoteCandidates.length}
-          rankingCount={rankingCandidates.length}
+          rankingCount={Object.values(rankingsByPosition).reduce(
+            (total, candidates) => total + candidates.length,
+            0
+          )}
         />
         {renderMainContent()}
       </div>
@@ -1314,20 +1566,43 @@ function CandidatesPage() {
       />
       {/* Add ranking modal at the end of your JSX */}
       <RankingModal
-        candidate={
-          rankingCandidates.find((c) => c.id === selectedRankingCandidate) ||
-          null
-        }
+        candidate={(() => {
+          // Find the candidate from the selected position
+          if (selectedPosition && rankingsByPosition[selectedPosition]) {
+            return (
+              rankingsByPosition[selectedPosition].find(
+                (c) => c.id === selectedRankingCandidate
+              ) || null
+            );
+          }
+          // Fallback to searching all positions
+          for (const candidates of Object.values(rankingsByPosition)) {
+            const found = candidates.find(
+              (c) => c.id === selectedRankingCandidate
+            );
+            if (found) return found;
+          }
+          return null;
+        })()}
         isOpen={isRankingModalOpen}
         onClose={() => {
           setIsRankingModalOpen(false);
           setSelectedRankingCandidate(null);
         }}
-        rank={
-          rankingCandidates
-            .sort((a, b) => b.assessment - a.assessment)
-            .findIndex((c) => c.id === selectedRankingCandidate) + 1
-        }
+        rank={(() => {
+          // Calculate rank within the selected position
+          if (selectedPosition && rankingsByPosition[selectedPosition]) {
+            const sortedCandidates = [
+              ...rankingsByPosition[selectedPosition],
+            ].sort((a, b) => b.assessment - a.assessment);
+            return (
+              sortedCandidates.findIndex(
+                (c) => c.id === selectedRankingCandidate
+              ) + 1
+            );
+          }
+          return 1; // Fallback
+        })()}
       />
     </div>
   );

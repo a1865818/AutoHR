@@ -1,5 +1,6 @@
 ﻿using ai_hr.Models;
 using Supabase;
+using ai_hr.Endpoints;
 
 namespace ai_hr.Endpoints;
 
@@ -134,7 +135,7 @@ public static class CandidateEndpoints
                 }
 
                 // Calculate assessment score
-                var assessmentScore = app.OverallAiScore ?? CalculateAssessmentScore(app);
+                var assessmentScore = app.OverallAiScore ?? CandidateRankingEndpoints.CalculateInitialRankingScore(app);
 
                 // Generate proper names and avatars
                 var candidateName = candidateUser != null
@@ -230,9 +231,6 @@ public static class CandidateEndpoints
         }
     }
 
-
-
-
     private static async Task<IResult> GetCandidatesByJob(Guid jobId, Supabase.Client client)
     {
         try
@@ -298,7 +296,7 @@ public static class CandidateEndpoints
                     Console.WriteLine($"❌ User not found for application {app.Id}, candidate_user_id: {candidateUserIdString}");
                 }
 
-                var assessmentScore = app.OverallAiScore ?? CalculateAssessmentScore(app);
+                var assessmentScore = app.OverallAiScore ?? CandidateRankingEndpoints.CalculateInitialRankingScore(app);
                 var stage = MapStageToEnum(app.Stage);
                 var status = MapStatusToEnum(app.Status);
 
@@ -363,33 +361,6 @@ public static class CandidateEndpoints
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }
-    }
-
-    // Helper methods remain the same
-
-
-    private static decimal CalculateAssessmentScore(ApplicationDetail application)
-    {
-        var random = new Random();
-
-        // Base random score between 50-100
-        var baseScore = random.Next(50, 101);
-
-        // Optional: Add slight bonuses to make it feel less completely random
-        var bonusScore = 0;
-
-        // Small bonus for having resume (0-5 points)
-        if (!string.IsNullOrEmpty(application.ResumeUrl))
-            bonusScore += random.Next(0, 6);
-
-        // Small bonus for having cover letter (0-5 points)
-        if (!string.IsNullOrEmpty(application.CoverLetterText))
-            bonusScore += random.Next(0, 6);
-
-        // Ensure we don't exceed 100
-        var finalScore = Math.Min(100, baseScore + bonusScore);
-        return finalScore;
-
     }
 
     private static string MapStageToEnum(string stage)

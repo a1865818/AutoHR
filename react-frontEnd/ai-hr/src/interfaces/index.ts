@@ -45,6 +45,11 @@ export interface CandidateWithJobDetails extends Candidate {
   jobDepartment?: string;
   jobLocationType: string;
   jobEmploymentType: string;
+  // Ranking-specific fields
+  rankingScore?: number;
+  rankingPosition?: number;
+  aiAnalysisData?: Record<string, unknown>;
+  isRanked?: boolean;
 }
 
 export interface CandidatesResponse {

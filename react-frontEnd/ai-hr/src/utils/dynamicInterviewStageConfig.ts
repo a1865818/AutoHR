@@ -240,7 +240,8 @@ export class InterviewStageConfig {
 
   // Validate if a stage ID is valid
   static isValidStage(stageId: string): boolean {
-    return this.getStageConfig(stageId) !== null;
+    const stage = this.filterIdToStage(stageId);
+    return stage !== null && this.getStageConfig(stage) !== null;
   }
 
   // Get stages in order
