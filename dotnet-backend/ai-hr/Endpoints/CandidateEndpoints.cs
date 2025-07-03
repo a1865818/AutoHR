@@ -117,23 +117,6 @@ public static class CandidateEndpoints
                 var candidateUserIdString = app.CandidateUserId.ToString();
                 userLookup.TryGetValue(candidateUserIdString, out var candidateUser);
 
-                // Log the lookup result
-                if (candidateUser != null)
-                {
-                    Console.WriteLine($"✅ Found user for application {app.Id}: {candidateUser.FirstName} {candidateUser.LastName}");
-                }
-                else
-                {
-                    Console.WriteLine($"❌ User not found for application {app.Id}, candidate_user_id: {candidateUserIdString}");
-
-                    // Debug: Check if there's a similar ID
-                    var similarIds = userLookup.Keys.Where(k => k.StartsWith(candidateUserIdString.Substring(0, 8))).ToList();
-                    if (similarIds.Any())
-                    {
-                        Console.WriteLine($"🔍 Similar user IDs found: {string.Join(", ", similarIds)}");
-                    }
-                }
-
                 // Calculate assessment score
                 var assessmentScore = app.OverallAiScore ?? CandidateRankingEndpoints.CalculateInitialRankingScore(app);
 
@@ -145,6 +128,8 @@ public static class CandidateEndpoints
                 var candidateEmail = candidateUser?.Email ?? "No email available";
 
                 var companyInitial = !string.IsNullOrEmpty(company.Name) ? company.Name.Substring(0, 1).ToUpper() : "C";
+
+                Console.WriteLine($"🔍 Application: {candidateName} {app.Stage} {app.Status}");
 
                 return new
                 {
@@ -163,8 +148,8 @@ public static class CandidateEndpoints
                         ? company.LogoUrl
                         : $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(companyInitial)}&size=24&background=3b82f6&color=ffffff&rounded=true",
                     assessment = (int)Math.Round(assessmentScore),
-                    stage = MapStageToEnum(app.Stage),
-                    status = MapStatusToEnum(app.Status),
+                    stage = app.Stage,
+                    status = app.Status,
                     appliedAt = app.AppliedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                     resumeUrl = app.ResumeUrl,
                     coverLetterText = app.CoverLetterText,
@@ -297,8 +282,6 @@ public static class CandidateEndpoints
                 }
 
                 var assessmentScore = app.OverallAiScore ?? CandidateRankingEndpoints.CalculateInitialRankingScore(app);
-                var stage = MapStageToEnum(app.Stage);
-                var status = MapStatusToEnum(app.Status);
 
                 // ✅ FIX: Use the same name construction logic as GetCandidatesByCompany
                 var candidateName = candidateUser != null
@@ -324,8 +307,8 @@ public static class CandidateEndpoints
                         ? company.LogoUrl
                         : $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(companyInitial)}&size=24&background=3b82f6&color=ffffff&rounded=true",
                     assessment = (int)Math.Round(assessmentScore),
-                    stage = stage,
-                    status = status,
+                    stage = app.Stage,
+                    status = app.Status,
                     appliedAt = app.AppliedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                     resumeUrl = app.ResumeUrl,
                     coverLetterText = app.CoverLetterText,
@@ -361,27 +344,5 @@ public static class CandidateEndpoints
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }
-    }
-
-    private static string MapStageToEnum(string stage)
-    {
-        return stage?.ToLower() switch
-        {
-            "initial_review" or "applied" => "Applied",
-            "interview" or "interviewing" => "Interview",
-            "offer" or "offer_extended" => "Offer",
-            _ => "Applied"
-        };
-    }
-
-    private static string MapStatusToEnum(string status)
-    {
-        return status?.ToLower() switch
-        {
-            "applied" or "in_review" or "interview" => "In Progress",
-            "hired" or "accepted" => "Hired",
-            "rejected" or "declined" or "disqualified" => "Disqualified",
-            _ => "In Progress"
-        };
     }
 }

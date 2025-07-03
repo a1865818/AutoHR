@@ -306,14 +306,30 @@ function CandidatesPage() {
         setError(null);
 
         console.log("🔄 Loading candidates for company:", companyId);
-        const response = await candidateService.getCandidatesForCompany();
+        var response = await candidateService.getCandidatesForCompany();
+        var application_details = await candidateService.getApplicationDetailByJob(response.candidates[0].jobId);
 
-        console.log("✅ Candidates loaded:", response.candidates.length);
+        
+
+        console.log("✅ Candidates loaded:", response.candidates);
         setCandidates(response.candidates);
         setCompanyName(response.companyName || "your company");
 
         // DEBUG: Log the raw response to see what we're getting
         console.log("🔍 DEBUG: Raw candidates response:", response.candidates);
+
+        // Log candidate stages for debugging
+        console.log(
+          "🔍 DEBUG: Candidate stages:",
+          response.candidates.map((candidate) => ({
+            id: candidate.id,
+            name: candidate.name,
+            stage: candidate.stage,
+            stageFilterId: InterviewStageConfig.mapStageToFilterId(
+              candidate.stage || ""
+            ),
+          }))
+        );
 
         // Extract notes from candidate data using consistent key (applicationId)
         const notesFromDb: Record<string, string> = {};
@@ -485,12 +501,25 @@ function CandidatesPage() {
     filterId: string,
     checked: boolean
   ) => {
-    setActiveFilters((prev) => ({
-      ...prev,
-      [filterType]: checked
-        ? [...prev[filterType], filterId]
-        : prev[filterType].filter((id) => id !== filterId),
-    }));
+    setActiveFilters((prev) => {
+      const newFilters = {
+        ...prev,
+        [filterType]: checked
+          ? [...prev[filterType], filterId]
+          : prev[filterType].filter((id) => id !== filterId),
+      };
+
+      // Log when stage filters are changed
+      if (filterType === "stage") {
+        console.log("🔍 Stage filter changed:", {
+          filterId,
+          checked,
+          allActiveStageFilters: newFilters.stage,
+        });
+      }
+
+      return newFilters;
+    });
     setCurrentPage(1);
   };
 
@@ -948,11 +977,31 @@ function CandidatesPage() {
       return []; // Return empty while loading stage configs
     }
 
+    // Log stage filter information
+    console.log("🔍 DEBUG: Stage filter application:", {
+      activeStageFilters: activeFilters.stage,
+      stageConfigs: stageConfigs.map((config) => ({
+        id: config.id,
+        label: config.label,
+      })),
+    });
+
     let filtered = DynamicCandidateFilterUtils.applyFilters(candidates, {
       status: activeFilters.status,
       stage: activeFilters.stage,
       position: activeFilters.position,
     }) as CandidateWithJobDetails[];
+
+    // Log stage filter results
+    console.log("🔍 DEBUG: After stage filtering:", {
+      beforeCount: candidates.length,
+      afterCount: filtered.length,
+      candidateStages: filtered.map((c) => ({
+        name: c.name,
+        stage: c.stage,
+        stageFilterId: InterviewStageConfig.mapStageToFilterId(c.stage || ""),
+      })),
+    });
 
     // Apply search filter
     if (searchQuery) {
@@ -1058,9 +1107,11 @@ function CandidatesPage() {
     return stageIds;
   }, [candidates]);
 
+  // Show all stage configs instead of only those with candidates
   const filteredStageConfigs = useMemo(() => {
-    return stageConfigs.filter((config) => stagesWithCandidates.has(config.id));
-  }, [stageConfigs, stagesWithCandidates]);
+    // Return all stage configs instead of filtering
+    return stageConfigs;
+  }, [stageConfigs]);
 
   // Loading state with animation
   if (loading) {

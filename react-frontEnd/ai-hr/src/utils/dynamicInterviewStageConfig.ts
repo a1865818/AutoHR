@@ -181,7 +181,9 @@ export class InterviewStageConfig {
 
   // Convert stage to filter ID
   static stageToFilterId(stage: CandidateStage): string {
-    return stage.toLowerCase().replace(/\s+/g, "_");
+    const filterId = stage.toLowerCase().replace(/\s+/g, "_");
+    console.log(`🔍 DEBUG: stageToFilterId: "${stage}" -> "${filterId}"`);
+    return filterId;
   }
 
   // Convert filter ID to stage (for backward compatibility)
@@ -199,14 +201,20 @@ export class InterviewStageConfig {
       "offer": "Offer"
     };
     
-    return mapping[filterId] || null;
+    const result = mapping[filterId] || null;
+    if (filterId && !result) {
+      console.log(`⚠️ WARNING: filterIdToStage: No mapping found for "${filterId}"`);
+    }
+    return result;
   }
 
   // Legacy method for backward compatibility
   static mapStageToFilterId(stage: string): string {
     // If it's already a valid CandidateStage, convert it
     if (Object.keys(this.STAGE_CONFIGS).includes(stage as CandidateStage)) {
-      return this.stageToFilterId(stage as CandidateStage);
+      const filterId = this.stageToFilterId(stage as CandidateStage);
+      console.log(`🔍 DEBUG: mapStageToFilterId (direct): "${stage}" -> "${filterId}"`);
+      return filterId;
     }
 
     // Legacy mappings for backward compatibility
@@ -224,7 +232,15 @@ export class InterviewStageConfig {
     };
 
     const normalizedStage = stage.toLowerCase().replace(/\s+/g, "_");
-    return legacyMap[normalizedStage] || "applied";
+    const result = legacyMap[normalizedStage] || "applied";
+    
+    console.log(`🔍 DEBUG: mapStageToFilterId (legacy): "${stage}" -> "${normalizedStage}" -> "${result}"`);
+    
+    if (!legacyMap[normalizedStage]) {
+      console.log(`⚠️ WARNING: mapStageToFilterId: No legacy mapping found for "${normalizedStage}", defaulting to "applied"`);
+    }
+    
+    return result;
   }
 
   // Map filter ID back to display format
@@ -359,12 +375,18 @@ export class DynamicCandidateFilterUtils {
     candidates: Candidate[],
     activeFilters: ActiveFilters
   ): Candidate[] {
+    console.log("🔍 DEBUG: DynamicCandidateFilterUtils.applyFilters called with:", {
+      candidatesCount: candidates.length,
+      activeFilters
+    });
+    
     // If all filters are empty, return no candidates
     if (
       activeFilters.status.length === 0 &&
       activeFilters.stage.length === 0 &&
       activeFilters.position.length === 0
     ) {
+      console.log("🔍 DEBUG: No active filters, returning empty array");
       return [];
     }
     let filtered = candidates;
@@ -376,6 +398,7 @@ export class DynamicCandidateFilterUtils {
           candidate.jobId && activeFilters.position.includes(candidate.jobId)
         );
       });
+      console.log("🔍 DEBUG: After position filtering:", filtered.length);
     }
 
     // Apply status filter
@@ -384,17 +407,40 @@ export class DynamicCandidateFilterUtils {
         const statusFilterId = this.mapStatusToFilterId(candidate.status || "");
         return activeFilters.status.includes(statusFilterId);
       });
+      console.log("🔍 DEBUG: After status filtering:", filtered.length);
     }
 
-          // Apply stage filter using dynamic mapping
-      if (activeFilters.stage.length > 0) {
-        filtered = filtered.filter((candidate) => {
-          const stageFilterId = InterviewStageConfig.stageToFilterId(
-            candidate.stage as CandidateStage
-          );
-          return activeFilters.stage.includes(stageFilterId);
-        });
-      }
+    // Apply stage filter using dynamic mapping
+    if (activeFilters.stage.length > 0) {
+      console.log("🔍 DEBUG: Stage filtering - active filters:", activeFilters.stage);
+      
+      // Log a sample of candidates before filtering
+      const sampleCandidates = candidates.slice(0, 3);
+      console.log("🔍 DEBUG: Sample candidates before stage filtering:", 
+        sampleCandidates.map(c => ({
+          name: c.name || 'Unknown',
+          stage: c.stage || 'No stage',
+          stageFilterId: InterviewStageConfig.stageToFilterId(c.stage as CandidateStage)
+        }))
+      );
+      
+      filtered = filtered.filter((candidate) => {
+        const stageFilterId = InterviewStageConfig.stageToFilterId(
+          candidate.stage as CandidateStage
+        );
+        
+        const isIncluded = activeFilters.stage.includes(stageFilterId);
+        
+        // Log detailed info for candidates that don't match any filter
+        if (!isIncluded && candidate.name) {
+          console.log(`🔍 DEBUG: Candidate excluded by stage filter: ${candidate.name}, stage: ${candidate.stage}, stageFilterId: ${stageFilterId}`);
+        }
+        
+        return isIncluded;
+      });
+      
+      console.log("🔍 DEBUG: After stage filtering:", filtered.length);
+    }
 
     return filtered;
   }
