@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Crown,
   Phone,
-  Star,
   Target,
   TrendingUp,
   User,
@@ -50,31 +49,7 @@ export function RankingModal({
     };
   };
 
-  const generateDetailedScores = (baseScore: number) => {
-    const variance = (Math.random() - 0.5) * 8;
-    return {
-      technical: Math.max(0, Math.min(100, Math.round(baseScore + variance))),
-      design: Math.max(
-        0,
-        Math.min(100, Math.round(baseScore + variance * 0.9))
-      ),
-      leadership: Math.max(
-        0,
-        Math.min(100, Math.round(baseScore + variance * 0.7))
-      ),
-      communication: Math.max(
-        0,
-        Math.min(100, Math.round(baseScore + variance * 0.5))
-      ),
-      problemSolving: Math.max(
-        0,
-        Math.min(100, Math.round(baseScore + variance * 0.8))
-      ),
-    };
-  };
-
   const aiAnalysis = generateMockAnalysis(candidate.assessment);
-  const detailedScores = generateDetailedScores(candidate.assessment);
 
   const ScoreCard = ({
     title,
@@ -357,45 +332,6 @@ export function RankingModal({
                     </p>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Detailed Scores */}
-            <div className="mb-8">
-              <h3 className="text-xl font-semibold text-gray-900 mb-4">
-                Detailed Score Analysis
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <ScoreCard
-                  title="Technical Skills"
-                  score={detailedScores.technical}
-                  icon={<Brain className="h-5 w-5 text-blue-500" />}
-                  description="Technical proficiency and expertise"
-                />
-                <ScoreCard
-                  title="Design Skills"
-                  score={detailedScores.design}
-                  icon={<Star className="h-5 w-5 text-pink-500" />}
-                  description="Design thinking and creativity"
-                />
-                <ScoreCard
-                  title="Leadership"
-                  score={detailedScores.leadership}
-                  icon={<Crown className="h-5 w-5 text-yellow-500" />}
-                  description="Leadership potential and experience"
-                />
-                <ScoreCard
-                  title="Communication"
-                  score={detailedScores.communication}
-                  icon={<Phone className="h-5 w-5 text-green-500" />}
-                  description="Written and verbal communication"
-                />
-                <ScoreCard
-                  title="Problem Solving"
-                  score={detailedScores.problemSolving}
-                  icon={<TrendingUp className="h-5 w-5 text-indigo-500" />}
-                  description="Analytical and problem-solving abilities"
-                />
               </div>
             </div>
 
