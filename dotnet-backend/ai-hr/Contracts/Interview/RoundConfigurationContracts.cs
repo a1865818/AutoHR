@@ -14,7 +14,7 @@ public class RoundConfigurationRequest
 
     public string Status { get; set; } = "draft";
 
-    public object ConfigurationData { get; set; } = new();
+    public Dictionary<string, object>? ConfigurationData { get; set; }
 }
 
 public class RoundConfigurationResponse

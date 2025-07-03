@@ -60,6 +60,7 @@ interface BackgroundCheck {
 }
 
 interface FinalInterviewConfiguration {
+  name: string;
   decisionCriteria: DecisionCriteria[];
   executives: Executive[];
   offerParameters: OfferParameter[];
@@ -148,6 +149,7 @@ export function FinalInterviewConfig({
   onConfigurationChange,
 }: FinalInterviewConfigProps) {
   const [config, setConfig] = useState<FinalInterviewConfiguration>({
+    name: "Final Interview",
     decisionCriteria: defaultCriteria,
     executives: [],
     offerParameters: defaultOfferParameters,
@@ -227,9 +229,19 @@ export function FinalInterviewConfig({
               <input
                 type="number"
                 value={config.duration}
-                onChange={(e) =>
-                  handleConfigChange({ duration: parseInt(e.target.value) })
-                }
+                onChange={(e) => {
+                  // Allow the field to be cleared for typing
+                  if (e.target.value === "") {
+                    handleConfigChange({ duration: 30 });
+                  } else {
+                    const value = parseInt(e.target.value);
+                    // Handle NaN and enforce min/max
+                    if (!isNaN(value)) {
+                      const validValue = Math.max(30, Math.min(120, value));
+                      handleConfigChange({ duration: validValue });
+                    }
+                  }
+                }}
                 className="w-32 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                 min="30"
                 max="120"
@@ -419,14 +431,29 @@ export function FinalInterviewConfig({
                     <input
                       type="number"
                       value={config.negotiations.maxNegotiationRounds}
-                      onChange={(e) =>
-                        handleConfigChange({
-                          negotiations: {
-                            ...config.negotiations,
-                            maxNegotiationRounds: parseInt(e.target.value),
-                          },
-                        })
-                      }
+                      onChange={(e) => {
+                        // Allow the field to be cleared for typing
+                        if (e.target.value === "") {
+                          handleConfigChange({
+                            negotiations: {
+                              ...config.negotiations,
+                              maxNegotiationRounds: 1,
+                            },
+                          });
+                        } else {
+                          const value = parseInt(e.target.value);
+                          // Handle NaN and enforce min/max
+                          if (!isNaN(value)) {
+                            const validValue = Math.max(1, Math.min(5, value));
+                            handleConfigChange({
+                              negotiations: {
+                                ...config.negotiations,
+                                maxNegotiationRounds: validValue,
+                              },
+                            });
+                          }
+                        }
+                      }}
                       className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                       min="1"
                       max="5"
@@ -440,14 +467,29 @@ export function FinalInterviewConfig({
                     <input
                       type="number"
                       value={config.negotiations.timeLimit}
-                      onChange={(e) =>
-                        handleConfigChange({
-                          negotiations: {
-                            ...config.negotiations,
-                            timeLimit: parseInt(e.target.value),
-                          },
-                        })
-                      }
+                      onChange={(e) => {
+                        // Allow the field to be cleared for typing
+                        if (e.target.value === "") {
+                          handleConfigChange({
+                            negotiations: {
+                              ...config.negotiations,
+                              timeLimit: 1,
+                            },
+                          });
+                        } else {
+                          const value = parseInt(e.target.value);
+                          // Handle NaN and enforce min/max
+                          if (!isNaN(value)) {
+                            const validValue = Math.max(1, Math.min(14, value));
+                            handleConfigChange({
+                              negotiations: {
+                                ...config.negotiations,
+                                timeLimit: validValue,
+                              },
+                            });
+                          }
+                        }
+                      }}
                       className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                       min="1"
                       max="14"
@@ -488,11 +530,23 @@ export function FinalInterviewConfig({
               <input
                 type="number"
                 value={config.decisionTimeline}
-                onChange={(e) =>
-                  handleConfigChange({
-                    decisionTimeline: parseInt(e.target.value),
-                  })
-                }
+                onChange={(e) => {
+                  // Allow the field to be cleared for typing
+                  if (e.target.value === "") {
+                    handleConfigChange({
+                      decisionTimeline: 1,
+                    });
+                  } else {
+                    const value = parseInt(e.target.value);
+                    // Handle NaN and enforce min/max
+                    if (!isNaN(value)) {
+                      const validValue = Math.max(1, Math.min(14, value));
+                      handleConfigChange({
+                        decisionTimeline: validValue,
+                      });
+                    }
+                  }
+                }}
                 className="w-32 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                 min="1"
                 max="14"
@@ -569,14 +623,29 @@ export function FinalInterviewConfig({
               <input
                 type="number"
                 value={config.approvalWorkflow.approvalTimeframe}
-                onChange={(e) =>
-                  handleConfigChange({
-                    approvalWorkflow: {
-                      ...config.approvalWorkflow,
-                      approvalTimeframe: parseInt(e.target.value),
-                    },
-                  })
-                }
+                onChange={(e) => {
+                  // Allow the field to be cleared for typing
+                  if (e.target.value === "") {
+                    handleConfigChange({
+                      approvalWorkflow: {
+                        ...config.approvalWorkflow,
+                        approvalTimeframe: 1,
+                      },
+                    });
+                  } else {
+                    const value = parseInt(e.target.value);
+                    // Handle NaN and enforce min/max
+                    if (!isNaN(value)) {
+                      const validValue = Math.max(1, Math.min(10, value));
+                      handleConfigChange({
+                        approvalWorkflow: {
+                          ...config.approvalWorkflow,
+                          approvalTimeframe: validValue,
+                        },
+                      });
+                    }
+                  }
+                }}
                 className="w-32 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                 min="1"
                 max="10"

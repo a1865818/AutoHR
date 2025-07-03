@@ -12,7 +12,11 @@ import { RankingModal } from "@/components/candidates/RankingModal";
 import { RankingTab } from "@/components/candidates/RankingTab";
 
 import { useHiringAuth } from "@/hooks/useHiringAuth";
-import { Candidate, CandidateWithJobDetails } from "@/interfaces";
+import {
+  Candidate,
+  CandidateWithJobDetails,
+  CandidateStage,
+} from "@/interfaces";
 import { candidateRankingService } from "@/services/candidateRankingService";
 import { candidateService } from "@/services/candidateService";
 import {
@@ -20,6 +24,7 @@ import {
   InterviewStageConfig,
   useDynamicStageConfigs,
 } from "@/utils/dynamicInterviewStageConfig";
+import { StageManager } from "@/utils/stageManager";
 
 import {
   Briefcase,
@@ -243,10 +248,21 @@ function CandidatesPage() {
     position: true,
   });
 
-  // Updated: Default active filters now use dynamic stages
+  // Updated: Default active filters now use new granular stages
   const [activeFilters, setActiveFilters] = useState({
     status: ["in-progress"],
-    stage: [] as string[],
+    stage: [
+      "applied",
+      "phone_screening",
+      "video_interview",
+      "technical_assessment",
+      "coding_challenge",
+      "behavioral_interview",
+      "panel_interview",
+      "final_interview",
+      "culture_fit",
+      "offer",
+    ], // All stages by default
     position: [] as string[],
   });
 
@@ -274,8 +290,9 @@ function CandidatesPage() {
 
   // Modal state for editing notes
   const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
-  const [editingCandidate, setEditingCandidate] =
-    useState<CandidateWithJobDetails | null>(null);
+  const [editingCandidate, setEditingCandidate] = useState<
+    CandidateWithJobDetails | Candidate | null
+  >(null);
 
   // Load candidates data with better error handling
   useEffect(() => {
@@ -671,23 +688,30 @@ function CandidatesPage() {
       if (!candidate) return;
 
       let newStatus: "In Progress" | "Hired" | "Rejected";
-      let newStage: "Applied" | "Interview" | "Offer" | undefined;
+      let newStage: CandidateStage;
 
       if (action === "approve") {
         if (candidate.stage === "Applied") {
           newStatus = "In Progress";
-          newStage = "Interview";
-        } else if (candidate.stage === "Interview") {
-          newStatus = "In Progress";
-          newStage = "Offer";
+          newStage = "Phone Screening"; // Move to first interview stage
         } else if (candidate.stage === "Offer") {
           newStatus = "Hired";
-          newStage = undefined;
+          newStage = "Offer"; // Keep stage as Offer, status becomes Hired
         } else {
-          newStatus = "In Progress";
+          // For any interview stage, move to next stage or to Offer
+          const stageOrder = StageManager.getStageOrder();
+          const currentIndex = stageOrder.indexOf(candidate.stage);
+          if (currentIndex !== -1 && currentIndex < stageOrder.length - 1) {
+            newStatus = "In Progress";
+            newStage = stageOrder[currentIndex + 1];
+          } else {
+            newStatus = "In Progress";
+            newStage = "Offer";
+          }
         }
       } else {
         newStatus = "Rejected";
+        newStage = candidate.stage; // Keep current stage when rejecting
       }
 
       // Update backend

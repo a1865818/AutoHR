@@ -1,16 +1,38 @@
-// using System;
-// using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
-
-public class UpdateApplicationDetailRequest
+namespace ai_hr.Contracts
 {
-    public string? ResumeUrl { get; set; }
-    public string? CoverLetterText { get; set; }
-    public decimal? ExpectedSalary { get; set; }
-    public DateTime? AvailabilityDate { get; set; }
-    public string? Status { get; set; }
-    public string? Stage { get; set; }
-    public string? JobSource { get; set; }
-    public decimal? OverallAiScore { get; set; }
-    public Dictionary<string, object>? AiAnalysis { get; set; }
+    public class UpdateApplicationDetailRequest
+    {
+        public string? Status { get; set; }
+        public string? Stage { get; set; }
+        public string? CurrentRoundId { get; set; }
+        public string? Notes { get; set; }
+
+        // Validation method for stage
+        public bool IsValidStage()
+        {
+            if (string.IsNullOrEmpty(Stage)) return true; // Allow null/empty
+
+            var validStages = new[] {
+                "Applied", "Phone Screening", "Video Interview", "Technical Assessment",
+                "Coding Challenge", "Behavioral Interview", "Panel Interview",
+                "Final Interview", "Culture Fit", "Offer"
+            };
+
+            return validStages.Contains(Stage);
+        }
+
+        // Validation method for status
+        public bool IsValidStatus()
+        {
+            if (string.IsNullOrEmpty(Status)) return true; // Allow null/empty
+
+            var validStatuses = new[] {
+                "applied", "In Progress", "Hired", "Rejected", "Offered"
+            };
+
+            return validStatuses.Contains(Status);
+        }
+    }
 }

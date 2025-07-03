@@ -71,7 +71,7 @@ public static class ApplicationDetailEndpoints
                 JobSource = request.JobSource,
                 AiAnalysis = request.AiAnalysis,
                 Status = "applied", // Explicitly set default status
-                Stage = "initial_review", // Explicitly set default stage
+                Stage = "Applied", // Updated to new stage system
                 AppliedAt = DateTime.UtcNow,
                 StatusChangedAt = DateTime.UtcNow
             };
@@ -257,6 +257,17 @@ public static class ApplicationDetailEndpoints
     {
         try
         {
+            // Validate request first
+            if (!request.IsValidStage())
+            {
+                return Results.BadRequest(new { error = "Invalid stage value" });
+            }
+
+            if (!request.IsValidStatus())
+            {
+                return Results.BadRequest(new { error = "Invalid status value" });
+            }
+
             // First, get the current application detail
             var getResponse = await client.From<ApplicationDetail>().Where(ad => ad.Id == id).Get();
             var applicationDetail = getResponse.Models.FirstOrDefault();
@@ -267,23 +278,44 @@ public static class ApplicationDetailEndpoints
             }
 
             // Update the properties if provided in the request
-            if (request.ResumeUrl != null) applicationDetail.ResumeUrl = request.ResumeUrl;
-            if (request.CoverLetterText != null) applicationDetail.CoverLetterText = request.CoverLetterText;
-            if (request.ExpectedSalary.HasValue) applicationDetail.ExpectedSalary = request.ExpectedSalary;
-            if (request.AvailabilityDate.HasValue) applicationDetail.AvailabilityDate = request.AvailabilityDate;
             if (request.Status != null) applicationDetail.Status = request.Status;
             if (request.Stage != null) applicationDetail.Stage = request.Stage;
-            if (request.JobSource != null) applicationDetail.JobSource = request.JobSource;
-            if (request.OverallAiScore.HasValue) applicationDetail.OverallAiScore = request.OverallAiScore;
-            if (request.AiAnalysis != null) applicationDetail.AiAnalysis = request.AiAnalysis;
+            if (request.CurrentRoundId != null) applicationDetail.CurrentRoundId = request.CurrentRoundId;
+            if (request.Notes != null)
+            {
+                applicationDetail.HiringNotes = request.Notes;
+                applicationDetail.NotesUpdatedAt = DateTime.UtcNow;
+                if (applicationDetail.NotesCreatedAt == null)
+                {
+                    applicationDetail.NotesCreatedAt = DateTime.UtcNow;
+                }
+            }
 
             // Always update the status changed timestamp
             applicationDetail.StatusChangedAt = DateTime.UtcNow;
 
             // Update the record
             var response = await client.From<ApplicationDetail>().Update(applicationDetail);
+            var updatedApplicationDetail = response.Models.FirstOrDefault();
 
-            return Results.Accepted($"/applicationdetails/{id}");
+            if (updatedApplicationDetail == null)
+            {
+                Console.WriteLine("Failed to update application detail - no model returned");
+                return Results.BadRequest(new { error = "Failed to update application detail." });
+            }
+
+            Console.WriteLine($"Application detail updated successfully: Status={updatedApplicationDetail.Status}, Stage={updatedApplicationDetail.Stage}");
+
+            // Return the updated application with relevant details
+            return Results.Ok(new
+            {
+                id = updatedApplicationDetail.Id,
+                status = updatedApplicationDetail.Status,
+                stage = updatedApplicationDetail.Stage,
+                currentRoundId = updatedApplicationDetail.CurrentRoundId,
+                statusChangedAt = updatedApplicationDetail.StatusChangedAt,
+                message = "Application updated successfully"
+            });
         }
         catch (Exception ex)
         {
@@ -423,7 +455,7 @@ public static class ApplicationDetailEndpoints
                 CoverLetterText = BuildGuestCoverLetter(firstName, lastName, email, phoneNumber, city, country, coverLetter),
                 JobSource = "guest_application",
                 Status = "applied",
-                Stage = "initial_review",
+                Stage = "Applied",
                 AppliedAt = DateTime.UtcNow,
                 StatusChangedAt = DateTime.UtcNow,
             };

@@ -139,8 +139,6 @@ class CandidateService {
       throw new Error("Access denied - only hiring users can view candidates");
     }
 
-    console.log("📤 Fetching candidates for job:", jobId);
-
     try {
       const response = await fetch(`${this.baseUrl}/candidates/job/${jobId}`, {
         method: "GET",
@@ -172,9 +170,10 @@ class CandidateService {
   // Update candidate status (approve/decline)
   async updateCandidateStatus(
     applicationId: string,
-    status: "In Progress" | "Hired" | "Rejected",
-    stage?: "Applied" | "Interview" | "Offer"
-  ): Promise<void> {
+    status: "In Progress" | "Hired" | "Rejected" | "Offered",
+    stage?: import("@/interfaces").CandidateStage,
+    currentRoundId?: string
+  ): Promise<any> {
     const { token, userCategory } = this.getAuthData();
 
     if (!token) {
@@ -191,13 +190,23 @@ class CandidateService {
       applicationId,
       status,
       stage,
+      currentRoundId
     });
 
     try {
       const updateData: any = { status };
       if (stage) {
-        updateData.stage = stage.toLowerCase().replace(" ", "_");
+        updateData.stage = stage;
       }
+      if (currentRoundId) {
+        updateData.currentRoundId = currentRoundId;
+      }
+
+      console.log("📤 Sending to backend API:", {
+        url: `${this.baseUrl}/applicationdetails/${applicationId}`,
+        method: "PUT",
+        data: updateData
+      });
 
       const response = await fetch(
         `${this.baseUrl}/applicationdetails/${applicationId}`,
@@ -208,17 +217,65 @@ class CandidateService {
         }
       );
 
+      console.log("📥 Backend response:", {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
       if (!response.ok) {
         const error = await response.text();
+        console.error("❌ Backend error response:", error);
         throw new Error(`Failed to update candidate status: ${error}`);
       }
 
-      console.log("✅ Candidate status updated successfully");
+      let responseData = null;
+      try {
+        responseData = await response.json();
+        console.log("✅ Candidate status updated successfully:", responseData);
+      } catch (parseError) {
+        console.log("✅ Candidate status updated successfully (no JSON response)");
+      }
+      
+      return responseData;
     } catch (error) {
       console.error("❌ Failed to update candidate status:", error);
       throw error;
     }
   }
+
+ async getApplicationDetailByJob(jobId: string): Promise<any> {
+  const { token, userCategory } = this.getAuthData();
+  if (!token) {
+    throw new Error("User not authenticated");
+  }
+
+  if (userCategory === "ApplicationUser") {
+    throw new Error("Access denied - only hiring users can view application details");
+  }
+
+  try {
+    const response = await fetch(
+      `${this.baseUrl}/applicationdetails/job/${jobId}`,
+      {
+        method: "GET",
+        headers: this.getHeaders(),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Failed to fetch application details: ${error}`);
+    }
+
+    const data = await response.json();
+    console.log("✅ Application details fetched successfully:", data);
+    return data;
+  } catch (error) {
+    console.error("❌ Failed to fetch application details:", error);
+    throw error;
+  }
+}
 
   // UPDATED: Save candidate note with proper timestamp handling and return timestamps
   async saveCandidateNote(

@@ -57,6 +57,7 @@ interface TeamDynamics {
 }
 
 interface CultureFitConfiguration {
+  name: string;
   companyValues: CompanyValue[];
   cultureQuestions: CultureQuestion[];
   culturalScenarios: CulturalScenario[];
@@ -174,6 +175,7 @@ export function CultureFitConfig({
   onConfigurationChange,
 }: CultureFitConfigProps) {
   const [config, setConfig] = useState<CultureFitConfiguration>({
+    name: "Culture Fit",
     companyValues: defaultCompanyValues,
     cultureQuestions: [],
     culturalScenarios: defaultScenarios,
@@ -883,9 +885,19 @@ export function CultureFitConfig({
               <input
                 type="number"
                 value={config.duration}
-                onChange={(e) =>
-                  handleConfigChange({ duration: parseInt(e.target.value) })
-                }
+                onChange={(e) => {
+                  // Allow the field to be cleared for typing
+                  if (e.target.value === "") {
+                    handleConfigChange({ duration: 30 });
+                  } else {
+                    const value = parseInt(e.target.value);
+                    // Handle NaN and enforce min/max
+                    if (!isNaN(value)) {
+                      const validValue = Math.max(30, Math.min(120, value));
+                      handleConfigChange({ duration: validValue });
+                    }
+                  }
+                }}
                 className="w-32 p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                 min="30"
                 max="120"
@@ -1019,11 +1031,19 @@ export function CultureFitConfig({
                 <input
                   type="number"
                   value={config.passingThreshold}
-                  onChange={(e) =>
-                    handleConfigChange({
-                      passingThreshold: parseInt(e.target.value),
-                    })
-                  }
+                  onChange={(e) => {
+                    // Allow the field to be cleared for typing
+                    if (e.target.value === "") {
+                      handleConfigChange({ passingThreshold: 50 });
+                    } else {
+                      const value = parseInt(e.target.value);
+                      // Handle NaN and enforce min/max
+                      if (!isNaN(value)) {
+                        const validValue = Math.max(50, Math.min(100, value));
+                        handleConfigChange({ passingThreshold: validValue });
+                      }
+                    }
+                  }}
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                   min="50"
                   max="100"

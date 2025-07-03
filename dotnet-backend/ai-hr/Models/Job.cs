@@ -62,7 +62,7 @@ namespace ai_hr.Models
         public DateTime? ApplicationDeadline { get; set; }
 
         [Column("status")]
-        public string Status { get; set; } = "Open";
+        public string Status { get; set; } = "Active";
 
         [Column("applicant_count")]
         public int ApplicantCount { get; set; } = 0;

@@ -235,8 +235,6 @@ public static class CandidateEndpoints
     {
         try
         {
-            Console.WriteLine($"Fetching candidates for job: {jobId}");
-
             // Get the job details first
             var jobResponse = await client.From<Job>()
                 .Where(j => j.Id == jobId)

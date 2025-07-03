@@ -11,6 +11,7 @@ import {
   User,
   AlertTriangle,
   Clock,
+  Award,
 } from "lucide-react";
 import { Candidate } from "@/interfaces";
 import { InterviewRound } from "@/interfaces/interview";
@@ -28,6 +29,8 @@ interface DragDropCandidateCardProps {
   onMove?: (candidateId: string, direction: "left" | "right") => void;
   onSchedule?: (candidateId: string) => void;
   onReject?: (candidateId: string) => void;
+  onHire?: (candidateId: string) => void;
+  onOffer?: (candidateId: string) => void;
   onViewProfile?: (candidateId: string) => void;
   onAddNote?: (candidateId: string, note: string) => void;
 }
@@ -40,6 +43,8 @@ export function DragDropCandidateCard({
   onMove,
   onSchedule,
   onReject,
+  onHire,
+  onOffer,
   onViewProfile,
   onAddNote,
 }: DragDropCandidateCardProps) {
@@ -249,13 +254,13 @@ export function DragDropCandidateCard({
                   className="flex-1 flex items-center justify-center space-x-1 text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
                 >
                   <ChevronLeft className="h-3 w-3" />
-                  <span>Back</span>
+                  <span>Previous</span>
                 </button>
               )}
               {canMoveRight && (
                 <button
                   onClick={() => onMove?.(candidate.id, "right")}
-                  className="flex-1 flex items-center justify-center space-x-1 text-xs bg-green-50 text-green-700 hover:bg-green-100 px-2 py-1 rounded transition-colors"
+                  className="flex-1 flex items-center justify-center space-x-1 text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
                 >
                   <span>Next</span>
                   <ChevronRight className="h-3 w-3" />
@@ -263,22 +268,56 @@ export function DragDropCandidateCard({
               )}
             </div>
 
-            {/* Other Actions */}
+            {/* Action Buttons */}
             <div className="flex space-x-1">
               <button
+                onClick={() => onSchedule?.(candidate.id)}
+                className="flex-1 flex items-center justify-center space-x-1 text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
+              >
+                <Calendar className="h-3 w-3" />
+                <span>Schedule</span>
+              </button>
+
+              <button
                 onClick={() => setShowNoteModal(true)}
-                className="flex-1 flex items-center justify-center space-x-1 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-2 py-1 rounded transition-colors"
+                className="flex-1 flex items-center justify-center space-x-1 text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
               >
                 <MessageSquare className="h-3 w-3" />
-                <span>Note</span>
+                <span>Add Note</span>
               </button>
-              <button
-                onClick={() => onReject?.(candidate.id)}
-                className="flex-1 flex items-center justify-center space-x-1 text-xs bg-red-50 text-red-700 hover:bg-red-100 px-2 py-1 rounded transition-colors"
-              >
-                <XCircle className="h-3 w-3" />
-                <span>Reject</span>
-              </button>
+            </div>
+
+            {/* Offer, Hire, Reject Buttons */}
+            <div className="flex space-x-1">
+              {onOffer && (
+                <button
+                  onClick={() => onOffer?.(candidate.id)}
+                  className="flex-1 flex items-center justify-center space-x-1 text-xs bg-yellow-50 text-yellow-700 hover:bg-yellow-100 px-2 py-1 rounded transition-colors"
+                >
+                  <Award className="h-3 w-3" />
+                  <span>Offer Position</span>
+                </button>
+              )}
+
+              {onHire && (
+                <button
+                  onClick={() => onHire?.(candidate.id)}
+                  className="flex-1 flex items-center justify-center space-x-1 text-xs bg-green-50 text-green-700 hover:bg-green-100 px-2 py-1 rounded transition-colors"
+                >
+                  <CheckCircle className="h-3 w-3" />
+                  <span>Hire</span>
+                </button>
+              )}
+
+              {onReject && (
+                <button
+                  onClick={() => onReject?.(candidate.id)}
+                  className="flex-1 flex items-center justify-center space-x-1 text-xs bg-red-50 text-red-700 hover:bg-red-100 px-2 py-1 rounded transition-colors"
+                >
+                  <XCircle className="h-3 w-3" />
+                  <span>Reject</span>
+                </button>
+              )}
             </div>
           </div>
         </div>

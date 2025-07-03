@@ -446,7 +446,7 @@ export function mapFormDataToCreateJobRequest(
   formData: JobFormData,
   companyId: string = "00000000-0000-0000-0000-000000000001", // Default company ID - should come from auth context
   createdBy: string = "00000000-0000-0000-0000-000000000001", // Default user ID - should come from auth context
-  status: "Open" | "Draft" = "Open",
+  status: "Active" | "Draft" = "Active",
   aiGeneratedDescription: boolean = false
 ): CreateJobRequest {
   console.log("🔧 mapFormDataToCreateJobRequest - FormData.interviewTemplateId:", formData.interviewTemplateId);

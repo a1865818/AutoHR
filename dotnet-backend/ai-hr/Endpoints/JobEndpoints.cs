@@ -166,7 +166,7 @@ public static class JobEndpoints
             .WithTags("Public Jobs")
             .WithName("GetPublicJobs")
             .WithSummary("Browse public jobs")
-            .WithDescription("Gets a list of active/open jobs for applicant browsing - no authentication required");
+            .WithDescription("Gets a list of active jobs for applicant browsing - no authentication required");
 
         app.MapGet("/public/jobs/{id}", async (
              Guid id,
@@ -239,11 +239,6 @@ public static class JobEndpoints
     {
         try
         {
-            Console.WriteLine($"🔄 Changing status for job {id} to frontend status: {request.Status}");
-
-            // Convert frontend status to backend status for database storage
-            var backendStatus = ConvertFrontendToBackendStatus(request.Status);
-            Console.WriteLine($"🔄 Status conversion: Frontend '{request.Status}' -> Backend '{backendStatus}'");
 
             // Verify user has access to this job
             var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -272,32 +267,32 @@ public static class JobEndpoints
 
             Console.WriteLine($"📊 Current job status in DB: '{job.Status}'");
 
-            // Update job status with backend format
+            // Update job status
             var oldStatus = job.Status;
-            job.Status = backendStatus;
+            job.Status = request.Status;
 
             // Set additional fields based on status
-            if (backendStatus == "Open") // When changing to Active (Open in DB)
+            if (request.Status == "Active")
             {
                 if (oldStatus == "Draft")
                 {
                     job.PostedDate = DateTime.UtcNow;
-                    Console.WriteLine($"📅 Set PostedDate for job transitioning from Draft to Open");
+                    Console.WriteLine($"📅 Set PostedDate for job transitioning from Draft to Active");
                 }
-                job.ClosedDate = null; // Clear closed date if reopening
+                job.ClosedDate = null; // Clear closed date if re-activa
             }
-            else if (backendStatus == "Closed" || backendStatus == "Expired")
+            else if (request.Status == "Closed" || request.Status == "Expired")
             {
                 job.ClosedDate = request.EffectiveDate ?? DateTime.UtcNow;
-                Console.WriteLine($"📅 Set ClosedDate for job transitioning to {backendStatus}");
+                Console.WriteLine($"📅 Set ClosedDate for job transitioning to {request.Status}");
             }
 
             await client.From<Job>().Update(job);
 
-            // Record status change history (with backend statuses)
-            await RecordStatusChange(id, oldStatus, backendStatus, userGuid, request.Reason, client);
+            // Record status change history
+            await RecordStatusChange(id, oldStatus, request.Status, userGuid, request.Reason, client);
 
-            // Return updated job with frontend status
+            // Return updated job
             var jobDto = new
             {
                 Id = job.Id,
@@ -319,7 +314,7 @@ public static class JobEndpoints
                 SalaryMax = job.SalaryMax,
                 SalaryCurrency = job.SalaryCurrency,
                 ApplicationDeadline = job.ApplicationDeadline,
-                Status = ConvertBackendToFrontendStatus(job.Status), // Convert back to frontend
+                Status = job.Status,
                 ApplicantCount = job.ApplicantCount,
                 ViewCount = job.ViewCount,
                 AiGeneratedDescription = job.AiGeneratedDescription,
@@ -329,7 +324,7 @@ public static class JobEndpoints
                 InterviewTemplateId = job.InterviewTemplateId
             };
 
-            Console.WriteLine($"✅ Successfully changed job {id} status from '{oldStatus}' to '{backendStatus}' (frontend: '{request.Status}')");
+            Console.WriteLine($"✅ Successfully changed job {id} status from '{oldStatus}' to '{request.Status}'");
 
             return Results.Ok(new
             {
@@ -351,11 +346,7 @@ public static class JobEndpoints
     {
         try
         {
-            Console.WriteLine($"🔄 Bulk status change: {request.JobIds.Count} jobs to frontend status '{request.Status}'");
-
-            // Convert frontend status to backend status
-            var backendStatus = ConvertFrontendToBackendStatus(request.Status);
-            Console.WriteLine($"🔄 Bulk status conversion: Frontend '{request.Status}' -> Backend '{backendStatus}'");
+            Console.WriteLine($"🔄 Bulk status change: {request.JobIds.Count} jobs to status '{request.Status}'");
 
             var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
@@ -384,28 +375,28 @@ public static class JobEndpoints
                 try
                 {
                     var oldStatus = job.Status;
-                    job.Status = backendStatus; // Use backend status for database
+                    job.Status = request.Status;
 
                     // Set additional fields based on status
-                    if (backendStatus == "Open" && oldStatus == "Draft")
+                    if (request.Status == "Active" && oldStatus == "Draft")
                     {
                         job.PostedDate = DateTime.UtcNow;
                     }
-                    else if (backendStatus == "Closed" || backendStatus == "Expired")
+                    else if (request.Status == "Closed" || request.Status == "Expired")
                     {
                         job.ClosedDate = DateTime.UtcNow;
                     }
 
                     await client.From<Job>().Update(job);
-                    await RecordStatusChange(job.Id, oldStatus, backendStatus, userGuid, request.Reason, client);
+                    await RecordStatusChange(job.Id, oldStatus, request.Status, userGuid, request.Reason, client);
 
-                    // Create DTO with frontend status
+                    // Create DTO
                     updatedJobs.Add(new
                     {
                         Id = job.Id,
                         Title = job.Title,
-                        Status = ConvertBackendToFrontendStatus(job.Status), // Convert to frontend
-                                                                             // ... other properties
+                        Status = job.Status,
+                        // ... other properties
                     });
                 }
                 catch (Exception ex)
@@ -414,7 +405,7 @@ public static class JobEndpoints
                 }
             }
 
-            Console.WriteLine($"✅ Bulk operation completed: {updatedJobs.Count} jobs updated to '{backendStatus}' (frontend: '{request.Status}')");
+            Console.WriteLine($"✅ Bulk operation completed: {updatedJobs.Count} jobs updated to '{request.Status}'");
 
             return Results.Ok(new
             {
@@ -432,63 +423,37 @@ public static class JobEndpoints
     }
 
 
-    private static string ConvertFrontendToBackendStatus(string frontendStatus)
-    {
-        return frontendStatus switch
-        {
-            "Active" => "Open",     // Frontend "Active" -> Backend "Open"
-            "Draft" => "Draft",
-            "Paused" => "Paused",
-            "Closed" => "Closed",
-            "Expired" => "Expired",
-            "All" => "All",        // Special case for "All"
-            _ => frontendStatus    // Default passthrough
-        };
-    }
 
-    private static string ConvertBackendToFrontendStatus(string backendStatus)
-    {
-        return backendStatus switch
-        {
-            "Open" => "Active",    // Backend "Open" -> Frontend "Active"
-            "Draft" => "Draft",
-            "Paused" => "Paused",
-            "Closed" => "Closed",
-            "Expired" => "Expired",
-            _ => backendStatus     // Default passthrough
-        };
-    }
 
     private static bool IsValidStatusTransition(string fromStatus, string toStatus)
     {
-        // All validations use backend status names ("Open" not "Active")
         return (fromStatus, toStatus) switch
         {
             // From Draft
-            ("Draft", "Open") => true,
+            ("Draft", "Active") => true,
 
-            // From Open (Active in frontend)
-            ("Open", "Paused") => true,
-            ("Open", "Closed") => true,
-            ("Open", "Draft") => true, // Allow back to draft for editing
-            ("Open", "Expired") => true,
+            // From Active
+            ("Active", "Paused") => true,
+            ("Active", "Closed") => true,
+            ("Active", "Draft") => true, // Allow back to draft for editing
+            ("Active", "Expired") => true,
 
             // From Paused
-            ("Paused", "Open") => true,
+            ("Paused", "Active") => true,
             ("Paused", "Closed") => true,
             ("Paused", "Expired") => true,
 
             // From Closed
-            ("Closed", "Open") => true, // Allow reopening
+            ("Closed", "Active") => true, // Allow re-active
             ("Closed", "Expired") => true,
 
             // From Expired
-            ("Expired", "Open") => true, // Allow reopening
+            ("Expired", "Active") => true, // Allow re-active
             ("Expired", "Closed") => true,
 
             // Same status transitions (no-op)
             ("Draft", "Draft") => true,
-            ("Open", "Open") => true,
+            ("Active", "Active") => true,
             ("Paused", "Paused") => true,
             ("Closed", "Closed") => true,
             ("Expired", "Expired") => true,
@@ -558,9 +523,6 @@ public static class JobEndpoints
                 return Results.Forbid();
             }
 
-            // Convert frontend status to backend format
-            var backendStatus = ConvertFrontendToBackendStatus(request.Status ?? "Draft");
-
             // Create duplicate job
             var duplicateJob = new Job
             {
@@ -582,11 +544,11 @@ public static class JobEndpoints
                 SalaryMax = originalJob.SalaryMax,
                 SalaryCurrency = originalJob.SalaryCurrency,
                 ApplicationDeadline = originalJob.ApplicationDeadline,
-                Status = backendStatus,
+                Status = request.Status,
                 AiGeneratedDescription = originalJob.AiGeneratedDescription,
                 SkillMatchThreshold = originalJob.SkillMatchThreshold,
                 InterviewTemplateId = originalJob.InterviewTemplateId,
-                PostedDate = backendStatus == "Open" ? DateTime.UtcNow : null,
+                PostedDate = request.Status == "Active" ? DateTime.UtcNow : null,
                 ViewCount = 0,
                 ApplicantCount = 0
             };
@@ -615,7 +577,7 @@ public static class JobEndpoints
     {
         try
         {
-            Console.WriteLine($"🔍 GetJobsByStatus called - Frontend Status: '{status}'");
+            Console.WriteLine($"🔍 GetJobsByStatus called - Status: '{status}'");
 
             var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
@@ -638,19 +600,18 @@ public static class JobEndpoints
 
             Console.WriteLine($"🏢 Found {jobs.Count} jobs for company {hiringUser.CompanyId}");
 
-            // Filter by status with proper conversion
+            // Filter by status
             if (!string.IsNullOrEmpty(status) && !status.Equals("All", StringComparison.OrdinalIgnoreCase))
             {
-                var backendStatus = ConvertFrontendToBackendStatus(status);
-                Console.WriteLine($"🔄 Converting status: '{status}' -> '{backendStatus}' for filtering");
+                Console.WriteLine($"🔄 Filtering by status: '{status}'");
 
-                jobs = jobs.Where(j => j.Status.Equals(backendStatus, StringComparison.OrdinalIgnoreCase))
+                jobs = jobs.Where(j => j.Status.Equals(status, StringComparison.OrdinalIgnoreCase))
                          .ToList();
 
-                Console.WriteLine($"📊 After status filter: {jobs.Count} jobs with backend status '{backendStatus}'");
+                Console.WriteLine($"📊 After status filter: {jobs.Count} jobs with status '{status}'");
             }
 
-            // Create DTOs with frontend status conversion
+            // Create DTOs
             var jobDtos = jobs.Select(job => new
             {
                 Id = job.Id,
@@ -672,7 +633,7 @@ public static class JobEndpoints
                 SalaryMax = job.SalaryMax,
                 SalaryCurrency = job.SalaryCurrency,
                 ApplicationDeadline = job.ApplicationDeadline,
-                Status = ConvertBackendToFrontendStatus(job.Status), // Convert to frontend format
+                Status = job.Status,
                 ApplicantCount = job.ApplicantCount,
                 ViewCount = job.ViewCount,
                 AiGeneratedDescription = job.AiGeneratedDescription,
@@ -682,7 +643,7 @@ public static class JobEndpoints
                 InterviewTemplateId = job.InterviewTemplateId
             }).ToList();
 
-            Console.WriteLine($"✅ Returning {jobDtos.Count} jobs with frontend status format");
+            Console.WriteLine($"✅ Returning {jobDtos.Count} jobs");
 
             // Debug: Log status distribution
             var statusGroups = jobDtos.GroupBy(j => j.Status).ToDictionary(g => g.Key, g => g.Count());
@@ -734,11 +695,12 @@ public static class JobEndpoints
             // Filter in memory since Supabase client might not support complex Where clauses
             var history = allHistory.Where(jsh => jsh.JobId == id)
                 .OrderBy(h => h.ChangedAt)
-                .Select(h => new {
+                .Select(h => new
+                {
                     Id = h.Id,
                     JobId = h.JobId,
-                    FromStatus = ConvertBackendToFrontendStatus(h.FromStatus),
-                    ToStatus = ConvertBackendToFrontendStatus(h.ToStatus),
+                    FromStatus = h.FromStatus,
+                    ToStatus = h.ToStatus,
                     ChangedBy = h.ChangedBy,
                     ChangedAt = h.ChangedAt,
                     Reason = h.Reason
@@ -791,8 +753,8 @@ public static class JobEndpoints
                 return Results.NotFound(new { message = $"Job with ID {id} not found" });
             }
 
-            // For applicant endpoint, only allow access to "Open" jobs
-            if (!job.Status.Equals("Open", StringComparison.OrdinalIgnoreCase))
+            // For applicant endpoint, only allow access to "Active" jobs
+            if (!job.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
             {
                 return Results.NotFound(new { message = $"Job with ID {id} is not available" });
             }
@@ -1087,27 +1049,20 @@ public static class JobEndpoints
             };
 
             return Results.Ok(new { success = true, data = jobDto });
-        } catch (Exception ex)
+        }
+        catch (Exception ex)
         {
             Console.WriteLine($"Error retrieving job: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }
-        
+
     }
     private static async Task<IResult> GetJobs(string? status, Guid? companyId, Supabase.Client client)
     {
         try
         {
-            Console.WriteLine($"🔍 GetJobs called - Frontend Status: {status}, CompanyId: {companyId}");
-
-            // Convert frontend status to backend status for database query
-            string backendStatus = null;
-            if (!string.IsNullOrEmpty(status))
-            {
-                backendStatus = ConvertFrontendToBackendStatus(status);
-                Console.WriteLine($"🔄 Status conversion: Frontend '{status}' -> Backend '{backendStatus}'");
-            }
+            Console.WriteLine($"🔍 GetJobs called - Status: {status}, CompanyId: {companyId}");
 
             // Start with a base query
             var query = client.From<Job>();
@@ -1123,22 +1078,22 @@ public static class JobEndpoints
                 Console.WriteLine($"🏢 After company filter ({companyId}): {jobs.Count} jobs");
             }
 
-            // Apply status filter with proper backend status
-            if (!string.IsNullOrEmpty(backendStatus) && backendStatus != "All")
+            // Apply status filter
+            if (!string.IsNullOrEmpty(status) && status != "All")
             {
-                jobs = jobs.Where(j => j.Status.Equals(backendStatus, StringComparison.OrdinalIgnoreCase)).ToList();
-                Console.WriteLine($"📊 After status filter (backend: '{backendStatus}'): {jobs.Count} jobs");
+                jobs = jobs.Where(j => j.Status.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
+                Console.WriteLine($"📊 After status filter ('{status}'): {jobs.Count} jobs");
             }
             else if (string.IsNullOrEmpty(status) && !companyId.HasValue)
             {
                 // If no status specified and no company filter, default to active jobs only
-                jobs = jobs.Where(j => j.Status.Equals("Open", StringComparison.OrdinalIgnoreCase)).ToList();
-                Console.WriteLine($"📊 No filters - showing only Open jobs: {jobs.Count} jobs");
+                jobs = jobs.Where(j => j.Status.Equals("Active", StringComparison.OrdinalIgnoreCase)).ToList();
+                Console.WriteLine($"📊 No filters - showing only Active jobs: {jobs.Count} jobs");
             }
 
             Console.WriteLine($"✅ Final filtered jobs count: {jobs.Count}");
 
-            // Create DTOs and convert status back to frontend format
+            // Create DTOs
             var jobDtos = jobs.Select(job => new
             {
                 Id = job.Id,
@@ -1153,7 +1108,7 @@ public static class JobEndpoints
                 SalaryMin = job.SalaryMin,
                 SalaryMax = job.SalaryMax,
                 SalaryCurrency = job.SalaryCurrency,
-                Status = ConvertBackendToFrontendStatus(job.Status), // Convert back to frontend format
+                Status = job.Status,
                 ApplicantCount = job.ApplicantCount,
                 PostedDate = job.PostedDate,
                 InterviewTemplateId = job.InterviewTemplateId,
@@ -1170,7 +1125,7 @@ public static class JobEndpoints
                 ClosedDate = job.ClosedDate
             }).ToList();
 
-            Console.WriteLine($"🔄 Converted {jobDtos.Count} jobs with frontend status format");
+            Console.WriteLine($"🔄 Converted {jobDtos.Count} jobs");
 
             // Debug: Log first few jobs with their statuses
             foreach (var job in jobDtos.Take(3))
@@ -1320,8 +1275,8 @@ public static class JobEndpoints
             var response = await query.Get();
             var jobs = response.Models;
 
-            // For public endpoint, only show "Open" jobs (active for applicants)
-            jobs = jobs.Where(j => j.Status.Equals("Open", StringComparison.OrdinalIgnoreCase)).ToList();
+            // For public endpoint, only show "Active" jobs (active for applicants)
+            jobs = jobs.Where(j => j.Status.Equals("Active", StringComparison.OrdinalIgnoreCase)).ToList();
 
 
             // if (companyId.HasValue)
@@ -1391,8 +1346,8 @@ public static class JobEndpoints
                 return Results.NotFound(new { message = $"Job with ID {id} not found" });
             }
 
-            // For public endpoint, only allow access to "Open" jobs
-            if (!job.Status.Equals("Open", StringComparison.OrdinalIgnoreCase))
+            // For public endpoint, only allow access to "Active" jobs
+            if (!job.Status.Equals("Active", StringComparison.OrdinalIgnoreCase))
             {
                 return Results.NotFound(new { message = $"Job with ID {id} is not available for public viewing" });
             }
@@ -1760,7 +1715,7 @@ public static class JobEndpoints
             SalaryMax = job.SalaryMax,
             SalaryCurrency = job.SalaryCurrency,
             ApplicationDeadline = job.ApplicationDeadline,
-            Status = ConvertBackendToFrontendStatus(job.Status), // Convert to frontend format
+            Status = job.Status,
             ApplicantCount = job.ApplicantCount,
             ViewCount = job.ViewCount,
             AiGeneratedDescription = job.AiGeneratedDescription,
@@ -1826,7 +1781,8 @@ public static class JobEndpoints
                     .ToDictionary(g => g.Key.ToString("yyyy-MM-dd"), g => g.Count()),
                 RecentViews = views.OrderByDescending(v => v.ViewedAt)
                     .Take(10)
-                    .Select(v => new {
+                    .Select(v => new
+                    {
                         ViewedAt = v.ViewedAt,
                         UserType = v.UserType,
                         IpAddress = v.IpAddress?.Substring(0, Math.Min(v.IpAddress.Length, 12)) + "...", // Partial IP for privacy

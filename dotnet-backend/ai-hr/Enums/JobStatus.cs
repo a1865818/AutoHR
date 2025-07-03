@@ -3,7 +3,7 @@
     public enum JobStatus
     {
         Draft,      // Job is in draft mode, not yet posted
-        Open,       // Job is active and accepting applications
+        Active,       // Job is active and accepting applications
         Paused,     // Job is temporarily paused
         Closed,     // Job is closed, no longer accepting applications
         Expired     // Job posting has expired
@@ -16,7 +16,7 @@
             return status switch
             {
                 JobStatus.Draft => "Draft",
-                JobStatus.Open => "Active",
+                JobStatus.Active => "Active",
                 JobStatus.Paused => "Paused",
                 JobStatus.Closed => "Closed",
                 JobStatus.Expired => "Expired",
@@ -28,11 +28,11 @@
         {
             return statusString.ToLower() switch
             {
-                "draft" => JobStatus.Draft,
-                "open" or "active" => JobStatus.Open,
-                "paused" => JobStatus.Paused,
-                "closed" => JobStatus.Closed,
-                "expired" => JobStatus.Expired,
+                "Draft" => JobStatus.Draft,
+                "Active" => JobStatus.Active,
+                "Paused" => JobStatus.Paused,
+                "Closed" => JobStatus.Closed,
+                "Expired" => JobStatus.Expired,
                 _ => JobStatus.Draft
             };
         }
@@ -42,7 +42,7 @@
             return status switch
             {
                 JobStatus.Draft => "Draft",
-                JobStatus.Open => "Open",
+                JobStatus.Active => "Active",  
                 JobStatus.Paused => "Paused",
                 JobStatus.Closed => "Closed",
                 JobStatus.Expired => "Expired",
@@ -52,12 +52,12 @@
 
         public static bool IsActive(this JobStatus status)
         {
-            return status == JobStatus.Open;
+            return status == JobStatus.Active;
         }
 
         public static bool AcceptsApplications(this JobStatus status)
         {
-            return status == JobStatus.Open;
+            return status == JobStatus.Active;
         }
     }
 }

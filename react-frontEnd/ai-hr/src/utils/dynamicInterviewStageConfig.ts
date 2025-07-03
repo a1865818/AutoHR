@@ -8,25 +8,15 @@ import {
   Phone,
   Users,
   Video,
+  Award,
 } from "lucide-react";
 import React, { useEffect, useState } from "react";
+import { CandidateStage } from "@/interfaces";
+import { InterviewType } from "@/interfaces/interview";
 
-// Import the InterviewType from your existing interfaces
-export type InterviewType =
-  | "phone_screening"
-  | "video_interview"
-  | "technical_assessment"
-  | "coding_challenge"
-  | "behavioral_interview"
-  | "panel_interview"
-  | "final_interview"
-  | "culture_fit";
-
-// Additional stage for initial application
+// Legacy types for backward compatibility
 export type ApplicationStage = "applied";
-
-// Combined stage type
-export type CandidateStageType = ApplicationStage | InterviewType;
+export type CandidateStageType = CandidateStage;
 
 // Interview stage configuration
 export interface StageConfig {
@@ -62,114 +52,108 @@ export interface FilterCounts {
 
 // Dynamic stage configuration generator
 export class InterviewStageConfig {
-  // Base configuration for the "Applied" stage
-  private static readonly APPLIED_STAGE_CONFIG: StageConfig = {
-    id: "applied",
-    label: "Applied",
-    color: "gray",
-    icon: "FileText",
-    order: 0,
-    description: "Initial application submitted, waiting for first round",
-  };
-
-  // Interview type to display configuration mapping
-  private static readonly INTERVIEW_TYPE_CONFIGS: Record<
-    InterviewType,
-    Omit<StageConfig, "id" | "order">
-  > = {
-    phone_screening: {
+  // Complete stage configuration mapping
+  private static readonly STAGE_CONFIGS: Record<CandidateStage, StageConfig> = {
+    "Applied": {
+      id: "applied",
+      label: "Applied",
+      color: "gray",
+      icon: "FileText",
+      order: 0,
+      description: "Application submitted, waiting for review",
+    },
+    "Phone Screening": {
+      id: "phone_screening",
       label: "Phone Screening",
       color: "green",
       icon: "Phone",
-      description: "Initial phone conversation with recruiter",
+      order: 1,
+      description: "Initial phone screening interview",
     },
-    video_interview: {
+    "Video Interview": {
+      id: "video_interview",
       label: "Video Interview",
       color: "blue",
       icon: "Video",
-      description: "Video interview with hiring manager",
+      order: 2,
+      description: "Video interview with hiring team",
     },
-    technical_assessment: {
+    "Technical Assessment": {
+      id: "technical_assessment",
       label: "Technical Assessment",
       color: "purple",
       icon: "Code",
+      order: 3,
       description: "Technical skills evaluation",
     },
-    coding_challenge: {
+    "Coding Challenge": {
+      id: "coding_challenge",
       label: "Coding Challenge",
       color: "orange",
       icon: "Code",
-      description: "Take-home or live coding exercise",
+      order: 4,
+      description: "Coding exercise or challenge",
     },
-    behavioral_interview: {
+    "Behavioral Interview": {
+      id: "behavioral_interview",
       label: "Behavioral Interview",
       color: "pink",
       icon: "MessageSquare",
-      description: "Behavioral and cultural fit assessment",
+      order: 5,
+      description: "Behavioral and cultural assessment",
     },
-    panel_interview: {
+    "Panel Interview": {
+      id: "panel_interview",
       label: "Panel Interview",
       color: "indigo",
       icon: "Users",
+      order: 6,
       description: "Interview with multiple team members",
     },
-    final_interview: {
+    "Final Interview": {
+      id: "final_interview",
       label: "Final Interview",
       color: "yellow",
       icon: "Crown",
-      description: "Final round with senior leadership",
+      order: 7,
+      description: "Final round with leadership",
     },
-    culture_fit: {
+    "Culture Fit": {
+      id: "culture_fit",
       label: "Culture Fit",
       color: "red",
       icon: "Heart",
-      description: "Final culture and team fit evaluation",
+      order: 8,
+      description: "Cultural fit evaluation",
+    },
+    "Offer": {
+      id: "offer",
+      label: "Offer",
+      color: "yellow",
+      icon: "Award",
+      order: 9,
+      description: "Offer extended or candidate hired",
     },
   };
 
   // Get all available stage configurations
   static getAllStageConfigs(): StageConfig[] {
-    const configs: StageConfig[] = [this.APPLIED_STAGE_CONFIG];
-
-    // Dynamically add all interview types with incremental order
-    Object.entries(this.INTERVIEW_TYPE_CONFIGS).forEach(
-      ([key, config], index) => {
-        configs.push({
-          id: key,
-          label: config.label,
-          color: config.color,
-          icon: config.icon,
-          order: index + 1, // Start from 1 since applied is 0
-          description: config.description,
-        });
-      }
-    );
-
-    return configs;
+    return Object.values(this.STAGE_CONFIGS).sort((a, b) => a.order - b.order);
   }
 
-  // Get stage config by ID
-  static getStageConfig(stageId: string): StageConfig | null {
-    if (stageId === "applied") {
-      return this.APPLIED_STAGE_CONFIG;
-    }
+  // Get stage config by stage name
+  static getStageConfig(stage: CandidateStage): StageConfig | null {
+    return this.STAGE_CONFIGS[stage] || null;
+  }
 
-    const interviewConfig =
-      this.INTERVIEW_TYPE_CONFIGS[stageId as InterviewType];
-    if (interviewConfig) {
-      const interviewTypes = Object.keys(this.INTERVIEW_TYPE_CONFIGS);
-      return {
-        id: stageId,
-        ...interviewConfig,
-        order: interviewTypes.indexOf(stageId) + 1,
-      };
-    }
-
-    return null;
+  // Get stage config by ID (for backward compatibility)
+  static getStageConfigById(stageId: string): StageConfig | null {
+    const stage = this.filterIdToStage(stageId);
+    return stage ? this.STAGE_CONFIGS[stage] : null;
   }
 
   // Get icon component for stage
-  static getStageIcon(stageId: string): React.ReactNode {
+  static getStageIcon(stage: CandidateStage): React.ReactNode {
     const iconMap: Record<string, LucideIcon> = {
       applied: FileText,
       phone_screening: Phone,
@@ -180,10 +164,12 @@ export class InterviewStageConfig {
       panel_interview: Users,
       final_interview: Crown,
       culture_fit: Heart,
+      offer: Award,
     };
 
+    const stageId = this.stageToFilterId(stage);
     const IconComponent = iconMap[stageId] || FileText;
-    const config = this.getStageConfig(stageId);
+    const config = this.getStageConfig(stage);
     const color = config?.color || "gray";
 
     // Use data attributes or CSS variables instead of dynamic Tailwind classes
@@ -193,24 +179,41 @@ export class InterviewStageConfig {
     });
   }
 
-  // Map backend stage value to filter ID
-  static mapStageToFilterId(stage: string): string {
-    // Normalize the stage string
-    const normalizedStage = stage.toLowerCase().replace(/\s+/g, "_");
+  // Convert stage to filter ID
+  static stageToFilterId(stage: CandidateStage): string {
+    return stage.toLowerCase().replace(/\s+/g, "_");
+  }
 
-    // Check if it's a valid stage
-    if (
-      normalizedStage === "applied" ||
-      this.INTERVIEW_TYPE_CONFIGS[normalizedStage as InterviewType]
-    ) {
-      return normalizedStage;
+  // Convert filter ID to stage (for backward compatibility)
+  static filterIdToStage(filterId: string): CandidateStage | null {
+    const mapping: Record<string, CandidateStage> = {
+      "applied": "Applied",
+      "phone_screening": "Phone Screening",
+      "video_interview": "Video Interview",
+      "technical_assessment": "Technical Assessment",
+      "coding_challenge": "Coding Challenge",
+      "behavioral_interview": "Behavioral Interview",
+      "panel_interview": "Panel Interview",
+      "final_interview": "Final Interview",
+      "culture_fit": "Culture Fit",
+      "offer": "Offer"
+    };
+    
+    return mapping[filterId] || null;
+  }
+
+  // Legacy method for backward compatibility
+  static mapStageToFilterId(stage: string): string {
+    // If it's already a valid CandidateStage, convert it
+    if (Object.keys(this.STAGE_CONFIGS).includes(stage as CandidateStage)) {
+      return this.stageToFilterId(stage as CandidateStage);
     }
 
     // Legacy mappings for backward compatibility
     const legacyMap: Record<string, string> = {
       initial_review: "applied",
       interview: "video_interview",
-      offer: "final_interview",
+      offer: "offer",
       phone_interview: "phone_screening",
       tech_assessment: "technical_assessment",
       coding_test: "coding_challenge",
@@ -218,24 +221,16 @@ export class InterviewStageConfig {
       panel: "panel_interview",
       final: "final_interview",
       culture: "culture_fit",
-      // Handle display format to backend format
-      "phone screening": "phone_screening",
-      "video interview": "video_interview",
-      "technical assessment": "technical_assessment",
-      "coding challenge": "coding_challenge",
-      "behavioral interview": "behavioral_interview",
-      "panel interview": "panel_interview",
-      "final interview": "final_interview",
-      "culture fit": "culture_fit",
     };
 
+    const normalizedStage = stage.toLowerCase().replace(/\s+/g, "_");
     return legacyMap[normalizedStage] || "applied";
   }
 
   // Map filter ID back to display format
   static mapFilterIdToDisplay(filterId: string): string {
-    const config = this.getStageConfig(filterId);
-    return config ? config.label : filterId.replace(/_/g, " ");
+    const stage = this.filterIdToStage(filterId);
+    return stage || filterId.replace(/_/g, " ");
   }
 
   // Generate default active stage filters (useful for initial state)
@@ -245,7 +240,8 @@ export class InterviewStageConfig {
 
   // Validate if a stage ID is valid
   static isValidStage(stageId: string): boolean {
-    return this.getStageConfig(stageId) !== null;
+    const stage = this.filterIdToStage(stageId);
+    return stage !== null && this.getStageConfig(stage) !== null;
   }
 
   // Get stages in order
@@ -312,15 +308,16 @@ export class DynamicCandidateFilterUtils {
         });
       }
 
-      // Apply stage filter if active
-      if (activeFilters.stage.length > 0) {
-        filtered = filtered.filter((candidate) => {
-          const stageFilterId = InterviewStageConfig.mapStageToFilterId(
-            candidate.stage || ""
-          );
-          return activeFilters.stage.includes(stageFilterId);
-        });
-      }
+              // Apply stage filter if active
+        if (activeFilters.stage.length > 0) {
+          filtered = filtered.filter((candidate) => {
+            if (!candidate.stage) return false;
+            const stageFilterId = InterviewStageConfig.stageToFilterId(
+              candidate.stage as CandidateStage
+            );
+            return activeFilters.stage.includes(stageFilterId);
+          });
+        }
 
       return filtered;
     };
@@ -336,11 +333,13 @@ export class DynamicCandidateFilterUtils {
       }
 
       // Count by stage using dynamic mapping
-      const stageFilterId = InterviewStageConfig.mapStageToFilterId(
-        candidate.stage || ""
-      );
-      if (counts.stage[stageFilterId] !== undefined) {
-        counts.stage[stageFilterId]++;
+      if (candidate.stage) {
+        const stageFilterId = InterviewStageConfig.stageToFilterId(
+          candidate.stage as CandidateStage
+        );
+        if (counts.stage[stageFilterId] !== undefined) {
+          counts.stage[stageFilterId]++;
+        }
       }
     });
 
@@ -387,15 +386,15 @@ export class DynamicCandidateFilterUtils {
       });
     }
 
-    // Apply stage filter using dynamic mapping
-    if (activeFilters.stage.length > 0) {
-      filtered = filtered.filter((candidate) => {
-        const stageFilterId = InterviewStageConfig.mapStageToFilterId(
-          candidate.stage || ""
-        );
-        return activeFilters.stage.includes(stageFilterId);
-      });
-    }
+          // Apply stage filter using dynamic mapping
+      if (activeFilters.stage.length > 0) {
+        filtered = filtered.filter((candidate) => {
+          const stageFilterId = InterviewStageConfig.stageToFilterId(
+            candidate.stage as CandidateStage
+          );
+          return activeFilters.stage.includes(stageFilterId);
+        });
+      }
 
     return filtered;
   }

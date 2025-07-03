@@ -15,8 +15,10 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { ApiJob } from "@/interfaces/api";
+import { InterviewTemplate } from "@/interfaces/interview";
 
-interface JobWithTemplate extends ApiJob {
+interface JobWithTemplate extends Omit<ApiJob, "interviewTemplate"> {
+  interviewTemplate?: InterviewTemplate;
   candidateCount?: number;
 }
 
@@ -166,7 +168,7 @@ export function PipelineJobCard({
                           {round.name}
                         </span>
                         <span className="text-xs opacity-75">
-                          {round.estimatedDuration || 30}min
+                          {round.duration || 30}min
                         </span>
                       </div>
                     </div>

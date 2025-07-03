@@ -31,7 +31,10 @@ namespace ai_hr.Models
         public string Status { get; set; } = "applied"; // Remove nullable and set default
 
         [Column("stage")]
-        public string Stage { get; set; } = "initial_review"; // Remove nullable and set default
+        public string Stage { get; set; } = "Applied"; // Updated default to match new system
+
+        [Column("current_round_id")]
+        public string? CurrentRoundId { get; set; } = "new"; // Default to "new" stage
 
         [Column("job_source")]
         public string? JobSource { get; set; }
@@ -58,6 +61,24 @@ namespace ai_hr.Models
         [Column("notes_updated_at")]
         public DateTime? NotesUpdatedAt { get; set; }
 
+        // Valid stages for the new granular system
+        public static readonly string[] ValidStages = {
+            "Applied", "Phone Screening", "Video Interview", "Technical Assessment",
+            "Coding Challenge", "Behavioral Interview", "Panel Interview",
+            "Final Interview", "Culture Fit", "Offer"
+        };
+
+        // Valid statuses
+        public static readonly string[] ValidStatuses = {
+            "applied", "In Progress", "Hired", "Rejected", "Offered"
+        };
+
+        // Stage validation method
+        public bool IsValidStage(string stage) => ValidStages.Contains(stage);
+
+        // Status validation method  
+        public bool IsValidStatus(string status) => ValidStatuses.Contains(status);
+
         // Constructor to ensure ID is always set
         public ApplicationDetail()
         {
@@ -65,7 +86,8 @@ namespace ai_hr.Models
             AppliedAt = DateTime.UtcNow;
             StatusChangedAt = DateTime.UtcNow;
             Status = "applied";
-            Stage = "initial_review";
+            Stage = "Applied";
+            CurrentRoundId = "new";
         }
     }
 }

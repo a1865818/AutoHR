@@ -33,6 +33,7 @@ interface ScoringCriteria {
 }
 
 interface PhoneScreeningConfiguration {
+  name: string;
   questions: Question[];
   scoringCriteria: ScoringCriteria[];
   duration: number;
@@ -115,9 +116,32 @@ export function PhoneScreeningConfig({
 }: PhoneScreeningConfigProps) {
   const [config, setConfig] = useState<PhoneScreeningConfiguration>(() => {
     // Initialize with passed configuration or defaults
+    console.log("🔄 PhoneScreeningConfig initializing with:", initialConfig);
+
+    // Ensure questions and scoring criteria are properly set
+    const questions =
+      Array.isArray(initialConfig?.questions) &&
+      initialConfig.questions.length > 0
+        ? initialConfig.questions
+        : defaultQuestions;
+
+    const scoringCriteria =
+      Array.isArray(initialConfig?.scoringCriteria) &&
+      initialConfig.scoringCriteria.length > 0
+        ? initialConfig.scoringCriteria
+        : defaultScoringCriteria;
+
+    console.log("📋 Initial questions:", questions.length, "items");
+    console.log(
+      "🏆 Initial scoring criteria:",
+      scoringCriteria.length,
+      "items"
+    );
+
     return {
-      questions: initialConfig?.questions || defaultQuestions,
-      scoringCriteria: initialConfig?.scoringCriteria || defaultScoringCriteria,
+      name: initialConfig?.name || "Phone Screening",
+      questions: questions,
+      scoringCriteria: scoringCriteria,
       duration: initialConfig?.duration || 30,
       bufferTime: initialConfig?.callSettings?.bufferTime || 5,
       interviewerInstructions:
@@ -150,10 +174,35 @@ export function PhoneScreeningConfig({
   // Update config when initialConfig changes
   useEffect(() => {
     if (initialConfig) {
+      console.log(
+        "🔄 PhoneScreeningConfig updating with initialConfig:",
+        initialConfig
+      );
+
+      // Ensure questions and scoring criteria are properly set
+      const questions =
+        Array.isArray(initialConfig.questions) &&
+        initialConfig.questions.length > 0
+          ? initialConfig.questions
+          : defaultQuestions;
+
+      const scoringCriteria =
+        Array.isArray(initialConfig.scoringCriteria) &&
+        initialConfig.scoringCriteria.length > 0
+          ? initialConfig.scoringCriteria
+          : defaultScoringCriteria;
+
+      console.log("📋 Using questions:", questions.length, "items");
+      console.log(
+        "🏆 Using scoring criteria:",
+        scoringCriteria.length,
+        "items"
+      );
+
       setConfig({
-        questions: initialConfig?.questions || defaultQuestions,
-        scoringCriteria:
-          initialConfig?.scoringCriteria || defaultScoringCriteria,
+        name: initialConfig?.name || "Phone Screening",
+        questions: questions,
+        scoringCriteria: scoringCriteria,
         duration: initialConfig?.duration || 30,
         bufferTime: initialConfig?.callSettings?.bufferTime || 5,
         interviewerInstructions:
@@ -274,25 +323,6 @@ export function PhoneScreeningConfig({
 
   return (
     <div className="p-6 space-y-8">
-      {/* Error Display */}
-      {validationErrors.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-start space-x-3">
-            <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
-            <div>
-              <h4 className="text-sm font-medium text-red-900">
-                Configuration Errors
-              </h4>
-              <ul className="mt-2 text-sm text-red-700 space-y-1">
-                {validationErrors.map((error, index) => (
-                  <li key={index}>• {error}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Questions Section */}
       <div className="border border-gray-200 rounded-lg">
         <div
@@ -646,10 +676,20 @@ export function PhoneScreeningConfig({
                 </label>
                 <input
                   type="number"
-                  value={config.duration}
-                  onChange={(e) =>
-                    handleConfigChange({ duration: parseInt(e.target.value) })
-                  }
+                  value={config.duration || ""}
+                  onChange={(e) => {
+                    // Allow the field to be cleared for typing
+                    if (e.target.value === "") {
+                      handleConfigChange({ duration: 15 });
+                    } else {
+                      const value = parseInt(e.target.value);
+                      // Handle NaN and enforce min/max
+                      if (!isNaN(value)) {
+                        const validValue = Math.max(15, Math.min(120, value));
+                        handleConfigChange({ duration: validValue });
+                      }
+                    }
+                  }}
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                   min="15"
                   max="120"
@@ -662,10 +702,20 @@ export function PhoneScreeningConfig({
                 </label>
                 <input
                   type="number"
-                  value={config.bufferTime}
-                  onChange={(e) =>
-                    handleConfigChange({ bufferTime: parseInt(e.target.value) })
-                  }
+                  value={config.bufferTime || ""}
+                  onChange={(e) => {
+                    // Allow the field to be cleared for typing
+                    if (e.target.value === "") {
+                      handleConfigChange({ bufferTime: 0 });
+                    } else {
+                      const value = parseInt(e.target.value);
+                      // Handle NaN and enforce min/max
+                      if (!isNaN(value)) {
+                        const validValue = Math.max(0, Math.min(30, value));
+                        handleConfigChange({ bufferTime: validValue });
+                      }
+                    }
+                  }}
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                   min="0"
                   max="30"

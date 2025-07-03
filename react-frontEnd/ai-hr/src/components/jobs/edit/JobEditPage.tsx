@@ -275,7 +275,7 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
       console.log("🚀 Publishing job...");
       const updateRequest = jobService.convertFormDataToUpdateRequest(formData);
 
-      updateRequest.status = "Open";
+      updateRequest.status = "Active";
       updateRequest.postedDate = new Date().toISOString();
 
       await jobService.updateJob(jobId, updateRequest);

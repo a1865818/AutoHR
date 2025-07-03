@@ -254,6 +254,16 @@ export default function InterviewsPage() {
         </Link>
       </div>
 
+      {/* Loading State */}
+      {loading && (
+        <div className="w-full flex flex-col items-center justify-center py-12">
+          <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
+          <h3 className="text-lg font-medium text-gray-900">
+            Loading interview templates...
+          </h3>
+        </div>
+      )}
+
       {/* Error Message */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
@@ -271,262 +281,273 @@ export default function InterviewsPage() {
         </div>
       )}
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Templates</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {stats.totalTemplates}
-              </p>
-            </div>
-            <div className="p-3 bg-blue-100 rounded-full">
-              <Calendar className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">
-                Active Interviews
-              </p>
-              <p className="text-2xl font-bold text-gray-900">
-                {stats.activeInterviews}
-              </p>
-            </div>
-            <div className="p-3 bg-green-100 rounded-full">
-              <Users className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Success Rate</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {stats.successRate}%
-              </p>
-            </div>
-            <div className="p-3 bg-yellow-100 rounded-full">
-              <TrendingUp className="w-6 h-6 text-yellow-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Avg Duration</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {Math.round(stats.averageDuration / 60)}h
-              </p>
-            </div>
-            <div className="p-3 bg-purple-100 rounded-full">
-              <Clock className="w-6 h-6 text-purple-600" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Search and Filters */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-8">
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search templates..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <Filter className="w-5 h-5 text-gray-400" />
-              <select
-                value={selectedFilter}
-                onChange={(e) =>
-                  setSelectedFilter(
-                    e.target.value as "all" | "default" | "custom"
-                  )
-                }
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              >
-                <option value="all">All Templates</option>
-                <option value="default">Default Templates</option>
-                <option value="custom">Custom Templates</option>
-              </select>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Templates Grid */}
-      <div className="space-y-6">
-        {filteredTemplates.map((template) => (
-          <div
-            key={template.id}
-            className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-200"
-          >
-            <div className="p-6">
-              {/* Template Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <h3 className="text-xl font-semibold text-gray-900">
-                      {template.name}
-                    </h3>
-                    {template.isDefault && (
-                      <span className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs font-medium rounded-full">
-                        Default
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-gray-600 mb-3">{template.description}</p>
-
-                  {/* Template Stats */}
-                  <div className="flex items-center space-x-6 text-sm text-gray-500">
-                    <div className="flex items-center space-x-1">
-                      <Users className="w-4 h-4" />
-                      <span>Used by {template.usageCount} jobs</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Star className="w-4 h-4" />
-                      <span>{template.averageRating}/5 rating</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <TrendingUp className="w-4 h-4" />
-                      <span>{template.successRate}% success</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Clock className="w-4 h-4" />
-                      <span>
-                        {Math.round(totalDuration(template) / 60)}h total
-                      </span>
-                    </div>
-                  </div>
+      {/* Only render the content when not loading */}
+      {!loading && (
+        <>
+          {/* Stats Overview */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Templates</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {stats.totalTemplates}
+                  </p>
                 </div>
+                <div className="p-3 bg-blue-100 rounded-full">
+                  <Calendar className="w-6 h-6 text-blue-600" />
+                </div>
+              </div>
+            </div>
 
-                {/* Action Buttons */}
+            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    Active Interviews
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {stats.activeInterviews}
+                  </p>
+                </div>
+                <div className="p-3 bg-green-100 rounded-full">
+                  <Users className="w-6 h-6 text-green-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    Success Rate
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {stats.successRate}%
+                  </p>
+                </div>
+                <div className="p-3 bg-yellow-100 rounded-full">
+                  <TrendingUp className="w-6 h-6 text-yellow-600" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">
+                    Avg Duration
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {Math.round(stats.averageDuration / 60)}h
+                  </p>
+                </div>
+                <div className="p-3 bg-purple-100 rounded-full">
+                  <Clock className="w-6 h-6 text-purple-600" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Search and Filters */}
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 mb-8">
+            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Search templates..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() =>
-                      handleCloneTemplate(template.id, template.name)
+                  <Filter className="w-5 h-5 text-gray-400" />
+                  <select
+                    value={selectedFilter}
+                    onChange={(e) =>
+                      setSelectedFilter(
+                        e.target.value as "all" | "default" | "custom"
+                      )
                     }
-                    disabled={loading || actionLoading === template.id}
-                    className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Clone template"
+                    className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
-                    {actionLoading === template.id ? (
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                    ) : (
-                      <Copy className="w-5 h-5" />
-                    )}
-                  </button>
-                  {!template.isDefault && (
-                    <button
-                      onClick={() => handleSetDefaultTemplate(template.id)}
-                      disabled={loading || actionLoading === template.id}
-                      className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Set as default template"
-                    >
-                      {actionLoading === template.id ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <Star className="w-5 h-5" />
-                      )}
-                    </button>
-                  )}
-                  <Link
-                    href={`/interview-templates/edit?id=${template.id}`}
-                    className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                    title="Edit template"
-                  >
-                    <Edit className="w-5 h-5" />
-                  </Link>
-                  {!template.isDefault && (
-                    <button
-                      onClick={() => handleDeleteTemplate(template.id)}
-                      disabled={loading || actionLoading === template.id}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      title="Delete template"
-                    >
-                      {actionLoading === template.id ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-5 h-5" />
-                      )}
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Interview Flow */}
-              <div className="border-t border-gray-200 pt-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">
-                  Interview Flow
-                </h4>
-                <div className="flex items-center space-x-2 overflow-x-auto pb-2">
-                  {template.rounds.map((round, index) => {
-                    const IconComponent = getInterviewTypeIcon(round.type);
-                    const colorClass = getInterviewTypeColor(round.type);
-
-                    return (
-                      <React.Fragment key={round.id}>
-                        <div className="flex-shrink-0">
-                          <div
-                            className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${colorClass}`}
-                          >
-                            <IconComponent className="w-4 h-4" />
-                            <span className="text-sm font-medium whitespace-nowrap">
-                              {round.name}
-                            </span>
-                            <span className="text-xs opacity-75">
-                              {round.duration}min
-                            </span>
-                          </div>
-                        </div>
-                        {index < template.rounds.length - 1 && (
-                          <div className="flex-shrink-0 text-gray-400">
-                            <span>→</span>
-                          </div>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
+                    <option value="all">All Templates</option>
+                    <option value="default">Default Templates</option>
+                    <option value="custom">Custom Templates</option>
+                  </select>
                 </div>
               </div>
             </div>
           </div>
-        ))}
-      </div>
 
-      {/* Empty State */}
-      {filteredTemplates.length === 0 && (
-        <div className="text-center py-12">
-          <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            No interview templates found
-          </h3>
-          <p className="text-gray-600 mb-6">
-            {searchQuery
-              ? "Try adjusting your search terms or filters"
-              : "Create your first interview template to get started"}
-          </p>
-          <Link
-            href="/interview-templates/create"
-            className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Create Template
-          </Link>
-        </div>
+          {/* Templates Grid */}
+          <div className="space-y-6">
+            {filteredTemplates.map((template) => (
+              <div
+                key={template.id}
+                className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-200"
+              >
+                <div className="p-6">
+                  {/* Template Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <h3 className="text-xl font-semibold text-gray-900">
+                          {template.name}
+                        </h3>
+                        {template.isDefault && (
+                          <span className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs font-medium rounded-full">
+                            Default
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-gray-600 mb-3">
+                        {template.description}
+                      </p>
+
+                      {/* Template Stats */}
+                      <div className="flex items-center space-x-6 text-sm text-gray-500">
+                        <div className="flex items-center space-x-1">
+                          <Users className="w-4 h-4" />
+                          <span>Used by {template.usageCount} jobs</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <Star className="w-4 h-4" />
+                          <span>{template.averageRating}/5 rating</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <TrendingUp className="w-4 h-4" />
+                          <span>{template.successRate}% success</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <Clock className="w-4 h-4" />
+                          <span>
+                            {Math.round(totalDuration(template) / 60)}h total
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() =>
+                          handleCloneTemplate(template.id, template.name)
+                        }
+                        disabled={loading || actionLoading === template.id}
+                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Clone template"
+                      >
+                        {actionLoading === template.id ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <Copy className="w-5 h-5" />
+                        )}
+                      </button>
+                      {!template.isDefault && (
+                        <button
+                          onClick={() => handleSetDefaultTemplate(template.id)}
+                          disabled={loading || actionLoading === template.id}
+                          className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Set as default template"
+                        >
+                          {actionLoading === template.id ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <Star className="w-5 h-5" />
+                          )}
+                        </button>
+                      )}
+                      <Link
+                        href={`/interview-templates/edit?id=${template.id}`}
+                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        title="Edit template"
+                      >
+                        <Edit className="w-5 h-5" />
+                      </Link>
+                      {!template.isDefault && (
+                        <button
+                          onClick={() => handleDeleteTemplate(template.id)}
+                          disabled={loading || actionLoading === template.id}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Delete template"
+                        >
+                          {actionLoading === template.id ? (
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                          ) : (
+                            <Trash2 className="w-5 h-5" />
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Interview Flow */}
+                  <div className="border-t border-gray-200 pt-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-3">
+                      Interview Flow
+                    </h4>
+                    <div className="flex items-center space-x-2 overflow-x-auto pb-2">
+                      {template.rounds.map((round, index) => {
+                        const IconComponent = getInterviewTypeIcon(round.type);
+                        const colorClass = getInterviewTypeColor(round.type);
+
+                        return (
+                          <React.Fragment key={round.id}>
+                            <div className="flex-shrink-0">
+                              <div
+                                className={`flex items-center space-x-2 px-3 py-2 rounded-lg ${colorClass}`}
+                              >
+                                <IconComponent className="w-4 h-4" />
+                                <span className="text-sm font-medium whitespace-nowrap">
+                                  {round.name}
+                                </span>
+                                <span className="text-xs opacity-75">
+                                  {round.duration}min
+                                </span>
+                              </div>
+                            </div>
+                            {index < template.rounds.length - 1 && (
+                              <div className="flex-shrink-0 text-gray-400">
+                                <span>→</span>
+                              </div>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Empty State */}
+          {filteredTemplates.length === 0 && (
+            <div className="text-center py-12">
+              <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                No interview templates found
+              </h3>
+              <p className="text-gray-600 mb-6">
+                {searchQuery
+                  ? "Try adjusting your search terms or filters"
+                  : "Create your first interview template to get started"}
+              </p>
+              <Link
+                href="/interview-templates/create"
+                className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+              >
+                <Plus className="w-5 h-5 mr-2" />
+                Create Template
+              </Link>
+            </div>
+          )}
+        </>
       )}
 
       {/* Success Message Banner */}
