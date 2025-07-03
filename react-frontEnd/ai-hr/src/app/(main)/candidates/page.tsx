@@ -11,13 +11,14 @@ import { RankingModal } from "@/components/candidates/RankingModal";
 import { RankingTab } from "@/components/candidates/RankingTab";
 
 import { useHiringAuth } from "@/hooks/useHiringAuth";
-import { CandidateWithJobDetails } from "@/interfaces";
+import { CandidateWithJobDetails, CandidateStage } from "@/interfaces";
 import { candidateService } from "@/services/candidateService";
 import {
   DynamicCandidateFilterUtils,
   InterviewStageConfig,
   useDynamicStageConfigs,
 } from "@/utils/dynamicInterviewStageConfig";
+import { StageManager } from "@/utils/stageManager";
 
 import {
   Briefcase,
@@ -234,17 +235,32 @@ function CandidatesPage() {
     position: true,
   });
 
-  // Updated: Default active filters now use dynamic stages
+  // Updated: Default active filters now use new granular stages
   const [activeFilters, setActiveFilters] = useState({
     status: ["in-progress"],
-    stage: [] as string[],
+    stage: [
+      "applied",
+      "phone_screening",
+      "video_interview",
+      "technical_assessment",
+      "coding_challenge",
+      "behavioral_interview",
+      "panel_interview",
+      "final_interview",
+      "culture_fit",
+      "offer",
+    ], // All stages by default
     position: [] as string[],
   });
 
   // Only initialize stage filters on first load
   const didInitStageFilters = useRef(false);
   useEffect(() => {
-    if (!didInitStageFilters.current && stageConfigs.length > 0 && activeFilters.stage.length === 0) {
+    if (
+      !didInitStageFilters.current &&
+      stageConfigs.length > 0 &&
+      activeFilters.stage.length === 0
+    ) {
       setActiveFilters((prev) => ({
         ...prev,
         stage: stageConfigs.map((config) => config.id), // All stages by default
@@ -387,12 +403,7 @@ function CandidatesPage() {
     );
 
     return counts;
-  }, [
-    candidates,
-    activeFilters,
-    stageConfigs,
-    stageConfigsLoading,
-  ]);
+  }, [candidates, activeFilters, stageConfigs, stageConfigsLoading]);
 
   const handleCandidateClick = (candidateId: string) => {
     setSelectedCandidate(candidateId);
@@ -495,23 +506,30 @@ function CandidatesPage() {
       if (!candidate) return;
 
       let newStatus: "In Progress" | "Hired" | "Rejected";
-      let newStage: "Applied" | "Interview" | "Offer" | undefined;
+      let newStage: CandidateStage;
 
       if (action === "approve") {
         if (candidate.stage === "Applied") {
           newStatus = "In Progress";
-          newStage = "Interview";
-        } else if (candidate.stage === "Interview") {
-          newStatus = "In Progress";
-          newStage = "Offer";
+          newStage = "Phone Screening"; // Move to first interview stage
         } else if (candidate.stage === "Offer") {
           newStatus = "Hired";
-          newStage = undefined;
+          newStage = "Offer"; // Keep stage as Offer, status becomes Hired
         } else {
-          newStatus = "In Progress";
+          // For any interview stage, move to next stage or to Offer
+          const stageOrder = StageManager.getStageOrder();
+          const currentIndex = stageOrder.indexOf(candidate.stage);
+          if (currentIndex !== -1 && currentIndex < stageOrder.length - 1) {
+            newStatus = "In Progress";
+            newStage = stageOrder[currentIndex + 1];
+          } else {
+            newStatus = "In Progress";
+            newStage = "Offer";
+          }
         }
       } else {
         newStatus = "Rejected";
+        newStage = candidate.stage; // Keep current stage when rejecting
       }
 
       // Update backend
@@ -853,7 +871,9 @@ function CandidatesPage() {
   const stagesWithCandidates = useMemo(() => {
     const stageIds = new Set<string>();
     candidates.forEach((candidate) => {
-      const stageId = InterviewStageConfig.mapStageToFilterId(candidate.stage || "");
+      const stageId = InterviewStageConfig.mapStageToFilterId(
+        candidate.stage || ""
+      );
       stageIds.add(stageId);
     });
     return stageIds;

@@ -1,3 +1,15 @@
+export type CandidateStage = 
+  | "Applied" 
+  | "Phone Screening" 
+  | "Video Interview" 
+  | "Technical Assessment" 
+  | "Coding Challenge" 
+  | "Behavioral Interview" 
+  | "Panel Interview" 
+  | "Final Interview" 
+  | "Culture Fit"
+  | "Offer";
+
 export interface Candidate {
   id: string;
   applicationId: string; // Link to ApplicationDetail
@@ -10,8 +22,8 @@ export interface Candidate {
   company: string;
   companyLogo?: string;
   assessment: number;
-  stage: "Applied" | "Interview" | "Offer";
-  status: "In Progress" | "Hired" | "Rejected";
+  stage: CandidateStage;
+  status: "In Progress" | "Hired" | "Rejected" | "Offered";
   appliedAt: string;
   resumeUrl?: string;
   coverLetterText?: string;
@@ -22,6 +34,7 @@ export interface Candidate {
   hiringNotes?: string;
   notesCreatedAt?: string;
   notesUpdatedAt?: string;
+  currentRoundId?: string; // Keep for backward compatibility
 }
 export interface SaveNoteRequest {
   notes: string;

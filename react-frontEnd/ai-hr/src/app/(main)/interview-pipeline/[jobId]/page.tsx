@@ -38,8 +38,10 @@ import {
   InterviewTemplate,
   InterviewRound,
   InterviewType,
+  INTERVIEW_TYPE_TO_STAGE_MAP,
 } from "@/interfaces/interview";
-import { Candidate } from "@/interfaces";
+import { Candidate, CandidateStage } from "@/interfaces";
+import { StageManager } from "@/utils/stageManager";
 import { PipelineCandidateCard } from "@/components/interview_pipeline/PipelineCandidateCard";
 import {
   DragDropCandidateCard,
@@ -61,7 +63,7 @@ interface PipelineCandidate extends Candidate {
 interface PipelineColumn {
   id: string;
   title: string;
-  type: "new" | "round" | "hired";
+  type: "new" | "round" | "hired" | "offered" | "rejected";
   round?: InterviewRound;
   candidates: PipelineCandidate[];
   color: string;
@@ -175,10 +177,26 @@ export default function JobPipelinePage() {
       setJob(jobWithTemplate);
 
       // Load candidates for this job
-      const candidatesData = await candidateService.getCandidatesForJob(jobId);
+      var candidatesData = await candidateService.getCandidatesForJob(jobId);
+      var applicationDetails = await candidateService.getApplicationDetailByJob(jobId);
+
+        // status and stage use applicationDetails data 
+      console.log("🔍 Candidates data:", candidatesData);
+      console.log("🔍 Application details:", applicationDetails);
+
+      for (const candidate of candidatesData) {
+        const matchingApplicationDetail = applicationDetails.find(
+          (applicationDetail: any) => applicationDetail.id === candidate.applicationId
+        )
+        candidate.stage = matchingApplicationDetail.stage
+        candidate.status = matchingApplicationDetail.status
+      }
+
       const pipelineCandidates: PipelineCandidate[] = candidatesData.map(
-        (candidate) => ({
+        (candidate) => {
+          return ({
           ...candidate,
+
           currentRoundId: getCurrentRoundId(
             candidate,
             jobWithTemplate.interviewTemplate
@@ -188,7 +206,9 @@ export default function JobPipelinePage() {
             jobWithTemplate.interviewTemplate
           ),
         })
-      );
+      });
+
+      console.log("🔍 Pipeline candidates:", pipelineCandidates);
 
       setCandidates(pipelineCandidates);
     } catch (error) {
@@ -205,9 +225,35 @@ export default function JobPipelinePage() {
     candidate: Candidate,
     template?: InterviewTemplate
   ): string | undefined => {
+    // Handle final statuses first
     if (candidate.status === "Hired") {
       return "hired";
     }
+    if (candidate.status === "Offered") {
+      return "offered";
+    }
+    if (candidate.status === "Rejected") {
+      return "rejected";
+    }
+
+    // For "In Progress" status, determine column based on stage
+    if (candidate.status === "In Progress") {
+      if (candidate.stage === "Applied") {
+        return "new";
+      }
+
+      // For interview stages, find the matching round
+      if (template?.rounds) {
+        for (const round of template.rounds) {
+          const roundStage = INTERVIEW_TYPE_TO_STAGE_MAP[round.type];
+          if (roundStage === candidate.stage) {
+            return round.id;
+          }
+        }
+      }
+    }
+
+    // Default to "new" if we can't determine the round
     return "new";
   };
 
@@ -217,77 +263,132 @@ export default function JobPipelinePage() {
   ): number => {
     if (!template?.rounds) return 0;
 
-    switch (candidate.stage) {
-      case "Applied":
-        return 0;
-      case "Interview":
-        return 50;
-      case "Offer":
-        return 90;
-      default:
-        return 0;
-    }
+    const stageOrder = StageManager.getStageOrder();
+    const currentStageIndex = stageOrder.indexOf(candidate.stage);
+
+    if (currentStageIndex === -1) return 0;
+
+    // Calculate progress as percentage through the pipeline
+    const totalStages = stageOrder.length;
+    return Math.round((currentStageIndex / (totalStages - 1)) * 100);
   };
 
   const organizeIntoColumns = () => {
-    // Always create at least the basic columns, even without a template
     const newColumns: PipelineColumn[] = [];
 
-    // New Applications column - always show this
+    console.log(
+      `📊 Organizing columns with ${candidates.length} candidates:`,
+      candidates.map((c) => ({
+        name: c.name,
+        status: c.status,
+        stage: c.stage,
+        currentRoundId: c.currentRoundId,
+      }))
+    );
+
+    // Applied column - always show this
+    const appliedCandidates = candidates.filter(
+      (c) => c.status === "In Progress" && c.stage === "Applied"
+    );
+    console.log(
+      `📋 Applied column: ${appliedCandidates.length} candidates`,
+      appliedCandidates.map((c) => ({
+        name: c.name,
+        stage: c.stage,
+        status: c.status,
+      }))
+    );
+
     newColumns.push({
       id: "new",
-      title: "New Applications",
+      title: "Applied",
       type: "new",
-      candidates: candidates.filter(
-        (c) =>
-          c.status === "In Progress" &&
-          (!c.currentRoundId || c.currentRoundId === "new")
-      ),
+      candidates: appliedCandidates,
       color: "border-blue-500 bg-blue-50",
     });
 
-    // Only add interview round columns if template exists
+    // Interview round columns based on template
     if (job?.interviewTemplate?.rounds) {
-      const rounds = job.interviewTemplate.rounds;
-      rounds.forEach((round, index) => {
-        const isLastRound = index === rounds.length - 1;
-        newColumns.push({
-          id: round.id,
-          title: round.name,
-          type: "round",
-          round: round,
-          candidates: candidates.filter(
-            (c) =>
-              c.currentRoundId === round.id &&
-              c.status === "In Progress" &&
-              c.currentRoundId !== "new"
-          ),
-          color: getColumnColor(round.type, isLastRound),
+      job.interviewTemplate.rounds
+        .sort((a, b) => a.roundOrder - b.roundOrder)
+        .forEach((round) => {
+          const roundStage = INTERVIEW_TYPE_TO_STAGE_MAP[round.type];
+          const roundCandidates = candidates.filter(
+            (c) => c.status === "In Progress" && c.stage === roundStage
+          );
+
+          console.log(
+            `📋 ${roundStage} column (round ${round.id}): ${roundCandidates.length} candidates`,
+            roundCandidates.map((c) => ({
+              name: c.name,
+              stage: c.stage,
+              status: c.status,
+              currentRoundId: c.currentRoundId,
+            }))
+          );
+
+          newColumns.push({
+            id: round.id,
+            title: roundStage,
+            type: "round",
+            round: round,
+            candidates: roundCandidates,
+            color: getColumnColor(round.type),
+          });
         });
-      });
     }
 
-    // Hired column - always show this
+    // Offer column (only for Offered status)
+    const offeredCandidates = candidates.filter((c) => c.status === "Offered");
+    console.log(`📊 Organizing columns - Offered candidates:`, {
+      total: candidates.length,
+      offered: offeredCandidates.length,
+      offeredCandidates: offeredCandidates.map((c) => ({
+        name: c.name,
+        status: c.status,
+        stage: c.stage,
+        currentRoundId: c.currentRoundId,
+      })),
+    });
+
+    newColumns.push({
+      id: "offered",
+      title: "Offer",
+      type: "offered",
+      candidates: offeredCandidates,
+      color: "border-yellow-500 bg-yellow-50",
+    });
+
+    // Hired column (only for Hired status)
+    const hiredCandidates = candidates.filter((c) => c.status === "Hired");
+    console.log(`📋 Hired column: ${hiredCandidates.length} candidates`);
+
     newColumns.push({
       id: "hired",
       title: "Hired",
       type: "hired",
-      candidates: candidates.filter((c) => c.status === "Hired"),
-      color: "border-emerald-500 bg-emerald-50",
+      candidates: hiredCandidates,
+      color: "border-green-500 bg-green-50",
+    });
+
+    // Rejected column
+    const rejectedCandidates = candidates.filter(
+      (c) => c.status === "Rejected"
+    );
+    console.log(`📋 Rejected column: ${rejectedCandidates.length} candidates`);
+
+    newColumns.push({
+      id: "rejected",
+      title: "Rejected",
+      type: "rejected",
+      candidates: rejectedCandidates,
+      color: "border-red-500 bg-red-50",
     });
 
     setColumns(newColumns);
   };
 
-  const getColumnColor = (
-    type: InterviewType,
-    isLastRound: boolean = false
-  ): string => {
-    // If it's the last round, always use yellow background
-    if (isLastRound) {
-      return "border-yellow-400 bg-yellow-50";
-    }
-
+  const getColumnColor = (type: InterviewType): string => {
     switch (type) {
       case "phone_screening":
         return "border-blue-400 bg-blue-50";
@@ -302,7 +403,7 @@ export default function JobPipelinePage() {
       case "panel_interview":
         return "border-indigo-400 bg-indigo-50";
       case "final_interview":
-        return "border-gray-400 bg-gray-50"; // Normal styling when not the last round
+        return "border-yellow-400 bg-yellow-50";
       case "culture_fit":
         return "border-red-400 bg-red-50";
       default:
@@ -333,37 +434,222 @@ export default function JobPipelinePage() {
     }
   };
 
+  // Debug utility function to trace candidate state
+  const debugCandidateState = (candidateId: string, label: string) => {
+    const candidate = candidates.find((c) => c.id === candidateId);
+    if (!candidate) {
+      console.log(`❌ ${label}: Candidate ${candidateId} not found`);
+      return;
+    }
+
+    console.log(`🔍 ${label}:`, {
+      name: candidate.name,
+      status: candidate.status,
+      stage: candidate.stage,
+      currentRoundId: candidate.currentRoundId,
+      applicationId: candidate.applicationId,
+    });
+
+    // Also check which column this candidate should be in
+    const expectedColumn = determineExpectedColumn(candidate);
+    console.log(`📍 Expected column for ${candidate.name}:`, expectedColumn);
+  };
+
+  // Utility to determine which column a candidate should be in based on their current state
+  const determineExpectedColumn = (candidate: Candidate) => {
+    if (candidate.status === "Hired") return "hired";
+    if (candidate.status === "Rejected") return "rejected";
+    if (candidate.status === "Offered") return "offered";
+    if (candidate.status === "In Progress" && candidate.stage === "Applied")
+      return "new";
+
+    // For other stages, find the corresponding round
+    if (job?.interviewTemplate?.rounds) {
+      const round = job.interviewTemplate.rounds.find(
+        (r) => INTERVIEW_TYPE_TO_STAGE_MAP[r.type] === candidate.stage
+      );
+      return round ? round.id : "unknown";
+    }
+
+    return "unknown";
+  };
+
   const handleCandidateMove = async (
     candidateId: string,
     fromColumnId: string,
     toColumnId: string
   ) => {
+    console.log(`\n🚀 ===== CANDIDATE MOVE STARTED =====`);
     console.log(
       `Moving candidate ${candidateId} from ${fromColumnId} to ${toColumnId}`
     );
 
-    // Update local state optimistically
-    setCandidates((prev) =>
-      prev.map((candidate) =>
-        candidate.id === candidateId
-          ? {
-              ...candidate,
-              currentRoundId: toColumnId,
-              // Update stage when moving from New Applications to first interview round
-              stage:
-                toColumnId === "new"
-                  ? "Applied"
-                  : toColumnId === "hired"
-                  ? "Offer"
-                  : "Interview",
-            }
-          : candidate
-      )
+    // Debug: Current state before move
+    debugCandidateState(candidateId, "BEFORE MOVE");
+
+    // Get the candidate
+    const candidate = candidates.find((c) => c.id === candidateId);
+    if (!candidate) return;
+
+    console.log(`🔍 Current candidate state:`, {
+      name: candidate.name,
+      currentStatus: candidate.status,
+      currentStage: candidate.stage,
+      toColumnId,
+    });
+
+    // Debug the interview template availability
+    console.log(`🔍 Interview template debug:`, {
+      hasJob: !!job,
+      hasTemplate: !!job?.interviewTemplate,
+      templateId: job?.interviewTemplate?.id,
+      roundsCount: job?.interviewTemplate?.rounds?.length || 0,
+      rounds:
+        job?.interviewTemplate?.rounds?.map((r) => ({
+          id: r.id,
+          type: r.type,
+          name: r.name,
+        })) || [],
+    });
+
+    // Determine new status and stage based on target column
+    let newStatus: "In Progress" | "Hired" | "Rejected" | "Offered" =
+      "In Progress";
+    let newStage: CandidateStage;
+
+    switch (toColumnId) {
+      case "new":
+      case "applied":
+        newStatus = "In Progress";
+        newStage = "Applied";
+        break;
+      case "hired":
+        newStatus = "Hired";
+        newStage = "Offer";
+        break;
+      case "rejected":
+        newStatus = "Rejected";
+        newStage = candidate.stage; // Keep current stage
+        break;
+      case "offered":
+        newStatus = "Offered";
+        newStage = "Offer";
+        break;
+      default:
+        // For interview rounds, determine stage from the round
+        newStatus = "In Progress";
+        console.log(
+          `🔄 About to call StageManager.getStageForColumnMove with:`,
+          {
+            toColumnId,
+            status: "In Progress",
+            template: {
+              id: job?.interviewTemplate?.id,
+              roundsCount: job?.interviewTemplate?.rounds?.length,
+              rounds: job?.interviewTemplate?.rounds?.map((r) => ({
+                id: r.id,
+                type: r.type,
+              })),
+            },
+          }
+        );
+        newStage = StageManager.getStageForColumnMove(
+          toColumnId,
+          "In Progress",
+          job?.interviewTemplate
+        );
+        console.log(`🎯 StageManager returned stage: ${newStage}`);
+    }
+
+    console.log(`🎯 Determined new values:`, {
+      newStatus,
+      newStage,
+      toColumnId,
+    });
+
+    // Validate stage transition
+    if (!StageManager.isValidStageTransition(candidate.stage, newStage)) {
+      console.warn(
+        `Invalid stage transition from ${candidate.stage} to ${newStage}`
+      );
+      return;
+    }
+
+    console.log(
+      `🚀 Starting API call without optimistic update to avoid conflicts`
     );
 
-    // Re-organize columns
-    organizeIntoColumns();
-  };
+    // Make API call to update in backend FIRST, then update local state
+    try {
+      console.log(`📤 Sending to backend:`, {
+        applicationId: candidate.applicationId,
+        newStatus,
+        newStage,
+        toColumnId,
+      });
+
+      const updateResult = await candidateService.updateCandidateStatus(
+        candidate.applicationId,
+        newStatus,
+        newStage,
+        toColumnId
+      );
+
+      console.log(
+        `✅ Successfully updated candidate ${candidateId} status in backend`,
+        updateResult
+      );
+
+      // NOW update local state with the actual backend response (or fallback to our calculated values)
+      const finalStatus =
+        updateResult && typeof updateResult === "object" && updateResult.status
+          ? updateResult.status
+          : newStatus;
+      const finalStage =
+        updateResult && typeof updateResult === "object" && updateResult.stage
+          ? updateResult.stage
+          : newStage;
+      const finalCurrentRoundId =
+        updateResult &&
+        typeof updateResult === "object" &&
+        updateResult.currentRoundId
+          ? updateResult.currentRoundId
+          : toColumnId;
+
+      console.log(`🔄 Updating local state with final values:`, {
+        finalStatus,
+        finalStage,
+        finalCurrentRoundId,
+        source:
+          updateResult && typeof updateResult === "object" && updateResult.stage
+            ? "backend_response"
+            : "calculated_values",
+      });
+
+      setCandidates((prev) =>
+        prev.map((c) =>
+          c.id === candidateId
+            ? {
+                ...c,
+                currentRoundId: finalCurrentRoundId,
+                status: finalStatus,
+                stage: finalStage,
+              }
+            : c
+        )
+      );
+
+      // Update the candidates in the backend
+      await candidateService.updateCandidateStatus(
+        candidate.applicationId,
+        finalStatus,
+        finalStage,
+        finalCurrentRoundId
+      );
+    } catch (error) {
+      console.error(`❌ Error updating candidate status:`, error);
+    }
+};
 
   const handleDragDrop = (candidateData: any, toColumnId: string) => {
     handleCandidateMove(
@@ -445,9 +731,13 @@ export default function JobPipelinePage() {
     // TODO: Implement notes functionality
   };
 
-  const handleHireCandidate = (candidateId: string) => {
+  const handleHireCandidate = async (candidateId: string) => {
     console.log(`Hiring candidate ${candidateId}`);
-    // Update candidate status to hired
+
+    const candidate = candidates.find((c) => c.id === candidateId);
+    if (!candidate) return;
+
+    // Update local state optimistically
     setCandidates((prev) =>
       prev.map((candidate) =>
         candidate.id === candidateId
@@ -460,22 +750,108 @@ export default function JobPipelinePage() {
           : candidate
       )
     );
-    // Re-organize columns
-    organizeIntoColumns();
+
+    // Note: organizeIntoColumns() will be called automatically by useEffect when candidates state updates
+
+    // Make API call to update in backend
+    try {
+      await candidateService.updateCandidateStatus(
+        candidate.applicationId,
+        "Hired",
+        "Offer",
+        "hired"
+      );
+      console.log(
+        `✅ Successfully updated candidate ${candidateId} to Hired status in backend`
+      );
+    } catch (error) {
+      console.error(
+        `❌ Failed to update candidate ${candidateId} to Hired status:`,
+        error
+      );
+    }
   };
 
-  const handleRejectCandidate = (candidateId: string) => {
+  const handleRejectCandidate = async (candidateId: string) => {
     console.log(`Rejecting candidate ${candidateId}`);
+
+    const candidate = candidates.find((c) => c.id === candidateId);
+    if (!candidate) return;
+
     // Update candidate status to rejected
     setCandidates((prev) =>
       prev.map((candidate) =>
         candidate.id === candidateId
-          ? { ...candidate, status: "Rejected" }
+          ? {
+              ...candidate,
+              status: "Rejected",
+              currentRoundId: "rejected",
+            }
           : candidate
       )
     );
-    // Re-organize columns
-    organizeIntoColumns();
+
+    // Note: organizeIntoColumns() will be called automatically by useEffect when candidates state updates
+
+    // Make API call to update in backend
+    try {
+      await candidateService.updateCandidateStatus(
+        candidate.applicationId,
+        "Rejected",
+        candidate.stage, // Keep the current stage
+        "rejected"
+      );
+      console.log(
+        `✅ Successfully updated candidate ${candidateId} to Rejected status in backend`
+      );
+    } catch (error) {
+      console.error(
+        `❌ Failed to update candidate ${candidateId} to Rejected status:`,
+        error
+      );
+    }
+  };
+
+  // New function to handle offering a position to a candidate
+  const handleOfferCandidate = async (candidateId: string) => {
+    console.log(`Offering position to candidate ${candidateId}`);
+
+    const candidate = candidates.find((c) => c.id === candidateId);
+    if (!candidate) return;
+
+    // Update local state optimistically
+    setCandidates((prev) =>
+      prev.map((candidate) =>
+        candidate.id === candidateId
+          ? {
+              ...candidate,
+              status: "Offered",
+              currentRoundId: "offered",
+              stage: "Offer",
+            }
+          : candidate
+      )
+    );
+
+    // Note: organizeIntoColumns() will be called automatically by useEffect when candidates state updates
+
+    // Make API call to update in backend
+    try {
+      await candidateService.updateCandidateStatus(
+        candidate.applicationId,
+        "Offered",
+        "Offer",
+        "offered"
+      );
+      console.log(
+        `✅ Successfully updated candidate ${candidateId} to Offered status in backend`
+      );
+    } catch (error) {
+      console.error(
+        `❌ Failed to update candidate ${candidateId} to Offered status:`,
+        error
+      );
+    }
   };
 
   // Template management functions
@@ -743,58 +1119,94 @@ export default function JobPipelinePage() {
                     <p className="text-sm">No candidates</p>
                   </div>
                 ) : (
-                  column.candidates.map((candidate) => (
-                    <div key={candidate.id} className="space-y-2">
-                      <DragDropCandidateCard
-                        candidate={candidate}
-                        roundId={column.id}
-                        canMoveLeft={columnIndex > 0}
-                        canMoveRight={columnIndex < filteredColumns.length - 1}
-                        onMove={(candidateId, direction) => {
-                          const targetIndex =
-                            direction === "right"
-                              ? Math.min(
-                                  columnIndex + 1,
-                                  filteredColumns.length - 1
-                                )
-                              : Math.max(columnIndex - 1, 0);
-                          if (targetIndex !== columnIndex) {
-                            handleCandidateMove(
-                              candidateId,
-                              column.id,
-                              filteredColumns[targetIndex].id
-                            );
-                          }
-                        }}
-                        onSchedule={(candidateId) =>
-                          handleScheduleInterview(candidateId, column.id)
-                        }
-                        onReject={(candidateId) =>
-                          handleBulkReject([candidateId])
-                        }
-                        onViewProfile={(candidateId) =>
-                          console.log(`View profile: ${candidateId}`)
-                        }
-                        onAddNote={(candidateId, note) =>
-                          handleAddNotes(candidateId, column.id, note)
-                        }
-                      />
+                  column.candidates.map((candidate) => {
+                    const canMoveLeft =
+                      column.id !== "new" &&
+                      column.id !== "rejected" &&
+                      column.id !== "hired" &&
+                      dragEnabled;
 
-                      {/* Round-specific actions */}
-                      {column.round && (
-                        <RoundSpecificActions
-                          round={column.round}
+                    const canMoveRight =
+                      column.id !== "hired" &&
+                      column.id !== "rejected" &&
+                      column.id !== "offered" && // Can't move right from offered (must go to hired)
+                      dragEnabled;
+
+                    // Determine which special action buttons to show based on the current column
+                    const showHireButton = column.id === "offered"; // Only show hire button from offered column
+                    const showOfferButton =
+                      isLastRound(column.id) && // Only show offer button in last round
+                      column.id !== "offered" &&
+                      column.id !== "hired" &&
+                      column.id !== "rejected" &&
+                      column.id !== "new";
+
+                    return (
+                      <div key={candidate.id} className="space-y-2">
+                        <DragDropCandidateCard
                           candidate={candidate}
-                          isLastRound={isLastRound(column.round.id)}
-                          onSchedule={handleScheduleInterview}
-                          onComplete={handleCompleteRound}
-                          onAddNotes={handleAddNotes}
-                          onHire={handleHireCandidate}
+                          roundId={column.id}
+                          canMoveLeft={canMoveLeft}
+                          canMoveRight={canMoveRight}
+                          onMove={(candidateId, direction) => {
+                            const currentColumnIndex = columns.findIndex(
+                              (c) => c.id === column.id
+                            );
+                            const targetColumnIndex =
+                              direction === "left"
+                                ? currentColumnIndex - 1
+                                : currentColumnIndex + 1;
+                            if (
+                              targetColumnIndex >= 0 &&
+                              targetColumnIndex < columns.length
+                            ) {
+                              handleCandidateMove(
+                                candidateId,
+                                column.id,
+                                columns[targetColumnIndex].id
+                              );
+                            }
+                          }}
+                          onSchedule={(candidateId) =>
+                            handleScheduleInterview(candidateId, column.id)
+                          }
                           onReject={handleRejectCandidate}
+                          onHire={
+                            showHireButton ? handleHireCandidate : undefined
+                          }
+                          onOffer={
+                            showOfferButton ? handleOfferCandidate : undefined
+                          }
+                          onViewProfile={(candidateId) =>
+                            console.log(
+                              `Viewing profile for candidate ${candidateId}`
+                            )
+                          }
+                          onAddNote={(candidateId, note) =>
+                            handleAddNotes(candidateId, column.id, note)
+                          }
                         />
-                      )}
-                    </div>
-                  ))
+
+                        {/* Round-specific actions */}
+                        {column.round && (
+                          <RoundSpecificActions
+                            round={column.round}
+                            candidate={candidate}
+                            isLastRound={isLastRound(column.round.id)}
+                            onSchedule={handleScheduleInterview}
+                            onComplete={handleCompleteRound}
+                            onAddNotes={handleAddNotes}
+                            onHire={
+                              column.id === "offered"
+                                ? handleHireCandidate
+                                : undefined
+                            }
+                            onReject={handleRejectCandidate}
+                          />
+                        )}
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </DroppableColumn>

@@ -237,7 +237,12 @@ export function ApplicantJobsPage() {
             employmentType: String(cleaned.employmentType || "Full-time"),
             locationType: String(cleaned.locationType || "On-site"),
             seniorityLevel: String(cleaned.seniorityLevel || ""),
-            status: String(cleaned.status || ""),
+            status: String(cleaned.status || "Active") as
+              | "Draft"
+              | "Active"
+              | "Paused"
+              | "Closed"
+              | "Expired",
             salaryCurrency: String(cleaned.salaryCurrency || "USD"),
             companyId: String(cleaned.companyId || ""),
             createdBy: String(cleaned.createdBy || ""),
