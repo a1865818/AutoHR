@@ -80,10 +80,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         router.replace("/public");
       } else if (user && isAuthPage) {
         // User is authenticated and on auth page - redirect to appropriate dashboard
+        // Use push instead of replace to avoid navigation conflicts
         if (user.userCategory === "ApplicationUser") {
-          router.replace("/applicant");
+          router.push("/applicant");
         } else {
-          router.replace("/");
+          router.push("/");
         }
       }
     }
@@ -143,7 +144,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     rememberMe = false,
     userType: "application" | "hiring" = "hiring"
   ): Promise<boolean> => {
-    setIsLoading(true);
+    // Don't set global loading state during login to prevent double loading
+    // The login form will handle its own loading state
 
     try {
       const response =
@@ -180,11 +182,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       storage.setItem("refreshToken", response.refreshToken);
       storage.setItem("userCategory", user.userCategory);
 
-      setIsLoading(false);
       return true;
     } catch (error) {
       console.error("Login error:", error);
-      setIsLoading(false);
       return false;
     }
   };
