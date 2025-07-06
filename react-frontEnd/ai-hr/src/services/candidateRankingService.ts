@@ -317,7 +317,7 @@ class CandidateRankingService {
     }
   }
 
-  // Get all rankings for company
+  // Get rankings for all jobs in a company
   async getRankingsByCompany(): Promise<RankingsByJobResponse[]> {
     const { token, companyId } = this.getAuthData();
 
@@ -329,7 +329,7 @@ class CandidateRankingService {
       throw new Error("Company ID not found");
     }
 
-    console.log("📤 Getting all rankings for company:", companyId);
+    console.log("📤 Fetching all rankings for company:", companyId);
 
     try {
       const response = await fetch(
@@ -341,16 +341,93 @@ class CandidateRankingService {
       );
 
       if (!response.ok) {
+        if (response.status === 404) {
+          return [];
+        }
         const error = await response.text();
-        throw new Error(`Failed to get company rankings: ${error}`);
+        throw new Error(`Failed to fetch company rankings: ${error}`);
       }
 
       const result = await response.json();
-      console.log("✅ Company rankings retrieved successfully:", result);
+      console.log("✅ Company rankings fetched successfully:", result);
       return result;
     } catch (error) {
-      console.error("❌ Failed to get company rankings:", error);
+      console.error("❌ Failed to fetch company rankings:", error);
       throw error;
+    }
+  }
+
+  // Get rankings for a specific job and company
+  async getRankings(companyId: string, jobId: string) {
+    const { token } = this.getAuthData();
+
+    if (!token) {
+      throw new Error("User not authenticated");
+    }
+
+    const actualCompanyId = companyId || this.getAuthData().companyId;
+    
+    if (!actualCompanyId) {
+      throw new Error("Company ID is required");
+    }
+
+    console.log("📤 Fetching rankings:", {
+      jobId,
+      companyId: actualCompanyId,
+    });
+
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/candidates/rankings/job/${actualCompanyId}/${jobId}`,
+        {
+          method: "GET",
+          headers: this.getHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return {
+            success: true,
+            data: [],
+            meta: {
+              jobId,
+              jobTitle: "Unknown Job",
+              companyName: "Unknown Company",
+              totalRanked: 0,
+              lastUpdated: new Date().toISOString(),
+            }
+          };
+        }
+        const error = await response.text();
+        throw new Error(`Failed to fetch rankings: ${error}`);
+      }
+
+      const responseData = await response.json();
+      
+      // Convert backend response to frontend format
+      const rankingData = responseData.rankings.map((ranking: CandidateRankingResponse) => 
+        this.convertRankingToCandidate(ranking)
+      );
+      
+      return {
+        success: true,
+        data: rankingData,
+        meta: {
+          jobId: responseData.jobId,
+          jobTitle: responseData.jobTitle,
+          companyName: responseData.companyName,
+          totalRanked: responseData.totalRanked,
+          lastUpdated: responseData.lastUpdated,
+        }
+      };
+    } catch (error) {
+      console.error("❌ Failed to fetch rankings:", error);
+      return {
+        success: false,
+        data: [],
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
     }
   }
 

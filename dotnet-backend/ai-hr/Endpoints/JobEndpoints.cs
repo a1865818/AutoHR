@@ -370,7 +370,7 @@ public static class JobEndpoints
             var updatedJobs = new List<object>();
             var errors = new List<string>();
 
-            foreach (var job in jobs)
+            foreach (var job in jobs ?? new List<Job>())
             {
                 try
                 {
@@ -561,7 +561,7 @@ public static class JobEndpoints
             {
                 success = true,
                 message = "Job duplicated successfully",
-                duplicatedJob = CreateJobDto(duplicateJob)
+                duplicatedJob = await CreateJobDto(duplicateJob, client)
             });
         }
         catch (Exception ex)
@@ -611,42 +611,49 @@ public static class JobEndpoints
                 Console.WriteLine($"📊 After status filter: {jobs.Count} jobs with status '{status}'");
             }
 
-            // Create DTOs
-            var jobDtos = jobs.Select(job => new
+            // Create DTOs with real-time applicant counts
+            var jobDtos = new List<object>();
+            foreach (var job in jobs ?? new List<Job>())
             {
-                Id = job.Id,
-                Title = job.Title,
-                CompanyId = job.CompanyId,
-                CreatedBy = job.CreatedBy,
-                Description = job.Description,
-                Department = job.Department,
-                Responsibilities = job.Responsibilities,
-                Requirements = job.Requirements,
-                Qualifications = job.Qualifications,
-                Benefits = job.Benefits,
-                EmploymentType = job.EmploymentType,
-                SeniorityLevel = job.SeniorityLevel,
-                ExperienceYearsMin = job.ExperienceYearsMin,
-                LocationType = job.LocationType,
-                Locations = job.Locations,
-                SalaryMin = job.SalaryMin,
-                SalaryMax = job.SalaryMax,
-                SalaryCurrency = job.SalaryCurrency,
-                ApplicationDeadline = job.ApplicationDeadline,
-                Status = job.Status,
-                ApplicantCount = job.ApplicantCount,
-                ViewCount = job.ViewCount,
-                AiGeneratedDescription = job.AiGeneratedDescription,
-                SkillMatchThreshold = job.SkillMatchThreshold,
-                PostedDate = job.PostedDate,
-                ClosedDate = job.ClosedDate,
-                InterviewTemplateId = job.InterviewTemplateId
-            }).ToList();
+                // Calculate actual applicant count in real-time
+                var actualApplicantCount = await CalculateApplicantCount(job.Id, client);
+
+                jobDtos.Add(new
+                {
+                    Id = job.Id,
+                    Title = job.Title,
+                    CompanyId = job.CompanyId,
+                    CreatedBy = job.CreatedBy,
+                    Description = job.Description,
+                    Department = job.Department,
+                    Responsibilities = job.Responsibilities,
+                    Requirements = job.Requirements,
+                    Qualifications = job.Qualifications,
+                    Benefits = job.Benefits,
+                    EmploymentType = job.EmploymentType,
+                    SeniorityLevel = job.SeniorityLevel,
+                    ExperienceYearsMin = job.ExperienceYearsMin,
+                    LocationType = job.LocationType,
+                    Locations = job.Locations,
+                    SalaryMin = job.SalaryMin,
+                    SalaryMax = job.SalaryMax,
+                    SalaryCurrency = job.SalaryCurrency,
+                    ApplicationDeadline = job.ApplicationDeadline,
+                    Status = job.Status,
+                    ApplicantCount = actualApplicantCount, // Use real-time count
+                    ViewCount = job.ViewCount,
+                    AiGeneratedDescription = job.AiGeneratedDescription,
+                    SkillMatchThreshold = job.SkillMatchThreshold,
+                    PostedDate = job.PostedDate,
+                    ClosedDate = job.ClosedDate,
+                    InterviewTemplateId = job.InterviewTemplateId
+                });
+            }
 
             Console.WriteLine($"✅ Returning {jobDtos.Count} jobs");
 
             // Debug: Log status distribution
-            var statusGroups = jobDtos.GroupBy(j => j.Status).ToDictionary(g => g.Key, g => g.Count());
+            var statusGroups = jobDtos.GroupBy(j => ((dynamic)j).Status).ToDictionary(g => g.Key, g => g.Count());
             Console.WriteLine($"📊 Status distribution: {string.Join(", ", statusGroups.Select(kvp => $"{kvp.Key}: {kvp.Value}"))}");
 
             return Results.Ok(jobDtos);
@@ -1074,63 +1081,71 @@ public static class JobEndpoints
             // Apply company filter FIRST (most important for hiring users)
             if (companyId.HasValue)
             {
-                jobs = jobs.Where(j => j.CompanyId == companyId.Value).ToList();
+                jobs = jobs?.Where(j => j.CompanyId == companyId.Value).ToList() ?? new List<Job>();
                 Console.WriteLine($"🏢 After company filter ({companyId}): {jobs.Count} jobs");
             }
 
             // Apply status filter
             if (!string.IsNullOrEmpty(status) && status != "All")
             {
-                jobs = jobs.Where(j => j.Status.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList();
+                jobs = jobs?.Where(j => j.Status.Equals(status, StringComparison.OrdinalIgnoreCase)).ToList() ?? new List<Job>();
                 Console.WriteLine($"📊 After status filter ('{status}'): {jobs.Count} jobs");
             }
             else if (string.IsNullOrEmpty(status) && !companyId.HasValue)
             {
                 // If no status specified and no company filter, default to active jobs only
-                jobs = jobs.Where(j => j.Status.Equals("Active", StringComparison.OrdinalIgnoreCase)).ToList();
+                jobs = jobs?.Where(j => j.Status.Equals("Active", StringComparison.OrdinalIgnoreCase)).ToList() ?? new List<Job>();
                 Console.WriteLine($"📊 No filters - showing only Active jobs: {jobs.Count} jobs");
             }
 
-            Console.WriteLine($"✅ Final filtered jobs count: {jobs.Count}");
+            Console.WriteLine($"✅ Final filtered jobs count: {jobs?.Count ?? 0}");
 
-            // Create DTOs
-            var jobDtos = jobs.Select(job => new
+            // Create DTOs with real-time applicant counts
+            var jobDtos = new List<object>();
+            foreach (var job in jobs ?? new List<Job>())
             {
-                Id = job.Id,
-                Title = job.Title,
-                CompanyId = job.CompanyId,
-                CreatedBy = job.CreatedBy,
-                Description = job.Description,
-                Department = job.Department,
-                EmploymentType = job.EmploymentType,
-                LocationType = job.LocationType,
-                Locations = job.Locations,
-                SalaryMin = job.SalaryMin,
-                SalaryMax = job.SalaryMax,
-                SalaryCurrency = job.SalaryCurrency,
-                Status = job.Status,
-                ApplicantCount = job.ApplicantCount,
-                PostedDate = job.PostedDate,
-                InterviewTemplateId = job.InterviewTemplateId,
-                Responsibilities = job.Responsibilities,
-                Requirements = job.Requirements,
-                Qualifications = job.Qualifications,
-                Benefits = job.Benefits,
-                SeniorityLevel = job.SeniorityLevel,
-                ExperienceYearsMin = job.ExperienceYearsMin,
-                ApplicationDeadline = job.ApplicationDeadline,
-                ViewCount = job.ViewCount,
-                AiGeneratedDescription = job.AiGeneratedDescription,
-                SkillMatchThreshold = job.SkillMatchThreshold,
-                ClosedDate = job.ClosedDate
-            }).ToList();
+                // Calculate actual applicant count in real-time
+                var actualApplicantCount = await CalculateApplicantCount(job.Id, client);
+
+                jobDtos.Add(new
+                {
+                    Id = job.Id,
+                    Title = job.Title,
+                    CompanyId = job.CompanyId,
+                    CreatedBy = job.CreatedBy,
+                    Description = job.Description,
+                    Department = job.Department,
+                    EmploymentType = job.EmploymentType,
+                    LocationType = job.LocationType,
+                    Locations = job.Locations,
+                    SalaryMin = job.SalaryMin,
+                    SalaryMax = job.SalaryMax,
+                    SalaryCurrency = job.SalaryCurrency,
+                    Status = job.Status,
+                    ApplicantCount = actualApplicantCount, // Use real-time count
+                    PostedDate = job.PostedDate,
+                    InterviewTemplateId = job.InterviewTemplateId,
+                    Responsibilities = job.Responsibilities,
+                    Requirements = job.Requirements,
+                    Qualifications = job.Qualifications,
+                    Benefits = job.Benefits,
+                    SeniorityLevel = job.SeniorityLevel,
+                    ExperienceYearsMin = job.ExperienceYearsMin,
+                    ApplicationDeadline = job.ApplicationDeadline,
+                    ViewCount = job.ViewCount,
+                    AiGeneratedDescription = job.AiGeneratedDescription,
+                    SkillMatchThreshold = job.SkillMatchThreshold,
+                    ClosedDate = job.ClosedDate
+                });
+            }
 
             Console.WriteLine($"🔄 Converted {jobDtos.Count} jobs");
 
             // Debug: Log first few jobs with their statuses
             foreach (var job in jobDtos.Take(3))
             {
-                Console.WriteLine($"📋 Job: {job.Title} - Status: {job.Status}");
+                var jobObj = (dynamic)job;
+                Console.WriteLine($"📋 Job: {jobObj.Title} - Status: {jobObj.Status}");
             }
 
             return Results.Ok(jobDtos);
@@ -1235,23 +1250,30 @@ public static class JobEndpoints
                 return Results.NotFound(new { message = $"No jobs found for company ID: {companyId}" });
             }
 
-            // Create DTOs to avoid serialization issues
-            var jobDtos = jobs.Select(job => new
+            // Create DTOs with real-time applicant counts
+            var jobDtos = new List<object>();
+            foreach (var job in jobs ?? new List<Job>())
             {
-                Id = job.Id,
-                Title = job.Title,
-                Description = job.Description,
-                Department = job.Department,
-                EmploymentType = job.EmploymentType,
-                LocationType = job.LocationType,
-                SalaryMin = job.SalaryMin,
-                SalaryMax = job.SalaryMax,
-                SalaryCurrency = job.SalaryCurrency,
-                Status = job.Status,
-                ApplicantCount = job.ApplicantCount,
-                PostedDate = job.PostedDate,
-                InterviewTemplateId = job.InterviewTemplateId,
-            }).ToList();
+                // Calculate actual applicant count in real-time
+                var actualApplicantCount = await CalculateApplicantCount(job.Id, client);
+
+                jobDtos.Add(new
+                {
+                    Id = job.Id,
+                    Title = job.Title,
+                    Description = job.Description,
+                    Department = job.Department,
+                    EmploymentType = job.EmploymentType,
+                    LocationType = job.LocationType,
+                    SalaryMin = job.SalaryMin,
+                    SalaryMax = job.SalaryMax,
+                    SalaryCurrency = job.SalaryCurrency,
+                    Status = job.Status,
+                    ApplicantCount = actualApplicantCount, // Use real-time count
+                    PostedDate = job.PostedDate,
+                    InterviewTemplateId = job.InterviewTemplateId,
+                });
+            }
 
             return Results.Ok(jobDtos);
         }
@@ -1286,36 +1308,43 @@ public static class JobEndpoints
 
             Console.WriteLine($"🌍 Found {jobs.Count} public jobs");
 
-            // Create DTOs to avoid serialization issues - include all fields applicants need
-            var jobDtos = jobs.Select(job => new
+            // Create DTOs with real-time applicant counts
+            var jobDtos = new List<object>();
+            foreach (var job in jobs ?? new List<Job>())
             {
-                Id = job.Id,
-                Title = job.Title,
-                CompanyId = job.CompanyId,
-                Description = job.Description,
-                Department = job.Department,
-                EmploymentType = job.EmploymentType,
-                LocationType = job.LocationType,
-                Locations = job.Locations,
-                SalaryMin = job.SalaryMin,
-                SalaryMax = job.SalaryMax,
-                SalaryCurrency = job.SalaryCurrency,
-                Status = job.Status,
-                ApplicantCount = job.ApplicantCount,
-                PostedDate = job.PostedDate,
-                InterviewTemplateId = job.InterviewTemplateId,
-                Responsibilities = job.Responsibilities,
-                Requirements = job.Requirements,
-                Qualifications = job.Qualifications,
-                Benefits = job.Benefits,
-                SeniorityLevel = job.SeniorityLevel,
-                ExperienceYearsMin = job.ExperienceYearsMin,
-                ApplicationDeadline = job.ApplicationDeadline,
-                ViewCount = job.ViewCount,
-                AiGeneratedDescription = job.AiGeneratedDescription,
-                SkillMatchThreshold = job.SkillMatchThreshold,
-                ClosedDate = job.ClosedDate
-            }).ToList();
+                // Calculate actual applicant count in real-time
+                var actualApplicantCount = await CalculateApplicantCount(job.Id, client);
+
+                jobDtos.Add(new
+                {
+                    Id = job.Id,
+                    Title = job.Title,
+                    CompanyId = job.CompanyId,
+                    Description = job.Description,
+                    Department = job.Department,
+                    EmploymentType = job.EmploymentType,
+                    LocationType = job.LocationType,
+                    Locations = job.Locations,
+                    SalaryMin = job.SalaryMin,
+                    SalaryMax = job.SalaryMax,
+                    SalaryCurrency = job.SalaryCurrency,
+                    Status = job.Status,
+                    ApplicantCount = actualApplicantCount, // Use real-time count
+                    PostedDate = job.PostedDate,
+                    InterviewTemplateId = job.InterviewTemplateId,
+                    Responsibilities = job.Responsibilities,
+                    Requirements = job.Requirements,
+                    Qualifications = job.Qualifications,
+                    Benefits = job.Benefits,
+                    SeniorityLevel = job.SeniorityLevel,
+                    ExperienceYearsMin = job.ExperienceYearsMin,
+                    ApplicationDeadline = job.ApplicationDeadline,
+                    ViewCount = job.ViewCount,
+                    AiGeneratedDescription = job.AiGeneratedDescription,
+                    SkillMatchThreshold = job.SkillMatchThreshold,
+                    ClosedDate = job.ClosedDate
+                });
+            }
 
             return Results.Ok(jobDtos);
         }
@@ -1526,7 +1555,7 @@ public static class JobEndpoints
     }
 
     // Helper methods for applicant count management
-    private static async Task<int> CalculateApplicantCount(Guid jobId, Supabase.Client client)
+    public static async Task<int> CalculateApplicantCount(Guid jobId, Supabase.Client client)
     {
         try
         {
@@ -1586,7 +1615,7 @@ public static class JobEndpoints
             int updated = 0;
             int errors = 0;
 
-            foreach (var job in jobs)
+            foreach (var job in jobs ?? new List<Job>())
             {
                 try
                 {
@@ -1641,7 +1670,7 @@ public static class JobEndpoints
             int updated = 0;
             int errors = 0;
 
-            foreach (var job in jobs)
+            foreach (var job in jobs ?? new List<Job>())
             {
                 try
                 {
@@ -1692,8 +1721,11 @@ public static class JobEndpoints
 
 
 
-    private static object CreateJobDto(Job job)
+    private static async Task<object> CreateJobDto(Job job, Supabase.Client client)
     {
+        // Calculate actual applicant count in real-time
+        var actualApplicantCount = await CalculateApplicantCount(job.Id, client);
+
         return new
         {
             Id = job.Id,
@@ -1716,7 +1748,7 @@ public static class JobEndpoints
             SalaryCurrency = job.SalaryCurrency,
             ApplicationDeadline = job.ApplicationDeadline,
             Status = job.Status,
-            ApplicantCount = job.ApplicantCount,
+            ApplicantCount = actualApplicantCount, // Use real-time count
             ViewCount = job.ViewCount,
             AiGeneratedDescription = job.AiGeneratedDescription,
             SkillMatchThreshold = job.SkillMatchThreshold,
@@ -1767,6 +1799,9 @@ public static class JobEndpoints
 
             var views = viewsResponse.Models ?? new List<JobView>();
 
+            // Calculate actual applicant count in real-time
+            var actualApplicantCount = await CalculateApplicantCount(job.Id, client);
+
             // Calculate analytics
             var analytics = new
             {
@@ -1790,8 +1825,8 @@ public static class JobEndpoints
                             ? v.UserAgent.Substring(0, 50) + "..."
                             : v.UserAgent
                     }).ToList(),
-                ApplicantCount = job.ApplicantCount,
-                ApplicationRate = job.ViewCount > 0 ? (double)job.ApplicantCount / job.ViewCount * 100 : 0,
+                ApplicantCount = actualApplicantCount, // Use real-time count
+                ApplicationRate = job.ViewCount > 0 ? (double)actualApplicantCount / job.ViewCount * 100 : 0,
                 PostedDate = job.PostedDate
             };
 

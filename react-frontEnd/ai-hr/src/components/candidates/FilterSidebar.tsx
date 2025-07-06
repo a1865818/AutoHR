@@ -1,12 +1,6 @@
 import { FilterOption } from "@/interfaces";
 import { InterviewStageConfig } from "@/utils/dynamicInterviewStageConfig";
-import {
-  Briefcase,
-  ChevronDown,
-  ChevronRight,
-  Plus,
-  X,
-} from "lucide-react";
+import { Briefcase, ChevronDown, ChevronRight, Plus, X } from "lucide-react";
 import { useState } from "react";
 
 // Status filters (static - same as original)
@@ -98,6 +92,7 @@ interface FilterSidebarProps {
   };
   availableJobs: JobFilter[];
   stageConfigs: StageConfig[];
+  hidePositionFilter?: boolean;
 }
 
 export function FilterSidebar({
@@ -109,6 +104,7 @@ export function FilterSidebar({
   filterCounts,
   availableJobs,
   stageConfigs,
+  hidePositionFilter = false,
 }: FilterSidebarProps) {
   const handleCheckboxChange = (
     filterType: "status" | "stage" | "position",
@@ -124,91 +120,93 @@ export function FilterSidebar({
       <div className="px-4 py-3 border-t flex-1 overflow-y-auto">
         <h3 className="text-xs font-medium text-gray-500 mb-2">Filters</h3>
 
-        {/* Position filter (SAME AS ORIGINAL) */}
-        <div className="mb-4">
-          <div
-            className="flex items-center justify-between cursor-pointer hover:bg-gray-50 rounded px-1 py-1"
-            onClick={() => toggleFilter("position")}
-          >
-            <div className="flex items-center">
-              {expandedFilters.position ? (
-                <ChevronDown className="h-3 w-3 text-gray-500 mr-1" />
-              ) : (
-                <ChevronRight className="h-3 w-3 text-gray-500 mr-1" />
-              )}
-              <Briefcase className="h-3 w-3 text-blue-500 mr-1" />
-              <span className="text-sm font-medium text-gray-700">
-                Position
-              </span>
-            </div>
-            <button
-              className="text-gray-400 hover:text-gray-600 p-1"
-              onClick={(e) => {
-                e.stopPropagation();
-                activeFilters.position.forEach((filterId) => {
-                  onFilterChange("position", filterId, false);
-                });
-              }}
+        {/* Position filter - only show if not hidden */}
+        {!hidePositionFilter && (
+          <div className="mb-4">
+            <div
+              className="flex items-center justify-between cursor-pointer hover:bg-gray-50 rounded px-1 py-1"
+              onClick={() => toggleFilter("position")}
             >
-              <X className="h-3 w-3" />
-            </button>
-          </div>
+              <div className="flex items-center">
+                {expandedFilters.position ? (
+                  <ChevronDown className="h-3 w-3 text-gray-500 mr-1" />
+                ) : (
+                  <ChevronRight className="h-3 w-3 text-gray-500 mr-1" />
+                )}
+                <Briefcase className="h-3 w-3 text-blue-500 mr-1" />
+                <span className="text-sm font-medium text-gray-700">
+                  Position
+                </span>
+              </div>
+              <button
+                className="text-gray-400 hover:text-gray-600 p-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  activeFilters.position.forEach((filterId) => {
+                    onFilterChange("position", filterId, false);
+                  });
+                }}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
 
-          {expandedFilters.position && (
-            <ul className="ml-4 mt-1 space-y-1">
-              {availableJobs.map((job) => {
-                const isChecked = activeFilters.position.includes(job.id);
-                return (
-                  <li key={job.id} className="flex items-center relative">
-                    <input
-                      type="checkbox"
-                      id={`position-${job.id}`}
-                      checked={isChecked}
-                      onChange={(e) =>
-                        handleCheckboxChange(
-                          "position",
-                          job.id,
-                          e.target.checked
-                        )
-                      }
-                      className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <label
-                      htmlFor={`position-${job.id}`}
-                      className="ml-2 flex flex-1 items-center justify-between text-sm text-gray-700 cursor-pointer min-w-0"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <Tooltip
-                          content={job.title}
-                          department={job.department}
-                        >
-                          <span className="block truncate hover:text-blue-600 transition-colors">
-                            {job.title}
-                          </span>
-                        </Tooltip>
-                        {job.department && (
-                          <Tooltip content={job.department}>
-                            <span className="text-xs text-gray-500 truncate block hover:text-gray-700 transition-colors">
-                              {job.department}
+            {expandedFilters.position && (
+              <ul className="ml-4 mt-1 space-y-1">
+                {availableJobs.map((job) => {
+                  const isChecked = activeFilters.position.includes(job.id);
+                  return (
+                    <li key={job.id} className="flex items-center relative">
+                      <input
+                        type="checkbox"
+                        id={`position-${job.id}`}
+                        checked={isChecked}
+                        onChange={(e) =>
+                          handleCheckboxChange(
+                            "position",
+                            job.id,
+                            e.target.checked
+                          )
+                        }
+                        className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label
+                        htmlFor={`position-${job.id}`}
+                        className="ml-2 flex flex-1 items-center justify-between text-sm text-gray-700 cursor-pointer min-w-0"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <Tooltip
+                            content={job.title}
+                            department={job.department}
+                          >
+                            <span className="block truncate hover:text-blue-600 transition-colors">
+                              {job.title}
                             </span>
                           </Tooltip>
-                        )}
-                      </div>
-                      <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
-                        {filterCounts.position[job.id] || 0}
-                      </span>
-                    </label>
+                          {job.department && (
+                            <Tooltip content={job.department}>
+                              <span className="text-xs text-gray-500 truncate block hover:text-gray-700 transition-colors">
+                                {job.department}
+                              </span>
+                            </Tooltip>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
+                          {filterCounts.position[job.id] || 0}
+                        </span>
+                      </label>
+                    </li>
+                  );
+                })}
+                {availableJobs.length === 0 && (
+                  <li className="text-center py-2">
+                    <p className="text-xs text-gray-400">No positions found</p>
                   </li>
-                );
-              })}
-              {availableJobs.length === 0 && (
-                <li className="text-center py-2">
-                  <p className="text-xs text-gray-400">No positions found</p>
-                </li>
-              )}
-            </ul>
-          )}
-        </div>
+                )}
+              </ul>
+            )}
+          </div>
+        )}
 
         {/* Status filter (SAME AS ORIGINAL) */}
         <div className="mb-4">
@@ -258,27 +256,12 @@ export function FilterSidebar({
                     />
                     <label
                       htmlFor={`status-${item.id}`}
-                      className="ml-2 flex flex-1 items-center justify-between text-sm text-gray-700 cursor-pointer"
+                      className="ml-2 flex flex-1 items-center justify-between text-sm text-gray-700"
                     >
-                      <div className="flex items-center">
-                        <span
-                          className={`h-2 w-2 rounded-full mr-2 ${
-                            item.id === "in-progress"
-                              ? "bg-blue-500"
-                              : item.id === "offered"
-                              ? "bg-purple-500"
-                              : item.id === "hired"
-                              ? "bg-green-500"
-                              : item.id === "rejected"
-                              ? "bg-red-500"
-                              : "bg-gray-500"
-                          }`}
-                        />
-                        <span className={getStatusColor(item.id)}>
-                          {item.label}
-                        </span>
+                      <div className={getStatusColor(item.id)}>
+                        {item.label}
                       </div>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-gray-500 ml-2">
                         {filterCounts.status[item.id] || 0}
                       </span>
                     </label>
@@ -289,7 +272,7 @@ export function FilterSidebar({
           )}
         </div>
 
-        {/* UPDATED: Dynamic Stage filter */}
+        {/* Stage filter (SAME AS ORIGINAL) */}
         <div className="mb-4">
           <div
             className="flex items-center justify-between cursor-pointer hover:bg-gray-50 rounded px-1 py-1"
@@ -318,66 +301,59 @@ export function FilterSidebar({
 
           {expandedFilters.stage && (
             <ul className="ml-4 mt-1 space-y-1">
-              {stageConfigs.map((stageConfig) => {
-                const isChecked = activeFilters.stage.includes(stageConfig.id);
-                return (
-                  <li key={stageConfig.id} className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id={`stage-${stageConfig.id}`}
-                      checked={isChecked}
-                      onChange={(e) =>
-                        onFilterChange(
-                          "stage",
-                          stageConfig.id,
-                          e.target.checked
-                        )
-                      }
-                      className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <label
-                      htmlFor={`stage-${stageConfig.id}`}
-                      className="ml-2 flex flex-1 items-center justify-between text-sm text-gray-700 cursor-pointer"
-                    >
-                      <div className="flex items-center">
-                        {InterviewStageConfig.getStageIcon(stageConfig.id)}
-                        <span className="ml-2" title={stageConfig.description}>
-                          {stageConfig.label}
+              {stageConfigs
+                .sort((a, b) => a.order - b.order)
+                .map((stage) => {
+                  const isChecked = activeFilters.stage.includes(stage.id);
+                  return (
+                    <li key={stage.id} className="flex items-center">
+                      <input
+                        type="checkbox"
+                        id={`stage-${stage.id}`}
+                        checked={isChecked}
+                        onChange={(e) =>
+                          handleCheckboxChange(
+                            "stage",
+                            stage.id,
+                            e.target.checked
+                          )
+                        }
+                        className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <label
+                        htmlFor={`stage-${stage.id}`}
+                        className="ml-2 flex flex-1 items-center justify-between text-sm text-gray-700"
+                      >
+                        <div className={`text-${stage.color}`}>
+                          {stage.label}
+                        </div>
+                        <span className="text-xs text-gray-500 ml-2">
+                          {filterCounts.stage[stage.id] || 0}
                         </span>
-                      </div>
-                      <span className="text-xs text-gray-500">
-                        {filterCounts.stage[stageConfig.id] || 0}
-                      </span>
-                    </label>
-                  </li>
-                );
-              })}
+                      </label>
+                    </li>
+                  );
+                })}
               {stageConfigs.length === 0 && (
                 <li className="text-center py-2">
-                  <p className="text-xs text-gray-400">Loading stages...</p>
+                  <p className="text-xs text-gray-400">
+                    No interview stages available
+                  </p>
                 </li>
               )}
             </ul>
           )}
         </div>
+      </div>
 
-        {/* Filter buttons (SAME AS ORIGINAL) */}
-        <div className="flex space-x-2 mt-6">
-          <button
-            onClick={() => {
-              /* Add custom filter functionality */
-            }}
-            className="flex-1 bg-blue-500 text-white rounded-md py-1.5 text-xs font-medium hover:bg-blue-600 flex items-center justify-center transition-colors"
-          >
-            <Plus className="h-3 w-3 mr-1" /> Add filter
-          </button>
-          <button
-            onClick={onClearFilters}
-            className="flex-1 bg-white border border-gray-300 text-gray-700 rounded-md py-1.5 text-xs font-medium hover:bg-gray-50 transition-colors"
-          >
-            Clear
-          </button>
-        </div>
+      {/* Clear all filters button */}
+      <div className="px-4 py-3 border-t bg-gray-50">
+        <button
+          onClick={onClearFilters}
+          className="w-full py-2 px-3 bg-white border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50 flex items-center justify-center"
+        >
+          Clear All Filters
+        </button>
       </div>
     </div>
   );

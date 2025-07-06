@@ -301,8 +301,11 @@ We offer a dynamic work environment where creativity and innovation are valued, 
         // Get the most recently created job and redirect to share page
         setTimeout(async () => {
           try {
-            // Fetch all jobs and find the most recent one created by the user
-            const allJobs = await jobService.getAllJobs();
+            // Fetch company jobs and find the most recent one created by the user
+            const allJobs = await jobService.getAllJobs(
+              undefined,
+              user?.companyId
+            );
             const userJobs = allJobs.filter(
               (job: any) => job.createdBy === user?.id
             );
