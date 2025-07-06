@@ -176,17 +176,10 @@ export function JobGrid({
                 </div>
 
                 {/* Job Title - Fixed height section */}
-                <div className="mb-2 h-14 flex items-start">
+                <div className="mb-4 h-14 flex items-start">
                   <h3 className="text-lg font-semibold text-gray-900 line-clamp-2">
                     {safeRender(job.title)}
                   </h3>
-                </div>
-
-                {/* Company Name - Fixed height section */}
-                <div className="mb-4 h-5">
-                  <p className="text-sm text-gray-600 truncate">
-                    {safeRender(job.company)}
-                  </p>
                 </div>
 
                 {/* Job Details - Flexible height section */}
@@ -219,15 +212,15 @@ export function JobGrid({
                     </span>
                   </div>
 
-                  {/* Show department if available */}
-                  {job.department && job.department !== "Not specified" && (
-                    <div className="flex items-center text-gray-600">
-                      <Briefcase className="h-4 w-4 mr-2 flex-shrink-0" />
-                      <span className="truncate">
-                        {safeRender(job.department)}
-                      </span>
-                    </div>
-                  )}
+                  {/* Always show department */}
+                  <div className="flex items-center text-gray-600">
+                    <Briefcase className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span className="truncate">
+                      {job.department && job.department !== "Not specified"
+                        ? safeRender(job.department)
+                        : "Not specified"}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Stats Section - Fixed height when shown */}
