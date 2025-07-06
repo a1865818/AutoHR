@@ -1,4 +1,8 @@
-import { InterviewTemplate, InterviewRound, InterviewStats } from "@/interfaces/interview";
+import {
+  InterviewTemplate,
+  InterviewRound,
+  InterviewStats,
+} from "@/interfaces/interview";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5189";
 
@@ -46,6 +50,21 @@ export interface CloneTemplateRequest {
 class InterviewService {
   private getAuthToken(): string | null {
     if (typeof window !== "undefined") {
+      // Try to get from cookies first
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        let cookie = cookies[i];
+        while (cookie.charAt(0) === " ") {
+          cookie = cookie.substring(1, cookie.length);
+        }
+        if (cookie.indexOf("authToken=") === 0) {
+          return decodeURIComponent(
+            cookie.substring("authToken=".length, cookie.length)
+          );
+        }
+      }
+
+      // Fallback to localStorage/sessionStorage
       return (
         localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
       );
@@ -142,12 +161,15 @@ class InterviewService {
 
       return text || null;
     } catch (error: any) {
-      if (error.message && (error.message.includes("JSON") || error.message.includes("HTTP"))) {
+      if (
+        error.message &&
+        (error.message.includes("JSON") || error.message.includes("HTTP"))
+      ) {
         throw error;
       }
 
       console.error("🚨 Network/Fetch Error:", { url, error });
-      throw new Error(`Network error: ${error.message || 'Unknown error'}`);
+      throw new Error(`Network error: ${error.message || "Unknown error"}`);
     }
   }
 
@@ -187,7 +209,9 @@ class InterviewService {
     }
   }
 
-  async createInterviewTemplate(data: InterviewTemplateCreateDto): Promise<InterviewTemplate> {
+  async createInterviewTemplate(
+    data: InterviewTemplateCreateDto
+  ): Promise<InterviewTemplate> {
     if (!this.isAuthenticated()) {
       throw new Error("Authentication required to create interview template");
     }
@@ -204,7 +228,10 @@ class InterviewService {
     }
   }
 
-  async updateInterviewTemplate(id: string, data: InterviewTemplateUpdateDto): Promise<InterviewTemplate> {
+  async updateInterviewTemplate(
+    id: string,
+    data: InterviewTemplateUpdateDto
+  ): Promise<InterviewTemplate> {
     if (!this.isAuthenticated()) {
       throw new Error("Authentication required to update interview template");
     }
@@ -236,16 +263,22 @@ class InterviewService {
     }
   }
 
-  async cloneInterviewTemplate(id: string, name: string): Promise<InterviewTemplate> {
+  async cloneInterviewTemplate(
+    id: string,
+    name: string
+  ): Promise<InterviewTemplate> {
     if (!this.isAuthenticated()) {
       throw new Error("Authentication required to clone interview template");
     }
 
     try {
-      const template = await this.fetchApi(`/interviews/templates/${id}/clone`, {
-        method: "POST",
-        body: JSON.stringify({ name }),
-      });
+      const template = await this.fetchApi(
+        `/interviews/templates/${id}/clone`,
+        {
+          method: "POST",
+          body: JSON.stringify({ name }),
+        }
+      );
       return template;
     } catch (error) {
       console.error("❌ Failed to clone interview template:", error);
@@ -255,13 +288,18 @@ class InterviewService {
 
   async setDefaultInterviewTemplate(id: string): Promise<InterviewTemplate> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to set default interview template");
+      throw new Error(
+        "Authentication required to set default interview template"
+      );
     }
 
     try {
-      const template = await this.fetchApi(`/interviews/templates/${id}/set-default`, {
-        method: "POST",
-      });
+      const template = await this.fetchApi(
+        `/interviews/templates/${id}/set-default`,
+        {
+          method: "POST",
+        }
+      );
       return template;
     } catch (error) {
       console.error("❌ Failed to set default interview template:", error);
@@ -276,12 +314,14 @@ class InterviewService {
 
     try {
       const stats = await this.fetchApi("/interviews/stats");
-      return stats || {
-        totalTemplates: 0,
-        activeInterviews: 0,
-        successRate: 0,
-        averageDuration: 0,
-      };
+      return (
+        stats || {
+          totalTemplates: 0,
+          activeInterviews: 0,
+          successRate: 0,
+          averageDuration: 0,
+        }
+      );
     } catch (error) {
       console.error("❌ Failed to load interview stats:", error);
       throw error;
@@ -295,7 +335,9 @@ class InterviewService {
     }
 
     try {
-      const rounds = await this.fetchApi(`/interviews/templates/${templateId}/rounds`);
+      const rounds = await this.fetchApi(
+        `/interviews/templates/${templateId}/rounds`
+      );
       return rounds || [];
     } catch (error) {
       console.error("❌ Failed to load interview rounds:", error);
@@ -303,16 +345,22 @@ class InterviewService {
     }
   }
 
-  async createInterviewRound(templateId: string, data: InterviewRoundCreateDto): Promise<InterviewRound> {
+  async createInterviewRound(
+    templateId: string,
+    data: InterviewRoundCreateDto
+  ): Promise<InterviewRound> {
     if (!this.isAuthenticated()) {
       throw new Error("Authentication required to create interview round");
     }
 
     try {
-      const round = await this.fetchApi(`/interviews/templates/${templateId}/rounds`, {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      const round = await this.fetchApi(
+        `/interviews/templates/${templateId}/rounds`,
+        {
+          method: "POST",
+          body: JSON.stringify(data),
+        }
+      );
       return round;
     } catch (error) {
       console.error("❌ Failed to create interview round:", error);
@@ -320,7 +368,10 @@ class InterviewService {
     }
   }
 
-  async updateInterviewRound(id: string, data: InterviewRoundUpdateDto): Promise<InterviewRound> {
+  async updateInterviewRound(
+    id: string,
+    data: InterviewRoundUpdateDto
+  ): Promise<InterviewRound> {
     if (!this.isAuthenticated()) {
       throw new Error("Authentication required to update interview round");
     }
@@ -361,11 +412,16 @@ class InterviewService {
     return this.getInterviewTemplate(id);
   }
 
-  async createTemplate(data: InterviewTemplateCreateDto): Promise<InterviewTemplate> {
+  async createTemplate(
+    data: InterviewTemplateCreateDto
+  ): Promise<InterviewTemplate> {
     return this.createInterviewTemplate(data);
   }
 
-  async updateTemplate(id: string, data: InterviewTemplateUpdateDto): Promise<InterviewTemplate> {
+  async updateTemplate(
+    id: string,
+    data: InterviewTemplateUpdateDto
+  ): Promise<InterviewTemplate> {
     return this.updateInterviewTemplate(id, data);
   }
 
@@ -389,11 +445,17 @@ class InterviewService {
     return this.getInterviewRounds(templateId);
   }
 
-  async createRound(templateId: string, data: InterviewRoundCreateDto): Promise<InterviewRound> {
+  async createRound(
+    templateId: string,
+    data: InterviewRoundCreateDto
+  ): Promise<InterviewRound> {
     return this.createInterviewRound(templateId, data);
   }
 
-  async updateRound(id: string, data: InterviewRoundUpdateDto): Promise<InterviewRound> {
+  async updateRound(
+    id: string,
+    data: InterviewRoundUpdateDto
+  ): Promise<InterviewRound> {
     return this.updateInterviewRound(id, data);
   }
 
@@ -402,4 +464,4 @@ class InterviewService {
   }
 }
 
-export const interviewService = new InterviewService(); 
+export const interviewService = new InterviewService();

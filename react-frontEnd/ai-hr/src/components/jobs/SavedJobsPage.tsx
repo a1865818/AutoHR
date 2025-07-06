@@ -83,7 +83,7 @@ const safeRender = (value: any): string => {
 };
 
 export function SavedJobsPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const { savedJobIds, isLoading, refreshSavedJobs, savedJobsCount } =
     useSavedJobs();
 
@@ -150,8 +150,14 @@ export function SavedJobsPage() {
 
   // Load saved jobs when savedJobIds change
   useEffect(() => {
+    // Wait for authentication to be fully loaded
+    if (authLoading) {
+      console.log("⏳ Waiting for authentication to load...");
+      return;
+    }
+
     loadSavedJobs();
-  }, [savedJobIds]);
+  }, [savedJobIds, authLoading]);
 
   // Get unique filter options from job data
   const filterOptions = useMemo(() => {

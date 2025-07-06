@@ -48,7 +48,14 @@ export default function ApplicantProfilePage() {
   const [activeTab, setActiveTab] = useState("personal");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, isLoading: authLoading } = useAuth();
+
+  console.log("🔄 ApplicantProfilePage: Auth state", {
+    authLoading,
+    isAuthenticated,
+    hasUser: !!user,
+    userId: user?.id,
+  });
 
   // Toast state
   const [toast, setToast] = useState<{
@@ -69,8 +76,21 @@ export default function ApplicantProfilePage() {
 
   // Fetch user profile data from backend
   useEffect(() => {
+    console.log("🔄 ApplicantProfilePage: useEffect triggered", {
+      authLoading,
+      isAuthenticated,
+      hasUser: !!user,
+    });
+
+    // Wait for authentication to be fully loaded
+    if (authLoading) {
+      console.log("⏳ ApplicantProfilePage: Waiting for authentication to load...");
+      return;
+    }
+
     const fetchUserProfile = async () => {
       if (!isAuthenticated || !user) {
+        console.log("❌ ApplicantProfilePage: Not authenticated or no user");
         setError("User not authenticated");
         setIsLoading(false);
         return;
@@ -80,15 +100,9 @@ export default function ApplicantProfilePage() {
         setIsLoading(true);
         setError(null);
 
-        const token =
-          localStorage.getItem("authToken") ||
-          sessionStorage.getItem("authToken");
-
-        if (!token) {
-          setError("No authentication token found");
-          logout();
-          return;
-        }
+        // Use the AuthContext's authentication state instead of manually checking tokens
+        // The AuthContext already handles cookies and session persistence
+        console.log("✅ ApplicantProfilePage: Using AuthContext authentication state");
 
         // Fetch ApplicationUser data
         const userData =
@@ -238,7 +252,7 @@ export default function ApplicantProfilePage() {
     };
 
     fetchUserProfile();
-  }, [isAuthenticated, user, logout]);
+  }, [isAuthenticated, user, logout, authLoading]);
 
   // Loading state
   if (isLoading) {

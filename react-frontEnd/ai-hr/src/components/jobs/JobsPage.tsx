@@ -19,6 +19,7 @@ import {
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import { JobCard } from "./JobCard";
 
 type SortOption = "newest" | "oldest" | "applicants" | "salary";
@@ -148,6 +149,7 @@ const formatPostedDate = (dateString: string): string => {
 };
 
 export function JobsPage() {
+  const { isLoading: authLoading, isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [allJobs, setAllJobs] = useState<ApiJob[]>([]);
@@ -197,8 +199,11 @@ export function JobsPage() {
   }, [searchParams]);
 
   useEffect(() => {
+    // Wait for authentication to be loaded before trying to load jobs data
+    if (!authLoading) {
     loadAllJobsData();
-  }, []);
+    }
+  }, [authLoading]);
 
   const loadAllJobsData = async () => {
     console.log("🔄 Loading jobs data for hiring user's company...");
@@ -207,7 +212,7 @@ export function JobsPage() {
     setSelectedJobs([]); // Clear selections when reloading
 
     try {
-      if (!jobService.isAuthenticated()) {
+      if (!isAuthenticated) {
         throw new Error("Please log in to view jobs");
       }
 
@@ -219,7 +224,7 @@ export function JobsPage() {
 
       if (authData.companyId) {
         userCompanyId = authData.companyId;
-        console.log("🏢 User's company ID:", userCompanyId);
+        console.log("🏢 User's company ID from jobService:", userCompanyId);
       } else {
         // If no company ID in auth, try to get it from storage
         const currentUserStr =
@@ -232,6 +237,26 @@ export function JobsPage() {
             console.log("🏢 Company ID from storage:", userCompanyId);
           } catch (error) {
             console.warn("Failed to parse currentUser from storage:", error);
+          }
+        }
+        
+        // Also try to get from cookies
+        if (!userCompanyId) {
+          const cookies = document.cookie.split(';');
+          for (let i = 0; i < cookies.length; i++) {
+            let cookie = cookies[i];
+            while (cookie.charAt(0) === ' ') {
+              cookie = cookie.substring(1, cookie.length);
+            }
+            if (cookie.indexOf('userData=') === 0) {
+              try {
+                const userData = JSON.parse(decodeURIComponent(cookie.substring('userData='.length, cookie.length)));
+                userCompanyId = userData.companyId;
+                console.log("🏢 Company ID from cookies:", userCompanyId);
+              } catch (error) {
+                console.warn("Failed to parse userData from cookie:", error);
+              }
+            }
           }
         }
       }

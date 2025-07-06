@@ -26,7 +26,7 @@ type SortOption = "newest" | "oldest" | "company" | "status" | "jobTitle";
 type SortOrder = "asc" | "desc";
 
 export default function MyApplicationsPage() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
   // Loading and error states
   const [isLoading, setIsLoading] = useState(true);
@@ -58,10 +58,16 @@ export default function MyApplicationsPage() {
 
   // Load applications data
   useEffect(() => {
+    // Wait for authentication to be fully loaded
+    if (authLoading) {
+      console.log("⏳ Waiting for authentication to load...");
+      return;
+    }
+
     if (isAuthenticated && user) {
       loadApplications();
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, authLoading]);
 
   const loadApplications = async () => {
     try {

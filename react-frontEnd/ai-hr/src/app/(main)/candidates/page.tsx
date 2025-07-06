@@ -199,7 +199,7 @@ function EmptyState({
 
 // Main Candidates Page Component
 function CandidatesPage() {
-  const { isAuthorized, companyId, user } = useHiringAuth();
+  const { isAuthorized, companyId, user, isLoading: authLoading } = useHiringAuth();
   const [candidates, setCandidates] = useState<CandidateWithJobDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -296,7 +296,14 @@ function CandidatesPage() {
 
   // Load candidates data with better error handling
   useEffect(() => {
+    // Wait for authentication to be fully loaded
+    if (authLoading) {
+      console.log("⏳ Waiting for authentication to load...");
+      return;
+    }
+
     if (!isAuthorized || !companyId) {
+      console.log("❌ Not authorized or no company ID:", { isAuthorized, companyId });
       return;
     }
 
@@ -306,8 +313,18 @@ function CandidatesPage() {
         setError(null);
 
         console.log("🔄 Loading candidates for company:", companyId);
-        var response = await candidateService.getCandidatesForCompany();
-        var application_details = await candidateService.getApplicationDetailByJob(response.candidates[0].jobId);
+        
+        // DEBUG: Log where company ID is coming from
+        const candidateServiceUser = candidateService.getCurrentUser();
+        console.log("🔍 DEBUG: Company ID sources:", {
+          fromAuthContext: companyId,
+          fromCandidateService: candidateServiceUser.companyId,
+          fromLocalStorage: localStorage.getItem("currentUser") ? JSON.parse(localStorage.getItem("currentUser")!).companyId : null,
+          fromSessionStorage: sessionStorage.getItem("currentUser") ? JSON.parse(sessionStorage.getItem("currentUser")!).companyId : null,
+        });
+        
+        const response = await candidateService.getCandidatesForCompany();
+        const application_details = await candidateService.getApplicationDetailByJob(response.candidates[0].jobId);
 
         
 
@@ -392,7 +409,7 @@ function CandidatesPage() {
     };
 
     loadCandidates();
-  }, [isAuthorized, companyId]);
+  }, [isAuthorized, companyId, authLoading]);
 
   // Load rankings from backend
   const loadRankingsFromBackend = async () => {

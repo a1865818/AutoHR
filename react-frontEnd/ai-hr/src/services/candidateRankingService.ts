@@ -84,26 +84,65 @@ class CandidateRankingService {
       return { token: null, userId: null, userCategory: null, companyId: null };
     }
 
-    const token =
-      localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
-    const userCategory =
-      localStorage.getItem("userCategory") ||
-      sessionStorage.getItem("userCategory");
-
-    const currentUserStr =
-      localStorage.getItem("currentUser") ||
-      sessionStorage.getItem("currentUser");
-
+    // Check cookies first, then localStorage and sessionStorage
+    let token = null;
+    let userCategory = null;
     let userId = null;
     let companyId = null;
 
-    if (currentUserStr) {
-      try {
-        const currentUser = JSON.parse(currentUserStr);
-        userId = currentUser.id;
-        companyId = currentUser.companyId;
-      } catch (error) {
-        console.warn("Failed to parse currentUser from storage:", error);
+    // Try to get from cookies first
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      let cookie = cookies[i];
+      while (cookie.charAt(0) === " ") {
+        cookie = cookie.substring(1, cookie.length);
+      }
+      if (cookie.indexOf("authToken=") === 0) {
+        token = decodeURIComponent(
+          cookie.substring("authToken=".length, cookie.length)
+        );
+      } else if (cookie.indexOf("userCategory=") === 0) {
+        userCategory = decodeURIComponent(
+          cookie.substring("userCategory=".length, cookie.length)
+        );
+      } else if (cookie.indexOf("userData=") === 0) {
+        try {
+          const userData = JSON.parse(
+            decodeURIComponent(
+              cookie.substring("userData=".length, cookie.length)
+            )
+          );
+          userId = userData.id;
+          companyId = userData.companyId;
+        } catch (error) {
+          console.warn("Failed to parse userData from cookie:", error);
+        }
+      }
+    }
+
+    // Fallback to localStorage/sessionStorage if not found in cookies
+    if (!token) {
+      token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+    }
+    if (!userCategory) {
+      userCategory =
+        localStorage.getItem("userCategory") ||
+        sessionStorage.getItem("userCategory");
+    }
+    if (!userId || !companyId) {
+      const currentUserStr =
+        localStorage.getItem("currentUser") ||
+        sessionStorage.getItem("currentUser");
+      if (currentUserStr) {
+        try {
+          const currentUser = JSON.parse(currentUserStr);
+          if (!userId) userId = currentUser.id;
+          if (!companyId) companyId = currentUser.companyId;
+        } catch (error) {
+          console.warn("Failed to parse currentUser from storage:", error);
+        }
       }
     }
 

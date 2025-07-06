@@ -17,8 +17,23 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5189";
 
 class JobService {
   private getAuthToken(): string | null {
-    // Check both localStorage and sessionStorage for token
+    // Check cookies first, then localStorage and sessionStorage for token
     if (typeof window !== "undefined") {
+      // Try to get from cookies first
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        let cookie = cookies[i];
+        while (cookie.charAt(0) === " ") {
+          cookie = cookie.substring(1, cookie.length);
+        }
+        if (cookie.indexOf("authToken=") === 0) {
+          return decodeURIComponent(
+            cookie.substring("authToken=".length, cookie.length)
+          );
+        }
+      }
+
+      // Fallback to localStorage/sessionStorage
       return (
         localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
       );
@@ -269,28 +284,62 @@ class JobService {
     }
 
     const token = this.getAuthToken();
-    const userCategory =
-      localStorage.getItem("userCategory") ||
-      sessionStorage.getItem("userCategory");
-
-    // Get user data to extract userId and companyId
-    const currentUserStr =
-      localStorage.getItem("currentUser") ||
-      sessionStorage.getItem("currentUser");
+    let userCategory = null;
     let userId = null;
     let companyId = null;
 
-    if (currentUserStr) {
-      try {
-        const currentUser = JSON.parse(currentUserStr);
-        userId = currentUser.id;
-        companyId = currentUser.companyId;
-        console.log("👤 getCurrentUser - parsed user data:", {
-          userId,
-          companyId,
-        });
-      } catch (error) {
-        console.warn("Failed to parse currentUser from storage:", error);
+    // Try to get from cookies first
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      let cookie = cookies[i];
+      while (cookie.charAt(0) === " ") {
+        cookie = cookie.substring(1, cookie.length);
+      }
+      if (cookie.indexOf("userCategory=") === 0) {
+        userCategory = decodeURIComponent(
+          cookie.substring("userCategory=".length, cookie.length)
+        );
+      } else if (cookie.indexOf("userData=") === 0) {
+        try {
+          const userData = JSON.parse(
+            decodeURIComponent(
+              cookie.substring("userData=".length, cookie.length)
+            )
+          );
+          userId = userData.id;
+          companyId = userData.companyId;
+          console.log("👤 getCurrentUser - parsed user data from cookies:", {
+            userId,
+            companyId,
+          });
+        } catch (error) {
+          console.warn("Failed to parse userData from cookie:", error);
+        }
+      }
+    }
+
+    // Fallback to localStorage/sessionStorage if not found in cookies
+    if (!userCategory) {
+      userCategory =
+        localStorage.getItem("userCategory") ||
+        sessionStorage.getItem("userCategory");
+    }
+    if (!userId || !companyId) {
+      const currentUserStr =
+        localStorage.getItem("currentUser") ||
+        sessionStorage.getItem("currentUser");
+      if (currentUserStr) {
+        try {
+          const currentUser = JSON.parse(currentUserStr);
+          if (!userId) userId = currentUser.id;
+          if (!companyId) companyId = currentUser.companyId;
+          console.log("👤 getCurrentUser - parsed user data from storage:", {
+            userId,
+            companyId,
+          });
+        } catch (error) {
+          console.warn("Failed to parse currentUser from storage:", error);
+        }
       }
     }
 
@@ -431,7 +480,6 @@ class JobService {
 
     try {
       console.log(`📋 Duplicating job ${jobId}`);
-
 
       const response = await this.fetchApi(`/jobs/${jobId}/duplicate`, {
         method: "POST",
@@ -990,7 +1038,6 @@ class JobService {
     if (experience.includes("10+")) return "executive";
     return "mid";
   }
-
 
   private normalizeStatus(backendStatus: string): string {
     switch (backendStatus) {

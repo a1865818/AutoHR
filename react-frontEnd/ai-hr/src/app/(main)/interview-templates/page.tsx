@@ -32,9 +32,11 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function InterviewsPage() {
   const router = useRouter();
+  const { isLoading: authLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<
     "all" | "default" | "custom"
@@ -61,6 +63,8 @@ export default function InterviewsPage() {
   );
 
   useEffect(() => {
+    // Wait for authentication to be loaded before trying to load data
+    if (!authLoading) {
     const loadData = async () => {
       try {
         setLoading(true);
@@ -82,7 +86,8 @@ export default function InterviewsPage() {
     };
 
     loadData();
-  }, []);
+    }
+  }, [authLoading]);
 
   const handleCloneTemplate = async (
     templateId: string,
