@@ -458,16 +458,9 @@ export default function JobApplicationForm({
       // First, load user profile data from the database to ensure auto-fill
       console.log("🔄 Loading user profile data for auto-fill...");
       try {
-        // Check if auth token exists before making the API call
-        const token =
-          localStorage.getItem("authToken") ||
-          sessionStorage.getItem("authToken");
-        if (!token) {
-          console.error("❌ No auth token found, can't load profile data");
-          throw new Error("Authentication token missing");
-        }
-
-        console.log("🔑 Using auth token to fetch profile data");
+        // Use AuthContext's authentication state instead of manually checking tokens
+        // The AuthContext already handles cookies and session persistence
+        console.log("✅ Using AuthContext authentication state for profile data");
         const userData = await apiService.getCurrentApplicationUser();
         console.log("📥 Received user data for auto-fill:", userData);
 
