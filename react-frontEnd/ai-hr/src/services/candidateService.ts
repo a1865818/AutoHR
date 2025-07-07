@@ -265,6 +265,9 @@ class CandidateService {
 
     if (!response.ok) {
       const error = await response.text();
+      if (error.includes('No applications found for job ID')) {
+        return [];
+      }
       throw new Error(`Failed to fetch application details: ${error}`);
     }
 
