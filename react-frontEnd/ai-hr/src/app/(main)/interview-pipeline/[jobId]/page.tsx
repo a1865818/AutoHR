@@ -112,6 +112,8 @@ export default function JobPipelinePage() {
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [isAssigningTemplate, setIsAssigningTemplate] = useState(false);
 
+  const [noApplicationsFound, setNoApplicationsFound] = useState(false);
+
   // Load job, template, and candidates
   useEffect(() => {
     if (jobId) {
@@ -132,6 +134,7 @@ export default function JobPipelinePage() {
     try {
       setIsLoading(true);
       setError(null);
+      setNoApplicationsFound(false);
 
       // Load job details
       const jobData = await jobService.getJobById(jobId);
@@ -178,35 +181,53 @@ export default function JobPipelinePage() {
 
       // Load candidates for this job
       var candidatesData = await candidateService.getCandidatesForJob(jobId);
-      var applicationDetails = await candidateService.getApplicationDetailByJob(jobId);
+      var applicationDetails = [];
+      try {
+        applicationDetails = await candidateService.getApplicationDetailByJob(
+          jobId
+        );
+      } catch (error) {
+        // Gracefully handle the 'No applications found' error
+        if (
+          error instanceof Error &&
+          error.message.includes("No applications found for job ID")
+        ) {
+          applicationDetails = [];
+          setNoApplicationsFound(true);
+        } else {
+          throw error;
+        }
+      }
 
-        // status and stage use applicationDetails data 
+      // status and stage use applicationDetails data
       console.log("🔍 Candidates data:", candidatesData);
       console.log("🔍 Application details:", applicationDetails);
 
       for (const candidate of candidatesData) {
         const matchingApplicationDetail = applicationDetails.find(
-          (applicationDetail: any) => applicationDetail.id === candidate.applicationId
-        )
-        candidate.stage = matchingApplicationDetail.stage
-        candidate.status = matchingApplicationDetail.status
+          (applicationDetail: any) =>
+            applicationDetail.id === candidate.applicationId
+        );
+        candidate.stage = matchingApplicationDetail?.stage || "Applied";
+        candidate.status = matchingApplicationDetail?.status || "In Progress";
       }
 
       const pipelineCandidates: PipelineCandidate[] = candidatesData.map(
         (candidate) => {
-          return ({
-          ...candidate,
+          return {
+            ...candidate,
 
-          currentRoundId: getCurrentRoundId(
-            candidate,
-            jobWithTemplate.interviewTemplate
-          ),
-          roundProgress: calculateRoundProgress(
-            candidate,
-            jobWithTemplate.interviewTemplate
-          ),
-        })
-      });
+            currentRoundId: getCurrentRoundId(
+              candidate,
+              jobWithTemplate.interviewTemplate
+            ),
+            roundProgress: calculateRoundProgress(
+              candidate,
+              jobWithTemplate.interviewTemplate
+            ),
+          };
+        }
+      );
 
       console.log("🔍 Pipeline candidates:", pipelineCandidates);
 
@@ -649,7 +670,7 @@ export default function JobPipelinePage() {
     } catch (error) {
       console.error(`❌ Error updating candidate status:`, error);
     }
-};
+  };
 
   const handleDragDrop = (candidateData: any, toColumnId: string) => {
     handleCandidateMove(
@@ -1037,6 +1058,26 @@ export default function JobPipelinePage() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* No Applications Found Warning */}
+      {noApplicationsFound && (
+        <div
+          className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 flex items-center justify-between"
+          role="alert"
+        >
+          <div className="flex items-center">
+            <AlertCircle className="h-5 w-5 mr-2 text-yellow-500" />
+            <span>No applications found for this job.</span>
+          </div>
+          <button
+            className="ml-4 text-yellow-700 hover:text-yellow-900"
+            onClick={() => setNoApplicationsFound(false)}
+            aria-label="Dismiss"
+          >
+            <XCircle className="h-5 w-5" />
+          </button>
         </div>
       )}
 

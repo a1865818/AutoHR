@@ -7,18 +7,20 @@ import { CandidatesList } from "@/components/candidates/CandidatesList";
 import { FilterSidebar } from "@/components/candidates/FilterSidebar";
 import { NotesEditModal } from "@/components/candidates/NotesEditModal";
 import { NotesList } from "@/components/candidates/NotesList";
-import { PositionRankingSelector } from "@/components/candidates/PositionRankingSelector";
 import { RankingModal } from "@/components/candidates/RankingModal";
 import { RankingTab } from "@/components/candidates/RankingTab";
+import { JobGrid } from "@/components/candidates/JobGrid";
 
 import { useHiringAuth } from "@/hooks/useHiringAuth";
 import {
   Candidate,
   CandidateWithJobDetails,
   CandidateStage,
+  Job,
 } from "@/interfaces";
 import { candidateRankingService } from "@/services/candidateRankingService";
 import { candidateService } from "@/services/candidateService";
+import { jobService } from "@/services/jobService";
 import {
   DynamicCandidateFilterUtils,
   InterviewStageConfig,
@@ -34,6 +36,7 @@ import {
   Plus,
   Search,
   Users,
+  Trophy,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -199,7 +202,12 @@ function EmptyState({
 
 // Main Candidates Page Component
 function CandidatesPage() {
-  const { isAuthorized, companyId, user, isLoading: authLoading } = useHiringAuth();
+  const {
+    isAuthorized,
+    companyId,
+    user,
+    isLoading: authLoading,
+  } = useHiringAuth();
   const [candidates, setCandidates] = useState<CandidateWithJobDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -233,7 +241,7 @@ function CandidatesPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<{
-    field: "name" | "company" | "stage" | "status";
+    field: "name" | "stage" | "status";
     direction: "asc" | "desc";
   }>({ field: "name", direction: "asc" });
 
@@ -248,152 +256,146 @@ function CandidatesPage() {
     position: true,
   });
 
-  // Updated: Default active filters now use new granular stages
-  const [activeFilters, setActiveFilters] = useState({
-    status: ["in-progress"],
-    stage: [
-      "applied",
-      "phone_screening",
-      "video_interview",
-      "technical_assessment",
-      "coding_challenge",
-      "behavioral_interview",
-      "panel_interview",
-      "final_interview",
-      "culture_fit",
-      "offer",
-    ], // All stages by default
-    position: [] as string[],
+  const [activeFilters, setActiveFilters] = useState<{
+    status: string[];
+    stage: string[];
+    position: string[];
+  }>({
+    status: [],
+    stage: [],
+    position: [],
   });
 
-  // Only initialize stage filters on first load
-  const didInitStageFilters = useRef(false);
-  useEffect(() => {
-    if (
-      !didInitStageFilters.current &&
-      stageConfigs.length > 0 &&
-      activeFilters.stage.length === 0
-    ) {
-      setActiveFilters((prev) => ({
-        ...prev,
-        stage: stageConfigs.map((config) => config.id), // All stages by default
-      }));
-      didInitStageFilters.current = true;
-    }
-  }, [stageConfigs, activeFilters.stage.length]);
+  const [filterCounts, setFilterCounts] = useState<{
+    status: Record<string, number>;
+    stage: Record<string, number>;
+    position: Record<string, number>;
+  }>({
+    status: {},
+    stage: {},
+    position: {},
+  });
 
   // Notes state
-  const [candidateNotes, setCandidateNotes] = useState<Record<string, string>>(
-    {}
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [notesEditModalOpen, setNotesEditModalOpen] = useState(false);
+  const [editingCandidate, setEditingCandidate] = useState<Candidate | null>(
+    null
   );
-  const [notesSearchQuery, setNotesSearchQuery] = useState("");
 
-  // Modal state for editing notes
-  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
-  const [editingCandidate, setEditingCandidate] = useState<
-    CandidateWithJobDetails | Candidate | null
-  >(null);
+  // NEW: State for jobs
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [jobsLoading, setJobsLoading] = useState(true);
+  const [selectedJob, setSelectedJob] = useState<string | null>(null);
 
-  // Load candidates data with better error handling
+  // Load jobs on component mount
   useEffect(() => {
-    // Wait for authentication to be fully loaded
-    if (authLoading) {
-      console.log("⏳ Waiting for authentication to load...");
-      return;
-    }
+    const loadJobs = async () => {
+      if (!companyId) {
+        setJobs([]);
+        setJobsLoading(false);
+        return;
+      }
+      // Wait for authentication to be fully loaded
+      if (authLoading) {
+        console.log("⏳ Waiting for authentication to load...");
+        return;
+      }
 
-    if (!isAuthorized || !companyId) {
-      console.log("❌ Not authorized or no company ID:", { isAuthorized, companyId });
-      return;
-    }
+      if (!isAuthorized || !companyId) {
+        console.log("❌ Not authorized or no company ID:", {
+          isAuthorized,
+          companyId,
+        });
+        return;
+      }
 
-    const loadCandidates = async () => {
+      setJobsLoading(true);
+      try {
+        // Use getAllJobs with "Active" status and companyId to filter for active jobs only
+        const jobsData = await jobService.getAllJobs("Active", companyId);
+        if (jobsData && Array.isArray(jobsData)) {
+          const convertedJobs = jobsData.map((apiJob: any) => {
+            // Ensure the API job has the correct field names for conversion
+            const normalizedApiJob = {
+              ...apiJob,
+              // Handle both camelCase and PascalCase field names from backend
+              applicantCount:
+                apiJob.applicantCount || apiJob.ApplicantCount || 0,
+              viewCount: apiJob.viewCount || apiJob.ViewCount || 0,
+            };
+            const convertedJob =
+              jobService.convertApiJobToJob(normalizedApiJob);
+            return convertedJob;
+          });
+          setJobs(convertedJobs);
+        } else {
+          setJobs([]);
+        }
+      } catch (err) {
+        console.error("Error loading jobs:", err);
+        setError("Failed to load jobs. Please try again later.");
+      } finally {
+        setJobsLoading(false);
+      }
+    };
+
+    loadJobs();
+  }, [companyId]);
+
+  // Reload candidates when selected job, company, or auth state changes
+  useEffect(() => {
+    let isCurrent = true;
+    const safeLoadCandidates = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        console.log("🔄 Loading candidates for company:", companyId);
-        
-        // DEBUG: Log where company ID is coming from
-        const candidateServiceUser = candidateService.getCurrentUser();
-        console.log("🔍 DEBUG: Company ID sources:", {
-          fromAuthContext: companyId,
-          fromCandidateService: candidateServiceUser.companyId,
-          fromLocalStorage: localStorage.getItem("currentUser") ? JSON.parse(localStorage.getItem("currentUser")!).companyId : null,
-          fromSessionStorage: sessionStorage.getItem("currentUser") ? JSON.parse(sessionStorage.getItem("currentUser")!).companyId : null,
-        });
-        
-        const response = await candidateService.getCandidatesForCompany();
-        const application_details = await candidateService.getApplicationDetailByJob(response.candidates[0].jobId);
-
-        
-
-        console.log("✅ Candidates loaded:", response.candidates);
-        setCandidates(response.candidates);
-        setCompanyName(response.companyName || "your company");
-
-        // DEBUG: Log the raw response to see what we're getting
-        console.log("🔍 DEBUG: Raw candidates response:", response.candidates);
-
-        // Log candidate stages for debugging
-        console.log(
-          "🔍 DEBUG: Candidate stages:",
-          response.candidates.map((candidate) => ({
-            id: candidate.id,
-            name: candidate.name,
-            stage: candidate.stage,
-            stageFilterId: InterviewStageConfig.mapStageToFilterId(
-              candidate.stage || ""
-            ),
-          }))
-        );
-
-        // Extract notes from candidate data using consistent key (applicationId)
-        const notesFromDb: Record<string, string> = {};
-        response.candidates.forEach((candidate, index) => {
-          console.log(`🔍 DEBUG: Candidate ${index}:`, {
-            id: candidate.id,
-            applicationId: candidate.applicationId,
-            candidateUserId: candidate.candidateUserId,
-            name: candidate.name,
-            hiringNotes: (candidate as any).hiringNotes,
-            notesCreatedAt: (candidate as any).notesCreatedAt,
-            notesUpdatedAt: (candidate as any).notesUpdatedAt,
+        if (selectedJob) {
+          // Fetch only candidates for the selected job
+          console.log("🔄 Loading candidates for job:", selectedJob);
+          const jobCandidates = await candidateService.getCandidatesForJob(
+            selectedJob
+          );
+          if (!isCurrent) return;
+          setCandidates(jobCandidates);
+          // Optionally set companyName from job info if needed
+          // setCompanyName(...)
+          // Extract notes from candidate data using consistent key (applicationId)
+          const notesFromDb: Record<string, string> = {};
+          jobCandidates.forEach((candidate, index) => {
+            const noteValue = (candidate as any).hiringNotes;
+            if (noteValue && noteValue.trim() !== "") {
+              notesFromDb[candidate.applicationId] = noteValue;
+            }
           });
-
-          // Check for notes - handle both null and empty string
-          const noteValue = (candidate as any).hiringNotes;
-          if (noteValue && noteValue.trim() !== "") {
-            notesFromDb[candidate.applicationId] = noteValue;
-            console.log(
-              `📝 DEBUG: Added note for ${candidate.name} with key ${candidate.applicationId}:`,
-              noteValue
-            );
-          } else {
-            console.log(
-              `📝 DEBUG: No valid note for ${candidate.name}. Raw value:`,
-              noteValue
-            );
-          }
-        });
-
-        setCandidateNotes(notesFromDb);
-        console.log("📝 Final notes object:", notesFromDb);
-        console.log(
-          "📝 Loaded notes for",
-          Object.keys(notesFromDb).length,
-          "candidates"
-        );
-
-        // Load existing rankings from backend
-        await loadRankingsFromBackend();
+          setNotes(notesFromDb);
+          // Load existing rankings from backend
+          await loadRankingsFromBackend();
+        } else {
+          // Fetch all company candidates (legacy behavior)
+          console.log("🔄 Loading candidates for company:", companyId);
+          const response = await candidateService.getCandidatesForCompany();
+          if (!isCurrent) return;
+          setCandidates(response.candidates);
+          setCompanyName(response.companyName || "your company");
+          // Extract notes from candidate data using consistent key (applicationId)
+          const notesFromDb: Record<string, string> = {};
+          response.candidates.forEach((candidate, index) => {
+            const noteValue = (candidate as any).hiringNotes;
+            if (noteValue && noteValue.trim() !== "") {
+              notesFromDb[candidate.applicationId] = noteValue;
+            }
+          });
+          setNotes(notesFromDb);
+          // Load existing rankings from backend
+          await loadRankingsFromBackend();
+        }
       } catch (err) {
+        if (!isCurrent) return;
         console.error("❌ Failed to load candidates:", err);
-
-        // Better error categorization
         const errorMessage =
           err instanceof Error ? err.message : "Failed to load candidates";
-
         if (errorMessage.includes("Company not found")) {
           setError("company-not-found");
         } else if (errorMessage.includes("No jobs found")) {
@@ -404,100 +406,107 @@ function CandidatesPage() {
           setError("general-error");
         }
       } finally {
-        setLoading(false);
+        if (isCurrent) setLoading(false);
       }
     };
+    safeLoadCandidates();
+    return () => {
+      isCurrent = false;
+    };
+  }, [isAuthorized, companyId, authLoading, selectedJob]);
 
-    loadCandidates();
-  }, [isAuthorized, companyId, authLoading]);
+  // Recalculate filter counts when candidates or active filters change
+  useEffect(() => {
+    if (candidates.length > 0) {
+      console.log(
+        "🔍 Recalculating filter counts for",
+        candidates.length,
+        "candidates"
+      );
+      console.log(
+        "🔍 Sample candidates:",
+        candidates.slice(0, 3).map((c) => ({
+          name: c.name,
+          status: c.status,
+          stage: c.stage,
+          jobId: c.jobId,
+        }))
+      );
 
-  // Load rankings from backend
+      const filterCounts = DynamicCandidateFilterUtils.calculateFilterCounts(
+        candidates,
+        activeFilters
+      );
+
+      console.log("🔍 Calculated filter counts:", filterCounts);
+      setFilterCounts(filterCounts);
+    }
+  }, [candidates, activeFilters]);
+
+  // Load rankings from the backend
   const loadRankingsFromBackend = async () => {
+    // Only load rankings if a job is selected
+    if (!selectedJob) return;
+
+    setLoadingRankings(true);
     try {
-      setLoadingRankings(true);
-      console.log("🔄 Loading rankings from backend...");
+      const response = await candidateRankingService.getRankings(
+        companyId || "",
+        selectedJob
+      );
 
-      const rankingsResponse =
-        await candidateRankingService.getRankingsByCompany();
+      if (response.success && response.data) {
+        const rankingData = response.data || [];
+        const rankedCandidatesSet = new Set<string>();
 
-      // Group rankings by job
-      const rankingsByJob: Record<string, CandidateWithJobDetails[]> = {};
-      const rankedApplicationIds = new Set<string>();
-
-      rankingsResponse.forEach((jobRanking) => {
-        const jobId = jobRanking.jobId;
-        const candidates = jobRanking.rankings.map((ranking) =>
-          candidateRankingService.convertRankingToCandidate(ranking)
-        );
-
-        rankingsByJob[jobId] = candidates;
-
-        // Track which candidates are ranked
-        candidates.forEach((candidate) => {
-          rankedApplicationIds.add(candidate.applicationId);
+        rankingData.forEach((candidate: CandidateWithJobDetails) => {
+          if (candidate.applicationId) {
+            rankedCandidatesSet.add(candidate.applicationId);
+          }
         });
-      });
 
-      setRankingsByPosition(rankingsByJob);
-      setRankedCandidates(rankedApplicationIds);
+        setRankedCandidates(rankedCandidatesSet);
 
-      console.log("✅ Rankings loaded from backend:", {
-        jobsWithRankings: Object.keys(rankingsByJob).length,
-        totalRankedCandidates: rankedApplicationIds.size,
-      });
-    } catch (error) {
-      console.error("❌ Failed to load rankings from backend:", error);
-      // Don't fail the entire page load, just log the error
+        // Store ranking data for this position
+        setRankingsByPosition((prev) => ({
+          ...prev,
+          [selectedJob]: rankingData,
+        }));
+      }
+    } catch (err) {
+      console.error("Error loading rankings:", err);
     } finally {
       setLoadingRankings(false);
     }
   };
 
-  // Get available jobs from candidates for filtering
-  const availableJobs = useMemo(() => {
-    const jobsMap = new Map();
-    candidates.forEach((candidate) => {
-      const hasJobDetails = "jobTitle" in candidate && "jobId" in candidate;
-      if (hasJobDetails) {
-        const candidateWithDetails = candidate as CandidateWithJobDetails;
-        const jobId = candidateWithDetails.jobId;
-        const jobTitle = candidateWithDetails.jobTitle;
-        const jobDepartment = candidateWithDetails.jobDepartment;
+  // Load rankings when the selected position changes
+  useEffect(() => {
+    loadRankingsFromBackend();
+  }, [selectedJob]);
 
-        if (!jobsMap.has(jobId)) {
-          jobsMap.set(jobId, {
-            id: jobId,
-            title: jobTitle,
-            department: jobDepartment,
-          });
-        }
-      }
+  // Handle job selection
+  const handleJobSelect = (jobId: string) => {
+    setSelectedJob(jobId);
+    // When selecting a job, clear any selected candidate
+    setSelectedCandidate(null);
+    // Set the selected position to the jobId as well
+    setSelectedPosition(jobId);
+    // Reset pagination
+    setCurrentPage(1);
+    // Clear any selected candidates for ranking
+    setSelectedForRanking([]);
+    // Set active filters for that job if needed
+    setActiveFilters({
+      ...activeFilters,
+      position: [jobId],
     });
-    return Array.from(jobsMap.values());
-  }, [candidates]);
+    // Immediately clear candidates and notes to avoid showing stale data
+    setCandidates([]);
+    setNotes({});
+  };
 
-  // Calculate filter counts using dynamic utilities
-  const filterCounts = useMemo(() => {
-    if (stageConfigsLoading || stageConfigs.length === 0) {
-      return {
-        status: { "in-progress": 0, offered: 0, hired: 0, rejected: 0 },
-        stage: {} as Record<string, number>,
-        position: {} as Record<string, number>,
-      };
-    }
-
-    const counts = DynamicCandidateFilterUtils.calculateFilterCounts(
-      candidates,
-      {
-        status: activeFilters.status,
-        stage: activeFilters.stage,
-        position: activeFilters.position,
-      }
-    );
-
-    return counts;
-  }, [candidates, activeFilters, stageConfigs, stageConfigsLoading]);
-
+  // Handle candidate click
   const handleCandidateClick = (candidateId: string) => {
     setSelectedCandidate(candidateId);
   };
@@ -507,10 +516,10 @@ function CandidatesPage() {
   };
 
   const toggleFilter = (filterType: "status" | "stage" | "position") => {
-    setExpandedFilters((prev) => ({
-      ...prev,
-      [filterType]: !prev[filterType],
-    }));
+    setExpandedFilters({
+      ...expandedFilters,
+      [filterType]: !expandedFilters[filterType],
+    });
   };
 
   const handleFilterChange = (
@@ -519,63 +528,44 @@ function CandidatesPage() {
     checked: boolean
   ) => {
     setActiveFilters((prev) => {
-      const newFilters = {
-        ...prev,
-        [filterType]: checked
-          ? [...prev[filterType], filterId]
-          : prev[filterType].filter((id) => id !== filterId),
-      };
-
-      // Log when stage filters are changed
-      if (filterType === "stage") {
-        console.log("🔍 Stage filter changed:", {
-          filterId,
-          checked,
-          allActiveStageFilters: newFilters.stage,
-        });
+      const newFilters = { ...prev };
+      if (checked) {
+        newFilters[filterType] = [...prev[filterType], filterId];
+      } else {
+        newFilters[filterType] = prev[filterType].filter(
+          (id) => id !== filterId
+        );
       }
-
       return newFilters;
     });
+
+    // Reset to first page when filters change
     setCurrentPage(1);
   };
 
-  // Add these handler functions:
   const handleRankingSelect = (candidateId: string, selected: boolean) => {
-    // Find the candidate to check if they're already ranked
-    const candidate = filteredAndSortedCandidates.find(
-      (c) => c.id === candidateId
-    );
-
-    if (candidate && rankedCandidates.has(candidate.applicationId)) {
-      console.log("Candidate is already ranked, cannot select for ranking");
-      return;
-    }
-
-    if (selected) {
-      setSelectedForRanking((prev) => [...prev, candidateId]);
-    } else {
-      setSelectedForRanking((prev) => prev.filter((id) => id !== candidateId));
-    }
+    setSelectedForRanking((prev) => {
+      if (selected) {
+        return [...prev, candidateId];
+      } else {
+        return prev.filter((id) => id !== candidateId);
+      }
+    });
   };
 
   const handleSelectAllForRanking = (selectAll: boolean) => {
     if (selectAll) {
-      // Only select candidates that are not already ranked
-      const unrankedCandidates = filteredAndSortedCandidates.filter(
-        (c) => !rankedCandidates.has(c.applicationId)
-      );
-      setSelectedForRanking(unrankedCandidates.map((c) => c.id));
+      const allCandidateIds = candidates.map((candidate) => candidate.id);
+      setSelectedForRanking(allCandidateIds);
     } else {
       setSelectedForRanking([]);
     }
   };
 
   const handleGoToRanking = async () => {
-    const selectedCandidates: CandidateWithJobDetails[] =
-      filteredAndSortedCandidates.filter((c) =>
-        selectedForRanking.includes(c.id)
-      );
+    const selectedCandidates: CandidateWithJobDetails[] = candidates.filter(
+      (c) => selectedForRanking.includes(c.id)
+    );
 
     // NEW: Group candidates by job ID to ensure same-role ranking
     const candidatesByPosition: Record<string, CandidateWithJobDetails[]> = {};
@@ -717,7 +707,7 @@ function CandidatesPage() {
     setCurrentPage(1);
   };
 
-  const handleSort = (field: "name" | "company" | "stage" | "status") => {
+  const handleSort = (field: "name" | "stage" | "status") => {
     setSortBy((prev) => ({
       field,
       direction:
@@ -807,10 +797,10 @@ function CandidatesPage() {
       );
 
       const newNotes = {
-        ...candidateNotes,
+        ...notes,
         [candidateId]: note, // Use applicationId consistently
       };
-      setCandidateNotes(newNotes);
+      setNotes(newNotes);
 
       setCandidates((prevCandidates) =>
         prevCandidates.map((c) => {
@@ -846,9 +836,9 @@ function CandidatesPage() {
       await candidateService.deleteCandidateNote(candidateId);
 
       // Update local state using applicationId
-      const newNotes = { ...candidateNotes };
+      const newNotes = { ...notes };
       delete newNotes[candidateId];
-      setCandidateNotes(newNotes);
+      setNotes(newNotes);
 
       console.log("✅ Note deleted successfully from database");
     } catch (error) {
@@ -861,11 +851,11 @@ function CandidatesPage() {
     // Find the full candidate data with job details
     const fullCandidateData = candidates.find((c) => c.id === candidate.id);
     setEditingCandidate(fullCandidateData || candidate);
-    setIsNotesModalOpen(true);
+    setNotesEditModalOpen(true);
   };
 
   const handleCloseNotesModal = () => {
-    setIsNotesModalOpen(false);
+    setNotesEditModalOpen(false);
     setEditingCandidate(null);
   };
 
@@ -882,77 +872,32 @@ function CandidatesPage() {
       position: [],
     });
     setSearchQuery("");
-    setNotesSearchQuery("");
   };
 
   // Get candidates with notes using applicationId
   const candidatesWithNotes = useMemo(() => {
-    console.log("🔍 DEBUG: Calculating candidatesWithNotes");
-    console.log(
-      "🔍 DEBUG: All candidates:",
-      candidates.map((c) => ({
-        id: c.id,
-        applicationId: c.applicationId,
-        name: c.name,
-      }))
-    );
-    console.log(
-      "🔍 DEBUG: Current candidateNotes keys:",
-      Object.keys(candidateNotes)
-    );
-
     const withNotes = candidates.filter((candidate) => {
       // Use applicationId to check for notes
-      const hasNote = candidateNotes[candidate.applicationId];
-      console.log(
-        `🔍 DEBUG: Candidate ${candidate.name} (app: ${candidate.applicationId}) has note:`,
-        !!hasNote
-      );
-      return hasNote;
+      const hasNote = notes[candidate.applicationId];
+      return hasNote && hasNote.trim() !== "";
     });
-
-    console.log(
-      "🔍 DEBUG: Candidates with notes:",
-      withNotes.map((c) => ({
-        id: c.id,
-        applicationId: c.applicationId,
-        name: c.name,
-      }))
-    );
     return withNotes;
-  }, [candidates, candidateNotes]);
+  }, [candidates, notes]);
 
   // Filter notes based on search and active filters
   const filteredNoteCandidates = useMemo(() => {
     let filtered = candidatesWithNotes;
 
     // Apply search filter
-    if (notesSearchQuery) {
+    if (searchQuery) {
       filtered = filtered.filter(
         (candidate) =>
-          candidate.name
-            .toLowerCase()
-            .includes(notesSearchQuery.toLowerCase()) ||
-          candidate.company
-            .toLowerCase()
-            .includes(notesSearchQuery.toLowerCase()) ||
-          candidateNotes[candidate.applicationId]
+          candidate.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          candidate.company.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          notes[candidate.applicationId]
             ?.toLowerCase()
-            .includes(notesSearchQuery.toLowerCase())
+            .includes(searchQuery.toLowerCase())
       );
-    }
-
-    // Apply position filter
-    if (activeFilters.position.length > 0) {
-      filtered = filtered.filter((candidate) => {
-        const hasJobDetails = "jobId" in candidate;
-        if (hasJobDetails) {
-          const candidateWithDetails = candidate as CandidateWithJobDetails;
-          const jobId = candidateWithDetails.jobId;
-          return activeFilters.position.includes(jobId);
-        }
-        return false;
-      });
     }
 
     // Apply status filter
@@ -976,7 +921,7 @@ function CandidatesPage() {
     }
 
     return filtered;
-  }, [candidatesWithNotes, notesSearchQuery, candidateNotes, activeFilters]);
+  }, [candidatesWithNotes, searchQuery, notes, activeFilters]);
 
   // Calculate pagination for notes
   const totalNotes = filteredNoteCandidates.length;
@@ -988,37 +933,33 @@ function CandidatesPage() {
     notesEndIndex
   );
 
-  // Filter and sort candidates using dynamic utilities
+  // Filter and sort candidates using local filtering
   const filteredAndSortedCandidates: CandidateWithJobDetails[] = useMemo(() => {
     if (stageConfigsLoading || stageConfigs.length === 0) {
       return []; // Return empty while loading stage configs
     }
 
-    // Log stage filter information
-    console.log("🔍 DEBUG: Stage filter application:", {
-      activeStageFilters: activeFilters.stage,
-      stageConfigs: stageConfigs.map((config) => ({
-        id: config.id,
-        label: config.label,
-      })),
-    });
+    let filtered = candidates;
 
-    let filtered = DynamicCandidateFilterUtils.applyFilters(candidates, {
-      status: activeFilters.status,
-      stage: activeFilters.stage,
-      position: activeFilters.position,
-    }) as CandidateWithJobDetails[];
+    // Apply status filter
+    if (activeFilters.status.length > 0) {
+      filtered = filtered.filter((candidate) => {
+        const statusFilterId = DynamicCandidateFilterUtils.mapStatusToFilterId(
+          candidate.status || ""
+        );
+        return activeFilters.status.includes(statusFilterId);
+      });
+    }
 
-    // Log stage filter results
-    console.log("🔍 DEBUG: After stage filtering:", {
-      beforeCount: candidates.length,
-      afterCount: filtered.length,
-      candidateStages: filtered.map((c) => ({
-        name: c.name,
-        stage: c.stage,
-        stageFilterId: InterviewStageConfig.mapStageToFilterId(c.stage || ""),
-      })),
-    });
+    // Apply stage filter
+    if (activeFilters.stage.length > 0) {
+      filtered = filtered.filter((candidate) => {
+        const stageFilterId = InterviewStageConfig.mapStageToFilterId(
+          candidate.stage || ""
+        );
+        return activeFilters.stage.includes(stageFilterId);
+      });
+    }
 
     // Apply search filter
     if (searchQuery) {
@@ -1041,10 +982,6 @@ function CandidatesPage() {
         case "name":
           aValue = a.name;
           bValue = b.name;
-          break;
-        case "company":
-          aValue = a.company;
-          bValue = b.company;
           break;
         case "stage":
           aValue = a.stage;
@@ -1100,6 +1037,16 @@ function CandidatesPage() {
     endIndex
   );
 
+  // Calculate counts for each tab with respect to current filters
+  const candidatesCount = filteredAndSortedCandidates.length;
+  const notesCount = filteredAndSortedCandidates.filter(
+    (c) => notes[c.applicationId] && notes[c.applicationId].trim() !== ""
+  ).length;
+  const rankingCount = Object.values(rankingsByPosition).reduce(
+    (total, candidates) => total + candidates.filter((c) => c.isRanked).length,
+    0
+  );
+
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     // Scroll to top of candidate list when page changes
@@ -1130,8 +1077,64 @@ function CandidatesPage() {
     return stageConfigs;
   }, [stageConfigs]);
 
-  // Loading state with animation
-  if (loading) {
+  // Return back to the job selection grid
+  const handleBackToJobs = () => {
+    setSelectedJob(null);
+    setSelectedCandidate(null);
+  };
+
+  // Render the UI
+  if (!isAuthorized) {
+    return null;
+  }
+
+  // Show job grid if no job is selected
+  if (!selectedJob) {
+    return (
+      <div className="flex-1 flex flex-col h-full bg-gray-50">
+        <div className="px-6 py-4 bg-white border-b">
+          <h1 className="text-xl font-semibold text-gray-900">
+            Candidates by Job
+          </h1>
+          <p className="text-gray-600 text-sm">
+            Select a job to view its candidates
+          </p>
+        </div>
+
+        {jobsLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="animate-pulse flex space-x-4">
+              <div className="rounded-full bg-gray-200 h-12 w-12"></div>
+              <div className="flex-1 space-y-4 py-1">
+                <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                  <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : jobs.length === 0 ? (
+          <EmptyState
+            type="no-jobs"
+            companyName={companyName}
+            onCreateJob={() => (window.location.href = "/create-job")}
+          />
+        ) : (
+          <div className="flex-1 p-6 overflow-y-auto">
+            <JobGrid
+              jobs={jobs}
+              onJobSelect={handleJobSelect}
+              showStats={true}
+            />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Handle loading state
+  if (loading && candidates.length === 0) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -1142,7 +1145,7 @@ function CandidatesPage() {
     );
   }
 
-  // Error states with better UX
+  // Handle error state
   if (error) {
     const renderErrorState = () => {
       switch (error) {
@@ -1177,7 +1180,20 @@ function CandidatesPage() {
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
                 filterCounts={filterCounts}
-                availableJobs={availableJobs}
+                availableJobs={
+                  selectedJob
+                    ? [
+                        {
+                          id: selectedJob,
+                          title:
+                            jobs.find((j) => j.id === selectedJob)?.title ||
+                            "Selected Job",
+                          department: jobs.find((j) => j.id === selectedJob)
+                            ?.department,
+                        },
+                      ]
+                    : []
+                }
                 stageConfigs={filteredStageConfigs}
                 onClearFilters={clearFilters}
               />
@@ -1187,15 +1203,11 @@ function CandidatesPage() {
                   onTabChange={setActiveTab}
                   searchQuery={searchQuery}
                   onSearchChange={setSearchQuery}
-                  candidatesCount={0}
-                  notesCount={0}
-                  rankingCount={0}
+                  candidatesCount={candidatesCount}
+                  notesCount={notesCount}
+                  rankingCount={rankingCount}
                 />
-                <EmptyState
-                  type="no-jobs"
-                  companyName={companyName}
-                  onCreateJob={() => (window.location.href = "/jobs/create")}
-                />
+                <EmptyState type="no-jobs" companyName={companyName} />
               </div>
             </div>
           );
@@ -1209,7 +1221,20 @@ function CandidatesPage() {
                 activeFilters={activeFilters}
                 onFilterChange={handleFilterChange}
                 filterCounts={filterCounts}
-                availableJobs={availableJobs}
+                availableJobs={
+                  selectedJob
+                    ? [
+                        {
+                          id: selectedJob,
+                          title:
+                            jobs.find((j) => j.id === selectedJob)?.title ||
+                            "Selected Job",
+                          department: jobs.find((j) => j.id === selectedJob)
+                            ?.department,
+                        },
+                      ]
+                    : []
+                }
                 stageConfigs={filteredStageConfigs}
                 onClearFilters={clearFilters}
               />
@@ -1219,9 +1244,9 @@ function CandidatesPage() {
                   onTabChange={setActiveTab}
                   searchQuery={searchQuery}
                   onSearchChange={setSearchQuery}
-                  candidatesCount={0}
-                  notesCount={0}
-                  rankingCount={0}
+                  candidatesCount={candidatesCount}
+                  notesCount={notesCount}
+                  rankingCount={rankingCount}
                 />
                 <EmptyState type="no-applications" companyName={companyName} />
               </div>
@@ -1256,425 +1281,172 @@ function CandidatesPage() {
     return renderErrorState();
   }
 
-  // Main content with empty state handling
-  const renderMainContent = () => {
-    if (activeTab === "candidates") {
-      if (filteredAndSortedCandidates.length === 0) {
-        if (searchQuery) {
-          return (
-            <EmptyState
-              type="no-results"
-              searchQuery={searchQuery}
-              onClearSearch={() => setSearchQuery("")}
-            />
-          );
-        } else if (candidates.length === 0) {
-          return (
-            <EmptyState type="no-applications" companyName={companyName} />
-          );
-        } else {
-          return (
-            <EmptyState
-              type="no-candidates"
-              onClearSearch={handleClearFilters}
-            />
-          );
-        }
-      }
-      return (
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <CandidatesList
-            candidates={paginatedCandidates}
-            selectedCandidate={selectedCandidate}
-            selectedForRanking={selectedForRanking}
-            rankedCandidates={rankedCandidates}
-            onCandidateClick={handleCandidateClick}
-            onRankingSelect={handleRankingSelect}
-            onSelectAllForRanking={handleSelectAllForRanking}
-            onGoToRanking={handleGoToRanking}
-            sortBy={sortBy}
-            onSort={handleSort}
-          />
+  // Main render for when a job is selected and candidates are available
+  return (
+    <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50">
+      {/* Header with back button and job title */}
+      <div className="px-6 py-4 bg-white border-b flex items-center">
+        <button
+          onClick={handleBackToJobs}
+          className="mr-4 p-2 rounded-full hover:bg-gray-100 transition-colors"
+        >
+          <ChevronLeft className="h-5 w-5 text-gray-600" />
+        </button>
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">
+            Candidates for{" "}
+            {jobs.find((j) => j.id === selectedJob)?.title || "Selected Job"}
+          </h1>
+          <p className="text-gray-600 text-sm">
+            {filteredAndSortedCandidates.length} candidates
+          </p>
+        </div>
+      </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="border-t bg-white px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-700">
-                  Showing {startIndex + 1} to{" "}
-                  {Math.min(endIndex, totalCandidates)} of {totalCandidates}{" "}
-                  candidates
-                </div>
+      {/* Tabs and Search - Moved to top */}
+      <CandidateHeader
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        candidatesCount={candidatesCount}
+        notesCount={notesCount}
+        rankingCount={rankingCount}
+      />
 
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className={`p-2 rounded-md ${
-                      currentPage === 1
-                        ? "text-gray-400 cursor-not-allowed"
-                        : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
-                    }`}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
+      <div className="flex-1 flex overflow-hidden">
+        {/* Filter sidebar */}
+        <FilterSidebar
+          expandedFilters={{
+            status: expandedFilters.status,
+            stage: expandedFilters.stage,
+            position: false, // Hide position filter since job is already selected
+          }}
+          toggleFilter={toggleFilter}
+          activeFilters={{
+            ...activeFilters,
+            position: [], // Don't show any position filters
+          }}
+          onFilterChange={handleFilterChange}
+          onClearFilters={clearFilters}
+          filterCounts={filterCounts}
+          availableJobs={
+            selectedJob
+              ? [
+                  {
+                    id: selectedJob,
+                    title:
+                      jobs.find((j) => j.id === selectedJob)?.title ||
+                      "Selected Job",
+                    department: jobs.find((j) => j.id === selectedJob)
+                      ?.department,
+                  },
+                ]
+              : []
+          }
+          stageConfigs={stageConfigs}
+          hidePositionFilter={true} // Hide the position section
+        />
 
-                  <div className="flex space-x-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1)
-                      .filter((page) => {
-                        // Show first page, last page, current page, and 2 pages around current page
-                        return (
-                          page === 1 ||
-                          page === totalPages ||
-                          Math.abs(page - currentPage) <= 2
-                        );
-                      })
-                      .map((page, index, filteredPages) => {
-                        // Add ellipsis if there's a gap
-                        const showEllipsis =
-                          index > 0 && page - filteredPages[index - 1] > 1;
+        {/* Main content area */}
+        <div className="flex-1 flex overflow-hidden">
+          {activeTab === "candidates" && (
+            <div className="flex-1 flex overflow-hidden">
+              {/* Candidates list */}
+              <CandidatesList
+                candidates={filteredAndSortedCandidates}
+                selectedCandidate={selectedCandidate}
+                selectedForRanking={selectedForRanking}
+                rankedCandidates={rankedCandidates}
+                onCandidateClick={handleCandidateClick}
+                onRankingSelect={handleRankingSelect}
+                onSelectAllForRanking={handleSelectAllForRanking}
+                onGoToRanking={handleGoToRanking}
+                sortBy={sortBy}
+                onSort={handleSort}
+              />
 
-                        return (
-                          <div key={page} className="flex items-center">
-                            {showEllipsis && (
-                              <span className="px-2 text-gray-400">...</span>
-                            )}
-                            <button
-                              onClick={() => handlePageChange(page)}
-                              className={`px-3 py-1 rounded-md text-sm font-medium ${
-                                currentPage === page
-                                  ? "bg-blue-600 text-white"
-                                  : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
-                              }`}
-                            >
-                              {page}
-                            </button>
-                          </div>
-                        );
-                      })}
-                  </div>
-
-                  <button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className={`p-2 rounded-md ${
-                      currentPage === totalPages
-                        ? "text-gray-400 cursor-not-allowed"
-                        : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
-                    }`}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
+              {/* Candidate details sidebar */}
+              {selectedCandidate &&
+                (() => {
+                  const candidateData = filteredAndSortedCandidates.find(
+                    (c) => c.id === selectedCandidate
+                  );
+                  return candidateData ? (
+                    <div className="w-96 bg-white border-l overflow-auto">
+                      <CandidateDetail
+                        candidate={candidateData}
+                        onClose={closeSidebar}
+                        onAction={(
+                          candidateId: string,
+                          action: "approve" | "decline"
+                        ) => handleCandidateAction(candidateId, action)}
+                        onSaveNote={handleSaveNote}
+                        note={notes[candidateData.applicationId] || ""}
+                      />
+                    </div>
+                  ) : null;
+                })()}
             </div>
           )}
-        </div>
-      );
-    }
-    if (activeTab === "notes") {
-      // Notes tab
-      if (filteredNoteCandidates.length === 0) {
-        if (notesSearchQuery) {
-          return (
-            <EmptyState
-              type="no-results"
-              searchQuery={notesSearchQuery}
-              onClearSearch={() => setNotesSearchQuery("")}
+
+          {/* Notes tab */}
+          {activeTab === "notes" && (
+            <NotesList
+              candidates={filteredAndSortedCandidates.filter(
+                (c) =>
+                  notes[c.applicationId] && notes[c.applicationId].trim() !== ""
+              )}
+              notes={notes}
+              selectedCandidate={selectedCandidate}
+              onCandidateClick={(candidateId: string) => {
+                setSelectedCandidate(candidateId);
+                setActiveTab("candidates");
+              }}
+              onEditNote={handleEditNote}
+              onDeleteNote={handleDeleteNote}
             />
-          );
-        } else {
-          return (
-            <EmptyState
-              type="no-notes"
-              onViewCandidates={() => setActiveTab("candidates")}
-            />
-          );
-        }
-      }
-      return (
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <NotesList
-            candidates={paginatedNoteCandidates}
-            notes={candidateNotes}
-            selectedCandidate={selectedCandidate}
-            onCandidateClick={handleCandidateClick}
-            onDeleteNote={handleDeleteNote}
-            onEditNote={handleEditNote}
-          />
-
-          {/* Pagination for Notes */}
-          {totalNotesPages > 1 && (
-            <div className="border-t bg-white px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-700">
-                  Showing {notesStartIndex + 1} to{" "}
-                  {Math.min(notesEndIndex, totalNotes)} of {totalNotes} notes
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => handlePageChange(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className={`p-2 rounded-md ${
-                      currentPage === 1
-                        ? "text-gray-400 cursor-not-allowed"
-                        : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
-                    }`}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-
-                  <div className="flex space-x-1">
-                    {Array.from({ length: totalNotesPages }, (_, i) => i + 1)
-                      .filter((page) => {
-                        // Show first page, last page, current page, and 2 pages around current page
-                        return (
-                          page === 1 ||
-                          page === totalNotesPages ||
-                          Math.abs(page - currentPage) <= 2
-                        );
-                      })
-                      .map((page, index, filteredPages) => {
-                        // Add ellipsis if there's a gap
-                        const showEllipsis =
-                          index > 0 && page - filteredPages[index - 1] > 1;
-
-                        return (
-                          <div key={page} className="flex items-center">
-                            {showEllipsis && (
-                              <span className="px-2 text-gray-400">...</span>
-                            )}
-                            <button
-                              onClick={() => handlePageChange(page)}
-                              className={`px-3 py-1 rounded-md text-sm font-medium ${
-                                currentPage === page
-                                  ? "bg-blue-600 text-white"
-                                  : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
-                              }`}
-                            >
-                              {page}
-                            </button>
-                          </div>
-                        );
-                      })}
-                  </div>
-
-                  <button
-                    onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage === totalNotesPages}
-                    className={`p-2 rounded-md ${
-                      currentPage === totalNotesPages
-                        ? "text-gray-400 cursor-not-allowed"
-                        : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
-                    }`}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
           )}
-        </div>
-      );
-    }
-    // Add ranking tab rendering
-    if (activeTab === "ranking") {
-      // NEW: Show position selector if multiple positions, or direct ranking if single position
-      const positions = Object.keys(rankingsByPosition);
 
-      if (positions.length === 0) {
-        return (
-          <div className="flex flex-col flex-1 overflow-hidden">
-            <div className="px-6 py-12 text-center">
-              <div className="text-gray-500">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  No Rankings Yet
-                </h3>
-                <p className="text-gray-600 mb-4">
-                  Select candidates from the same position in the Candidates tab
-                  to start ranking
-                </p>
-              </div>
-            </div>
-          </div>
-        );
-      }
-
-      if (positions.length === 1) {
-        // Single position - show direct ranking
-        const positionCandidates = rankingsByPosition[positions[0]];
-        return (
-          <div className="flex flex-col flex-1 overflow-hidden">
+          {/* Ranking tab */}
+          {activeTab === "ranking" && (
             <RankingTab
-              candidates={positionCandidates}
+              candidates={rankingsByPosition[selectedPosition || ""] || []}
               selectedCandidateId={selectedRankingCandidate}
               onCandidateSelect={handleRankingCandidateSelect}
               onRemoveFromRanking={handleRemoveFromRanking}
             />
-          </div>
-        );
-      }
-
-      // Multiple positions - show position selector
-      if (!selectedPosition) {
-        return (
-          <div className="flex flex-col flex-1 overflow-hidden">
-            <PositionRankingSelector
-              rankingsByPosition={rankingsByPosition}
-              selectedPosition={selectedPosition}
-              onPositionSelect={handlePositionSelect}
-            />
-          </div>
-        );
-      }
-
-      // Show ranking for selected position
-      const positionCandidates = rankingsByPosition[selectedPosition] || [];
-      return (
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <div className="px-6 py-4 border-b bg-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Ranking: {selectedPosition}
-                </h3>
-                <p className="text-sm text-gray-600">
-                  {positionCandidates.length} candidates
-                </p>
-              </div>
-              <button
-                onClick={() => setSelectedPosition(null)}
-                className="text-blue-500 hover:text-blue-700 text-sm"
-              >
-                Change Position
-              </button>
-            </div>
-          </div>
-          <RankingTab
-            candidates={positionCandidates}
-            selectedCandidateId={selectedRankingCandidate}
-            onCandidateSelect={handleRankingCandidateSelect}
-            onRemoveFromRanking={handleRemoveFromRanking}
-          />
-        </div>
-      );
-    }
-  };
-
-  return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Left navigation sidebar */}
-      <FilterSidebar
-        expandedFilters={expandedFilters}
-        toggleFilter={toggleFilter}
-        activeFilters={activeFilters}
-        onFilterChange={handleFilterChange}
-        onClearFilters={clearFilters}
-        filterCounts={filterCounts}
-        availableJobs={availableJobs}
-        stageConfigs={filteredStageConfigs}
-      />
-
-      {/* Main content area */}
-      <div className="flex-1 overflow-hidden flex flex-col">
-        <CandidateHeader
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          searchQuery={
-            activeTab === "candidates"
-              ? searchQuery
-              : activeTab === "notes"
-              ? notesSearchQuery
-              : searchQuery
-          }
-          onSearchChange={
-            activeTab === "candidates"
-              ? setSearchQuery
-              : activeTab === "notes"
-              ? setNotesSearchQuery
-              : setSearchQuery
-          }
-          candidatesCount={filteredAndSortedCandidates.length}
-          notesCount={filteredNoteCandidates.length}
-          rankingCount={Object.values(rankingsByPosition).reduce(
-            (total, candidates) => total + candidates.length,
-            0
           )}
-        />
-        {renderMainContent()}
+        </div>
       </div>
 
-      {/* Sidebar details panel - use applicationId for note lookup */}
-      {selectedCandidateData && (
-        <CandidateDetail
-          candidate={selectedCandidateData}
-          onClose={closeSidebar}
-          onAction={handleCandidateAction}
-          note={candidateNotes[selectedCandidateData.applicationId] || ""}
-          onSaveNote={(candidateId, note) =>
-            handleSaveNote(selectedCandidateData.applicationId, note)
+      {/* Modals */}
+      {isRankingModalOpen && selectedRankingCandidate && (
+        <RankingModal
+          candidate={
+            candidates.find((c) => c.id === selectedRankingCandidate) || null
+          }
+          isOpen={isRankingModalOpen}
+          onClose={() => setIsRankingModalOpen(false)}
+          rank={
+            rankingsByPosition[selectedPosition || ""]?.findIndex(
+              (c) => c.id === selectedRankingCandidate
+            ) + 1 || 1
           }
         />
       )}
 
-      {/* Notes Edit Modal - use applicationId */}
-      <NotesEditModal
-        isOpen={isNotesModalOpen}
-        candidate={editingCandidate}
-        currentNote={
-          editingCandidate
-            ? candidateNotes[editingCandidate.applicationId] || ""
-            : ""
-        }
-        onClose={handleCloseNotesModal}
-        onSave={(candidateId, note) =>
-          handleSaveNoteFromModal(editingCandidate?.applicationId || "", note)
-        }
-      />
-      {/* Add ranking modal at the end of your JSX */}
-      <RankingModal
-        candidate={(() => {
-          // Find the candidate from the selected position
-          if (selectedPosition && rankingsByPosition[selectedPosition]) {
-            return (
-              rankingsByPosition[selectedPosition].find(
-                (c) => c.id === selectedRankingCandidate
-              ) || null
-            );
-          }
-          // Fallback to searching all positions
-          for (const candidates of Object.values(rankingsByPosition)) {
-            const found = candidates.find(
-              (c) => c.id === selectedRankingCandidate
-            );
-            if (found) return found;
-          }
-          return null;
-        })()}
-        isOpen={isRankingModalOpen}
-        onClose={() => {
-          setIsRankingModalOpen(false);
-          setSelectedRankingCandidate(null);
-        }}
-        rank={(() => {
-          // Calculate rank within the selected position
-          if (selectedPosition && rankingsByPosition[selectedPosition]) {
-            const sortedCandidates = [
-              ...rankingsByPosition[selectedPosition],
-            ].sort((a, b) => b.assessment - a.assessment);
-            return (
-              sortedCandidates.findIndex(
-                (c) => c.id === selectedRankingCandidate
-              ) + 1
-            );
-          }
-          return 1; // Fallback
-        })()}
-      />
+      {notesEditModalOpen && editingCandidate && (
+        <NotesEditModal
+          isOpen={notesEditModalOpen}
+          candidate={editingCandidate}
+          currentNote={notes[editingCandidate.applicationId] || ""}
+          onClose={handleCloseNotesModal}
+          onSave={handleSaveNoteFromModal}
+        />
+      )}
     </div>
   );
 }
 
-// Export the component wrapped with authentication
 export default withHiringAuth(CandidatesPage);

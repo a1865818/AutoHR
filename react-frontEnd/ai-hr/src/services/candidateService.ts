@@ -306,10 +306,13 @@ class CandidateService {
         }
       );
 
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Failed to fetch application details: ${error}`);
+    if (!response.ok) {
+      const error = await response.text();
+      if (error.includes('No applications found for job ID')) {
+        return [];
       }
+      throw new Error(`Failed to fetch application details: ${error}`);
+    }
 
       const data = await response.json();
       console.log("✅ Application details fetched successfully:", data);
@@ -411,6 +414,130 @@ class CandidateService {
   // Get current user info
   getCurrentUser() {
     return this.getAuthData();
+  }
+
+  // Enhanced method to get candidates with filtering options
+  async getCandidates({
+    companyId,
+    jobIds = [],
+    statusFilters = [],
+    stageFilters = [],
+    query = "",
+    page = 1,
+    pageSize = 10,
+  }: {
+    companyId?: string;
+    jobIds?: string[];
+    statusFilters?: string[];
+    stageFilters?: string[];
+    query?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
+    const { token, userCategory } = this.getAuthData();
+
+    if (!token) {
+      throw new Error("User not authenticated");
+    }
+
+    if (userCategory === "ApplicationUser") {
+      throw new Error("Access denied - only hiring users can view candidates");
+    }
+
+    const actualCompanyId = companyId || this.getAuthData().companyId;
+    
+    if (!actualCompanyId) {
+      throw new Error("Company ID is required");
+    }
+
+    try {
+      // Build query parameters
+      const params = new URLSearchParams();
+      
+      // Add pagination
+      params.append("page", page.toString());
+      params.append("pageSize", pageSize.toString());
+      
+      // Add search query if provided
+      if (query) {
+        params.append("query", query);
+      }
+      
+      // Add filters
+      if (jobIds && jobIds.length > 0) {
+        jobIds.forEach(jobId => {
+          params.append("jobIds", jobId);
+        });
+      }
+      
+      if (statusFilters && statusFilters.length > 0) {
+        statusFilters.forEach(status => {
+          params.append("statusFilters", status);
+        });
+      }
+      
+      if (stageFilters && stageFilters.length > 0) {
+        stageFilters.forEach(stage => {
+          params.append("stageFilters", stage);
+        });
+      }
+      
+      const queryString = params.toString();
+      const endpoint = `/candidates/filter/${actualCompanyId}${queryString ? `?${queryString}` : ''}`;
+      
+      console.log(`📤 Fetching candidates with filters:`, {
+        endpoint,
+        filters: { jobIds, statusFilters, stageFilters, query }
+      });
+
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method: "GET",
+        headers: this.getHeaders(),
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return {
+            success: true,
+            data: [],
+            meta: {
+              totalCount: 0,
+              companyName: "Unknown Company",
+              filterCounts: {
+                status: {},
+                stage: {},
+                position: {},
+              }
+            }
+          };
+        }
+        const error = await response.text();
+        throw new Error(`Failed to fetch candidates: ${error}`);
+      }
+
+      const responseData = await response.json();
+      
+      return {
+        success: true,
+        data: responseData.candidates || [],
+        meta: {
+          totalCount: responseData.totalCount || 0,
+          companyName: responseData.companyName || "Unknown Company",
+          filterCounts: responseData.filterCounts || {
+            status: {},
+            stage: {},
+            position: {},
+          }
+        }
+      };
+    } catch (error) {
+      console.error("❌ Failed to fetch candidates with filters:", error);
+      return {
+        success: false,
+        data: [],
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
+    }
   }
 }
 

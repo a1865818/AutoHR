@@ -18,10 +18,10 @@ interface CandidatesListProps {
   onSelectAllForRanking: (selected: boolean) => void;
   onGoToRanking: () => void;
   sortBy: {
-    field: "name" | "company" | "stage" | "status";
+    field: "name" | "stage" | "status";
     direction: "asc" | "desc";
   };
-  onSort: (field: "name" | "company" | "stage" | "status") => void;
+  onSort: (field: "name" | "stage" | "status") => void;
 }
 
 export function CandidatesList({
@@ -36,7 +36,7 @@ export function CandidatesList({
   sortBy,
   onSort,
 }: CandidatesListProps) {
-  const getSortIcon = (field: "name" | "company" | "stage" | "status") => {
+  const getSortIcon = (field: "name" | "stage" | "status") => {
     if (sortBy.field !== field) {
       return <ChevronDown className="ml-1 h-3 w-3 text-gray-400" />;
     }
@@ -95,9 +95,9 @@ export function CandidatesList({
 
       {/* Table header */}
       <div className="px-6 flex-shrink-0">
-        <div className="grid grid-cols-9 py-2 border-b text-xs font-medium text-gray-500 uppercase tracking-wider">
+        <div className="grid grid-cols-7 py-2 border-b text-xs font-medium text-gray-500 uppercase tracking-wider">
           <div className="col-span-1 flex items-center">Rank</div>
-          <div className="col-span-3 flex items-center">
+          <div className="col-span-4 flex items-center">
             <button
               onClick={() => onSort("name")}
               className={`flex items-center hover:text-gray-700 transition-colors ${
@@ -105,16 +105,6 @@ export function CandidatesList({
               }`}
             >
               Name {getSortIcon("name")}
-            </button>
-          </div>
-          <div className="col-span-2 flex items-center">
-            <button
-              onClick={() => onSort("company")}
-              className={`flex items-center hover:text-gray-700 transition-colors ${
-                sortBy.field === "company" ? "text-blue-500" : ""
-              }`}
-            >
-              Company {getSortIcon("company")}
             </button>
           </div>
           <div className="col-span-1 flex items-center">
@@ -127,7 +117,7 @@ export function CandidatesList({
               Stage {getSortIcon("stage")}
             </button>
           </div>
-          <div className="col-span-2 flex items-center">
+          <div className="col-span-1 flex items-center">
             <button
               onClick={() => onSort("status")}
               className={`flex items-center hover:text-gray-700 transition-colors ${

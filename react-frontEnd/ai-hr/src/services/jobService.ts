@@ -12,6 +12,7 @@ import {
   CreateJobRequest,
   UpdateJobRequest,
 } from "@/interfaces/api";
+import api from "./api";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5189";
 
@@ -820,7 +821,7 @@ class JobService {
       },
       postedDate: this.formatPostedDate(apiJob.postedDate || apiJob.createdAt),
       status: apiJob.status,
-      applicants: apiJob.applicantCount || 0,
+      applicants: apiJob.applicantCount,
       viewCount: apiJob.viewCount || 0, // Include view count
       createdBy: apiJob.createdBy,
       updatedAt: apiJob.createdAt,
@@ -1173,6 +1174,30 @@ class JobService {
     } catch (error) {
       console.error("❌ Failed to load interview templates:", error);
       throw error;
+    }
+  }
+
+  // Enhanced getJobs method to handle API response
+  async getJobs() {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to view jobs");
+    }
+
+    try {
+      const response = await this.fetchApi(`/jobs`);
+      const jobs = response.data || response || [];
+      return {
+        success: true,
+        data: jobs,
+        meta: response.meta || {},
+      };
+    } catch (error) {
+      console.error("Failed to load jobs:", error);
+      return {
+        success: false,
+        data: [],
+        error: error instanceof Error ? error.message : "Unknown error",
+      };
     }
   }
 }

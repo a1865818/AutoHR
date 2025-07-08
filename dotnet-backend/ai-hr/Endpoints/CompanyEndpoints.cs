@@ -667,26 +667,33 @@ public static class CompanyEndpoints
                 .OrderByDescending(j => j.PostedDate)
                 .ToList();
 
-            // Create job DTOs
-            var jobDtos = openJobs.Select(job => new
+            // Create job DTOs with real-time applicant counts
+            var jobDtos = new List<object>();
+            foreach (var job in openJobs)
             {
-                Id = job.Id,
-                Title = job.Title,
-                Description = job.Description,
-                Department = job.Department,
-                EmploymentType = job.EmploymentType,
-                LocationType = job.LocationType,
-                Locations = job.Locations,
-                SalaryMin = job.SalaryMin,
-                SalaryMax = job.SalaryMax,
-                SalaryCurrency = job.SalaryCurrency,
-                Status = job.Status,
-                ApplicantCount = job.ApplicantCount,
-                PostedDate = job.PostedDate,
-                ApplicationDeadline = job.ApplicationDeadline,
-                SeniorityLevel = job.SeniorityLevel,
-                ExperienceYearsMin = job.ExperienceYearsMin
-            }).ToList();
+                // Calculate actual applicant count in real-time
+                var actualApplicantCount = await ai_hr.Endpoints.JobEndpoints.CalculateApplicantCount(job.Id, client);
+
+                jobDtos.Add(new
+                {
+                    Id = job.Id,
+                    Title = job.Title,
+                    Description = job.Description,
+                    Department = job.Department,
+                    EmploymentType = job.EmploymentType,
+                    LocationType = job.LocationType,
+                    Locations = job.Locations,
+                    SalaryMin = job.SalaryMin,
+                    SalaryMax = job.SalaryMax,
+                    SalaryCurrency = job.SalaryCurrency,
+                    Status = job.Status,
+                    ApplicantCount = actualApplicantCount, // Use real-time count
+                    PostedDate = job.PostedDate,
+                    ApplicationDeadline = job.ApplicationDeadline,
+                    SeniorityLevel = job.SeniorityLevel,
+                    ExperienceYearsMin = job.ExperienceYearsMin
+                });
+            }
 
             // Create complete company DTO with jobs
             var companyDto = new

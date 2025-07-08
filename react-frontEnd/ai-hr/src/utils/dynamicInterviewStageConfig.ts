@@ -292,7 +292,10 @@ export class DynamicCandidateFilterUtils {
     candidates: Candidate[],
     activeFilters: ActiveFilters
   ): FilterCounts {
+    console.log("🔍 calculateFilterCounts called with", candidates.length, "candidates");
+    
     const stageConfigs = InterviewStageConfig.getAllStageConfigs();
+    console.log("🔍 Available stage configs:", stageConfigs.map(c => ({ id: c.id, label: c.label })));
 
     const counts: FilterCounts = {
       status: {
@@ -346,6 +349,8 @@ export class DynamicCandidateFilterUtils {
       const statusFilterId = this.mapStatusToFilterId(candidate.status || "");
       if (counts.status[statusFilterId] !== undefined) {
         counts.status[statusFilterId]++;
+      } else {
+        console.log("⚠️ Status not found in counts:", statusFilterId, "for candidate:", candidate.name);
       }
 
       // Count by stage using dynamic mapping
@@ -355,7 +360,11 @@ export class DynamicCandidateFilterUtils {
         );
         if (counts.stage[stageFilterId] !== undefined) {
           counts.stage[stageFilterId]++;
+        } else {
+          console.log("⚠️ Stage not found in counts:", stageFilterId, "for candidate:", candidate.name, "stage:", candidate.stage);
         }
+      } else {
+        console.log("⚠️ No stage for candidate:", candidate.name);
       }
     });
 
@@ -367,6 +376,7 @@ export class DynamicCandidateFilterUtils {
       }
     });
 
+    console.log("🔍 Final filter counts:", counts);
     return counts;
   }
 
