@@ -19,8 +19,25 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
 
+  console.log("🔄 ProtectedRoute: Auth state", {
+    isLoading,
+    isAuthenticated,
+    hasUser: !!user,
+    userCategory: user?.userCategory,
+    requiredUserCategory,
+  });
+
   useEffect(() => {
+    console.log("🔄 ProtectedRoute: useEffect triggered", {
+      isLoading,
+      isAuthenticated,
+      hasUser: !!user,
+      userCategory: user?.userCategory,
+      requiredUserCategory,
+    });
+
     if (!isLoading && !isAuthenticated) {
+      console.log("❌ ProtectedRoute: Not authenticated, redirecting to login");
       router.push("/login");
       return;
     }
@@ -28,6 +45,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     if (!isLoading && isAuthenticated && user && requiredUserCategory) {
       // Check if user's category matches the required category
       if (user.userCategory !== requiredUserCategory) {
+        console.log("❌ ProtectedRoute: User category mismatch, redirecting");
         // Redirect to appropriate dashboard based on user category
         if (user.userCategory === "ApplicationUser") {
           router.push("/applicant");
@@ -37,6 +55,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         return;
       }
     }
+
+    console.log("✅ ProtectedRoute: Authentication and user category check passed");
   }, [isAuthenticated, isLoading, router, user, requiredUserCategory]);
 
   if (isLoading) {

@@ -1,4 +1,4 @@
-import { storageBucketService } from './storageBucketService';
+import { storageBucketService } from "./storageBucketService";
 
 export interface Resume {
   id: string;
@@ -21,20 +21,103 @@ class ResumeService {
   }
 
   private getHeaders(): HeadersInit {
-    const token = 
-      localStorage.getItem('authToken') || 
-      sessionStorage.getItem('authToken');
-    
+    // Check cookies first, then localStorage/sessionStorage
+    let token = null;
+
+    // Try to get from cookies first
+    if (typeof window !== "undefined") {
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        let cookie = cookies[i];
+        while (cookie.charAt(0) === " ") {
+          cookie = cookie.substring(1, cookie.length);
+        }
+        if (cookie.indexOf("authToken=") === 0) {
+          token = decodeURIComponent(
+            cookie.substring("authToken=".length, cookie.length)
+          );
+          break;
+        }
+      }
+    }
+
+    // Fallback to localStorage/sessionStorage
+    if (!token) {
+      token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+    }
+
+    console.log("🔍 ResumeService: Token sources", {
+      fromCookie:
+        !!token &&
+        token !==
+          (localStorage.getItem("authToken") ||
+            sessionStorage.getItem("authToken")),
+      fromStorage:
+        !!token &&
+        token ===
+          (localStorage.getItem("authToken") ||
+            sessionStorage.getItem("authToken")),
+      hasToken: !!token,
+      tokenLength: token?.length || 0,
+    });
+
     return {
-      'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : '',
+      "Content-Type": "application/json",
+      Authorization: token ? `Bearer ${token}` : "",
     };
   }
 
   private getAuthData() {
-    const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-    const userId = localStorage.getItem('userId') || sessionStorage.getItem('userId');
-    const userCategory = localStorage.getItem('userCategory') || sessionStorage.getItem('userCategory');
+    // Check cookies first, then localStorage/sessionStorage
+    let token = null;
+    let userId = null;
+    let userCategory = null;
+
+    // Try to get from cookies first
+    if (typeof window !== "undefined") {
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        let cookie = cookies[i];
+        while (cookie.charAt(0) === " ") {
+          cookie = cookie.substring(1, cookie.length);
+        }
+        if (cookie.indexOf("authToken=") === 0) {
+          token = decodeURIComponent(
+            cookie.substring("authToken=".length, cookie.length)
+          );
+        } else if (cookie.indexOf("userData=") === 0) {
+          try {
+            const userData = JSON.parse(
+              decodeURIComponent(
+                cookie.substring("userData=".length, cookie.length)
+              )
+            );
+            userId = userData.id;
+            userCategory = userData.userCategory;
+          } catch (error) {
+            console.warn("Failed to parse userData from cookie:", error);
+          }
+        }
+      }
+    }
+
+    // Fallback to localStorage/sessionStorage
+    if (!token) {
+      token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+    }
+    if (!userId) {
+      userId =
+        localStorage.getItem("userId") || sessionStorage.getItem("userId");
+    }
+    if (!userCategory) {
+      userCategory =
+        localStorage.getItem("userCategory") ||
+        sessionStorage.getItem("userCategory");
+    }
 
     return { token, userId, userCategory };
   }
@@ -54,7 +137,9 @@ class ResumeService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`${response.status}: ${errorText || response.statusText}`);
+        throw new Error(
+          `${response.status}: ${errorText || response.statusText}`
+        );
       }
 
       const contentType = response.headers.get("content-type");
@@ -65,7 +150,7 @@ class ResumeService {
 
       return {} as T;
     } catch (error) {
-      console.error('Resume API request failed:', error);
+      console.error("Resume API request failed:", error);
       throw error;
     }
   }
@@ -73,15 +158,18 @@ class ResumeService {
   // Upload new resume and add to user's resume list
   async uploadResume(file: File): Promise<Resume> {
     const { userId } = this.getAuthData();
-    
+
     if (!userId) {
-      throw new Error('User not authenticated');
+      throw new Error("User not authenticated");
     }
 
     try {
       // Upload file to storage bucket
-      const uploadResult = await storageBucketService.uploadResume(file, userId);
-      
+      const uploadResult = await storageBucketService.uploadResume(
+        file,
+        userId
+      );
+
       // Create resume object
       const newResume: Resume = {
         id: `resume_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -97,8 +185,12 @@ class ResumeService {
 
       return newResume;
     } catch (error) {
-      console.error('Resume upload failed:', error);
-      throw new Error(`Resume upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error("Resume upload failed:", error);
+      throw new Error(
+        `Resume upload failed: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   }
 
@@ -107,14 +199,14 @@ class ResumeService {
     try {
       // Get current user's resume list
       const currentResumes = await this.getUserResumes();
-      
+
       // Add new resume to the list
       const updatedResumes = [...currentResumes, resume];
-      
+
       // Update user profile with new resume list
       await this.updateUserResumeList(updatedResumes);
     } catch (error) {
-      console.error('Failed to add resume to user list:', error);
+      console.error("Failed to add resume to user list:", error);
       throw error;
     }
   }
@@ -122,22 +214,22 @@ class ResumeService {
   // Get user's current resume list
   async getUserResumes(): Promise<Resume[]> {
     try {
-      const userProfile = await this.makeRequest<any>('/auth/me');
-      
+      const userProfile = await this.makeRequest<any>("/auth/me");
+
       if (!userProfile.resumeList || !Array.isArray(userProfile.resumeList)) {
         return [];
       }
 
       return userProfile.resumeList.map((item: any) => ({
         id: item.id || `resume_${Date.now()}`,
-        fileName: item.fileName || '',
-        originalName: item.originalName || item.fileName || 'Unknown',
-        url: item.url || '',
+        fileName: item.fileName || "",
+        originalName: item.originalName || item.fileName || "Unknown",
+        url: item.url || "",
         fileSize: item.fileSize || 0,
         uploadedAt: item.uploadedAt || new Date().toISOString(),
       }));
     } catch (error) {
-      console.error('Failed to get user resumes:', error);
+      console.error("Failed to get user resumes:", error);
       return [];
     }
   }
@@ -145,7 +237,7 @@ class ResumeService {
   // Update user's resume list in database
   private async updateUserResumeList(resumes: Resume[]): Promise<void> {
     try {
-      const resumeListData = resumes.map(resume => ({
+      const resumeListData = resumes.map((resume) => ({
         id: resume.id,
         fileName: resume.fileName,
         originalName: resume.originalName,
@@ -153,15 +245,15 @@ class ResumeService {
         fileSize: resume.fileSize,
         uploadedAt: resume.uploadedAt,
       }));
-      
-      await this.makeRequest('/auth/profile', {
-        method: 'PUT',
+
+      await this.makeRequest("/auth/profile", {
+        method: "PUT",
         body: JSON.stringify({
-          ResumeList: resumeListData
+          ResumeList: resumeListData,
         }),
       });
     } catch (error) {
-      console.error('Failed to update user resume list:', error);
+      console.error("Failed to update user resume list:", error);
       throw error;
     }
   }
@@ -171,26 +263,32 @@ class ResumeService {
     try {
       // Get current resumes
       const currentResumes = await this.getUserResumes();
-      
+
       // Find the resume to delete
-      const resumeToDelete = currentResumes.find(r => r.id === resumeId);
+      const resumeToDelete = currentResumes.find((r) => r.id === resumeId);
       if (!resumeToDelete) {
-        throw new Error('Resume not found');
+        throw new Error("Resume not found");
       }
 
       // Remove from storage bucket
       try {
-        const bucketName = 'resumes';
-        await storageBucketService.deleteFile(bucketName, resumeToDelete.fileName);
+        const bucketName = "resumes";
+        await storageBucketService.deleteFile(
+          bucketName,
+          resumeToDelete.fileName
+        );
       } catch (storageError) {
-        console.warn('Failed to delete from storage, continuing with database cleanup:', storageError);
+        console.warn(
+          "Failed to delete from storage, continuing with database cleanup:",
+          storageError
+        );
       }
 
       // Remove from user's list
-      const updatedResumes = currentResumes.filter(r => r.id !== resumeId);
+      const updatedResumes = currentResumes.filter((r) => r.id !== resumeId);
       await this.updateUserResumeList(updatedResumes);
     } catch (error) {
-      console.error('Failed to delete resume:', error);
+      console.error("Failed to delete resume:", error);
       throw error;
     }
   }
@@ -198,17 +296,20 @@ class ResumeService {
   // Get resume download URL
   async getResumeDownloadUrl(resume: Resume): Promise<string> {
     try {
-      if (resume.url.startsWith('http')) {
+      if (resume.url.startsWith("http")) {
         return resume.url; // Already a full URL
       }
 
       // Get signed URL from storage
-      const bucketName = 'resumes';
-      const urlResponse = await storageBucketService.getFileUrl(bucketName, resume.fileName);
-      
+      const bucketName = "resumes";
+      const urlResponse = await storageBucketService.getFileUrl(
+        bucketName,
+        resume.fileName
+      );
+
       return urlResponse.signedURL || resume.url;
     } catch (error) {
-      console.error('Failed to get download URL:', error);
+      console.error("Failed to get download URL:", error);
       return resume.url; // Fallback to original URL
     }
   }
@@ -217,15 +318,15 @@ class ResumeService {
   validateResumeFile(file: File): { isValid: boolean; error?: string } {
     // Check file type
     const allowedTypes = [
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ];
 
     if (!allowedTypes.includes(file.type)) {
       return {
         isValid: false,
-        error: 'Only PDF and Word documents are allowed'
+        error: "Only PDF and Word documents are allowed",
       };
     }
 
@@ -234,7 +335,7 @@ class ResumeService {
     if (file.size > maxSize) {
       return {
         isValid: false,
-        error: 'File size must be less than 10MB'
+        error: "File size must be less than 10MB",
       };
     }
 
@@ -242,4 +343,4 @@ class ResumeService {
   }
 }
 
-export const resumeService = new ResumeService(); 
+export const resumeService = new ResumeService();

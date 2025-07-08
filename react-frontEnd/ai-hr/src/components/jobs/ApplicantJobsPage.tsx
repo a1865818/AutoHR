@@ -211,11 +211,17 @@ export function ApplicantJobsPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [jobsPerPage] = useState(4);
 
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
   useEffect(() => {
+    // Wait for authentication to be fully loaded
+    if (authLoading) {
+      console.log("⏳ Waiting for authentication to load...");
+      return;
+    }
+
     loadJobs();
-  }, []);
+  }, [authLoading]);
 
   const loadJobs = async () => {
     console.log("🌍 Loading jobs for applicants...");

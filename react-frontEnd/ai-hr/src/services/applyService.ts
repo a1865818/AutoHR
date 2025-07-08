@@ -20,25 +20,62 @@ class ApplicationService {
       return { token: null, userId: null, userCategory: null };
     }
 
-    // Check both localStorage and sessionStorage (as your auth system does)
-    const token =
-      localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
-    const userCategory =
-      localStorage.getItem("userCategory") ||
-      sessionStorage.getItem("userCategory");
-
-    // Get user data to extract userId
-    const currentUserStr =
-      localStorage.getItem("currentUser") ||
-      sessionStorage.getItem("currentUser");
+    // Check cookies first, then localStorage and sessionStorage
+    let token = null;
+    let userCategory = null;
     let userId = null;
 
-    if (currentUserStr) {
-      try {
-        const currentUser = JSON.parse(currentUserStr);
-        userId = currentUser.id;
-      } catch (error) {
-        console.warn("Failed to parse currentUser from storage:", error);
+    // Try to get from cookies first
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      let cookie = cookies[i];
+      while (cookie.charAt(0) === " ") {
+        cookie = cookie.substring(1, cookie.length);
+      }
+      if (cookie.indexOf("authToken=") === 0) {
+        token = decodeURIComponent(
+          cookie.substring("authToken=".length, cookie.length)
+        );
+      } else if (cookie.indexOf("userCategory=") === 0) {
+        userCategory = decodeURIComponent(
+          cookie.substring("userCategory=".length, cookie.length)
+        );
+      } else if (cookie.indexOf("userData=") === 0) {
+        try {
+          const userData = JSON.parse(
+            decodeURIComponent(
+              cookie.substring("userData=".length, cookie.length)
+            )
+          );
+          userId = userData.id;
+        } catch (error) {
+          console.warn("Failed to parse userData from cookie:", error);
+        }
+      }
+    }
+
+    // Fallback to localStorage/sessionStorage if not found in cookies
+    if (!token) {
+      token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+    }
+    if (!userCategory) {
+      userCategory =
+        localStorage.getItem("userCategory") ||
+        sessionStorage.getItem("userCategory");
+    }
+    if (!userId) {
+      const currentUserStr =
+        localStorage.getItem("currentUser") ||
+        sessionStorage.getItem("currentUser");
+      if (currentUserStr) {
+        try {
+          const currentUser = JSON.parse(currentUserStr);
+          userId = currentUser.id;
+        } catch (error) {
+          console.warn("Failed to parse currentUser from storage:", error);
+        }
       }
     }
 
@@ -201,7 +238,10 @@ class ApplicationService {
     return {
       applicationId: responseData.id || responseData.applicationId, // Use the correct ID field from backend
       status: responseData.status || "applied",
-      submittedAt: responseData.submittedAt || responseData.createdAt || new Date().toISOString(),
+      submittedAt:
+        responseData.submittedAt ||
+        responseData.createdAt ||
+        new Date().toISOString(),
       message: "Application submitted successfully",
     };
   }
@@ -223,7 +263,7 @@ class ApplicationService {
     }
 
     console.log("🔍 Getting application status for ID:", applicationId);
-    
+
     const response = await fetch(
       `${this.baseUrl}/applicationdetails/${applicationId}`,
       {
@@ -246,10 +286,11 @@ class ApplicationService {
     console.log("✅ Got application status:", result);
     return result;
   }
-  
+
   // Helper method to check if a string is a valid GUID
   private isValidGuid(str: string): boolean {
-    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const guidRegex =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     return guidRegex.test(str);
   }
 
@@ -281,36 +322,44 @@ class ApplicationService {
   }
 
   // Get user's applications with job details
-  async getUserApplicationsWithJobDetails(): Promise<ApplicationWithJobDetails[]> {
+  async getUserApplicationsWithJobDetails(): Promise<
+    ApplicationWithJobDetails[]
+  > {
     const applications = await this.getUserApplications();
-    
+
     // Fetch job details for each application
     const applicationsWithJobs = await Promise.allSettled(
       applications.map(async (app) => {
         try {
           const job = await jobService.getJobById(app.jobId);
-          
+
           // Extract location string from locations object
-          let locationString = 'Unknown Location';
+          let locationString = "Unknown Location";
           if (job.locations) {
-            if (typeof job.locations === 'string') {
+            if (typeof job.locations === "string") {
               locationString = job.locations;
-            } else if (typeof job.locations === 'object') {
+            } else if (typeof job.locations === "object") {
               // Extract first location or fallback
               const locationValues = Object.values(job.locations);
-              locationString = locationValues.length > 0 ? String(locationValues[0]) : 'Unknown Location';
+              locationString =
+                locationValues.length > 0
+                  ? String(locationValues[0])
+                  : "Unknown Location";
             }
           }
 
           // We'll need to fetch company details separately
-          let companyName = 'Unknown Company';
+          let companyName = "Unknown Company";
           try {
             const company = await jobService.getCompanyById(job.companyId);
             companyName = company.name;
           } catch (error) {
-            console.warn(`Failed to fetch company details for company ${job.companyId}:`, error);
+            console.warn(
+              `Failed to fetch company details for company ${job.companyId}:`,
+              error
+            );
           }
-          
+
           return {
             ...app,
             job: {
@@ -319,26 +368,32 @@ class ApplicationService {
               location: locationString,
               employmentType: job.employmentType,
               status: job.status,
-              department: job.department || 'Not specified',
-              salary: (job.salaryMin || job.salaryMax) ? {
-                min: job.salaryMin || 0,
-                max: job.salaryMax || 0,
-                currency: job.salaryCurrency || 'USD',
-                period: 'per year',
-              } : undefined,
+              department: job.department || "Not specified",
+              salary:
+                job.salaryMin || job.salaryMax
+                  ? {
+                      min: job.salaryMin || 0,
+                      max: job.salaryMax || 0,
+                      currency: job.salaryCurrency || "USD",
+                      period: "per year",
+                    }
+                  : undefined,
             },
           };
         } catch (error) {
-          console.warn(`Failed to fetch job details for job ${app.jobId}:`, error);
+          console.warn(
+            `Failed to fetch job details for job ${app.jobId}:`,
+            error
+          );
           return {
             ...app,
             job: {
-              title: 'Unknown Position',
-              company: 'Unknown Company',
-              location: 'Unknown Location',
-              employmentType: 'Unknown',
-              status: 'unknown',
-              department: 'Not specified',
+              title: "Unknown Position",
+              company: "Unknown Company",
+              location: "Unknown Location",
+              employmentType: "Unknown",
+              status: "unknown",
+              department: "Not specified",
             },
           };
         }
@@ -347,8 +402,11 @@ class ApplicationService {
 
     // Filter out rejected promises and return successful ones
     return applicationsWithJobs
-      .filter((result) => result.status === 'fulfilled')
-      .map((result) => (result as PromiseFulfilledResult<ApplicationWithJobDetails>).value);
+      .filter((result) => result.status === "fulfilled")
+      .map(
+        (result) =>
+          (result as PromiseFulfilledResult<ApplicationWithJobDetails>).value
+      );
   }
 
   // Check if user has already applied to a job

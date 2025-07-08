@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState } from "react";
 import { Eye, EyeOff, User, Lock, AlertCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import Link from "next/link";
@@ -18,8 +17,7 @@ const LoginPage: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loginError, setLoginError] = useState("");
 
-  const { login, isAuthenticated, isLoading } = useAuth();
-  const router = useRouter();
+  const { login, isLoading } = useAuth();
 
   // Auth state is now handled by AuthContext - no manual redirects needed
 
@@ -82,12 +80,13 @@ const LoginPage: React.FC = () => {
 
       if (!success) {
         setLoginError("Invalid email or password. Please try again.");
+        setIsSubmitting(false);
       }
+      // Don't set isSubmitting to false on success - let the redirect happen
       // AuthContext will handle navigation automatically on successful login
     } catch (error) {
       setLoginError("An unexpected error occurred. Please try again.");
       console.error("Login error:", error);
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -290,7 +289,7 @@ const LoginPage: React.FC = () => {
           {/* Sign Up Link */}
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              Don't have an account?{" "}
+              Don&apos;t have an account?{" "}
               <Link
                 href="/signup"
                 className="font-medium text-blue-600 hover:text-blue-500 transition-colors"

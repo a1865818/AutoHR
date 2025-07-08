@@ -26,6 +26,7 @@ import Link from "next/link";
 import { jobService } from "@/services/jobService";
 import { interviewService } from "@/services/interviewService";
 import { candidateService } from "@/services/candidateService";
+import { useAuth } from "@/contexts/AuthContext";
 import { ApiJob } from "@/interfaces/api";
 import {
   InterviewTemplate,
@@ -40,6 +41,7 @@ interface JobWithTemplate extends Omit<ApiJob, "interviewTemplate"> {
 }
 
 export default function InterviewPipelinePage() {
+  const { isLoading: authLoading } = useAuth();
   const [jobs, setJobs] = useState<JobWithTemplate[]>([]);
   const [filteredJobs, setFilteredJobs] = useState<JobWithTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,8 +59,11 @@ export default function InterviewPipelinePage() {
 
   // Load jobs and their templates
   useEffect(() => {
+    // Wait for authentication to be loaded before trying to load data
+    if (!authLoading) {
     loadJobsWithTemplates();
-  }, []);
+    }
+  }, [authLoading]);
 
   // Filter jobs based on search
   useEffect(() => {
@@ -84,7 +89,45 @@ export default function InterviewPipelinePage() {
 
       // Get current user's company ID
       const authData = jobService.getCurrentUser();
-      const userCompanyId = authData.companyId;
+      console.log("👤 Interview pipeline - Current user auth data:", authData);
+      
+      let userCompanyId = authData.companyId;
+
+      if (!userCompanyId) {
+        // Try to get from storage
+        const currentUserStr = localStorage.getItem("currentUser") || sessionStorage.getItem("currentUser");
+        if (currentUserStr) {
+          try {
+            const currentUser = JSON.parse(currentUserStr);
+            userCompanyId = currentUser.companyId;
+            console.log("🏢 Interview pipeline - Company ID from storage:", userCompanyId);
+          } catch (error) {
+            console.warn("Failed to parse currentUser from storage:", error);
+          }
+        }
+        
+        // Also try to get from cookies
+        if (!userCompanyId) {
+          const cookies = document.cookie.split(';');
+          for (let i = 0; i < cookies.length; i++) {
+            let cookie = cookies[i];
+            while (cookie.charAt(0) === ' ') {
+              cookie = cookie.substring(1, cookie.length);
+            }
+            if (cookie.indexOf('userData=') === 0) {
+              try {
+                const userData = JSON.parse(decodeURIComponent(cookie.substring('userData='.length, cookie.length)));
+                userCompanyId = userData.companyId;
+                console.log("🏢 Interview pipeline - Company ID from cookies:", userCompanyId);
+              } catch (error) {
+                console.warn("Failed to parse userData from cookie:", error);
+              }
+            }
+          }
+        }
+      } else {
+        console.log("🏢 Interview pipeline - Company ID from jobService:", userCompanyId);
+      }
 
       if (!userCompanyId) {
         throw new Error("No company associated with your account");

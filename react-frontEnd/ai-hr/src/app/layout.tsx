@@ -1,6 +1,9 @@
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { SessionDebug } from "@/components/auth/SessionDebug";
+import { ClientOnly } from "@/components/ClientOnly";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -17,7 +20,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <AuthProvider>{children}</AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            {children}
+            <ClientOnly>
+              <SessionDebug />
+            </ClientOnly>
+          </AuthProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

@@ -15,26 +15,65 @@ class CandidateService {
       return { token: null, userId: null, userCategory: null, companyId: null };
     }
 
-    const token =
-      localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
-    const userCategory =
-      localStorage.getItem("userCategory") ||
-      sessionStorage.getItem("userCategory");
-
-    const currentUserStr =
-      localStorage.getItem("currentUser") ||
-      sessionStorage.getItem("currentUser");
-
+    // Check cookies first, then localStorage and sessionStorage
+    let token = null;
+    let userCategory = null;
     let userId = null;
     let companyId = null;
 
-    if (currentUserStr) {
-      try {
-        const currentUser = JSON.parse(currentUserStr);
-        userId = currentUser.id;
-        companyId = currentUser.companyId;
-      } catch (error) {
-        console.warn("Failed to parse currentUser from storage:", error);
+    // Try to get from cookies first
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      let cookie = cookies[i];
+      while (cookie.charAt(0) === " ") {
+        cookie = cookie.substring(1, cookie.length);
+      }
+      if (cookie.indexOf("authToken=") === 0) {
+        token = decodeURIComponent(
+          cookie.substring("authToken=".length, cookie.length)
+        );
+      } else if (cookie.indexOf("userCategory=") === 0) {
+        userCategory = decodeURIComponent(
+          cookie.substring("userCategory=".length, cookie.length)
+        );
+      } else if (cookie.indexOf("userData=") === 0) {
+        try {
+          const userData = JSON.parse(
+            decodeURIComponent(
+              cookie.substring("userData=".length, cookie.length)
+            )
+          );
+          userId = userData.id;
+          companyId = userData.companyId;
+        } catch (error) {
+          console.warn("Failed to parse userData from cookie:", error);
+        }
+      }
+    }
+
+    // Fallback to localStorage/sessionStorage if not found in cookies
+    if (!token) {
+      token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+    }
+    if (!userCategory) {
+      userCategory =
+        localStorage.getItem("userCategory") ||
+        sessionStorage.getItem("userCategory");
+    }
+    if (!userId || !companyId) {
+      const currentUserStr =
+        localStorage.getItem("currentUser") ||
+        sessionStorage.getItem("currentUser");
+      if (currentUserStr) {
+        try {
+          const currentUser = JSON.parse(currentUserStr);
+          if (!userId) userId = currentUser.id;
+          if (!companyId) companyId = currentUser.companyId;
+        } catch (error) {
+          console.warn("Failed to parse currentUser from storage:", error);
+        }
       }
     }
 
@@ -190,7 +229,7 @@ class CandidateService {
       applicationId,
       status,
       stage,
-      currentRoundId
+      currentRoundId,
     });
 
     try {
@@ -205,7 +244,7 @@ class CandidateService {
       console.log("📤 Sending to backend API:", {
         url: `${this.baseUrl}/applicationdetails/${applicationId}`,
         method: "PUT",
-        data: updateData
+        data: updateData,
       });
 
       const response = await fetch(
@@ -220,7 +259,7 @@ class CandidateService {
       console.log("📥 Backend response:", {
         status: response.status,
         statusText: response.statusText,
-        ok: response.ok
+        ok: response.ok,
       });
 
       if (!response.ok) {
@@ -234,9 +273,11 @@ class CandidateService {
         responseData = await response.json();
         console.log("✅ Candidate status updated successfully:", responseData);
       } catch (parseError) {
-        console.log("✅ Candidate status updated successfully (no JSON response)");
+        console.log(
+          "✅ Candidate status updated successfully (no JSON response)"
+        );
       }
-      
+
       return responseData;
     } catch (error) {
       console.error("❌ Failed to update candidate status:", error);
@@ -244,24 +285,26 @@ class CandidateService {
     }
   }
 
- async getApplicationDetailByJob(jobId: string): Promise<any> {
-  const { token, userCategory } = this.getAuthData();
-  if (!token) {
-    throw new Error("User not authenticated");
-  }
+  async getApplicationDetailByJob(jobId: string): Promise<any> {
+    const { token, userCategory } = this.getAuthData();
+    if (!token) {
+      throw new Error("User not authenticated");
+    }
 
-  if (userCategory === "ApplicationUser") {
-    throw new Error("Access denied - only hiring users can view application details");
-  }
+    if (userCategory === "ApplicationUser") {
+      throw new Error(
+        "Access denied - only hiring users can view application details"
+      );
+    }
 
-  try {
-    const response = await fetch(
-      `${this.baseUrl}/applicationdetails/job/${jobId}`,
-      {
-        method: "GET",
-        headers: this.getHeaders(),
-      }
-    );
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/applicationdetails/job/${jobId}`,
+        {
+          method: "GET",
+          headers: this.getHeaders(),
+        }
+      );
 
     if (!response.ok) {
       const error = await response.text();
@@ -271,14 +314,14 @@ class CandidateService {
       throw new Error(`Failed to fetch application details: ${error}`);
     }
 
-    const data = await response.json();
-    console.log("✅ Application details fetched successfully:", data);
-    return data;
-  } catch (error) {
-    console.error("❌ Failed to fetch application details:", error);
-    throw error;
+      const data = await response.json();
+      console.log("✅ Application details fetched successfully:", data);
+      return data;
+    } catch (error) {
+      console.error("❌ Failed to fetch application details:", error);
+      throw error;
+    }
   }
-}
 
   // UPDATED: Save candidate note with proper timestamp handling and return timestamps
   async saveCandidateNote(

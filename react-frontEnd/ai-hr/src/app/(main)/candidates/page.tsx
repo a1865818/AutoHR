@@ -202,7 +202,12 @@ function EmptyState({
 
 // Main Candidates Page Component
 function CandidatesPage() {
-  const { isAuthorized, companyId, user } = useHiringAuth();
+  const {
+    isAuthorized,
+    companyId,
+    user,
+    isLoading: authLoading,
+  } = useHiringAuth();
   const [candidates, setCandidates] = useState<CandidateWithJobDetails[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -291,6 +296,19 @@ function CandidatesPage() {
         setJobsLoading(false);
         return;
       }
+      // Wait for authentication to be fully loaded
+      if (authLoading) {
+        console.log("⏳ Waiting for authentication to load...");
+        return;
+      }
+
+      if (!isAuthorized || !companyId) {
+        console.log("❌ Not authorized or no company ID:", {
+          isAuthorized,
+          companyId,
+        });
+        return;
+      }
 
       setJobsLoading(true);
       try {
@@ -325,46 +343,77 @@ function CandidatesPage() {
     loadJobs();
   }, [companyId]);
 
-  // Load candidates from the backend
-  const loadCandidates = async () => {
-    // Only load candidates if a job is selected
-    if (!selectedJob) {
-      setCandidates([]);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      // Use the correct endpoint for getting candidates by job
-      const candidateData = await candidateService.getCandidatesForJob(
-        selectedJob
-      );
-      setCandidates(candidateData);
-
-      // Set company name from the first candidate if available
-      if (candidateData.length > 0 && candidateData[0].company) {
-        setCompanyName(candidateData[0].company);
-      }
-
-      // Calculate filter counts using the proper utility function
-      const filterCounts = DynamicCandidateFilterUtils.calculateFilterCounts(
-        candidateData,
-        activeFilters
-      );
-
-      setFilterCounts(filterCounts);
-    } catch (err) {
-      console.error("Error loading candidates:", err);
-      setError("Failed to load candidates. Please try again later.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Reload candidates when selected job changes
+  // Reload candidates when selected job, company, or auth state changes
   useEffect(() => {
-    loadCandidates();
-  }, [selectedJob]);
+    let isCurrent = true;
+    const safeLoadCandidates = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        if (selectedJob) {
+          // Fetch only candidates for the selected job
+          console.log("🔄 Loading candidates for job:", selectedJob);
+          const jobCandidates = await candidateService.getCandidatesForJob(
+            selectedJob
+          );
+          if (!isCurrent) return;
+          setCandidates(jobCandidates);
+          // Optionally set companyName from job info if needed
+          // setCompanyName(...)
+          // Extract notes from candidate data using consistent key (applicationId)
+          const notesFromDb: Record<string, string> = {};
+          jobCandidates.forEach((candidate, index) => {
+            const noteValue = (candidate as any).hiringNotes;
+            if (noteValue && noteValue.trim() !== "") {
+              notesFromDb[candidate.applicationId] = noteValue;
+            }
+          });
+          setNotes(notesFromDb);
+          // Load existing rankings from backend
+          await loadRankingsFromBackend();
+        } else {
+          // Fetch all company candidates (legacy behavior)
+          console.log("🔄 Loading candidates for company:", companyId);
+          const response = await candidateService.getCandidatesForCompany();
+          if (!isCurrent) return;
+          setCandidates(response.candidates);
+          setCompanyName(response.companyName || "your company");
+          // Extract notes from candidate data using consistent key (applicationId)
+          const notesFromDb: Record<string, string> = {};
+          response.candidates.forEach((candidate, index) => {
+            const noteValue = (candidate as any).hiringNotes;
+            if (noteValue && noteValue.trim() !== "") {
+              notesFromDb[candidate.applicationId] = noteValue;
+            }
+          });
+          setNotes(notesFromDb);
+          // Load existing rankings from backend
+          await loadRankingsFromBackend();
+        }
+      } catch (err) {
+        if (!isCurrent) return;
+        console.error("❌ Failed to load candidates:", err);
+        const errorMessage =
+          err instanceof Error ? err.message : "Failed to load candidates";
+        if (errorMessage.includes("Company not found")) {
+          setError("company-not-found");
+        } else if (errorMessage.includes("No jobs found")) {
+          setError("no-jobs");
+        } else if (errorMessage.includes("No applications")) {
+          setError("no-applications");
+        } else {
+          setError("general-error");
+        }
+      } finally {
+        if (isCurrent) setLoading(false);
+      }
+    };
+    safeLoadCandidates();
+    return () => {
+      isCurrent = false;
+    };
+  }, [isAuthorized, companyId, authLoading, selectedJob]);
 
   // Recalculate filter counts when candidates or active filters change
   useEffect(() => {
@@ -452,6 +501,9 @@ function CandidatesPage() {
       ...activeFilters,
       position: [jobId],
     });
+    // Immediately clear candidates and notes to avoid showing stale data
+    setCandidates([]);
+    setNotes({});
   };
 
   // Handle candidate click
@@ -545,11 +597,11 @@ function CandidatesPage() {
 
         if (result.success) {
           // Update local state with new rankings
-          const updatedRankings =
-            await candidateRankingService.getRankingsByJob(jobId);
-          const rankedCandidates = updatedRankings.rankings.map((ranking) =>
-            candidateRankingService.convertRankingToCandidate(ranking)
+          const updatedRankings = await candidateRankingService.getRankings(
+            companyId || "",
+            jobId
           );
+          const rankedCandidates = updatedRankings.data || [];
 
           setRankingsByPosition((prev) => ({
             ...prev,
@@ -990,10 +1042,11 @@ function CandidatesPage() {
   const notesCount = filteredAndSortedCandidates.filter(
     (c) => notes[c.applicationId] && notes[c.applicationId].trim() !== ""
   ).length;
-  const rankingCount = Object.values(rankingsByPosition).reduce(
-    (total, candidates) => total + candidates.length,
-    0
-  );
+  // Only count ranked candidates for the currently selected job
+  const rankingCount =
+    selectedJob && rankingsByPosition[selectedJob]
+      ? rankingsByPosition[selectedJob].filter((c) => c.isRanked).length
+      : 0;
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);

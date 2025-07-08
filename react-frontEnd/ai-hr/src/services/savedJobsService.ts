@@ -18,9 +18,36 @@ export interface IsJobSavedResponse {
 class SavedJobsService {
   private getAuthToken(): string | null {
     if (typeof window !== "undefined") {
-      return (
-        localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
-      );
+      // Try to get from cookies first
+      const cookies = document.cookie.split(";");
+      let tokenFromCookie = null;
+
+      for (let i = 0; i < cookies.length; i++) {
+        let cookie = cookies[i];
+        while (cookie.charAt(0) === " ") {
+          cookie = cookie.substring(1, cookie.length);
+        }
+        if (cookie.indexOf("authToken=") === 0) {
+          tokenFromCookie = decodeURIComponent(
+            cookie.substring("authToken=".length, cookie.length)
+          );
+          break;
+        }
+      }
+
+      // Fallback to localStorage/sessionStorage
+      const tokenFromStorage =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+
+      console.log("🔍 SavedJobsService: Token sources", {
+        fromCookie: !!tokenFromCookie,
+        fromStorage: !!tokenFromStorage,
+        cookieLength: tokenFromCookie?.length || 0,
+        storageLength: tokenFromStorage?.length || 0,
+      });
+
+      return tokenFromCookie || tokenFromStorage;
     }
     return null;
   }
@@ -96,7 +123,12 @@ class SavedJobsService {
   }
 
   isAuthenticated(): boolean {
-    return !!this.getAuthToken();
+    const token = this.getAuthToken();
+    console.log("🔍 SavedJobsService: Authentication check", {
+      hasToken: !!token,
+      tokenLength: token?.length || 0,
+    });
+    return !!token;
   }
 
   async saveJob(jobId: string): Promise<SaveJobResponse> {
@@ -149,7 +181,9 @@ class SavedJobsService {
     }
 
     try {
-      const response: SavedJobsResponse = await this.fetchApi("/api/saved-jobs");
+      const response: SavedJobsResponse = await this.fetchApi(
+        "/api/saved-jobs"
+      );
       return response?.savedJobs || [];
     } catch (error) {
       console.error("❌ Failed to get saved jobs:", error);
@@ -184,7 +218,7 @@ class SavedJobsService {
 
     try {
       const isSaved = await this.isJobSaved(jobId);
-      
+
       if (isSaved) {
         await this.unsaveJob(jobId);
         return false;
@@ -199,4 +233,4 @@ class SavedJobsService {
   }
 }
 
-export const savedJobsService = new SavedJobsService(); 
+export const savedJobsService = new SavedJobsService();

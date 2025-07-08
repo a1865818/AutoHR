@@ -1,4 +1,4 @@
-import { CandidateWithJobDetails } from "@/interfaces";
+import { CandidateStage, CandidateWithJobDetails } from "@/interfaces";
 
 interface AddCandidatesToRankingRequest {
   companyId: string;
@@ -378,7 +378,7 @@ class CandidateRankingService {
 
     try {
       const response = await fetch(
-        `${this.baseUrl}/candidates/rankings/job/${actualCompanyId}/${jobId}`,
+        `${this.baseUrl}/candidates/rankings/job/${jobId}`,
         {
           method: "GET",
           headers: this.getHeaders(),
@@ -481,8 +481,8 @@ class CandidateRankingService {
       role: ranking.jobTitle,
       company: ranking.companyName,
       assessment: ranking.rankingScore,
-      stage: ranking.stage as "Applied" | "Interview" | "Offer",
-      status: ranking.status as "In Progress" | "Hired" | "Rejected",
+      stage: ranking.stage as CandidateStage,
+      status: ranking.status as "In Progress" | "Hired" | "Rejected" | "Offered",
       appliedAt: ranking.rankedAt, // Use rankedAt as appliedAt for display
       jobTitle: ranking.jobTitle,
       jobDepartment: "",
