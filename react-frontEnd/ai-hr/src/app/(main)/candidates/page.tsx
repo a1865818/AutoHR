@@ -597,11 +597,11 @@ function CandidatesPage() {
 
         if (result.success) {
           // Update local state with new rankings
-          const updatedRankings =
-            await candidateRankingService.getRankingsByJob(jobId);
-          const rankedCandidates = updatedRankings.rankings.map((ranking) =>
-            candidateRankingService.convertRankingToCandidate(ranking)
+          const updatedRankings = await candidateRankingService.getRankings(
+            companyId || "",
+            jobId
           );
+          const rankedCandidates = updatedRankings.data || [];
 
           setRankingsByPosition((prev) => ({
             ...prev,
@@ -1042,10 +1042,11 @@ function CandidatesPage() {
   const notesCount = filteredAndSortedCandidates.filter(
     (c) => notes[c.applicationId] && notes[c.applicationId].trim() !== ""
   ).length;
-  const rankingCount = Object.values(rankingsByPosition).reduce(
-    (total, candidates) => total + candidates.filter((c) => c.isRanked).length,
-    0
-  );
+  // Only count ranked candidates for the currently selected job
+  const rankingCount =
+    selectedJob && rankingsByPosition[selectedJob]
+      ? rankingsByPosition[selectedJob].filter((c) => c.isRanked).length
+      : 0;
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);

@@ -1,4 +1,4 @@
-import { CandidateWithJobDetails } from "@/interfaces";
+import { CandidateStage, CandidateWithJobDetails } from "@/interfaces";
 
 interface AddCandidatesToRankingRequest {
   companyId: string;
@@ -84,65 +84,26 @@ class CandidateRankingService {
       return { token: null, userId: null, userCategory: null, companyId: null };
     }
 
-    // Check cookies first, then localStorage and sessionStorage
-    let token = null;
-    let userCategory = null;
+    const token =
+      localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+    const userCategory =
+      localStorage.getItem("userCategory") ||
+      sessionStorage.getItem("userCategory");
+
+    const currentUserStr =
+      localStorage.getItem("currentUser") ||
+      sessionStorage.getItem("currentUser");
+
     let userId = null;
     let companyId = null;
 
-    // Try to get from cookies first
-    const cookies = document.cookie.split(";");
-    for (let i = 0; i < cookies.length; i++) {
-      let cookie = cookies[i];
-      while (cookie.charAt(0) === " ") {
-        cookie = cookie.substring(1, cookie.length);
-      }
-      if (cookie.indexOf("authToken=") === 0) {
-        token = decodeURIComponent(
-          cookie.substring("authToken=".length, cookie.length)
-        );
-      } else if (cookie.indexOf("userCategory=") === 0) {
-        userCategory = decodeURIComponent(
-          cookie.substring("userCategory=".length, cookie.length)
-        );
-      } else if (cookie.indexOf("userData=") === 0) {
-        try {
-          const userData = JSON.parse(
-            decodeURIComponent(
-              cookie.substring("userData=".length, cookie.length)
-            )
-          );
-          userId = userData.id;
-          companyId = userData.companyId;
-        } catch (error) {
-          console.warn("Failed to parse userData from cookie:", error);
-        }
-      }
-    }
-
-    // Fallback to localStorage/sessionStorage if not found in cookies
-    if (!token) {
-      token =
-        localStorage.getItem("authToken") ||
-        sessionStorage.getItem("authToken");
-    }
-    if (!userCategory) {
-      userCategory =
-        localStorage.getItem("userCategory") ||
-        sessionStorage.getItem("userCategory");
-    }
-    if (!userId || !companyId) {
-      const currentUserStr =
-        localStorage.getItem("currentUser") ||
-        sessionStorage.getItem("currentUser");
-      if (currentUserStr) {
-        try {
-          const currentUser = JSON.parse(currentUserStr);
-          if (!userId) userId = currentUser.id;
-          if (!companyId) companyId = currentUser.companyId;
-        } catch (error) {
-          console.warn("Failed to parse currentUser from storage:", error);
-        }
+    if (currentUserStr) {
+      try {
+        const currentUser = JSON.parse(currentUserStr);
+        userId = currentUser.id;
+        companyId = currentUser.companyId;
+      } catch (error) {
+        console.warn("Failed to parse currentUser from storage:", error);
       }
     }
 
@@ -417,7 +378,7 @@ class CandidateRankingService {
 
     try {
       const response = await fetch(
-        `${this.baseUrl}/candidates/rankings/job/${actualCompanyId}/${jobId}`,
+        `${this.baseUrl}/candidates/rankings/job/${jobId}`,
         {
           method: "GET",
           headers: this.getHeaders(),
@@ -520,8 +481,8 @@ class CandidateRankingService {
       role: ranking.jobTitle,
       company: ranking.companyName,
       assessment: ranking.rankingScore,
-      stage: ranking.stage as "Applied" | "Interview" | "Offer",
-      status: ranking.status as "In Progress" | "Hired" | "Rejected",
+      stage: ranking.stage as CandidateStage,
+      status: ranking.status as "In Progress" | "Hired" | "Rejected" | "Offered",
       appliedAt: ranking.rankedAt, // Use rankedAt as appliedAt for display
       jobTitle: ranking.jobTitle,
       jobDepartment: "",
