@@ -284,7 +284,9 @@ export default function ApplicationCard({
                   <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
                     <span className="text-gray-600 font-medium">Stage:</span>
                     <span className="text-right">
-                      {application.stage || "Not specified"}
+                      {typeof application.stage === "object"
+                        ? JSON.stringify(application.stage)
+                        : application.stage || "Not specified"}
                     </span>
                   </div>
                   <div className="flex flex-col sm:flex-row sm:justify-between gap-1">
@@ -374,7 +376,9 @@ export default function ApplicationCard({
                       Job Status:
                     </span>
                     <span className="text-right">
-                      {application.job?.status || "N/A"}
+                      {typeof application.job?.status === "object"
+                        ? JSON.stringify(application.job?.status)
+                        : application.job?.status || "N/A"}
                     </span>
                   </div>
                   {salaryText && (
@@ -413,15 +417,41 @@ export default function ApplicationCard({
                 <h4 className="font-semibold text-gray-900 mb-3">
                   Cover Letter
                 </h4>
-                <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 max-h-40 overflow-y-auto w-full break-words">
-                  {application.coverLetterText
-                    .split("\n")
-                    .map((paragraph, index) => (
-                      <p key={index} className="mb-2 last:mb-0 break-words">
-                        {paragraph}
-                      </p>
-                    ))}
-                </div>
+                {/* Detect and pretty-print metadata if present */}
+                {(() => {
+                  // Use a non-greedy match for metadata block (without 's' flag for compatibility)
+                  const metaMatch = application.coverLetterText.match(/\[APPLICATION_METADATA\]([\s\S]*?)\[\/APPLICATION_METADATA\]/);
+                  if (metaMatch) {
+                    let metaObj = null;
+                    try {
+                      metaObj = JSON.parse(metaMatch[1]);
+                    } catch {
+                      // ignore JSON parse error
+                    }
+                    return (
+                      <div className="mb-4">
+                        <div className="text-xs text-gray-500 mb-1">Application Metadata</div>
+                        <pre className="bg-gray-100 rounded p-4 text-xs text-gray-800 overflow-x-auto max-h-60 whitespace-pre-wrap">
+                          {metaObj
+                            ? JSON.stringify(metaObj, null, 2)
+                            : metaMatch[1]}
+                        </pre>
+                      </div>
+                    );
+                  }
+                  // Otherwise, render as normal paragraphs
+                  return (
+                    <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 max-h-40 overflow-y-auto w-full break-words">
+                      {application.coverLetterText
+                        .split("\n")
+                        .map((paragraph, index) => (
+                          <p key={index} className="mb-2 last:mb-0 break-words">
+                            {paragraph}
+                          </p>
+                        ))}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>

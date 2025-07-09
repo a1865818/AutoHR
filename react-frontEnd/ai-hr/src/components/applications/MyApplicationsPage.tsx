@@ -309,9 +309,9 @@ export default function MyApplicationsPage() {
       {/* Search and Sort */}
       <div className="bg-white rounded-xl border border-gray-200 mb-6">
         <div className="p-4">
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-2 md:space-y-0 w-full">
             {/* Search */}
-            <div className="flex-1 relative">
+            <div className="relative w-full md:w-auto flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <input
                 type="text"
@@ -322,8 +322,24 @@ export default function MyApplicationsPage() {
               />
             </div>
 
-            {/* Sort Options */}
-            <div className="flex items-center space-x-2">
+            {/* Sort Options - Dropdown for mobile/tablet, button group for desktop */}
+            {/* Mobile/Tablet Dropdown */}
+            <div className="w-full md:hidden">
+              <label htmlFor="sortBy" className="sr-only">Sort by</label>
+              <select
+                id="sortBy"
+                value={sortBy}
+                onChange={e => toggleSort(e.target.value as SortOption)}
+                className="w-full mt-2 md:mt-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="newest">Date</option>
+                <option value="company">Company</option>
+                <option value="jobTitle">Job</option>
+                <option value="status">Status</option>
+              </select>
+            </div>
+            {/* Desktop Button Group */}
+            <div className="hidden md:flex items-center space-x-2">
               <span className="text-sm text-gray-600 whitespace-nowrap">
                 Sort by:
               </span>
@@ -399,7 +415,7 @@ export default function MyApplicationsPage() {
                 No Applications Yet
               </h3>
               <p className="text-gray-600 mb-6">
-                You haven't applied to any jobs yet. Start browsing and applying
+                You haven&apos;t applied to any jobs yet. Start browsing and applying
                 to positions that interest you.
               </p>
               <Link
