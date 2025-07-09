@@ -5,6 +5,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using System.Collections;
+using Newtonsoft.Json.Linq;
 
 namespace ai_hr.Endpoints;
 
@@ -305,33 +306,61 @@ public static class RoundConfigurationEndpoints
     // Helper method to convert JsonElement objects to .NET types
     private static object ConvertFromJsonElement(object value)
     {
-        if (value is JsonElement jsonElement)
+        if (value is JArray jArray)
         {
-            return jsonElement.ValueKind switch
+            var list = new List<object>();
+            foreach (var item in jArray)
             {
-                JsonValueKind.Object => ConvertJsonElementObject(jsonElement),
-                JsonValueKind.Array => ConvertJsonElementArray(jsonElement),
-                JsonValueKind.String => jsonElement.GetString() ?? string.Empty,
-                JsonValueKind.Number => jsonElement.TryGetInt64(out long l) ? l : jsonElement.GetDouble(),
-                JsonValueKind.True => true,
-                JsonValueKind.False => false,
-                JsonValueKind.Null => null,
-                _ => null
-            };
+                list.Add(ConvertFromJsonElement(item));
+            }
+            return list;
         }
-        else if (value is Dictionary<string, JsonElement> jsonElementDict)
+        else if (value is JObject jObject)
         {
-            // Convert dictionary with JsonElement values
+            var dict = new Dictionary<string, object>();
+            foreach (var prop in jObject.Properties())
+            {
+                dict[prop.Name] = ConvertFromJsonElement(prop.Value);
+            }
+            return dict;
+        }
+        else if (value is JValue jValue)
+        {
+            return jValue.Value;
+        }
+        else if (value is JsonElement jsonElement)
+        {
+            switch (jsonElement.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    return ConvertJsonElementObject(jsonElement);
+                case JsonValueKind.Array:
+                    return ConvertJsonElementArray(jsonElement);
+                case JsonValueKind.String:
+                    return jsonElement.GetString() ?? string.Empty;
+                case JsonValueKind.Number:
+                    return jsonElement.TryGetInt64(out long l) ? l : jsonElement.GetDouble();
+                case JsonValueKind.True:
+                    return true;
+                case JsonValueKind.False:
+                    return false;
+                case JsonValueKind.Null:
+                    return null;
+                default:
+                    return null;
+            }
+        }
+        else if (value is Dictionary<string, object> dict)
+        {
             var result = new Dictionary<string, object>();
-            foreach (var kvp in jsonElementDict)
+            foreach (var kvp in dict)
             {
                 result[kvp.Key] = ConvertFromJsonElement(kvp.Value);
             }
             return result;
         }
-        else if (value is IList list && list.Count > 0 && list[0] is JsonElement)
+        else if (value is IList list)
         {
-            // Convert list of JsonElement values
             var result = new List<object>();
             foreach (var item in list)
             {
@@ -339,8 +368,7 @@ public static class RoundConfigurationEndpoints
             }
             return result;
         }
-
-        return value; // Not a JsonElement, return as is
+        return value;
     }
 
     // NEW METHOD: Process configuration data retrieved from database
@@ -809,6 +837,14 @@ public static class RoundConfigurationEndpoints
             if (config == null)
             {
                 return Results.NotFound("Configuration not found");
+            }
+
+            // Log the raw data immediately after fetching
+            logger.LogInformation("Raw ConfigurationData: {Raw}", JsonSerializer.Serialize(config.ConfigurationData));
+            logger.LogInformation("Type of ConfigurationData: {Type}", config.ConfigurationData?.GetType().FullName);
+            if (config.ConfigurationData != null && config.ConfigurationData.ContainsKey("questions"))
+            {
+                logger.LogInformation("Type of questions: {Type}", config.ConfigurationData["questions"]?.GetType().FullName);
             }
 
             // Return both raw and processed configuration data for comparison
