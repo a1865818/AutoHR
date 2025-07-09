@@ -481,7 +481,7 @@ export function CandidateDetail({
   };
 
   return (
-    <div className="w-80 border-l bg-white overflow-hidden flex flex-col">
+    <div className="w-96 border-l bg-white overflow-hidden flex flex-col">
       {/* Header with close button */}
       <div className="p-4 border-b flex justify-between items-center">
         <div className="flex items-center">
@@ -516,7 +516,7 @@ export function CandidateDetail({
           <button
             key={tab.id}
             onClick={() => handleTabChange(tab.id as typeof activeTab)}
-            className={`px-3 py-2 text-xs font-medium transition-colors relative ${
+            className={`px-4 py-2 text-xs font-medium transition-colors relative ${
               activeTab === tab.id
                 ? "text-blue-500 border-b-2 border-blue-500"
                 : "text-gray-500 hover:text-gray-700"

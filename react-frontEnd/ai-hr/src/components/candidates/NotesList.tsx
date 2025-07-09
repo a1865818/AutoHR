@@ -39,7 +39,7 @@ export function NotesList({
 
   return (
     <div
-      className="px-6 overflow-y-auto"
+      className="px-6 w-full flex-1 overflow-y-auto"
       style={{ height: "calc(100vh - 200px)" }}
     >
       {candidates.length === 0 ? (

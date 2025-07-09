@@ -1,4 +1,4 @@
-import { NotebookIcon, Search, Trophy, User } from "lucide-react";
+import { ChevronLeft, NotebookIcon, Search, Trophy, User } from "lucide-react";
 
 interface CandidateHeaderProps {
   activeTab: "candidates" | "notes" | "ranking";
@@ -8,6 +8,9 @@ interface CandidateHeaderProps {
   candidatesCount: number;
   notesCount?: number;
   rankingCount?: number;
+  jobTitle?: string;
+  onBackToJobs?: () => void;
+  totalCandidates?: number;
 }
 
 export function CandidateHeader({
@@ -18,12 +21,34 @@ export function CandidateHeader({
   candidatesCount,
   notesCount = 0,
   rankingCount = 0,
+  jobTitle,
+  onBackToJobs,
+  totalCandidates,
 }: CandidateHeaderProps) {
   return (
     <>
       {/* Header */}
       <div className="p-6 bg-white">
-        <h1 className="text-xl font-semibold text-gray-800">Candidates</h1>
+        <div className="flex items-center mb-4">
+          {onBackToJobs && (
+            <button
+              onClick={onBackToJobs}
+              className="mr-4 p-2 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <ChevronLeft className="h-5 w-5 text-gray-600" />
+            </button>
+          )}
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900">
+              {jobTitle ? `Candidates for ${jobTitle}` : "Candidates"}
+            </h1>
+            {totalCandidates !== undefined && (
+              <p className="text-gray-600 text-sm">
+                {totalCandidates} candidates
+              </p>
+            )}
+          </div>
+        </div>
 
         {/* Tabs */}
         <div className="flex mt-6 border-b">

@@ -80,32 +80,93 @@ class CandidateRankingService {
   }
 
   private getAuthData() {
+    // NOTE: We intentionally check cookies first so that authentication works
+    // across browser tabs. Only if a value is missing do we fall back to
+    // localStorage / sessionStorage so that the old logic still works.
+
     if (typeof window === "undefined") {
-      return { token: null, userId: null, userCategory: null, companyId: null };
+      return {
+        token: null,
+        userId: null,
+        userCategory: null,
+        companyId: null,
+      };
     }
 
-    const token =
-      localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
-    const userCategory =
-      localStorage.getItem("userCategory") ||
-      sessionStorage.getItem("userCategory");
+    let token: string | null = null;
+    let userId: string | null = null;
+    let userCategory: string | null = null;
+    let companyId: string | null = null;
 
-    const currentUserStr =
-      localStorage.getItem("currentUser") ||
-      sessionStorage.getItem("currentUser");
+    // ----------------------
+    // 1) Try to read cookies
+    // ----------------------
+    const rawCookies = document.cookie ? document.cookie.split(";") : [];
+    rawCookies.forEach((rawCookie) => {
+      const cookie = rawCookie.trim();
 
-    let userId = null;
-    let companyId = null;
+      if (cookie.startsWith("authToken=")) {
+        token = decodeURIComponent(cookie.substring("authToken=".length));
+      } else if (cookie.startsWith("userData=")) {
+        try {
+          const userData = JSON.parse(
+            decodeURIComponent(cookie.substring("userData=".length))
+          );
+          userId = userData.id ?? userData.userId ?? null;
+          companyId = userData.companyId ?? null;
+          userCategory = userData.userCategory ?? userData.role ?? null;
+        } catch (err) {
+          console.warn(
+            "CandidateRankingService: failed to parse userData from cookie",
+            err
+          );
+        }
+      }
+    });
 
-    if (currentUserStr) {
-      try {
-        const currentUser = JSON.parse(currentUserStr);
-        userId = currentUser.id;
-        companyId = currentUser.companyId;
-      } catch (error) {
-        console.warn("Failed to parse currentUser from storage:", error);
+    // ----------------------------------------------------
+    // 2) Fallback to localStorage / sessionStorage if needed
+    // ----------------------------------------------------
+    if (!token) {
+      token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+    }
+
+    if (!userCategory) {
+      userCategory =
+        localStorage.getItem("userCategory") ||
+        sessionStorage.getItem("userCategory");
+    }
+
+    if (!userId || !companyId) {
+      const currentUserStr =
+        localStorage.getItem("currentUser") ||
+        sessionStorage.getItem("currentUser");
+      if (currentUserStr) {
+        try {
+          const currentUser = JSON.parse(currentUserStr);
+          userId = userId || currentUser.id || null;
+          companyId = companyId || currentUser.companyId || null;
+        } catch (error) {
+          console.warn(
+            "CandidateRankingService: failed to parse currentUser from storage",
+            error
+          );
+        }
       }
     }
+
+    // Debug output so we can trace where the token was sourced from
+    console.log("🔍 CandidateRankingService.getAuthData()", {
+      fromCookie:
+        !!token && !!rawCookies.find((c) => c.trim().startsWith("authToken=")),
+      fromStorage:
+        !!token && !rawCookies.find((c) => c.trim().startsWith("authToken=")),
+      hasToken: !!token,
+      userId,
+      companyId,
+    });
 
     return { token, userId, userCategory, companyId };
   }
@@ -366,7 +427,7 @@ class CandidateRankingService {
     }
 
     const actualCompanyId = companyId || this.getAuthData().companyId;
-    
+
     if (!actualCompanyId) {
       throw new Error("Company ID is required");
     }
@@ -396,7 +457,7 @@ class CandidateRankingService {
               companyName: "Unknown Company",
               totalRanked: 0,
               lastUpdated: new Date().toISOString(),
-            }
+            },
           };
         }
         const error = await response.text();
@@ -404,12 +465,13 @@ class CandidateRankingService {
       }
 
       const responseData = await response.json();
-      
+
       // Convert backend response to frontend format
-      const rankingData = responseData.rankings.map((ranking: CandidateRankingResponse) => 
-        this.convertRankingToCandidate(ranking)
+      const rankingData = responseData.rankings.map(
+        (ranking: CandidateRankingResponse) =>
+          this.convertRankingToCandidate(ranking)
       );
-      
+
       return {
         success: true,
         data: rankingData,
@@ -419,7 +481,7 @@ class CandidateRankingService {
           companyName: responseData.companyName,
           totalRanked: responseData.totalRanked,
           lastUpdated: responseData.lastUpdated,
-        }
+        },
       };
     } catch (error) {
       console.error("❌ Failed to fetch rankings:", error);
@@ -482,7 +544,11 @@ class CandidateRankingService {
       company: ranking.companyName,
       assessment: ranking.rankingScore,
       stage: ranking.stage as CandidateStage,
-      status: ranking.status as "In Progress" | "Hired" | "Rejected" | "Offered",
+      status: ranking.status as
+        | "In Progress"
+        | "Hired"
+        | "Rejected"
+        | "Offered",
       appliedAt: ranking.rankedAt, // Use rankedAt as appliedAt for display
       jobTitle: ranking.jobTitle,
       jobDepartment: "",

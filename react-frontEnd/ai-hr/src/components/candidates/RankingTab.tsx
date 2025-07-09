@@ -59,7 +59,7 @@ export function RankingTab({
   };
 
   return (
-    <div className="px-6 space-y-4 flex flex-col h-full">
+    <div className="px-6 w-full flex-1 flex flex-col h-full space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0">
         <div>
