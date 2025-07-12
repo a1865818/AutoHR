@@ -21,6 +21,20 @@ public static class CandidateEndpoints
             .WithSummary("Get candidates for specific job")
             .WithDescription("Retrieves all applicants for a specific job posting")
             .RequireAuthorization();
+
+        app.MapGet("/candidates/company/{companyId}/rejected", GetRejectedCandidatesByCompany)
+            .WithTags("Candidates")
+            .WithName("GetRejectedCandidatesByCompany")
+            .WithSummary("Get rejected candidates for a company")
+            .WithDescription("Retrieves all rejected candidates for a specific company with filtering options")
+            .RequireAuthorization();
+
+        app.MapGet("/candidates/job/{jobId}/rejected", GetRejectedCandidatesByJob)
+            .WithTags("Candidates")
+            .WithName("GetRejectedCandidatesByJob")
+            .WithSummary("Get rejected candidates for specific job")
+            .WithDescription("Retrieves all rejected candidates for a specific job posting")
+            .RequireAuthorization();
     }
 
     private static async Task<IResult> GetCandidatesByCompany(Guid companyId, Supabase.Client client)
@@ -324,6 +338,10 @@ public static class CandidateEndpoints
                     notesCreatedAt = app.NotesCreatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                     notesUpdatedAt = app.NotesUpdatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
 
+                    rejectionReason = app.RejectionReason,
+                    rejectionNotes = app.RejectionNotes,
+                    rejectedAt = app.RejectedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+
                     // Debug info
                     debug = new
                     {
@@ -341,6 +359,267 @@ public static class CandidateEndpoints
         catch (Exception ex)
         {
             Console.WriteLine($"Error fetching candidates for job: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+    private static async Task<IResult> GetRejectedCandidatesByCompany(
+        Guid companyId,
+        Supabase.Client client,
+        string? jobId = null,
+        string? rejectionReason = null,
+        int? days = null)
+    {
+        try
+        {
+            Console.WriteLine($"Fetching rejected candidates for company: {companyId}");
+
+            // Step 1: Get company information
+            var companyResponse = await client.From<Company>()
+                .Where(c => c.Id == companyId)
+                .Get();
+
+            var company = companyResponse.Models?.FirstOrDefault();
+            if (company == null)
+            {
+                return Results.NotFound(new { message = $"Company not found: {companyId}" });
+            }
+
+            // Step 2: Get all jobs for this company
+            var jobsResponse = await client.From<Job>()
+                .Where(j => j.CompanyId == companyId)
+                .Get();
+
+            var companyJobs = jobsResponse.Models;
+            if (companyJobs == null || !companyJobs.Any())
+            {
+                return Results.Ok(new
+                {
+                    candidates = new List<object>(),
+                    totalCount = 0,
+                    companyName = company.Name
+                });
+            }
+
+            var jobIds = companyJobs.Select(j => j.Id).ToList();
+
+            // Step 3: Get all rejected applications for these jobs
+            var applications = new List<ApplicationDetail>();
+            foreach (var jobIdItem in jobIds)
+            {
+                var appResponse = await client.From<ApplicationDetail>()
+                    .Where(ad => ad.JobId == jobIdItem)
+                    .Get();
+
+                if (appResponse.Models != null)
+                {
+                    applications.AddRange(appResponse.Models);
+                }
+            }
+
+            // Filter for rejected candidates only
+            applications = applications.Where(a => a.Status == "Rejected").ToList();
+
+            // Apply additional filters
+            if (!string.IsNullOrEmpty(jobId) && Guid.TryParse(jobId, out var jobGuid))
+            {
+                applications = applications.Where(a => a.JobId == jobGuid).ToList();
+            }
+
+            if (!string.IsNullOrEmpty(rejectionReason))
+            {
+                applications = applications.Where(a =>
+                    a.RejectionReason?.Equals(rejectionReason, StringComparison.OrdinalIgnoreCase) == true).ToList();
+            }
+
+            if (days.HasValue)
+            {
+                var cutoffDate = DateTime.UtcNow.AddDays(-days.Value);
+                applications = applications.Where(a =>
+                    a.RejectedAt.HasValue && a.RejectedAt.Value >= cutoffDate).ToList();
+            }
+
+            Console.WriteLine($"Found {applications.Count} rejected applications");
+
+            if (!applications.Any())
+            {
+                return Results.Ok(new
+                {
+                    candidates = new List<object>(),
+                    totalCount = 0,
+                    companyName = company.Name
+                });
+            }
+
+            // Step 4: Get user lookup
+            var allUsersResponse = await client.From<ApplicationUser>().Get();
+            var allUsers = allUsersResponse.Models ?? new List<ApplicationUser>();
+            var userLookup = allUsers.ToDictionary(u => u.Id, u => u);
+
+            // Step 5: Build rejected candidate response objects
+            var rejectedCandidates = applications.Select(app =>
+            {
+                var candidateUserIdString = app.CandidateUserId.ToString();
+                var candidateUser = userLookup.ContainsKey(candidateUserIdString)
+                    ? userLookup[candidateUserIdString]
+                    : null;
+
+                var job = companyJobs.FirstOrDefault(j => j.Id == app.JobId);
+
+                return new
+                {
+                    id = app.Id.ToString(),
+                    applicationId = app.Id.ToString(),
+                    candidateUserId = candidateUserIdString,
+                    jobId = app.JobId.ToString(),
+                    jobTitle = job?.Title ?? "Unknown Position",
+                    jobDepartment = job?.Department,
+                    name = candidateUser != null ? $"{candidateUser.FirstName} {candidateUser.LastName}" : "Unknown Candidate",
+                    email = candidateUser?.Email ?? "unknown@example.com",
+                    phone = candidateUser?.PhoneNumber,
+                    company = company.Name,
+                    role = job?.Title,
+                    stage = app.Stage,
+                    status = app.Status,
+                    appliedAt = app.AppliedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    rejectedAt = app.RejectedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    rejectionReason = app.RejectionReason,
+                    rejectionNotes = app.RejectionNotes,
+                    statusChangedAt = app.StatusChangedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    resumeUrl = app.ResumeUrl,
+                    expectedSalary = app.ExpectedSalary,
+                    overallAiScore = app.OverallAiScore,
+                    assessment = (int)(app.OverallAiScore ?? 0),
+                    photo = "https://ui-avatars.com/api/?name=" + Uri.EscapeDataString(candidateUser?.FirstName ?? "U") + "&size=64&background=e5e7eb&color=374151&rounded=true",
+
+                    // Notes
+                    hiringNotes = app.HiringNotes,
+                    notesCreatedAt = app.NotesCreatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    notesUpdatedAt = app.NotesUpdatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                };
+            }).ToList();
+
+            var response = new
+            {
+                candidates = rejectedCandidates,
+                totalCount = rejectedCandidates.Count,
+                companyName = company.Name,
+                summary = new
+                {
+                    totalRejected = rejectedCandidates.Count,
+                    rejectionReasons = rejectedCandidates
+                        .Where(c => !string.IsNullOrEmpty(c.rejectionReason))
+                        .GroupBy(c => c.rejectionReason)
+                        .ToDictionary(g => g.Key, g => g.Count()),
+                    jobBreakdown = rejectedCandidates
+                        .GroupBy(c => c.jobTitle)
+                        .ToDictionary(g => g.Key, g => g.Count())
+                }
+            };
+
+            return Results.Ok(response);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 ERROR in GetRejectedCandidatesByCompany: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new
+            {
+                error = ex.Message,
+                details = ex.ToString()
+            });
+        }
+    }
+
+    private static async Task<IResult> GetRejectedCandidatesByJob(Guid jobId, Supabase.Client client)
+    {
+        try
+        {
+            // Get the job details first
+            var jobResponse = await client.From<Job>()
+                .Where(j => j.Id == jobId)
+                .Get();
+
+            var job = jobResponse.Models?.FirstOrDefault();
+            if (job == null)
+            {
+                return Results.NotFound(new { message = $"Job not found: {jobId}" });
+            }
+
+            // Get company information for this job
+            var companyResponse = await client.From<Company>()
+                .Where(c => c.Id == job.CompanyId)
+                .Get();
+
+            var company = companyResponse.Models?.FirstOrDefault();
+            var companyName = company?.Name ?? "Unknown Company";
+
+            // Get all rejected applications for this job
+            var appResponse = await client.From<ApplicationDetail>()
+                .Where(ad => ad.JobId == jobId)
+                .Get();
+
+            var applications = appResponse.Models?.Where(a => a.Status == "Rejected").ToList();
+            if (applications == null || !applications.Any())
+            {
+                return Results.Ok(new List<object>());
+            }
+
+            Console.WriteLine($"Found {applications.Count} rejected applications for job");
+
+            // Get ALL ApplicationUsers at once (more efficient)
+            var allUsersResponse = await client.From<ApplicationUser>().Get();
+            var allUsers = allUsersResponse.Models ?? new List<ApplicationUser>();
+            var userLookup = allUsers.ToDictionary(u => u.Id, u => u);
+
+            // Build rejected candidate response objects
+            var rejectedCandidates = applications.Select(app =>
+            {
+                var candidateUserIdString = app.CandidateUserId.ToString();
+                var candidateUser = userLookup.ContainsKey(candidateUserIdString)
+                    ? userLookup[candidateUserIdString]
+                    : null;
+
+                return new
+                {
+                    id = app.Id.ToString(),
+                    applicationId = app.Id.ToString(),
+                    candidateUserId = candidateUserIdString,
+                    jobId = app.JobId.ToString(),
+                    jobTitle = job.Title,
+                    jobDepartment = job.Department,
+                    name = candidateUser != null ? $"{candidateUser.FirstName} {candidateUser.LastName}" : "Unknown Candidate",
+                    email = candidateUser?.Email ?? "unknown@example.com",
+                    phone = candidateUser?.PhoneNumber,
+                    company = companyName,
+                    role = job.Title,
+                    stage = app.Stage,
+                    status = app.Status,
+                    appliedAt = app.AppliedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    rejectedAt = app.RejectedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    rejectionReason = app.RejectionReason,
+                    rejectionNotes = app.RejectionNotes,
+                    statusChangedAt = app.StatusChangedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    resumeUrl = app.ResumeUrl,
+                    expectedSalary = app.ExpectedSalary,
+                    overallAiScore = app.OverallAiScore,
+                    assessment = (int)(app.OverallAiScore ?? 0),
+                    photo = "https://ui-avatars.com/api/?name=" + Uri.EscapeDataString(candidateUser?.FirstName ?? "U") + "&size=64&background=e5e7eb&color=374151&rounded=true",
+
+                    // Notes
+                    hiringNotes = app.HiringNotes,
+                    notesCreatedAt = app.NotesCreatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    notesUpdatedAt = app.NotesUpdatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                };
+            }).ToList();
+
+            Console.WriteLine($"Returning {rejectedCandidates.Count} rejected candidates for job {jobId}");
+            return Results.Ok(rejectedCandidates);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching rejected candidates for job: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }

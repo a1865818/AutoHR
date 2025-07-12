@@ -36,6 +36,20 @@ if ! command -v node &> /dev/null; then
 fi
 
 echo "✅ Prerequisites check passed"
+
+# Check for Gmail configuration
+echo "🔍 Checking Gmail configuration..."
+if [ -z "$GOOGLE_CLIENT_ID" ] || [ -z "$GOOGLE_CLIENT_SECRET" ]; then
+    echo "⚠️  Gmail OAuth not configured:"
+    echo "   - GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-"❌ Missing"}"
+    echo "   - GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-"❌ Missing"}"
+    echo "   📄 See dotnet-backend/ai-hr/GMAIL_SETUP.md for setup instructions"
+    echo "   📧 Email features will not work without these credentials"
+else
+    echo "✅ Gmail OAuth configured"
+fi
+
+echo ""
 echo "📋 Configuration:"
 echo "   Backend URLs: $ASPNETCORE_URLS"
 echo "   Frontend Port: $FRONTEND_PORT"

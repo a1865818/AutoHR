@@ -12,10 +12,11 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 interface JobGridProps {
   jobs: Job[];
-  onJobSelect: (jobId: string) => void;
+  onJobSelect?: (jobId: string) => void; // Make optional for backward compatibility
   showStats?: boolean;
 }
 
@@ -24,6 +25,7 @@ export function JobGrid({
   onJobSelect,
   showStats = false,
 }: JobGridProps) {
+  const router = useRouter();
   const [hoveredJob, setHoveredJob] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const jobsPerPage = 9;
@@ -152,7 +154,13 @@ export function JobGrid({
               }`}
               onMouseEnter={() => setHoveredJob(job.id)}
               onMouseLeave={() => setHoveredJob(null)}
-              onClick={() => onJobSelect(job.id)}
+              onClick={() => {
+                if (onJobSelect) {
+                  onJobSelect(job.id);
+                } else {
+                  router.push(`/candidates/${job.id}`);
+                }
+              }}
             >
               {/* Fixed height container to ensure consistent alignment */}
               <div className="p-6 h-full flex flex-col">

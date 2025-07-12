@@ -12,7 +12,6 @@ import {
   CreateJobRequest,
   UpdateJobRequest,
 } from "@/interfaces/api";
-import api from "./api";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5189";
 
@@ -1038,23 +1037,6 @@ class JobService {
     if (experience.includes("8+")) return "lead";
     if (experience.includes("10+")) return "executive";
     return "mid";
-  }
-
-  private normalizeStatus(backendStatus: string): string {
-    switch (backendStatus) {
-      case "Open":
-        return "Active"; // ✅ Backend "Open" -> Frontend "Active"
-      case "Draft":
-        return "Draft";
-      case "Paused":
-        return "Paused";
-      case "Closed":
-        return "Closed";
-      case "Expired":
-        return "Expired";
-      default:
-        return "Draft";
-    }
   }
 
   // Helper method to get status color

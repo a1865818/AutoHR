@@ -34,6 +34,11 @@ export interface Candidate {
   hiringNotes?: string;
   notesCreatedAt?: string;
   notesUpdatedAt?: string;
+  
+  // Rejection tracking fields
+  rejectionReason?: string;
+  rejectionNotes?: string;
+  rejectedAt?: string;
   currentRoundId?: string; // Keep for backward compatibility
 }
 export interface SaveNoteRequest {
@@ -43,13 +48,65 @@ export interface SaveNoteRequest {
 export interface CandidateWithJobDetails extends Candidate {
   jobTitle: string;
   jobDepartment?: string;
-  jobLocationType: string;
-  jobEmploymentType: string;
-  // Ranking-specific fields
-  rankingScore?: number;
-  rankingPosition?: number;
-  aiAnalysisData?: Record<string, unknown>;
+  jobCompany: string;
+  jobId: string;
   isRanked?: boolean;
+  rankingPosition?: number;
+  rankingScore?: number;
+  aiAnalysisData?: any;
+}
+
+// Rejected candidates interfaces
+export interface RejectedCandidate extends CandidateWithJobDetails {
+  rejectionReason: string;
+  rejectionNotes?: string;
+  rejectedAt: string;
+}
+
+export interface RejectedCandidatesResponse {
+  candidates: RejectedCandidate[];
+  totalCount: number;
+  companyName: string;
+  summary: {
+    totalRejected: number;
+    rejectionReasons: Record<string, number>;
+    jobBreakdown: Record<string, number>;
+  };
+}
+
+export interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BulkEmailRequest {
+  candidateIds: string[];
+  templateId?: string;
+  customSubject?: string;
+  customBody?: string;
+  sendImmediately: boolean;
+  scheduledAt?: string;
+}
+
+export interface EmailSendResult {
+  candidateId: string;
+  candidateName: string;
+  email: string;
+  status: 'sent' | 'failed' | 'pending';
+  sentAt?: string;
+  error?: string;
+}
+
+export interface BulkEmailResponse {
+  success: boolean;
+  totalSent: number;
+  totalFailed: number;
+  results: EmailSendResult[];
 }
 
 export interface CandidatesResponse {

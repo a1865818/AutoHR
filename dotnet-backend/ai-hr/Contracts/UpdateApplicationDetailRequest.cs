@@ -9,6 +9,10 @@ namespace ai_hr.Contracts
         public string? CurrentRoundId { get; set; }
         public string? Notes { get; set; }
 
+        // Rejection tracking fields
+        public string? RejectionReason { get; set; }
+        public string? RejectionNotes { get; set; }
+
         // Validation method for stage
         public bool IsValidStage()
         {

@@ -2,11 +2,14 @@ import { Candidate } from "@/interfaces";
 import { formatTimestampDetailed } from "@/utils/timezoneUtils";
 import { Edit, Plus, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { RejectionReasonModal } from "./RejectionReasonModal";
+import { rejectedCandidatesService } from "@/services/rejectedCandidatesService";
 
 interface CandidateDetailProps {
   candidate: Candidate;
   onClose: () => void;
   onAction: (candidateId: string, action: "approve" | "decline") => void;
+  onReject?: (candidateId: string, reason: string, notes?: string) => void;
   note: string;
   onSaveNote: (candidateId: string, note: string) => void;
 }
@@ -15,6 +18,7 @@ export function CandidateDetail({
   candidate,
   onClose,
   onAction,
+  onReject,
   note,
   onSaveNote,
 }: CandidateDetailProps) {
@@ -27,6 +31,7 @@ export function CandidateDetail({
   });
   const [currentNote, setCurrentNote] = useState(note);
   const [isEditingNote, setIsEditingNote] = useState(false);
+  const [showRejectionModal, setShowRejectionModal] = useState(false);
 
   const handleTabChange = (
     tab: "info" | "interview" | "assessment" | "files" | "notes"
@@ -71,11 +76,84 @@ export function CandidateDetail({
     );
   };
 
+  const handleReject = async (reason: string, notes?: string) => {
+    try {
+      if (onReject) {
+        await onReject(candidate.applicationId, reason, notes);
+      } else {
+        // Fallback to service call if no onReject prop
+        await rejectedCandidatesService.rejectCandidate(
+          candidate.applicationId,
+          reason,
+          notes
+        );
+        onAction(candidate.id, "decline");
+      }
+      setShowRejectionModal(false);
+    } catch (error) {
+      console.error("Failed to reject candidate:", error);
+      throw error;
+    }
+  };
+
+  const handleRejectClick = () => {
+    if (onReject) {
+      setShowRejectionModal(true);
+    } else {
+      onAction(candidate.id, "decline");
+    }
+  };
+
   const renderTabContent = () => {
     switch (activeTab) {
       case "info":
         return (
           <div className="space-y-4">
+            {/* Rejection Information - Show if candidate is rejected */}
+            {candidate.status === "Rejected" && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center mb-2">
+                  <div className="w-4 h-4 bg-red-500 rounded-full mr-2"></div>
+                  <h4 className="text-sm font-medium text-red-800">
+                    Candidate Rejected
+                  </h4>
+                </div>
+
+                {candidate.rejectionReason && (
+                  <div className="mb-2">
+                    <span className="text-xs font-medium text-red-700">
+                      Reason:
+                    </span>
+                    <p className="text-sm text-red-700 mt-1">
+                      {candidate.rejectionReason}
+                    </p>
+                  </div>
+                )}
+
+                {candidate.rejectionNotes && (
+                  <div className="mb-2">
+                    <span className="text-xs font-medium text-red-700">
+                      Notes:
+                    </span>
+                    <p className="text-sm text-red-700 mt-1">
+                      {candidate.rejectionNotes}
+                    </p>
+                  </div>
+                )}
+
+                {candidate.rejectedAt && (
+                  <div>
+                    <span className="text-xs font-medium text-red-700">
+                      Rejected on:
+                    </span>
+                    <p className="text-sm text-red-700 mt-1">
+                      {formatTimestampDetailed(candidate.rejectedAt)}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div>
               <h4 className="text-xs font-medium text-gray-500 mb-2">
                 Contact Information
@@ -481,11 +559,11 @@ export function CandidateDetail({
   };
 
   return (
-    <div className="w-96 border-l bg-white overflow-hidden flex flex-col">
+    <div className="w-full h-full bg-white overflow-hidden flex flex-col">
       {/* Header with close button */}
       <div className="p-4 border-b flex justify-between items-center">
-        <div className="flex items-center">
-          <div className="w-8 h-8 rounded-full bg-gray-300 overflow-hidden">
+        <div className="flex items-center animate-fadeIn">
+          <div className="w-8 h-8 rounded-full bg-gray-300 overflow-hidden shadow-sm">
             <img
               src={candidate.photo}
               alt={candidate.name}
@@ -499,7 +577,10 @@ export function CandidateDetail({
             </p>
           </div>
         </div>
-        <button className="text-gray-400 hover:text-gray-600" onClick={onClose}>
+        <button
+          className="text-gray-400 hover:text-gray-600 transition-colors duration-200 p-1 rounded-full hover:bg-gray-100"
+          onClick={onClose}
+        >
           <X className="h-5 w-5" />
         </button>
       </div>
@@ -531,24 +612,50 @@ export function CandidateDetail({
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-y-auto p-4">
+      <div
+        className="flex-1 overflow-y-auto p-4 animate-fadeIn"
+        style={{ animationDelay: "0.1s" }}
+      >
         {renderTabContent()}
 
         {/* Action buttons - only show on interview tab */}
         {activeTab === "interview" && (
           <div className="flex space-x-2 mt-8 pt-4 border-t">
-            <button
-              onClick={() => onAction(candidate.id, "decline")}
-              className="flex-1 bg-white border border-gray-300 text-gray-700 rounded-md py-2 text-sm font-medium hover:bg-gray-50 transition-colors"
-            >
-              Decline
-            </button>
-            <button
-              onClick={() => onAction(candidate.id, "approve")}
-              className="flex-1 bg-blue-500 text-white rounded-md py-2 text-sm font-medium hover:bg-blue-600 transition-colors"
-            >
-              Approve
-            </button>
+            {candidate.status === "Rejected" ? (
+              <div className="w-full text-center py-3 bg-red-50 border border-red-200 rounded-md">
+                <p className="text-sm text-red-700 font-medium">
+                  Candidate Rejected
+                </p>
+                <p className="text-xs text-red-600 mt-1">
+                  {candidate.rejectionReason &&
+                    `Reason: ${candidate.rejectionReason}`}
+                </p>
+              </div>
+            ) : candidate.status === "Hired" ? (
+              <div className="w-full text-center py-3 bg-green-50 border border-green-200 rounded-md">
+                <p className="text-sm text-green-700 font-medium">
+                  Candidate Hired
+                </p>
+                <p className="text-xs text-green-600 mt-1">
+                  This candidate has been successfully hired
+                </p>
+              </div>
+            ) : (
+              <>
+                <button
+                  onClick={handleRejectClick}
+                  className="flex-1 bg-red-500 text-white rounded-md py-2 text-sm font-medium hover:bg-red-600 transition-colors"
+                >
+                  Reject
+                </button>
+                <button
+                  onClick={() => onAction(candidate.id, "approve")}
+                  className="flex-1 bg-green-500 text-white rounded-md py-2 text-sm font-medium hover:bg-green-600 transition-colors"
+                >
+                  Approve
+                </button>
+              </>
+            )}
           </div>
         )}
 
@@ -562,6 +669,16 @@ export function CandidateDetail({
           </div>
         )}
       </div>
+
+      {/* Rejection Reason Modal */}
+      {showRejectionModal && (
+        <RejectionReasonModal
+          isOpen={showRejectionModal}
+          onClose={() => setShowRejectionModal(false)}
+          candidateId={candidate.id}
+          onReject={handleReject}
+        />
+      )}
     </div>
   );
 }

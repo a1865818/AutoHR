@@ -8,7 +8,6 @@ const statusFilters: Omit<FilterOption, "count">[] = [
   { id: "in-progress", label: "In Progress" },
   { id: "offered", label: "Offered" },
   { id: "hired", label: "Hired" },
-  { id: "rejected", label: "Rejected" },
 ];
 
 // Status color mapping
@@ -17,7 +16,6 @@ const getStatusColor = (statusId: string) => {
     "in-progress": "text-blue-600",
     offered: "text-purple-600",
     hired: "text-green-600",
-    rejected: "text-red-600",
   };
   return colorMap[statusId] || "text-gray-600";
 };

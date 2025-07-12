@@ -23,9 +23,9 @@ export default function RootLayout({
         <ErrorBoundary>
           <AuthProvider>
             {children}
-            <ClientOnly>
+            {/* <ClientOnly>
               <SessionDebug />
-            </ClientOnly>
+            </ClientOnly> */}
           </AuthProvider>
         </ErrorBoundary>
       </body>

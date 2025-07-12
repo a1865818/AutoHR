@@ -56,11 +56,16 @@ const config: Config = {
           "0%": { transform: "translateY(10px)", opacity: "0" },
           "100%": { transform: "translateY(0)", opacity: "1" },
         },
+        "slide-in-right": {
+          "0%": { transform: "translateX(100%)" },
+          "100%": { transform: "translateX(0)" },
+        },
       },
       animation: {
         fadeIn: "fadeIn 0.2s ease-in-out",
         scaleIn: "scaleIn 0.2s ease-in-out",
         slideIn: "slideIn 0.2s ease-in-out",
+        "slide-in-right": "slide-in-right 0.3s ease-out",
       },
     },
   },

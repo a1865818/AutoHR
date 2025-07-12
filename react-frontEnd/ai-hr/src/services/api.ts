@@ -27,7 +27,7 @@ class ApiService {
     this.baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5189";
   }
 
-  private async makeRequest<T>(
+  public async makeRequest<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
@@ -81,7 +81,7 @@ class ApiService {
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
         const text = await response.text();
-        return text ? JSON.parse(text) : {};
+        return text ? JSON.parse(text) : {} as T;
       }
 
       return {} as T;
@@ -118,7 +118,7 @@ class ApiService {
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
         const text = await response.text();
-        return text ? JSON.parse(text) : {};
+        return text ? JSON.parse(text) : {} as T;
       }
 
       return {} as T;

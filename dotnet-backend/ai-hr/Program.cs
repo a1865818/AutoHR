@@ -65,6 +65,9 @@ builder.Services.AddScoped<IHiringUserProfileAuthenticationService, HiringUserPr
 builder.Services.AddScoped<ISavedJobsService, SavedJobsService>();
 builder.Services.AddScoped<IJobViewTrackingService, JobViewTrackingService>();
 
+// Register Gmail service
+builder.Services.AddScoped<IGmailService, ai_hr.Services.GmailApiService>();
+
 
 //Enable session support for user tracking
 builder.Services.AddDistributedMemoryCache();
@@ -188,5 +191,8 @@ app.MapInterviewEndpoints();
 app.MapRoundConfigurationEndpoints();
 app.MapStorageBucketEndpoints();
 app.MapSavedJobsEndpoints();
+app.MapEmailEndpoints();
+app.MapEmailTemplateEndpoints();
+app.MapGmailAuthEndpoints();
 
 app.Run();

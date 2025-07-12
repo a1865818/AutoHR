@@ -69,7 +69,13 @@ export function CandidateCard({
         <StageTag stage={candidate.stage} />
       </div>
       <div className="col-span-1 flex items-center">
-        <StatusTag status={candidate.status || "In Progress"} />
+        <StatusTag
+          status={
+            candidate.status === "Offered"
+              ? "In Progress"
+              : candidate.status || "In Progress"
+          }
+        />
       </div>
     </div>
   );

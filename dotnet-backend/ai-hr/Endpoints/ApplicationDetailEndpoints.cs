@@ -291,6 +291,22 @@ public static class ApplicationDetailEndpoints
                 }
             }
 
+            // Handle rejection fields
+            if (request.RejectionReason != null)
+            {
+                applicationDetail.RejectionReason = request.RejectionReason;
+            }
+            if (request.RejectionNotes != null)
+            {
+                applicationDetail.RejectionNotes = request.RejectionNotes;
+            }
+
+            // Set rejected timestamp when status is changed to Rejected
+            if (request.Status == "Rejected" && applicationDetail.RejectedAt == null)
+            {
+                applicationDetail.RejectedAt = DateTime.UtcNow;
+            }
+
             // Always update the status changed timestamp
             applicationDetail.StatusChangedAt = DateTime.UtcNow;
 

@@ -61,6 +61,16 @@ namespace ai_hr.Models
         [Column("notes_updated_at")]
         public DateTime? NotesUpdatedAt { get; set; }
 
+        // NEW: Add rejection tracking fields
+        [Column("rejection_reason")]
+        public string? RejectionReason { get; set; }
+
+        [Column("rejection_notes")]
+        public string? RejectionNotes { get; set; }
+
+        [Column("rejected_at")]
+        public DateTime? RejectedAt { get; set; }
+
         // Valid stages for the new granular system
         public static readonly string[] ValidStages = {
             "Applied", "Phone Screening", "Video Interview", "Technical Assessment",
