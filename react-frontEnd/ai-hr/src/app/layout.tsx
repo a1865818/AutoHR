@@ -1,9 +1,9 @@
-import { AuthProvider } from "@/contexts/AuthContext";
-import { Inter } from "next/font/google";
-import "./globals.css";
 import { SessionDebug } from "@/components/auth/SessionDebug";
 import { ClientOnly } from "@/components/ClientOnly";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { Inter } from "next/font/google";
+import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
 

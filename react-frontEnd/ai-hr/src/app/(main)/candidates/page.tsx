@@ -5,17 +5,17 @@ import { CandidateDetail } from "@/components/candidates/CandidateDetail";
 import { CandidateHeader } from "@/components/candidates/CandidateHeader";
 import { CandidatesList } from "@/components/candidates/CandidatesList";
 import { FilterSidebar } from "@/components/candidates/FilterSidebar";
+import { JobGrid } from "@/components/candidates/JobGrid";
 import { NotesEditModal } from "@/components/candidates/NotesEditModal";
 import { NotesList } from "@/components/candidates/NotesList";
 import { RankingModal } from "@/components/candidates/RankingModal";
 import { RankingTab } from "@/components/candidates/RankingTab";
-import { JobGrid } from "@/components/candidates/JobGrid";
 
 import { useHiringAuth } from "@/hooks/useHiringAuth";
 import {
   Candidate,
-  CandidateWithJobDetails,
   CandidateStage,
+  CandidateWithJobDetails,
   Job,
 } from "@/interfaces";
 import { candidateRankingService } from "@/services/candidateRankingService";
@@ -28,17 +28,8 @@ import {
 } from "@/utils/dynamicInterviewStageConfig";
 import { StageManager } from "@/utils/stageManager";
 
-import {
-  Briefcase,
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  Plus,
-  Search,
-  Users,
-  Trophy,
-} from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Briefcase, FileText, Plus, Search, Users } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 
 // Empty State Component
 interface EmptyStateProps {
@@ -1285,36 +1276,6 @@ function CandidatesPage() {
   // Main render for when a job is selected and candidates are available
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-gray-50">
-      {/* Header with back button and job title */}
-      <div className="px-6 py-4 bg-white border-b flex items-center">
-        <button
-          onClick={handleBackToJobs}
-          className="mr-4 p-2 rounded-full hover:bg-gray-100 transition-colors"
-        >
-          <ChevronLeft className="h-5 w-5 text-gray-600" />
-        </button>
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">
-            Candidates for{" "}
-            {jobs.find((j) => j.id === selectedJob)?.title || "Selected Job"}
-          </h1>
-          <p className="text-gray-600 text-sm">
-            {filteredAndSortedCandidates.length} candidates
-          </p>
-        </div>
-      </div>
-
-      {/* Tabs and Search - Moved to top */}
-      <CandidateHeader
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        candidatesCount={candidatesCount}
-        notesCount={notesCount}
-        rankingCount={rankingCount}
-      />
-
       <div className="flex-1 flex overflow-hidden">
         {/* Filter sidebar */}
         <FilterSidebar
@@ -1349,75 +1310,83 @@ function CandidatesPage() {
           hidePositionFilter={true} // Hide the position section
         />
 
-        {/* Main content area */}
-        <div className="flex-1 flex overflow-hidden">
-          {activeTab === "candidates" && (
-            <div className="flex-1 flex overflow-hidden">
-              {/* Candidates list */}
-              <CandidatesList
-                candidates={filteredAndSortedCandidates}
+        {/* Main content area with header at the top */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <CandidateHeader
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            candidatesCount={candidatesCount}
+            notesCount={notesCount}
+            rankingCount={rankingCount}
+            jobTitle={jobs.find((j) => j.id === selectedJob)?.title}
+            onBackToJobs={handleBackToJobs}
+            totalCandidates={filteredAndSortedCandidates.length}
+          />
+          <div className="flex-1 flex overflow-hidden">
+            {activeTab === "candidates" && (
+              <>
+                <CandidatesList
+                  candidates={filteredAndSortedCandidates}
+                  selectedCandidate={selectedCandidate}
+                  selectedForRanking={selectedForRanking}
+                  rankedCandidates={rankedCandidates}
+                  onCandidateClick={handleCandidateClick}
+                  onRankingSelect={handleRankingSelect}
+                  onSelectAllForRanking={handleSelectAllForRanking}
+                  onGoToRanking={handleGoToRanking}
+                  sortBy={sortBy}
+                  onSort={handleSort}
+                />
+                {selectedCandidate &&
+                  (() => {
+                    const candidateData = filteredAndSortedCandidates.find(
+                      (c) => c.id === selectedCandidate
+                    );
+                    return candidateData ? (
+                      <div className="w-96 bg-white border-l overflow-auto">
+                        <CandidateDetail
+                          candidate={candidateData}
+                          onClose={closeSidebar}
+                          onAction={(
+                            candidateId: string,
+                            action: "approve" | "decline"
+                          ) => handleCandidateAction(candidateId, action)}
+                          onSaveNote={handleSaveNote}
+                          note={notes[candidateData.applicationId] || ""}
+                        />
+                      </div>
+                    ) : null;
+                  })()}
+              </>
+            )}
+            {activeTab === "notes" && (
+              <NotesList
+                candidates={filteredAndSortedCandidates.filter(
+                  (c) =>
+                    notes[c.applicationId] &&
+                    notes[c.applicationId].trim() !== ""
+                )}
+                notes={notes}
                 selectedCandidate={selectedCandidate}
-                selectedForRanking={selectedForRanking}
-                rankedCandidates={rankedCandidates}
-                onCandidateClick={handleCandidateClick}
-                onRankingSelect={handleRankingSelect}
-                onSelectAllForRanking={handleSelectAllForRanking}
-                onGoToRanking={handleGoToRanking}
-                sortBy={sortBy}
-                onSort={handleSort}
+                onCandidateClick={(candidateId: string) => {
+                  setSelectedCandidate(candidateId);
+                  setActiveTab("candidates");
+                }}
+                onEditNote={handleEditNote}
+                onDeleteNote={handleDeleteNote}
               />
-
-              {/* Candidate details sidebar */}
-              {selectedCandidate &&
-                (() => {
-                  const candidateData = filteredAndSortedCandidates.find(
-                    (c) => c.id === selectedCandidate
-                  );
-                  return candidateData ? (
-                    <div className="w-96 bg-white border-l overflow-auto">
-                      <CandidateDetail
-                        candidate={candidateData}
-                        onClose={closeSidebar}
-                        onAction={(
-                          candidateId: string,
-                          action: "approve" | "decline"
-                        ) => handleCandidateAction(candidateId, action)}
-                        onSaveNote={handleSaveNote}
-                        note={notes[candidateData.applicationId] || ""}
-                      />
-                    </div>
-                  ) : null;
-                })()}
-            </div>
-          )}
-
-          {/* Notes tab */}
-          {activeTab === "notes" && (
-            <NotesList
-              candidates={filteredAndSortedCandidates.filter(
-                (c) =>
-                  notes[c.applicationId] && notes[c.applicationId].trim() !== ""
-              )}
-              notes={notes}
-              selectedCandidate={selectedCandidate}
-              onCandidateClick={(candidateId: string) => {
-                setSelectedCandidate(candidateId);
-                setActiveTab("candidates");
-              }}
-              onEditNote={handleEditNote}
-              onDeleteNote={handleDeleteNote}
-            />
-          )}
-
-          {/* Ranking tab */}
-          {activeTab === "ranking" && (
-            <RankingTab
-              candidates={rankingsByPosition[selectedPosition || ""] || []}
-              selectedCandidateId={selectedRankingCandidate}
-              onCandidateSelect={handleRankingCandidateSelect}
-              onRemoveFromRanking={handleRemoveFromRanking}
-            />
-          )}
+            )}
+            {activeTab === "ranking" && (
+              <RankingTab
+                candidates={rankingsByPosition[selectedPosition || ""] || []}
+                selectedCandidateId={selectedRankingCandidate}
+                onCandidateSelect={handleRankingCandidateSelect}
+                onRemoveFromRanking={handleRemoveFromRanking}
+              />
+            )}
+          </div>
         </div>
       </div>
 
