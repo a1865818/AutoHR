@@ -1,19 +1,19 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import {
-  Plus,
-  Trash2,
-  Video,
-  Users,
-  FileText,
-  ChevronDown,
-  ChevronUp,
-  AlertCircle,
-  Loader2,
-} from "lucide-react";
 import { useRoundConfiguration } from "@/hooks/useRoundConfiguration";
 import { cleanJsonObject } from "@/utils/jsonUtils";
+import {
+  AlertCircle,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  Loader2,
+  Plus,
+  Trash2,
+  Users,
+  Video,
+} from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface Question {
   id: string;
@@ -525,7 +525,7 @@ export function VideoInterviewConfig({
         <h2 className="text-2xl font-bold text-gray-800">
           Video Interview Configuration
         </h2>
-        <button
+        {/* <button
           onClick={handleSaveConfiguration}
           disabled={saving}
           className={`px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center ${
@@ -534,7 +534,7 @@ export function VideoInterviewConfig({
         >
           {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {saving ? "Saving..." : "Save Configuration"}
-        </button>
+        </button> */}
       </div>
 
       {/* Configuration Name */}

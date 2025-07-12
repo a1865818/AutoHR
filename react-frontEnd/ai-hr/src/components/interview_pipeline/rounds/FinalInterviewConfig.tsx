@@ -1,20 +1,18 @@
 "use client";
 
-import React, { useState } from "react";
+import { useRoundConfiguration } from "@/hooks/useRoundConfiguration";
+import { cleanJsonObject } from "@/utils/jsonUtils";
 import {
-  Plus,
-  Trash2,
-  Crown,
-  DollarSign,
+  AlertCircle,
   CheckCircle,
-  FileCheck,
   ChevronDown,
   ChevronUp,
-  AlertCircle,
-  Shield,
-  Users,
+  Crown,
+  DollarSign,
+  Loader2,
   Target,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface DecisionCriteria {
   id: string;
@@ -86,8 +84,7 @@ interface FinalInterviewConfiguration {
 interface FinalInterviewConfigProps {
   jobId: string;
   roundId: string;
-  round: any;
-  onConfigurationChange: (newConfig: any) => void;
+  onConfigurationChange: (newConfig: FinalInterviewConfiguration) => void;
 }
 
 const defaultCriteria: DecisionCriteria[] = [
@@ -145,9 +142,14 @@ const defaultOfferParameters: OfferParameter[] = [
 export function FinalInterviewConfig({
   jobId,
   roundId,
-  round,
   onConfigurationChange,
 }: FinalInterviewConfigProps) {
+  const {
+    config: savedConfig,
+    loading,
+    error,
+    saveConfiguration,
+  } = useRoundConfiguration(jobId, roundId);
   const [config, setConfig] = useState<FinalInterviewConfiguration>({
     name: "Final Interview",
     decisionCriteria: defaultCriteria,
@@ -172,6 +174,47 @@ export function FinalInterviewConfig({
       "This final interview will determine the hiring decision. Focus on final evaluation criteria and cultural fit assessment.",
     decisionTimeline: 2,
   });
+  const [saving, setSaving] = useState(false);
+
+  // Load configuration from the backend when available
+  useEffect(() => {
+    if (savedConfig) {
+      console.log("Received saved config:", savedConfig);
+
+      // First set the top-level properties
+      const baseConfig = {
+        ...config,
+        name: savedConfig.name || config.name,
+        duration: savedConfig.duration || config.duration,
+      };
+
+      // Then merge in configuration data if available
+      if (
+        savedConfig.configurationData &&
+        typeof savedConfig.configurationData === "object"
+      ) {
+        console.log("Found configuration data:", savedConfig.configurationData);
+
+        // Clean the configuration data using our utility function
+        const cleanConfigData = cleanJsonObject(savedConfig.configurationData);
+        console.log("Cleaned configuration data:", cleanConfigData);
+
+        // Create a clean merged config
+        const mergedConfig = {
+          ...baseConfig,
+          ...cleanConfigData,
+        };
+
+        console.log("Setting merged config:", mergedConfig);
+        setConfig(mergedConfig);
+      } else {
+        console.warn(
+          "No configuration data found in saved config, using defaults"
+        );
+        setConfig(baseConfig);
+      }
+    }
+  }, [savedConfig]);
 
   const [expandedSections, setExpandedSections] = useState({
     criteria: true,
@@ -189,6 +232,51 @@ export function FinalInterviewConfig({
     onConfigurationChange(newConfig);
   };
 
+  const handleSaveConfiguration = async () => {
+    setSaving(true);
+
+    // Create a clean configuration data object with only the properties we need
+    const configDataToSave = {
+      decisionCriteria: config.decisionCriteria,
+      executives: config.executives,
+      offerParameters: config.offerParameters,
+      referenceChecks: config.referenceChecks,
+      backgroundChecks: config.backgroundChecks,
+      approvalWorkflow: config.approvalWorkflow,
+      negotiations: config.negotiations,
+      instructions: config.instructions,
+      decisionTimeline: config.decisionTimeline,
+    };
+
+    // Clean the configuration data using our utility function
+    const cleanConfigData = cleanJsonObject(configDataToSave);
+
+    // Create the request object to send to the backend
+    const configToSave = {
+      name: config.name,
+      description:
+        savedConfig?.description || "Configuration for final interview round",
+      duration: config.duration,
+      status: savedConfig?.status || "draft",
+      configurationData: cleanConfigData,
+    };
+
+    console.log("Final configuration to save:", configToSave);
+
+    try {
+      const result = await saveConfiguration(configToSave);
+      if (result) {
+        console.log("Configuration saved successfully");
+      } else {
+        console.error("Failed to save configuration");
+      }
+    } catch (error) {
+      console.error("Error saving configuration:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections((prev) => ({
       ...prev,
@@ -196,8 +284,54 @@ export function FinalInterviewConfig({
     }));
   };
 
+  // Loading and error states
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        <span className="ml-2">Loading configuration...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+        <p className="font-medium">Error loading configuration</p>
+        <p className="text-sm">{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-8">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">
+          Final Interview Configuration
+        </h2>
+      </div>
+
+      {/* Configuration Name */}
+      <div className="mb-4">
+        <label
+          htmlFor="configName"
+          className="block text-sm font-medium text-gray-700 mb-1"
+        >
+          Configuration Name
+        </label>
+        <input
+          type="text"
+          id="configName"
+          value={config.name}
+          onChange={(e) => handleConfigChange({ name: e.target.value })}
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+          placeholder="Enter configuration name"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Give your final interview configuration a descriptive name
+        </p>
+      </div>
+
       {/* Decision Criteria */}
       <div className="border border-gray-200 rounded-lg">
         <div

@@ -1,20 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
-  Plus,
-  Trash2,
-  Code,
-  Clock,
-  FileText,
+  AlertCircle,
+  CheckCircle,
   ChevronDown,
   ChevronUp,
-  AlertCircle,
+  Clock,
+  Code,
   ExternalLink,
+  FileText,
   Link as LinkIcon,
-  Calendar,
-  CheckCircle,
+  Loader2,
 } from "lucide-react";
+import { useRoundConfiguration } from "@/hooks/useRoundConfiguration";
+import { cleanJsonObject } from "@/utils/jsonUtils";
 
 interface ExternalPlatformConfig {
   platform: "hackerrank" | "codility" | "leetcode" | "custom";
@@ -37,16 +37,20 @@ interface CodingChallengeConfiguration {
 interface CodingChallengeConfigProps {
   jobId: string;
   roundId: string;
-  round: any;
-  onConfigurationChange: (newConfig: any) => void;
+  onConfigurationChange: (newConfig: CodingChallengeConfiguration) => void;
 }
 
 export function CodingChallengeConfig({
   jobId,
   roundId,
-  round,
   onConfigurationChange,
 }: CodingChallengeConfigProps) {
+  const {
+    config: savedConfig,
+    loading,
+    error,
+    saveConfiguration,
+  } = useRoundConfiguration(jobId, roundId);
   const [config, setConfig] = useState<CodingChallengeConfiguration>({
     name: "Coding Challenge",
     externalPlatform: {
@@ -64,6 +68,46 @@ export function CodingChallengeConfig({
     evaluationCriteria:
       "Your submission will be evaluated based on:\n1. Correctness of solution\n2. Code efficiency and performance\n3. Code quality and readability",
   });
+  const [saving, setSaving] = useState(false);
+
+  // Load configuration from the backend when available
+  useEffect(() => {
+    if (savedConfig) {
+      console.log("Received saved config:", savedConfig);
+
+      // First set the top-level properties
+      const baseConfig = {
+        ...config,
+        name: savedConfig.name || config.name,
+      };
+
+      // Then merge in configuration data if available
+      if (
+        savedConfig.configurationData &&
+        typeof savedConfig.configurationData === "object"
+      ) {
+        console.log("Found configuration data:", savedConfig.configurationData);
+
+        // Clean the configuration data using our utility function
+        const cleanConfigData = cleanJsonObject(savedConfig.configurationData);
+        console.log("Cleaned configuration data:", cleanConfigData);
+
+        // Create a clean merged config
+        const mergedConfig = {
+          ...baseConfig,
+          ...cleanConfigData,
+        };
+
+        console.log("Setting merged config:", mergedConfig);
+        setConfig(mergedConfig);
+      } else {
+        console.warn(
+          "No configuration data found in saved config, using defaults"
+        );
+        setConfig(baseConfig);
+      }
+    }
+  }, [savedConfig]);
 
   const [expandedSections, setExpandedSections] = useState({
     platform: true,
@@ -79,6 +123,49 @@ export function CodingChallengeConfig({
     onConfigurationChange(newConfig);
   };
 
+  const handleSaveConfiguration = async () => {
+    setSaving(true);
+
+    // Create a clean configuration data object with only the properties we need
+    const configDataToSave = {
+      externalPlatform: config.externalPlatform,
+      deadline: config.deadline,
+      allowLateSubmission: config.allowLateSubmission,
+      lateSubmissionPenalty: config.lateSubmissionPenalty,
+      passingScore: config.passingScore,
+      instructions: config.instructions,
+      evaluationCriteria: config.evaluationCriteria,
+    };
+
+    // Clean the configuration data using our utility function
+    const cleanConfigData = cleanJsonObject(configDataToSave);
+
+    // Create the request object to send to the backend
+    const configToSave = {
+      name: config.name,
+      description:
+        savedConfig?.description || "Configuration for coding challenge round",
+      duration: 120, // Default duration for coding challenges
+      status: savedConfig?.status || "draft",
+      configurationData: cleanConfigData,
+    };
+
+    console.log("Final configuration to save:", configToSave);
+
+    try {
+      const result = await saveConfiguration(configToSave);
+      if (result) {
+        console.log("Configuration saved successfully");
+      } else {
+        console.error("Failed to save configuration");
+      }
+    } catch (error) {
+      console.error("Error saving configuration:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const updatePlatformConfig = (updates: Partial<ExternalPlatformConfig>) => {
     handleConfigChange({
       externalPlatform: { ...config.externalPlatform, ...updates },
@@ -92,8 +179,55 @@ export function CodingChallengeConfig({
     }));
   };
 
+  // Loading and error states
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        <span className="ml-2">Loading configuration...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+        <p className="font-medium">Error loading configuration</p>
+        <p className="text-sm">{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-8">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">
+          Coding Challenge Configuration
+        </h2>
+       
+      </div>
+
+      {/* Configuration Name */}
+      <div className="mb-4">
+        <label
+          htmlFor="configName"
+          className="block text-sm font-medium text-gray-700 mb-1"
+        >
+          Configuration Name
+        </label>
+        <input
+          type="text"
+          id="configName"
+          value={config.name}
+          onChange={(e) => handleConfigChange({ name: e.target.value })}
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+          placeholder="Enter configuration name"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Give your coding challenge configuration a descriptive name
+        </p>
+      </div>
+
       {/* External Platform Configuration */}
       <div className="border border-gray-200 rounded-lg">
         <div

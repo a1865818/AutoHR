@@ -1,20 +1,21 @@
+
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useRoundConfiguration } from "@/hooks/useRoundConfiguration";
+import { cleanJsonObject } from "@/utils/jsonUtils";
 import {
-  Plus,
-  Trash2,
-  Edit3,
-  Clock,
-  Star,
-  Phone,
-  Users,
-  FileText,
+  AlertCircle,
   ChevronDown,
   ChevronUp,
-  Save,
-  AlertCircle,
+  Clock,
+  FileText,
+  Loader2,
+  Plus,
+  Star,
+  Trash2,
+  Users,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 // Types
 interface Question {
@@ -48,9 +49,7 @@ interface PhoneScreeningConfigProps {
   jobId: string;
   roundId: string;
   round: any;
-  configuration: any;
   onConfigurationChange: (newConfig: any) => void;
-  validationErrors?: string[];
 }
 
 const defaultQuestions: Question[] = [
@@ -106,54 +105,90 @@ const defaultScoringCriteria: ScoringCriteria[] = [
   },
 ];
 
+const defaultConfig: PhoneScreeningConfiguration = {
+  name: "Phone Screening",
+  questions: defaultQuestions,
+  scoringCriteria: defaultScoringCriteria,
+  duration: 30,
+  bufferTime: 5,
+  interviewerInstructions:
+    "Welcome the candidate warmly and set a positive tone. Follow the structured questions but allow for natural conversation flow. Take detailed notes on responses and overall impression.",
+  candidatePreparation:
+    "Please ensure you're in a quiet environment with good phone reception. Have your resume ready for reference. The call will last approximately 30 minutes.",
+  autoScheduling: true,
+  recordingEnabled: false,
+};
+
 export function PhoneScreeningConfig({
   jobId,
   roundId,
   round,
-  configuration: initialConfig,
   onConfigurationChange,
-  validationErrors = [],
 }: PhoneScreeningConfigProps) {
-  const [config, setConfig] = useState<PhoneScreeningConfiguration>(() => {
-    // Initialize with passed configuration or defaults
-    console.log("🔄 PhoneScreeningConfig initializing with:", initialConfig);
+  const {
+    config: savedConfig,
+    loading,
+    error,
+    saveConfiguration,
+  } = useRoundConfiguration(jobId, roundId);
+  const [config, setConfig] =
+    useState<PhoneScreeningConfiguration>(defaultConfig);
+  const [saving, setSaving] = useState(false);
 
-    // Ensure questions and scoring criteria are properly set
-    const questions =
-      Array.isArray(initialConfig?.questions) &&
-      initialConfig.questions.length > 0
-        ? initialConfig.questions
-        : defaultQuestions;
+  // Load configuration from the backend when available
+  useEffect(() => {
+    if (savedConfig) {
+      console.log("Received saved config:", savedConfig);
 
-    const scoringCriteria =
-      Array.isArray(initialConfig?.scoringCriteria) &&
-      initialConfig.scoringCriteria.length > 0
-        ? initialConfig.scoringCriteria
-        : defaultScoringCriteria;
+      // First set the top-level properties
+      const baseConfig = {
+        ...defaultConfig,
+        name: savedConfig.name || defaultConfig.name,
+        duration: savedConfig.duration || defaultConfig.duration,
+      };
 
-    console.log("📋 Initial questions:", questions.length, "items");
-    console.log(
-      "🏆 Initial scoring criteria:",
-      scoringCriteria.length,
-      "items"
-    );
+      // Then merge in configuration data if available
+      if (
+        savedConfig.configurationData &&
+        typeof savedConfig.configurationData === "object"
+      ) {
+        console.log("Found configuration data:", savedConfig.configurationData);
 
-    return {
-      name: initialConfig?.name || "Phone Screening",
-      questions: questions,
-      scoringCriteria: scoringCriteria,
-      duration: initialConfig?.duration || 30,
-      bufferTime: initialConfig?.callSettings?.bufferTime || 5,
-      interviewerInstructions:
-        initialConfig?.interviewerGuidelines ||
-        "Welcome the candidate warmly and set a positive tone. Follow the structured questions but allow for natural conversation flow. Take detailed notes on responses and overall impression.",
-      candidatePreparation:
-        initialConfig?.candidateInstructions ||
-        "Please ensure you're in a quiet environment with good phone reception. Have your resume ready for reference. The call will last approximately 30 minutes.",
-      autoScheduling: initialConfig?.callSettings?.autoScheduling ?? true,
-      recordingEnabled: initialConfig?.callSettings?.recordCall ?? false,
-    };
-  });
+        // Clean the configuration data using our utility function
+        const cleanConfigData = cleanJsonObject(savedConfig.configurationData);
+        console.log("Cleaned configuration data:", cleanConfigData);
+
+        // Ensure questions and scoring criteria are properly set
+        const questions =
+          Array.isArray(cleanConfigData.questions) &&
+          cleanConfigData.questions.length > 0
+            ? cleanConfigData.questions
+            : defaultConfig.questions;
+
+        const scoringCriteria =
+          Array.isArray(cleanConfigData.scoringCriteria) &&
+          cleanConfigData.scoringCriteria.length > 0
+            ? cleanConfigData.scoringCriteria
+            : defaultConfig.scoringCriteria;
+
+        // Create a clean merged config
+        const mergedConfig = {
+          ...baseConfig,
+          ...cleanConfigData,
+          questions: questions,
+          scoringCriteria: scoringCriteria,
+        };
+
+        console.log("Setting merged config:", mergedConfig);
+        setConfig(mergedConfig);
+      } else {
+        console.warn(
+          "No configuration data found in saved config, using defaults"
+        );
+        setConfig(baseConfig);
+      }
+    }
+  }, [savedConfig]);
 
   const [expandedSections, setExpandedSections] = useState({
     questions: true,
@@ -171,76 +206,62 @@ export function PhoneScreeningConfig({
 
   const [showAddQuestion, setShowAddQuestion] = useState(false);
 
-  // Update config when initialConfig changes
-  useEffect(() => {
-    if (initialConfig) {
-      console.log(
-        "🔄 PhoneScreeningConfig updating with initialConfig:",
-        initialConfig
-      );
-
-      // Ensure questions and scoring criteria are properly set
-      const questions =
-        Array.isArray(initialConfig.questions) &&
-        initialConfig.questions.length > 0
-          ? initialConfig.questions
-          : defaultQuestions;
-
-      const scoringCriteria =
-        Array.isArray(initialConfig.scoringCriteria) &&
-        initialConfig.scoringCriteria.length > 0
-          ? initialConfig.scoringCriteria
-          : defaultScoringCriteria;
-
-      console.log("📋 Using questions:", questions.length, "items");
-      console.log(
-        "🏆 Using scoring criteria:",
-        scoringCriteria.length,
-        "items"
-      );
-
-      setConfig({
-        name: initialConfig?.name || "Phone Screening",
-        questions: questions,
-        scoringCriteria: scoringCriteria,
-        duration: initialConfig?.duration || 30,
-        bufferTime: initialConfig?.callSettings?.bufferTime || 5,
-        interviewerInstructions:
-          initialConfig?.interviewerGuidelines ||
-          "Welcome the candidate warmly and set a positive tone. Follow the structured questions but allow for natural conversation flow. Take detailed notes on responses and overall impression.",
-        candidatePreparation:
-          initialConfig?.candidateInstructions ||
-          "Please ensure you're in a quiet environment with good phone reception. Have your resume ready for reference. The call will last approximately 30 minutes.",
-        autoScheduling: initialConfig?.callSettings?.autoScheduling ?? true,
-        recordingEnabled: initialConfig?.callSettings?.recordCall ?? false,
-      });
-    }
-  }, [initialConfig]);
-
   const handleConfigChange = (
     updates: Partial<PhoneScreeningConfiguration>
   ) => {
     const newConfig = { ...config, ...updates };
     setConfig(newConfig);
+    onConfigurationChange(newConfig);
+  };
 
-    // Transform to backend format for saving
-    const backendConfig = {
-      ...initialConfig,
-      questions: newConfig.questions,
-      scoringCriteria: newConfig.scoringCriteria,
-      duration: newConfig.duration,
+  const handleSaveConfiguration = async () => {
+    setSaving(true);
+
+    // Create a clean configuration data object with only the properties we need
+    const configDataToSave = {
+      questions: config.questions,
+      scoringCriteria: config.scoringCriteria,
+      bufferTime: config.bufferTime,
+      interviewerInstructions: config.interviewerInstructions,
+      candidatePreparation: config.candidatePreparation,
+      autoScheduling: config.autoScheduling,
+      recordingEnabled: config.recordingEnabled,
       callSettings: {
-        duration: newConfig.duration,
-        bufferTime: newConfig.bufferTime,
-        autoScheduling: newConfig.autoScheduling,
-        recordCall: newConfig.recordingEnabled,
+        duration: config.duration,
+        bufferTime: config.bufferTime,
+        autoScheduling: config.autoScheduling,
+        recordCall: config.recordingEnabled,
         requirePhone: true,
       },
-      interviewerGuidelines: newConfig.interviewerInstructions,
-      candidateInstructions: newConfig.candidatePreparation,
     };
 
-    onConfigurationChange(backendConfig);
+    // Clean the configuration data using our utility function
+    const cleanConfigData = cleanJsonObject(configDataToSave);
+
+    // Create the request object to send to the backend
+    const configToSave = {
+      name: config.name,
+      description:
+        savedConfig?.description || "Configuration for phone screening round",
+      duration: config.duration,
+      status: savedConfig?.status || "draft",
+      configurationData: cleanConfigData,
+    };
+
+    console.log("Final configuration to save:", configToSave);
+
+    try {
+      const result = await saveConfiguration(configToSave);
+      if (result) {
+        console.log("Configuration saved successfully");
+      } else {
+        console.error("Failed to save configuration");
+      }
+    } catch (error) {
+      console.error("Error saving configuration:", error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -321,8 +342,64 @@ export function PhoneScreeningConfig({
     return labels[category];
   };
 
+  // Loading and error states
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        <span className="ml-2">Loading configuration...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+        <p className="font-medium">Error loading configuration</p>
+        <p className="text-sm">{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-8">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">
+          Phone Screening Configuration
+        </h2>
+        {/* <button
+          onClick={handleSaveConfiguration}
+          disabled={saving}
+          className={`px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center ${
+            saving ? "opacity-70 cursor-not-allowed" : ""
+          }`}
+        >
+          {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          {saving ? "Saving..." : "Save Configuration"}
+        </button> */}
+      </div>
+
+      {/* Configuration Name */}
+      <div className="mb-4">
+        <label
+          htmlFor="configName"
+          className="block text-sm font-medium text-gray-700 mb-1"
+        >
+          Configuration Name
+        </label>
+        <input
+          type="text"
+          id="configName"
+          value={config.name}
+          onChange={(e) => handleConfigChange({ name: e.target.value })}
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+          placeholder="Enter configuration name"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Give your phone screening configuration a descriptive name
+        </p>
+      </div>
+
       {/* Questions Section */}
       <div className="border border-gray-200 rounded-lg">
         <div

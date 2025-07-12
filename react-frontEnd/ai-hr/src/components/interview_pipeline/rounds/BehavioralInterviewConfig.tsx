@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import {
   Plus,
   Trash2,
-  Users,
   Star,
   Target,
   FileText,
@@ -12,11 +11,10 @@ import {
   ChevronUp,
   AlertCircle,
   Brain,
-  Award,
-  TrendingUp,
   Loader2,
 } from "lucide-react";
 import { useRoundConfiguration } from "@/hooks/useRoundConfiguration";
+import { cleanJsonObject } from "@/utils/jsonUtils";
 
 interface Competency {
   id: string;
@@ -72,8 +70,7 @@ interface BehavioralInterviewConfiguration {
 interface BehavioralInterviewConfigProps {
   jobId: string;
   roundId: string;
-  round: any;
-  onConfigurationChange: (newConfig: any) => void;
+  onConfigurationChange: (newConfig: BehavioralInterviewConfiguration) => void;
 }
 
 const defaultCompetencies: Competency[] = [
@@ -193,7 +190,6 @@ const defaultConfig: BehavioralInterviewConfiguration = {
 export function BehavioralInterviewConfig({
   jobId,
   roundId,
-  round,
   onConfigurationChange,
 }: BehavioralInterviewConfigProps) {
   const {
@@ -214,6 +210,10 @@ export function BehavioralInterviewConfig({
       // Merge saved configuration with defaults
       setConfig((prevConfig) => ({
         ...prevConfig,
+        // First merge the main configuration properties
+        name: savedConfig.name || prevConfig.name,
+        duration: savedConfig.duration || prevConfig.duration,
+        // Then merge the configuration data
         ...configurationData,
         // Ensure nested objects are properly merged
         biasPreventionMeasures: {
@@ -268,38 +268,42 @@ export function BehavioralInterviewConfig({
   };
 
   const handleSaveConfiguration = async () => {
-    // Prepare the configuration for saving
     setSaving(true);
 
-    // Extract only the configuration data needed by the backend
-    // Exclude any component-specific state or derived values
+    // Create a clean configuration data object with only the properties we need
     const configDataToSave = {
-      name: config.name,
+      competencies: config.competencies,
+      questions: config.questions,
       duration: config.duration,
       scoringMethod: config.scoringMethod,
       biasPreventionMeasures: config.biasPreventionMeasures,
       interviewerGuidelines: config.interviewerGuidelines,
       candidatePreparation: config.candidatePreparation,
       consistencyChecks: config.consistencyChecks,
-      // Don't include questions and competencies here as they can be stored separately
     };
 
+    // Clean the configuration data using our utility function
+    const cleanConfigData = cleanJsonObject(configDataToSave);
+
+    // Create the request object to send to the backend
     const configToSave = {
-      name: savedConfig?.name || "Behavioral Interview Configuration",
+      name: config.name,
       description:
-        savedConfig?.description ||
-        "Configuration for behavioral interview round",
+        savedConfig?.description || "Configuration for behavioral interview round",
       duration: config.duration,
       status: savedConfig?.status || "draft",
-      configurationData: configDataToSave,
+      configurationData: cleanConfigData,
     };
 
     try {
       const result = await saveConfiguration(configToSave);
       if (result) {
-        // If needed, you can also save questions separately
-        // await saveQuestions(config.questions);
+        console.log("Configuration saved successfully");
+      } else {
+        console.error("Failed to save configuration");
       }
+    } catch (error) {
+      console.error("Error saving configuration:", error);
     } finally {
       setSaving(false);
     }
@@ -506,7 +510,7 @@ export function BehavioralInterviewConfig({
         <h2 className="text-2xl font-bold text-gray-800">
           Behavioral Interview Configuration
         </h2>
-        <button
+        {/* <button
           onClick={handleSaveConfiguration}
           disabled={saving}
           className={`px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center ${
@@ -515,7 +519,28 @@ export function BehavioralInterviewConfig({
         >
           {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {saving ? "Saving..." : "Save Configuration"}
-        </button>
+        </button> */}
+      </div>
+
+      {/* Configuration Name */}
+      <div className="mb-4">
+        <label
+          htmlFor="configName"
+          className="block text-sm font-medium text-gray-700 mb-1"
+        >
+          Configuration Name
+        </label>
+        <input
+          type="text"
+          id="configName"
+          value={config.name}
+          onChange={(e) => handleConfigChange({ name: e.target.value })}
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+          placeholder="Enter configuration name"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Give your behavioral interview configuration a descriptive name
+        </p>
       </div>
 
       {/* Competencies Framework */}
@@ -1090,7 +1115,7 @@ export function BehavioralInterviewConfig({
               <select
                 value={config.scoringMethod}
                 onChange={(e) =>
-                  handleConfigChange({ scoringMethod: e.target.value as any })
+                  handleConfigChange({ scoringMethod: e.target.value as "star" | "likert" | "combined" })
                 }
                 className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
               >
