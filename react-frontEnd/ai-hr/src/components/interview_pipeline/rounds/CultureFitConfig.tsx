@@ -1,20 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Plus,
   Trash2,
   Heart,
-  Users,
-  Target,
   FileText,
   ChevronDown,
   ChevronUp,
   AlertCircle,
-  Star,
   Lightbulb,
   UserCheck,
+  Loader2,
 } from "lucide-react";
+import { useRoundConfiguration } from "@/hooks/useRoundConfiguration";
+import { cleanJsonObject } from "@/utils/jsonUtils";
 
 interface CompanyValue {
   id: string;
@@ -80,8 +80,7 @@ interface CultureFitConfiguration {
 interface CultureFitConfigProps {
   jobId: string;
   roundId: string;
-  round: any;
-  onConfigurationChange: (newConfig: any) => void;
+  onConfigurationChange: (newConfig: CultureFitConfiguration) => void;
 }
 
 const defaultCompanyValues: CompanyValue[] = [
@@ -171,9 +170,14 @@ const defaultScenarios: CulturalScenario[] = [
 export function CultureFitConfig({
   jobId,
   roundId,
-  round,
   onConfigurationChange,
 }: CultureFitConfigProps) {
+  const {
+    config: savedConfig,
+    loading,
+    error,
+    saveConfiguration,
+  } = useRoundConfiguration(jobId, roundId);
   const [config, setConfig] = useState<CultureFitConfiguration>({
     name: "Culture Fit",
     companyValues: defaultCompanyValues,
@@ -201,6 +205,47 @@ export function CultureFitConfig({
     evaluationCriteria:
       "Assess candidates on values alignment, team collaboration potential, communication style, and cultural adaptability.",
   });
+  const [saving, setSaving] = useState(false);
+
+  // Load configuration from the backend when available
+  useEffect(() => {
+    if (savedConfig) {
+      console.log("Received saved config:", savedConfig);
+
+      // First set the top-level properties
+      const baseConfig = {
+        ...config,
+        name: savedConfig.name || config.name,
+        duration: savedConfig.duration || config.duration,
+      };
+
+      // Then merge in configuration data if available
+      if (
+        savedConfig.configurationData &&
+        typeof savedConfig.configurationData === "object"
+      ) {
+        console.log("Found configuration data:", savedConfig.configurationData);
+
+        // Clean the configuration data using our utility function
+        const cleanConfigData = cleanJsonObject(savedConfig.configurationData);
+        console.log("Cleaned configuration data:", cleanConfigData);
+
+        // Create a clean merged config
+        const mergedConfig = {
+          ...baseConfig,
+          ...cleanConfigData,
+        };
+
+        console.log("Setting merged config:", mergedConfig);
+        setConfig(mergedConfig);
+      } else {
+        console.warn(
+          "No configuration data found in saved config, using defaults"
+        );
+        setConfig(baseConfig);
+      }
+    }
+  }, [savedConfig]);
 
   const [expandedSections, setExpandedSections] = useState({
     values: true,
@@ -242,6 +287,52 @@ export function CultureFitConfig({
     const newConfig = { ...config, ...updates };
     setConfig(newConfig);
     onConfigurationChange(newConfig);
+  };
+
+  const handleSaveConfiguration = async () => {
+    setSaving(true);
+
+    // Create a clean configuration data object with only the properties we need
+    const configDataToSave = {
+      companyValues: config.companyValues,
+      cultureQuestions: config.cultureQuestions,
+      culturalScenarios: config.culturalScenarios,
+      teamDynamics: config.teamDynamics,
+      assessmentMethods: config.assessmentMethods,
+      scoringMethod: config.scoringMethod,
+      passingThreshold: config.passingThreshold,
+      redFlags: config.redFlags,
+      instructions: config.instructions,
+      evaluationCriteria: config.evaluationCriteria,
+    };
+
+    // Clean the configuration data using our utility function
+    const cleanConfigData = cleanJsonObject(configDataToSave);
+
+    // Create the request object to send to the backend
+    const configToSave = {
+      name: config.name,
+      description:
+        savedConfig?.description || "Configuration for culture fit assessment round",
+      duration: config.duration,
+      status: savedConfig?.status || "draft",
+      configurationData: cleanConfigData,
+    };
+
+    console.log("Final configuration to save:", configToSave);
+
+    try {
+      const result = await saveConfiguration(configToSave);
+      if (result) {
+        console.log("Configuration saved successfully");
+      } else {
+        console.error("Failed to save configuration");
+      }
+    } catch (error) {
+      console.error("Error saving configuration:", error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -287,16 +378,7 @@ export function CultureFitConfig({
     });
   };
 
-  const updateCompanyValue = (
-    valueId: string,
-    updates: Partial<CompanyValue>
-  ) => {
-    handleConfigChange({
-      companyValues: config.companyValues.map((v) =>
-        v.id === valueId ? { ...v, ...updates } : v
-      ),
-    });
-  };
+
 
   const addCultureQuestion = () => {
     if (!newQuestion.text.trim()) return;
@@ -380,8 +462,55 @@ export function CultureFitConfig({
     );
   };
 
+  // Loading and error states
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
+        <span className="ml-2">Loading configuration...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
+        <p className="font-medium">Error loading configuration</p>
+        <p className="text-sm">{error}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 space-y-8">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">
+          Culture Fit Configuration
+        </h2>
+       
+      </div>
+
+      {/* Configuration Name */}
+      <div className="mb-4">
+        <label
+          htmlFor="configName"
+          className="block text-sm font-medium text-gray-700 mb-1"
+        >
+          Configuration Name
+        </label>
+        <input
+          type="text"
+          id="configName"
+          value={config.name}
+          onChange={(e) => handleConfigChange({ name: e.target.value })}
+          className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+          placeholder="Enter configuration name"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Give your culture fit configuration a descriptive name
+        </p>
+      </div>
+
       {/* Company Values */}
       <div className="border border-gray-200 rounded-lg">
         <div
@@ -1014,7 +1143,7 @@ export function CultureFitConfig({
                 <select
                   value={config.scoringMethod}
                   onChange={(e) =>
-                    handleConfigChange({ scoringMethod: e.target.value as any })
+                    handleConfigChange({ scoringMethod: e.target.value as "weighted" | "balanced" | "holistic" })
                   }
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                 >
