@@ -12,6 +12,7 @@ namespace ai_hr.Contracts
         // Rejection tracking fields
         public string? RejectionReason { get; set; }
         public string? RejectionNotes { get; set; }
+        public bool? IsSendRejectEmail { get; set; }
 
         // Validation method for stage
         public bool IsValidStage()

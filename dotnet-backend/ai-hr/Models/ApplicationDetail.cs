@@ -71,6 +71,9 @@ namespace ai_hr.Models
         [Column("rejected_at")]
         public DateTime? RejectedAt { get; set; }
 
+        [Column("isSendRejectEmail")]
+        public bool IsSendRejectEmail { get; set; } = false;
+
         // Valid stages for the new granular system
         public static readonly string[] ValidStages = {
             "Applied", "Phone Screening", "Video Interview", "Technical Assessment",

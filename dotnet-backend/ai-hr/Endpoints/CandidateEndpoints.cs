@@ -341,6 +341,7 @@ public static class CandidateEndpoints
                     rejectionReason = app.RejectionReason,
                     rejectionNotes = app.RejectionNotes,
                     rejectedAt = app.RejectedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    isSendRejectEmail = app.IsSendRejectEmail,
 
                     // Debug info
                     debug = new
@@ -497,6 +498,7 @@ public static class CandidateEndpoints
                     hiringNotes = app.HiringNotes,
                     notesCreatedAt = app.NotesCreatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                     notesUpdatedAt = app.NotesUpdatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    isSendRejectEmail = app.IsSendRejectEmail,
                 };
             }).ToList();
 
@@ -611,6 +613,7 @@ public static class CandidateEndpoints
                     hiringNotes = app.HiringNotes,
                     notesCreatedAt = app.NotesCreatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                     notesUpdatedAt = app.NotesUpdatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    isSendRejectEmail = app.IsSendRejectEmail,
                 };
             }).ToList();
 

@@ -9,8 +9,9 @@ import {
   ChevronUp,
   X,
   Eye,
+  CheckCircle,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { GmailAuthModal } from "./GmailAuthModal";
 import { EmailTemplateSelector } from "./EmailTemplateSelector";
 import { sessionCookies } from "@/utils/cookieUtils";
@@ -22,6 +23,8 @@ interface RejectedCandidatesTabProps {
   searchQuery: string;
   onCandidateSelect: (candidateId: string) => void;
   onBulkEmail: (candidateIds: string[]) => void;
+  onEmailSent?: (sentCount: number, candidateIds: string[]) => void;
+  onRefresh?: () => void;
   loading?: boolean;
 }
 
@@ -30,10 +33,11 @@ export function RejectedCandidatesTab({
   searchQuery,
   onCandidateSelect,
   onBulkEmail,
+  onEmailSent,
+  onRefresh,
   loading = false,
 }: RejectedCandidatesTabProps) {
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
-  const [selectAll, setSelectAll] = useState(false);
   const [sortBy, setSortBy] = useState<{
     field: "name" | "rejectedAt" | "rejectionReason";
     direction: "asc" | "desc";
@@ -41,6 +45,39 @@ export function RejectedCandidatesTab({
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [showGmailAuthModal, setShowGmailAuthModal] = useState(false);
   const [emailLoading, setEmailLoading] = useState(false);
+  const [pollingCandidates, setPollingCandidates] = useState<string[]>([]);
+
+  // Polling effect to check for email status updates
+  useEffect(() => {
+    if (pollingCandidates.length === 0) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        // Refresh the candidate data to get latest status
+        onRefresh?.();
+
+        // Check if any of the polling candidates have been updated
+        const updatedCandidates = candidates.filter(
+          (c) => pollingCandidates.includes(c.id) && c.isSendRejectEmail
+        );
+
+        if (updatedCandidates.length > 0) {
+          // Remove updated candidates from polling list
+          setPollingCandidates((prev) =>
+            prev.filter((id) => !updatedCandidates.some((c) => c.id === id))
+          );
+
+          console.log(
+            `✅ Email status updated for ${updatedCandidates.length} candidates`
+          );
+        }
+      } catch (error) {
+        console.error("Error polling for email status updates:", error);
+      }
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [pollingCandidates, candidates, onRefresh]);
 
   // Filter candidates based on search query
   const filteredCandidates = useMemo(() => {
@@ -96,6 +133,12 @@ export function RejectedCandidatesTab({
 
   // Handle individual candidate selection
   const handleCandidateSelect = (candidateId: string, selected: boolean) => {
+    // Don't allow selection of candidates who have already been sent emails
+    const candidate = filteredCandidates.find((c) => c.id === candidateId);
+    if (candidate?.isSendRejectEmail) {
+      return; // Prevent selection of candidates who have already been sent emails
+    }
+
     if (selected) {
       setSelectedCandidates((prev) => [...prev, candidateId]);
     } else {
@@ -103,14 +146,22 @@ export function RejectedCandidatesTab({
     }
   };
 
+  // Calculate select all state based on selectable candidates only
+  const selectableCandidates = filteredCandidates.filter(
+    (c) => !c.isSendRejectEmail
+  );
+  const selectAllChecked =
+    selectableCandidates.length > 0 &&
+    selectedCandidates.length === selectableCandidates.length;
+  const selectAllIndeterminate =
+    selectedCandidates.length > 0 &&
+    selectedCandidates.length < selectableCandidates.length;
+
   // Handle select all
   const handleSelectAll = (selected: boolean) => {
-    setSelectAll(selected);
-    if (selected) {
-      setSelectedCandidates(filteredCandidates.map((c) => c.id));
-    } else {
-      setSelectedCandidates([]);
-    }
+    setSelectedCandidates(
+      selected ? selectableCandidates.map((c) => c.id) : []
+    );
   };
 
   // Handle bulk email
@@ -144,41 +195,55 @@ export function RejectedCandidatesTab({
 
   const handleSendEmails = async (emailData: any) => {
     setEmailLoading(true);
+
+    // Immediate redirect and UI update
+    setShowEmailModal(false);
+    const sentCandidateIds = selectedCandidates.slice(); // Copy the array before clearing
+    setSelectedCandidates([]);
+
+    // Optimistically update the UI and redirect immediately
+    onEmailSent?.(selectedCandidates.length, sentCandidateIds);
+
+    // Start polling for these candidates to check for real-time updates
+    setPollingCandidates(sentCandidateIds);
+
     try {
       // Use camelCase properties (default for .NET minimal APIs)
       const requestData = {
-        candidateIds: selectedCandidates,
+        candidateIds: sentCandidateIds,
         templateId: emailData.templateId,
         customSubject: emailData.customSubject,
         customBody: emailData.customBody,
         sendImmediately: true,
       };
 
-      const result = await apiService.makeRequest<any>(
-        "/api/emails/bulk-rejection",
-        {
+      // Send emails in background - don't wait for response
+      apiService
+        .makeRequest<any>("/api/emails/bulk-rejection", {
           method: "POST",
           body: JSON.stringify(requestData),
-        }
-      );
-
-      if (result.success) {
-        alert(`Successfully sent ${result.totalSent} emails!`);
-        setShowEmailModal(false);
-        setSelectedCandidates([]);
-        setSelectAll(false);
-      } else {
-        if (result.error?.includes("Gmail authorization required")) {
-          setShowEmailModal(false);
-          setShowGmailAuthModal(true);
-        } else {
-          alert(`Failed to send emails: ${result.error || "Unknown error"}`);
-        }
-      }
+        })
+        .then((result) => {
+          if (result.success) {
+            console.log(`✅ Successfully sent ${result.totalSent} emails!`);
+            // The UI is already updated, no need to do anything else
+          } else {
+            console.error("Failed to send emails:", result.error);
+            // In a real app, you might want to show a notification or revert the UI state
+            if (result.error?.includes("Gmail authorization required")) {
+              setShowGmailAuthModal(true);
+            }
+          }
+        })
+        .catch((error) => {
+          console.error("Failed to send emails:", error);
+          // In a real app, you might want to show a notification or revert the UI state
+        })
+        .finally(() => {
+          setEmailLoading(false);
+        });
     } catch (error) {
       console.error("Failed to send emails:", error);
-      alert("Failed to send emails. Please try again.");
-    } finally {
       setEmailLoading(false);
     }
   };
@@ -219,6 +284,12 @@ export function RejectedCandidatesTab({
           </h3>
           <span className="text-sm text-gray-500">
             {filteredCandidates.length} candidates
+            {selectableCandidates.length < filteredCandidates.length && (
+              <span className="text-gray-400">
+                {" "}
+                ({selectableCandidates.length} available for email)
+              </span>
+            )}
           </span>
         </div>
 
@@ -243,7 +314,10 @@ export function RejectedCandidatesTab({
         <div className="w-10 flex items-center">
           <input
             type="checkbox"
-            checked={selectAll}
+            checked={selectAllChecked}
+            ref={(input) => {
+              if (input) input.indeterminate = selectAllIndeterminate;
+            }}
             onChange={(e) => handleSelectAll(e.target.checked)}
             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
@@ -318,12 +392,17 @@ export function RejectedCandidatesTab({
                     <input
                       type="checkbox"
                       checked={selectedCandidates.includes(candidate.id)}
+                      disabled={candidate.isSendRejectEmail}
                       onChange={(e) => {
                         e.stopPropagation();
                         handleCandidateSelect(candidate.id, e.target.checked);
                       }}
                       onClick={(e) => e.stopPropagation()}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className={`h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 ${
+                        candidate.isSendRejectEmail
+                          ? "opacity-50 cursor-not-allowed"
+                          : ""
+                      }`}
                     />
                   </div>
                   <div className="flex-1 grid grid-cols-4 gap-4 items-center">
@@ -340,9 +419,12 @@ export function RejectedCandidatesTab({
                         className="w-8 h-8 rounded-full object-cover"
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium text-gray-900 truncate">
-                          {candidate.name}
-                        </p>
+                        <div className="flex items-center space-x-2">
+                          <p className="font-medium text-gray-900 truncate">
+                            {candidate.name}
+                          </p>
+                          {candidate.isSendRejectEmail}
+                        </div>
                         <p className="text-sm text-gray-500 truncate">
                           {candidate.email}
                         </p>
@@ -366,16 +448,17 @@ export function RejectedCandidatesTab({
 
                     {/* Actions */}
                     <div className="flex items-center space-x-2">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onBulkEmail([candidate.id]);
-                        }}
-                        className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100 transition-colors"
-                      >
-                        <Mail className="h-3 w-3 mr-1" />
-                        Email
-                      </button>
+                      {candidate.isSendRejectEmail ? (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-600 bg-green-50 rounded">
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Email Sent
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded cursor-pointer">
+                          <Mail className="h-3 w-3 mr-1" />
+                          Email
+                        </span>
+                      )}
                       {candidate.rejectionNotes && (
                         <div className="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 rounded">
                           <FileText className="h-3 w-3 mr-1" />

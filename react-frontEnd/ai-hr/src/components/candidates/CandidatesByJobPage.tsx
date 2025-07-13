@@ -752,8 +752,60 @@ function CandidatesByJobPageComponent({ jobId }: CandidatesByJobPageProps) {
 
   const handleEmailSent = () => {
     setIsEmailModalOpen(false);
+
+    // Check if any of the selected candidates are rejected
+    const selectedCandidates = candidates.filter((c) =>
+      selectedCandidateIds.includes(c.id)
+    );
+    const rejectedCandidates = selectedCandidates.filter(
+      (c) => c.status === "Rejected"
+    );
+
+    if (rejectedCandidates.length > 0) {
+      // Switch to rejected tab to show the results
+      setActiveTab("rejected");
+
+      // Update the candidates state to reflect the email sent status
+      setCandidates((prevCandidates) =>
+        prevCandidates.map((candidate) => {
+          if (
+            selectedCandidateIds.includes(candidate.id) &&
+            candidate.status === "Rejected"
+          ) {
+            return { ...candidate, isSendRejectEmail: true };
+          }
+          return candidate;
+        })
+      );
+
+      console.log(
+        `✅ Successfully sent ${rejectedCandidates.length} rejection emails`
+      );
+    }
+
     setSelectedCandidateIds([]);
     // Optionally refresh candidates or show success message
+  };
+
+  const handleRejectedEmailSent = (
+    sentCount: number,
+    candidateIds: string[]
+  ) => {
+    // Switch to rejected tab to show the results
+    setActiveTab("rejected");
+
+    // Update the candidates state to reflect the email sent status
+    setCandidates((prevCandidates) =>
+      prevCandidates.map((candidate) => {
+        if (candidateIds.includes(candidate.id)) {
+          return { ...candidate, isSendRejectEmail: true };
+        }
+        return candidate;
+      })
+    );
+
+    // Show success message
+    console.log(`✅ Successfully sent ${sentCount} rejection emails`);
   };
 
   // Get candidates with notes (excluding rejected candidates)
@@ -924,6 +976,17 @@ function CandidatesByJobPageComponent({ jobId }: CandidatesByJobPageProps) {
       ?.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const refreshCandidates = async () => {
+    if (!jobId || authLoading || !isAuthorized || !companyId) return;
+
+    try {
+      const candidatesData = await candidateService.getCandidatesForJob(jobId);
+      setCandidates(candidatesData || []);
+    } catch (error) {
+      console.error("Error refreshing candidates:", error);
+    }
+  };
+
   // Get selected candidate data
   const selectedCandidateData = candidates.find(
     (candidate) => candidate.id === selectedCandidate
@@ -1078,6 +1141,8 @@ function CandidatesByJobPageComponent({ jobId }: CandidatesByJobPageProps) {
                   searchQuery={searchQuery}
                   onCandidateSelect={handleCandidateClick}
                   onBulkEmail={handleBulkEmail}
+                  onEmailSent={handleRejectedEmailSent}
+                  onRefresh={refreshCandidates}
                   loading={loading}
                 />
               )}

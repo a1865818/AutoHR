@@ -39,6 +39,7 @@ export interface Candidate {
   rejectionReason?: string;
   rejectionNotes?: string;
   rejectedAt?: string;
+  isSendRejectEmail?: boolean;
   currentRoundId?: string; // Keep for backward compatibility
 }
 export interface SaveNoteRequest {

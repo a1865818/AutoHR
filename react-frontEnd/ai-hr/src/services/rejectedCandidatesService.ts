@@ -36,6 +36,16 @@ export class RejectedCandidatesService {
     });
   }
 
+  // Update the email sent status for a candidate
+  async updateEmailSentStatus(applicationId: string, isSendRejectEmail: boolean): Promise<void> {
+    await apiService.makeRequest(`/api/applicationdetails/${applicationId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        isSendRejectEmail,
+      }),
+    });
+  }
+
   // Get common rejection reasons
   getCommonRejectionReasons(): string[] {
     return [

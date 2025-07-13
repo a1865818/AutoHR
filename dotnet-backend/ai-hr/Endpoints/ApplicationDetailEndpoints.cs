@@ -300,6 +300,10 @@ public static class ApplicationDetailEndpoints
             {
                 applicationDetail.RejectionNotes = request.RejectionNotes;
             }
+            if (request.IsSendRejectEmail.HasValue)
+            {
+                applicationDetail.IsSendRejectEmail = request.IsSendRejectEmail.Value;
+            }
 
             // Set rejected timestamp when status is changed to Rejected
             if (request.Status == "Rejected" && applicationDetail.RejectedAt == null)

@@ -171,6 +171,31 @@ public static class EmailEndpoints
                 await client.From<EmailHistory>().Insert(emailHistoryRecords);
             }
 
+            // Update isSendRejectEmail flag for successfully sent emails
+            var successfulApplications = new List<ApplicationDetail>();
+            for (int i = 0; i < recipients.Count; i++)
+            {
+                var recipient = recipients[i];
+                var gmailSendResult = i < gmailResult.Results.Count ? gmailResult.Results[i] : null;
+                var application = candidateMap.ContainsKey(recipient.Email) ? candidateMap[recipient.Email] : null;
+
+                if (application != null && gmailSendResult?.Success == true)
+                {
+                    application.IsSendRejectEmail = true;
+                    successfulApplications.Add(application);
+                }
+            }
+
+            // Batch update applications that had successful email sends
+            if (successfulApplications.Any())
+            {
+                foreach (var application in successfulApplications)
+                {
+                    await client.From<ApplicationDetail>().Where(a => a.Id == application.Id).Update(application);
+                }
+                Console.WriteLine($"📧 Updated isSendRejectEmail flag for {successfulApplications.Count} applications");
+            }
+
             // Convert Gmail results to API response format
             var results = new List<EmailSendResult>();
             for (int i = 0; i < recipients.Count; i++)
