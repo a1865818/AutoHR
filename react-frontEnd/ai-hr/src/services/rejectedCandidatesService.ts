@@ -13,7 +13,7 @@ export class RejectedCandidatesService {
     rejectionReason: string,
     rejectionNotes?: string
   ): Promise<void> {
-    await apiService.makeRequest(`/api/applicationdetails/${applicationId}`, {
+    await apiService.makeRequest(`/applicationdetails/${applicationId}`, {
       method: 'PUT',
       body: JSON.stringify({
         status: 'Rejected',
@@ -38,7 +38,7 @@ export class RejectedCandidatesService {
 
   // Update the email sent status for a candidate
   async updateEmailSentStatus(applicationId: string, isSendRejectEmail: boolean): Promise<void> {
-    await apiService.makeRequest(`/api/applicationdetails/${applicationId}`, {
+    await apiService.makeRequest(`/applicationdetails/${applicationId}`, {
       method: 'PUT',
       body: JSON.stringify({
         isSendRejectEmail,
