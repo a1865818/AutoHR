@@ -322,6 +322,28 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
 
   const completionStatus = getCompletionStatus();
 
+  // Remove completionStatus logic for enabling publish, add isPublishable
+  const isPublishable = () => {
+    // Required fields for publishing
+    const hasTitle = formData.title && formData.title.trim();
+    const hasDescription = formData.description && formData.description.trim();
+    const hasCity = formData.city && formData.city.trim();
+    const hasCountry = formData.country && formData.country.trim();
+    // Salary logic: only check if both are set
+    const validSalary =
+      formData.salary.min === undefined ||
+      formData.salary.max === undefined ||
+      formData.salary.min < formData.salary.max;
+    return (
+      !isSaving &&
+      hasTitle &&
+      hasDescription &&
+      hasCity &&
+      hasCountry &&
+      validSalary
+    );
+  };
+
   // Show loading state
   if (isLoading) {
     return (
@@ -424,11 +446,11 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
               </button>
               <button
                 onClick={handlePublish}
-                disabled={isSaving || completionStatus.percentage < 75}
+                disabled={!isPublishable()}
                 className="flex items-center px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
                 title={
-                  completionStatus.percentage < 75
-                    ? "Complete at least 75% to publish"
+                  !isPublishable()
+                    ? "Fill all required fields to publish"
                     : ""
                 }
               >
