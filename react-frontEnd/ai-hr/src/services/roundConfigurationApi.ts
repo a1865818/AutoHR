@@ -1,10 +1,13 @@
-import { Question } from '@/components/interview_pipeline/rounds/shared/QuestionBuilder';
-import { ScoringCriteria } from '@/components/interview_pipeline/rounds/shared/ScoringMatrix';
-import { Interviewer } from '@/components/interview_pipeline/rounds/shared/InterviewerSelector';
-import { TimeSlot, ScheduleConfig } from '@/components/interview_pipeline/rounds/shared/TimeSlotPicker';
-import { cleanJsonObject } from '@/utils/jsonUtils';
+import { Question } from "@/components/interview_pipeline/rounds/shared/QuestionBuilder";
+import { ScoringCriteria } from "@/components/interview_pipeline/rounds/shared/ScoringMatrix";
+import { Interviewer } from "@/components/interview_pipeline/rounds/shared/InterviewerSelector";
+import {
+  TimeSlot,
+  ScheduleConfig,
+} from "@/components/interview_pipeline/rounds/shared/TimeSlotPicker";
+import { cleanJsonObject } from "@/utils/jsonUtils";
 
-// Base configuration interface 
+// Base configuration interface
 export interface BaseRoundConfiguration {
   id: string;
   jobId: string;
@@ -13,7 +16,7 @@ export interface BaseRoundConfiguration {
   name: string;
   description: string;
   duration: number;
-  status: 'draft' | 'configured' | 'active' | 'archived';
+  status: "draft" | "configured" | "active" | "archived";
   createdAt: string;
   updatedAt: string;
   createdBy: string;
@@ -38,7 +41,7 @@ export interface PhoneScreeningConfiguration extends BaseRoundConfiguration {
 
 // Video Interview Configuration
 export interface VideoInterviewConfiguration extends BaseRoundConfiguration {
-  platform: 'zoom' | 'teams' | 'meet' | 'custom';
+  platform: "zoom" | "teams" | "meet" | "custom";
   questions: Question[];
   scoringCriteria: ScoringCriteria[];
   meetingSettings: {
@@ -61,7 +64,8 @@ export interface VideoInterviewConfiguration extends BaseRoundConfiguration {
 }
 
 // Technical Assessment Configuration
-export interface TechnicalAssessmentConfiguration extends BaseRoundConfiguration {
+export interface TechnicalAssessmentConfiguration
+  extends BaseRoundConfiguration {
   testStructure: {
     multipleChoiceCount: number;
     codingQuestionCount: number;
@@ -91,7 +95,7 @@ export interface CodingChallengeConfiguration extends BaseRoundConfiguration {
   challengeProblem: {
     title: string;
     description: string;
-    difficulty: 'easy' | 'medium' | 'hard';
+    difficulty: "easy" | "medium" | "hard";
     estimatedTime: number;
     constraints: string[];
     examples: {
@@ -117,7 +121,8 @@ export interface CodingChallengeConfiguration extends BaseRoundConfiguration {
 }
 
 // Behavioral Interview Configuration
-export interface BehavioralInterviewConfiguration extends BaseRoundConfiguration {
+export interface BehavioralInterviewConfiguration
+  extends BaseRoundConfiguration {
   competencyFramework: {
     competency: string;
     description: string;
@@ -159,9 +164,9 @@ export interface PanelInterviewConfiguration extends BaseRoundConfiguration {
     timeAllocation: number;
   }[];
   votingRules: {
-    type: 'unanimous' | 'majority' | 'weighted';
+    type: "unanimous" | "majority" | "weighted";
     weights?: { interviewerId: string; weight: number }[];
-    tieBreaker: 'lead_interviewer' | 'hiring_manager';
+    tieBreaker: "lead_interviewer" | "hiring_manager";
   };
   coordinationTools: {
     sharedEvaluationForm: boolean;
@@ -205,7 +210,7 @@ export interface FinalInterviewConfiguration extends BaseRoundConfiguration {
 }
 
 // Union type for all configurations
-export type RoundConfiguration = 
+export type RoundConfiguration =
   | PhoneScreeningConfiguration
   | VideoInterviewConfiguration
   | TechnicalAssessmentConfiguration
@@ -239,33 +244,75 @@ export interface DefaultConfigurationResponse {
 export class RoundConfigurationAPI {
   private baseUrl: string;
 
-  constructor(baseUrl: string = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5189') + '/api') {
+  constructor(
+    baseUrl: string = (process.env.NEXT_PUBLIC_API_URL ||
+      "http://localhost:5189") + "/api"
+  ) {
     this.baseUrl = baseUrl;
   }
 
   // Helper method to get auth headers
   private getAuthHeaders(): HeadersInit {
-    const token = typeof window !== 'undefined' ? 
-      (localStorage.getItem('authToken') || sessionStorage.getItem('authToken')) : null;
+    let token: string | null = null;
+    let fromCookie = false;
+    if (typeof window !== "undefined") {
+      // Try to get from cookies first
+      const cookies = document.cookie.split(";");
+      for (let i = 0; i < cookies.length; i++) {
+        let cookie = cookies[i];
+        while (cookie.charAt(0) === " ") {
+          cookie = cookie.substring(1, cookie.length);
+        }
+        if (cookie.indexOf("authToken=") === 0) {
+          token = decodeURIComponent(
+            cookie.substring("authToken=".length, cookie.length)
+          );
+          fromCookie = true;
+          break;
+        }
+      }
+    }
+    // Fallback to localStorage/sessionStorage
+    if (!token) {
+      token =
+        localStorage.getItem("authToken") ||
+        sessionStorage.getItem("authToken");
+    }
+    if (typeof window !== "undefined") {
+      console.log("[RoundConfigurationAPI] Token source:", {
+        fromCookie,
+        fromStorage: !fromCookie && !!token,
+        hasToken: !!token,
+        tokenLength: token?.length || 0,
+      });
+    }
     return {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` }),
+      "Content-Type": "application/json",
+      ...(token && { Authorization: `Bearer ${token}` }),
     };
   }
 
   // Get round configuration
-  async getConfiguration(jobId: string, roundId: string): Promise<ConfigurationResponse> {
+  async getConfiguration(
+    jobId: string,
+    roundId: string
+  ): Promise<ConfigurationResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration`, {
-        method: 'GET',
-        headers: this.getAuthHeaders()
-      });
+      const response = await fetch(
+        `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration`,
+        {
+          method: "GET",
+          headers: this.getAuthHeaders(),
+        }
+      );
 
       if (!response.ok) {
         if (response.status === 404) {
           // If the configuration doesn't exist, fetch the default configuration
           // based on the round type by getting the round first
-          console.log('Configuration not found, will use default configuration');
+          console.log(
+            "Configuration not found, will use default configuration"
+          );
           return this.getDefaultForRound(jobId, roundId);
         }
         throw new Error(`Error ${response.status}: ${response.statusText}`);
@@ -274,84 +321,94 @@ export class RoundConfigurationAPI {
       const data = await response.json();
       return data;
     } catch (error: any) {
-      console.error('Failed to get round configuration:', error);
+      console.error("Failed to get round configuration:", error);
       throw error;
     }
   }
 
   // Helper method to fetch default configuration for a round when none exists
-  private async getDefaultForRound(jobId: string, roundId: string): Promise<ConfigurationResponse> {
+  private async getDefaultForRound(
+    jobId: string,
+    roundId: string
+  ): Promise<ConfigurationResponse> {
     try {
       // First, get the round to determine its type
-      const roundResponse = await fetch(`${this.baseUrl}/jobs/${jobId}/rounds/${roundId}`, {
-        headers: this.getAuthHeaders()
-      });
-      
+      const roundResponse = await fetch(
+        `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}`,
+        {
+          headers: this.getAuthHeaders(),
+        }
+      );
+
       if (!roundResponse.ok) {
-        throw new Error(`Error ${roundResponse.status}: ${roundResponse.statusText}`);
+        throw new Error(
+          `Error ${roundResponse.status}: ${roundResponse.statusText}`
+        );
       }
-      
+
       const roundData = await roundResponse.json();
-      const roundType = roundData.data?.type || 'unknown';
-      
+      const roundType = roundData.data?.type || "unknown";
+
       // Now get default config for this round type
       const defaultResponse = await this.getDefaultConfiguration(roundType);
-      
+
       // Create a properly structured response with the default configuration
       return {
         success: true,
         data: {
-          id: '',
+          id: "",
           jobId: jobId,
           roundId: roundId,
           roundType: roundType,
-          name: `${roundType.replace('_', ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())} Configuration`,
-          description: `Configuration for ${roundType.replace('_', ' ')} round`,
+          name: `${roundType
+            .replace("_", " ")
+            .replace(/\b\w/g, (l: string) => l.toUpperCase())} Configuration`,
+          description: `Configuration for ${roundType.replace("_", " ")} round`,
           duration: 60,
-          status: 'draft',
+          status: "draft",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          createdBy: '',
-          lastModifiedBy: '',
+          createdBy: "",
+          lastModifiedBy: "",
           version: 1,
           // Properly include configuration data as an object that will be serialized
           configurationData: defaultResponse.data as any,
           questions: [],
-          scoringCriteria: []
-        } as any // Type assertion since our response might not match exactly
+          scoringCriteria: [],
+        } as any, // Type assertion since our response might not match exactly
       };
     } catch (error: any) {
-      console.error('Failed to get default configuration for round:', error);
+      console.error("Failed to get default configuration for round:", error);
       // Return basic default if we can't get anything else
       return {
         success: true,
         data: {
-          id: '',
+          id: "",
           jobId: jobId,
           roundId: roundId,
-          roundType: 'unknown',
-          name: 'New Round Configuration',
-          description: 'Default configuration',
+          roundType: "unknown",
+          name: "New Round Configuration",
+          description: "Default configuration",
           duration: 60,
-          status: 'draft',
+          status: "draft",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          createdBy: '',
-          lastModifiedBy: '',
+          createdBy: "",
+          lastModifiedBy: "",
           version: 1,
           // Properly include configuration data as an empty object
           configurationData: {} as any,
           questions: [],
-          scoringCriteria: []
-        } as any // Type assertion since our response might not match exactly
+          scoringCriteria: [],
+        } as any, // Type assertion since our response might not match exactly
       };
     }
   }
 
   // Save round configuration
   async saveConfiguration(
-    jobId: string, 
-    roundId: string, 
+    jobId: string,
+    roundId: string,
     configuration: any // Use any here to accommodate the configurationData property
   ): Promise<ConfigurationResponse> {
     try {
@@ -359,104 +416,137 @@ export class RoundConfigurationAPI {
       // This is critical - we need to make sure the configurationData field is
       // not lost or overwritten in the process
       const backendPayload = {
-        name: configuration.name || `${configuration.roundType?.replace('_', ' ') || 'Round'} Configuration`,
-        description: configuration.description || '',
+        name:
+          configuration.name ||
+          `${
+            configuration.roundType?.replace("_", " ") || "Round"
+          } Configuration`,
+        description: configuration.description || "",
         duration: configuration.duration || 30,
-        status: configuration.status || 'draft',
-        configurationData: configuration.configurationData 
-          ? cleanJsonObject(configuration.configurationData) 
+        status: configuration.status || "draft",
+        configurationData: configuration.configurationData
+          ? cleanJsonObject(configuration.configurationData)
           : this.transformToBackendFormat(configuration),
       };
-      
-      console.log('Payload being sent to backend:', backendPayload);
 
-      const response = await fetch(`${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration`, {
-        method: 'PUT',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify(backendPayload),
-      });
-      
+      console.log("Payload being sent to backend:", backendPayload);
+
+      const response = await fetch(
+        `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration`,
+        {
+          method: "PUT",
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify(backendPayload),
+        }
+      );
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        );
       }
-      
+
       const responseData = await response.json();
-      
+
       // Clean the response data before returning it
       if (responseData.data && responseData.data.configurationData) {
-        responseData.data.configurationData = cleanJsonObject(responseData.data.configurationData);
+        responseData.data.configurationData = cleanJsonObject(
+          responseData.data.configurationData
+        );
       }
-      
+
       return responseData;
     } catch (error) {
-      console.error('Error saving round configuration:', error);
+      console.error("Error saving round configuration:", error);
       throw error;
     }
   }
 
   // Transform frontend configuration to backend format
-  private transformToBackendFormat(config: Partial<RoundConfiguration> | any): any {
+  private transformToBackendFormat(
+    config: Partial<RoundConfiguration> | any
+  ): any {
     // If the config has a configurationData property, that's what we should use
     if (config.configurationData) {
       return config.configurationData;
     }
-    
+
     // Otherwise, remove metadata fields that shouldn't be in configurationData
     // IMPORTANT: Do NOT remove the questions property as it's needed for the backend
-    const { id, jobId, roundId, roundType, name, description, duration, status, 
-            createdAt, updatedAt, createdBy, lastModifiedBy, version, ...configData } = config;
-    
+    const {
+      id,
+      jobId,
+      roundId,
+      roundType,
+      name,
+      description,
+      duration,
+      status,
+      createdAt,
+      updatedAt,
+      createdBy,
+      lastModifiedBy,
+      version,
+      ...configData
+    } = config;
+
     // Make sure questions are included
     if (config.questions && !configData.questions) {
       configData.questions = config.questions;
     }
-    
+
     return configData;
   }
 
   // Get default configuration for round type
-  async getDefaultConfiguration(roundType: string): Promise<DefaultConfigurationResponse> {
+  async getDefaultConfiguration(
+    roundType: string
+  ): Promise<DefaultConfigurationResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/interview-templates/rounds/${roundType}/defaults`, {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-      });
-      
+      const response = await fetch(
+        `${this.baseUrl}/interview-templates/rounds/${roundType}/defaults`,
+        {
+          method: "GET",
+          headers: this.getAuthHeaders(),
+        }
+      );
+
       if (!response.ok) {
         if (response.status === 404) {
           // No default found, return basic default
-          return { 
-            success: true, 
-            data: this.getBasicDefault(roundType), 
-            message: 'Using basic default configuration' 
+          return {
+            success: true,
+            data: this.getBasicDefault(roundType),
+            message: "Using basic default configuration",
           };
         }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       return await response.json();
     } catch (error) {
-      console.error('Error fetching default configuration:', error);
+      console.error("Error fetching default configuration:", error);
       // Fallback to hardcoded defaults
-      return { 
-        success: true, 
-        data: this.getBasicDefault(roundType), 
-        message: 'Using fallback default configuration' 
+      return {
+        success: true,
+        data: this.getBasicDefault(roundType),
+        message: "Using fallback default configuration",
       };
     }
   }
 
   // Get basic default configuration for round types
   private getBasicDefault(roundType: string): Partial<RoundConfiguration> {
-    const defaults = DEFAULT_CONFIGURATIONS[roundType as keyof typeof DEFAULT_CONFIGURATIONS];
+    const defaults =
+      DEFAULT_CONFIGURATIONS[roundType as keyof typeof DEFAULT_CONFIGURATIONS];
     return defaults ? { ...defaults, roundType } : { roundType, duration: 30 };
   }
 
   // Save questions for a round
   async saveQuestions(
-    jobId: string, 
-    roundId: string, 
+    jobId: string,
+    roundId: string,
     questions: Question[]
   ): Promise<ConfigurationResponse<Question[]>> {
     try {
@@ -470,112 +560,131 @@ export class RoundConfigurationAPI {
         metadata: q.options ? { options: q.options } : undefined,
       }));
 
-      const response = await fetch(`${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/questions`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify({ questions: backendQuestions }),
-      });
-      
+      const response = await fetch(
+        `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/questions`,
+        {
+          method: "POST",
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({ questions: backendQuestions }),
+        }
+      );
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.message || `HTTP error! status: ${response.status}`
+        );
       }
-      
+
       return await response.json();
     } catch (error) {
-      console.error('Error saving questions:', error);
+      console.error("Error saving questions:", error);
       throw error;
     }
   }
 
   // Clone configuration from another job/round
   async cloneConfiguration(
-    sourceJobId: string, 
-    sourceRoundId: string, 
-    targetJobId: string, 
+    sourceJobId: string,
+    sourceRoundId: string,
+    targetJobId: string,
     targetRoundId: string
   ): Promise<ConfigurationResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/jobs/${targetJobId}/rounds/${targetRoundId}/configuration/clone`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify({
-          sourceJobId,
-          sourceRoundId,
-        }),
-      });
-      
+      const response = await fetch(
+        `${this.baseUrl}/jobs/${targetJobId}/rounds/${targetRoundId}/configuration/clone`,
+        {
+          method: "POST",
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({
+            sourceJobId,
+            sourceRoundId,
+          }),
+        }
+      );
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       return await response.json();
     } catch (error) {
-      console.error('Error cloning configuration:', error);
+      console.error("Error cloning configuration:", error);
       throw error;
     }
   }
 
   // Get all configurations for a job
-  async getJobConfigurations(jobId: string): Promise<ConfigurationListResponse> {
+  async getJobConfigurations(
+    jobId: string
+  ): Promise<ConfigurationListResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/jobs/${jobId}/rounds/configurations`, {
-        headers: this.getAuthHeaders(),
-      });
-      
+      const response = await fetch(
+        `${this.baseUrl}/jobs/${jobId}/rounds/configurations`,
+        {
+          headers: this.getAuthHeaders(),
+        }
+      );
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       return await response.json();
     } catch (error) {
-      console.error('Error fetching job configurations:', error);
+      console.error("Error fetching job configurations:", error);
       throw error;
     }
   }
 
   // Validate configuration
   async validateConfiguration(
-    jobId: string, 
-    roundId: string, 
+    jobId: string,
+    roundId: string,
     configuration: Partial<RoundConfiguration>
   ): Promise<{ valid: boolean; errors: string[] }> {
     try {
-      const response = await fetch(`${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration/validate`, {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify(configuration),
-      });
-      
+      const response = await fetch(
+        `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration/validate`,
+        {
+          method: "POST",
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify(configuration),
+        }
+      );
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       return await response.json();
     } catch (error) {
-      console.error('Error validating configuration:', error);
+      console.error("Error validating configuration:", error);
       throw error;
     }
   }
 
   // Get configuration history
   async getConfigurationHistory(
-    jobId: string, 
-    roundId: string, 
+    jobId: string,
+    roundId: string,
     limit: number = 10
   ): Promise<ConfigurationListResponse> {
     try {
-      const response = await fetch(`${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration/history?limit=${limit}`, {
-        headers: this.getAuthHeaders(),
-      });
-      
+      const response = await fetch(
+        `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration/history?limit=${limit}`,
+        {
+          headers: this.getAuthHeaders(),
+        }
+      );
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       return await response.json();
     } catch (error) {
-      console.error('Error fetching configuration history:', error);
+      console.error("Error fetching configuration history:", error);
       throw error;
     }
   }
@@ -583,51 +692,60 @@ export class RoundConfigurationAPI {
   // Export configuration
   async exportConfiguration(jobId: string, roundId: string): Promise<Blob> {
     try {
-      const response = await fetch(`${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration/export`, {
-        headers: this.getAuthHeaders(),
-      });
-      
+      const response = await fetch(
+        `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration/export`,
+        {
+          headers: this.getAuthHeaders(),
+        }
+      );
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       return await response.blob();
     } catch (error) {
-      console.error('Error exporting configuration:', error);
+      console.error("Error exporting configuration:", error);
       throw error;
     }
   }
 
   // Import configuration
   async importConfiguration(
-    jobId: string, 
-    roundId: string, 
+    jobId: string,
+    roundId: string,
     file: File
   ): Promise<ConfigurationResponse> {
     try {
       const formData = new FormData();
-      formData.append('configuration', file);
+      formData.append("configuration", file);
 
       // Get auth token separately since FormData needs different headers
-      const token = typeof window !== 'undefined' ? 
-        (localStorage.getItem('authToken') || sessionStorage.getItem('authToken')) : null;
+      const token =
+        typeof window !== "undefined"
+          ? localStorage.getItem("authToken") ||
+            sessionStorage.getItem("authToken")
+          : null;
 
-      const response = await fetch(`${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration/import`, {
-        method: 'POST',
-        headers: {
-          ...(token && { 'Authorization': `Bearer ${token}` }),
-          // Don't set Content-Type for FormData - browser will set it with boundary
-        },
-        body: formData,
-      });
-      
+      const response = await fetch(
+        `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration/import`,
+        {
+          method: "POST",
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+            // Don't set Content-Type for FormData - browser will set it with boundary
+          },
+          body: formData,
+        }
+      );
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       return await response.json();
     } catch (error) {
-      console.error('Error importing configuration:', error);
+      console.error("Error importing configuration:", error);
       throw error;
     }
   }
@@ -644,9 +762,9 @@ export function useRoundConfigurationAPI() {
 // Default configurations for each round type
 export const DEFAULT_CONFIGURATIONS = {
   phone_screening: {
-    roundType: 'phone_screening',
-    name: 'Phone Screening Configuration',
-    description: 'Default configuration for phone screening round',
+    roundType: "phone_screening",
+    name: "Phone Screening Configuration",
+    description: "Default configuration for phone screening round",
     duration: 30,
     callSettings: {
       duration: 30,
@@ -657,38 +775,38 @@ export const DEFAULT_CONFIGURATIONS = {
     },
     questions: [
       {
-        id: 'q1',
-        text: 'Tell me about yourself and your background',
-        type: 'open',
-        category: 'Background',
+        id: "q1",
+        text: "Tell me about yourself and your background",
+        type: "open",
+        category: "Background",
         required: true,
       },
       {
-        id: 'q2',
-        text: 'Why are you interested in this position?',
-        type: 'open',
-        category: 'Motivation',
+        id: "q2",
+        text: "Why are you interested in this position?",
+        type: "open",
+        category: "Motivation",
         required: true,
       },
     ],
     scoringCriteria: [
       {
-        id: 'c1',
-        name: 'Communication Skills',
-        description: 'Clarity and effectiveness of communication',
+        id: "c1",
+        name: "Communication Skills",
+        description: "Clarity and effectiveness of communication",
         weight: 8,
         maxScore: 100,
-        type: 'numeric',
+        type: "numeric",
         required: true,
       },
     ],
   },
   video_interview: {
-    roundType: 'video_interview',
-    name: 'Video Interview Configuration',
-    description: 'Default configuration for video interview round',
+    roundType: "video_interview",
+    name: "Video Interview Configuration",
+    description: "Default configuration for video interview round",
     duration: 45,
-    platform: 'zoom',
+    platform: "zoom",
     meetingSettings: {
       duration: 45,
       bufferTime: 15,
@@ -701,13 +819,14 @@ export const DEFAULT_CONFIGURATIONS = {
     techCheck: {
       required: true,
       duration: 5,
-      instructions: 'Please test your camera and microphone before the interview',
+      instructions:
+        "Please test your camera and microphone before the interview",
     },
   },
   technical_assessment: {
-    roundType: 'technical_assessment',
-    name: 'Technical Assessment Configuration',
-    description: 'Default configuration for technical assessment round',
+    roundType: "technical_assessment",
+    name: "Technical Assessment Configuration",
+    description: "Default configuration for technical assessment round",
     duration: 90,
     testStructure: {
       multipleChoiceCount: 10,
@@ -723,42 +842,46 @@ export const DEFAULT_CONFIGURATIONS = {
       passingScore: 70,
     },
     programmingEnvironment: {
-      allowedLanguages: ['javascript', 'python', 'java', 'go'],
+      allowedLanguages: ["javascript", "python", "java", "go"],
       codeEditor: true,
       testCases: true,
       debugging: true,
     },
   },
   coding_challenge: {
-    roundType: 'coding_challenge',
-    name: 'Coding Challenge Configuration',
-    description: 'Default configuration for coding challenge round',
+    roundType: "coding_challenge",
+    name: "Coding Challenge Configuration",
+    description: "Default configuration for coding challenge round",
     duration: 120,
     challengeProblem: {
-      title: 'Algorithm Challenge',
-      description: 'Solve the given programming problem',
-      difficulty: 'medium',
+      title: "Algorithm Challenge",
+      description: "Solve the given programming problem",
+      difficulty: "medium",
       estimatedTime: 90,
-      constraints: ['Time limit: 2 hours', 'Memory limit: 256MB'],
+      constraints: ["Time limit: 2 hours", "Memory limit: 256MB"],
       examples: [],
     },
     submissionSettings: {
-      allowedLanguages: ['javascript', 'python', 'java', 'cpp'],
+      allowedLanguages: ["javascript", "python", "java", "cpp"],
       maxSubmissions: 3,
       timeLimit: 120,
       deadline: 24,
     },
   },
   behavioral_interview: {
-    roundType: 'behavioral_interview',
-    name: 'Behavioral Interview Configuration',
-    description: 'Default configuration for behavioral interview round',
+    roundType: "behavioral_interview",
+    name: "Behavioral Interview Configuration",
+    description: "Default configuration for behavioral interview round",
     duration: 60,
     competencyFramework: [
       {
-        competency: 'Leadership',
-        description: 'Ability to guide and influence others',
-        behavioralIndicators: ['Takes initiative', 'Motivates team members', 'Makes decisions'],
+        competency: "Leadership",
+        description: "Ability to guide and influence others",
+        behavioralIndicators: [
+          "Takes initiative",
+          "Motivates team members",
+          "Makes decisions",
+        ],
         questions: [],
       },
     ],
@@ -770,19 +893,19 @@ export const DEFAULT_CONFIGURATIONS = {
     },
   },
   panel_interview: {
-    roundType: 'panel_interview',
-    name: 'Panel Interview Configuration',
-    description: 'Default configuration for panel interview round',
+    roundType: "panel_interview",
+    name: "Panel Interview Configuration",
+    description: "Default configuration for panel interview round",
     duration: 90,
     panelComposition: {
       minInterviewers: 2,
       maxInterviewers: 4,
-      requiredRoles: ['Hiring Manager', 'Team Lead'],
+      requiredRoles: ["Hiring Manager", "Team Lead"],
       interviewers: [],
     },
     votingRules: {
-      type: 'majority',
-      tieBreaker: 'hiring_manager',
+      type: "majority",
+      tieBreaker: "hiring_manager",
     },
     coordinationTools: {
       sharedEvaluationForm: true,
@@ -791,36 +914,36 @@ export const DEFAULT_CONFIGURATIONS = {
     },
   },
   final_interview: {
-    roundType: 'final_interview',
-    name: 'Final Interview Configuration',
-    description: 'Default configuration for final interview round',
+    roundType: "final_interview",
+    name: "Final Interview Configuration",
+    description: "Default configuration for final interview round",
     duration: 60,
     executiveInvolvement: {
       required: true,
-      roles: ['VP Engineering', 'CTO'],
+      roles: ["VP Engineering", "CTO"],
       approvalLevel: 2,
     },
     offerParameters: {
       salaryRange: {
         min: 80000,
         max: 120000,
-        currency: 'USD',
+        currency: "USD",
       },
-      benefits: ['Health Insurance', '401k', 'PTO'],
-      negotiationGuidelines: 'Standard negotiation process',
+      benefits: ["Health Insurance", "401k", "PTO"],
+      negotiationGuidelines: "Standard negotiation process",
       approvalWorkflow: [],
     },
     approvalWorkflow: {
       steps: [
         {
           stepNumber: 1,
-          approverRole: 'Hiring Manager',
+          approverRole: "Hiring Manager",
           required: true,
           timeLimit: 24,
         },
         {
           stepNumber: 2,
-          approverRole: 'VP Engineering',
+          approverRole: "VP Engineering",
           required: true,
           timeLimit: 48,
         },
@@ -828,45 +951,45 @@ export const DEFAULT_CONFIGURATIONS = {
     },
   },
   culture_fit: {
-    roundType: 'culture_fit',
-    name: 'Culture Fit Configuration',
-    description: 'Default configuration for culture fit assessment round',
+    roundType: "culture_fit",
+    name: "Culture Fit Configuration",
+    description: "Default configuration for culture fit assessment round",
     duration: 45,
     questions: [
       {
-        id: 'cf1',
-        text: 'How do you handle feedback and criticism?',
-        type: 'open',
-        category: 'Growth Mindset',
+        id: "cf1",
+        text: "How do you handle feedback and criticism?",
+        type: "open",
+        category: "Growth Mindset",
         required: true,
       },
       {
-        id: 'cf2',
-        text: 'Describe a time when you had to work with a difficult team member.',
-        type: 'open',
-        category: 'Collaboration',
+        id: "cf2",
+        text: "Describe a time when you had to work with a difficult team member.",
+        type: "open",
+        category: "Collaboration",
         required: true,
       },
     ],
     scoringCriteria: [
       {
-        id: 'cf_c1',
-        name: 'Cultural Alignment',
-        description: 'How well the candidate aligns with company values',
+        id: "cf_c1",
+        name: "Cultural Alignment",
+        description: "How well the candidate aligns with company values",
         weight: 10,
         maxScore: 100,
-        type: 'numeric',
+        type: "numeric",
         required: true,
       },
       {
-        id: 'cf_c2',
-        name: 'Team Collaboration',
-        description: 'Ability to work effectively with others',
+        id: "cf_c2",
+        name: "Team Collaboration",
+        description: "Ability to work effectively with others",
         weight: 8,
         maxScore: 100,
-        type: 'numeric',
+        type: "numeric",
         required: true,
       },
     ],
   },
-} as const; 
+} as const;
