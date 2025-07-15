@@ -254,12 +254,17 @@ We offer a dynamic work environment where creativity and innovation are valued, 
   };
 
   const handlePublish = async () => {
+    // Prevent multiple publish clicks
+    if (isPublishing) return;
+    setIsPublishing(true);
+
     // Check if user has company information
     if (!user?.companyId || !user?.id) {
       notifications.error(
         "Authentication required",
         "Please ensure you're logged in with proper company access."
       );
+      setIsPublishing(false);
       return;
     }
 
@@ -270,10 +275,10 @@ We offer a dynamic work environment where creativity and innovation are valued, 
         "Cannot publish job",
         `Please complete: ${validation.missingFields.join(", ")}`
       );
+      setIsPublishing(false);
       return;
     }
 
-    setIsPublishing(true);
     try {
       // Map form data to API format with open status using actual user/company IDs
       const jobRequest = mapFormDataToCreateJobRequest(
@@ -333,13 +338,13 @@ We offer a dynamic work environment where creativity and innovation are valued, 
           "Failed to publish job",
           response?.error || "Please try again."
         );
+        setIsPublishing(false);
       }
     } catch (error) {
       notifications.error(
         "Failed to publish job",
         "An unexpected error occurred. Please try again."
       );
-    } finally {
       setIsPublishing(false);
     }
   };
