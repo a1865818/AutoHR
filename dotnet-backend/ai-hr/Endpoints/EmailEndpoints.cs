@@ -17,6 +17,13 @@ public static class EmailEndpoints
             .WithDescription("Sends personalized rejection emails to multiple candidates using Gmail API")
             .RequireAuthorization();
 
+        app.MapPost("/api/emails/bulk-success", SendBulkSuccessEmails)
+            .WithTags("Emails")
+            .WithName("SendBulkSuccessEmails")
+            .WithSummary("Send bulk success notification emails via Gmail")
+            .WithDescription("Sends personalized success/advancement emails to multiple candidates using Gmail API")
+            .RequireAuthorization();
+
     }
 
     private static async Task<IResult> SendBulkRejectionEmails(
@@ -52,49 +59,47 @@ public static class EmailEndpoints
                 return Results.BadRequest(new { error = "Company not found" });
             }
 
-            // Get candidate applications
-            var applicationsResponse = await client.From<ApplicationDetail>().Get();
-
-            // Convert candidateIds to Guids for filtering
-            var candidateGuids = new List<Guid>();
-            foreach (var candidateId in request.CandidateIds)
-            {
-                if (Guid.TryParse(candidateId, out var guid))
-                {
-                    candidateGuids.Add(guid);
-                }
-            }
-
-            var candidateApplications = applicationsResponse.Models
-                .Where(a => candidateGuids.Contains(a.Id))
+            // Parse candidate IDs
+            var candidateIds = request.CandidateIds
+                .Where(id => Guid.TryParse(id, out _))
+                .Select(Guid.Parse)
                 .ToList();
 
-            // Get candidate user details
-            var usersResponse = await client.From<ApplicationUser>().Get();
-            var users = usersResponse.Models.ToDictionary(u => u.Id, u => u);
-
-            // Get job details
-            var jobsResponse = await client.From<Job>().Get();
-            var jobs = jobsResponse.Models.ToDictionary(j => j.Id, j => j);
-
-            // Check if user has Gmail authorization
-            var isAuthorized = await gmailService.IsUserAuthorizedAsync(userId);
-            if (!isAuthorized)
+            if (candidateIds.Count == 0)
             {
-                return Results.BadRequest(new { error = "Gmail authorization required. Please authorize Gmail access first." });
+                return Results.BadRequest(new { error = "No valid candidate IDs provided" });
             }
+
+            // Get candidate applications
+            var applicationsResponse = await client.From<ApplicationDetail>().Get();
+            var candidateApplications = applicationsResponse.Models
+                .Where(app => candidateIds.Contains(app.Id))
+                .ToList();
+
+            if (candidateApplications.Count == 0)
+            {
+                return Results.BadRequest(new { error = "No applications found for provided candidate IDs" });
+            }
+
+            // Get unique user IDs and job IDs
+            var userIds = candidateApplications.Select(app => app.CandidateUserId).Distinct().ToList();
+            var jobIds = candidateApplications.Select(app => app.JobId).Distinct().ToList();
+
+            // Fetch users and jobs
+            var usersResponse = await client.From<ApplicationUser>().Get();
+            var users = usersResponse.Models.Where(u => userIds.Contains(Guid.Parse(u.Id))).ToDictionary(u => Guid.Parse(u.Id), u => u);
+
+            var jobsResponse = await client.From<Job>().Get();
+            var jobs = jobsResponse.Models.Where(j => jobIds.Contains(j.Id)).ToDictionary(j => j.Id, j => j);
 
             // Get email template if specified
             EmailTemplate? template = null;
-            if (!string.IsNullOrEmpty(request.TemplateId))
+            if (!string.IsNullOrEmpty(request.TemplateId) && Guid.TryParse(request.TemplateId, out var templateId))
             {
-                if (Guid.TryParse(request.TemplateId, out var templateGuid))
-                {
-                    var templateResponse = await client.From<EmailTemplate>()
-                        .Where(t => t.CompanyId == hiringUser.CompanyId)
-                        .Get();
-                    template = templateResponse.Models.FirstOrDefault(t => t.Id == templateGuid);
-                }
+                var templateResponse = await client.From<EmailTemplate>()
+                    .Where(t => t.Id == templateId && t.CompanyId == hiringUser.CompanyId.Value)
+                    .Get();
+                template = templateResponse.Models.FirstOrDefault();
             }
 
             // Prepare email recipients
@@ -103,28 +108,23 @@ public static class EmailEndpoints
 
             foreach (var application in candidateApplications)
             {
-                var candidateUser = users.ContainsKey(application.CandidateUserId.ToString())
-                    ? users[application.CandidateUserId.ToString()]
-                    : null;
-
-                var job = jobs.ContainsKey(application.JobId)
-                    ? jobs[application.JobId]
-                    : null;
-
-                if (candidateUser != null && job != null)
+                if (users.TryGetValue(application.CandidateUserId, out var candidateUser) &&
+                    jobs.TryGetValue(application.JobId, out var job))
                 {
+                    var variables = new Dictionary<string, string>
+                    {
+                        { "candidateName", candidateUser.FirstName + " " + candidateUser.LastName },
+                        { "jobTitle", job.Title },
+                        { "companyName", company.Name }
+                    };
+
                     var recipient = new EmailRecipient
                     {
                         Email = candidateUser.Email,
-                        Name = $"{candidateUser.FirstName} {candidateUser.LastName}",
-                        Variables = new Dictionary<string, string>
-                        {
-                            ["candidateName"] = $"{candidateUser.FirstName} {candidateUser.LastName}",
-                            ["jobTitle"] = job.Title,
-                            ["companyName"] = company.Name,
-                            ["rejectionReason"] = application.RejectionReason ?? "Not specified"
-                        }
+                        Name = candidateUser.FirstName + " " + candidateUser.LastName,
+                        Variables = variables
                     };
+
                     recipients.Add(recipient);
                     candidateMap[candidateUser.Email] = application;
                 }
@@ -152,16 +152,18 @@ public static class EmailEndpoints
 
                 if (application != null)
                 {
-                    var historyRecord = new EmailHistory
+                    var emailHistory = new EmailHistory
                     {
+                        Id = Guid.NewGuid(),
                         ApplicationId = application.Id,
                         TemplateId = template?.Id,
-                        SentAt = DateTime.UtcNow,
-                        Status = gmailSendResult?.Success == true ? "sent" : "failed",
                         Subject = ReplaceVariables(subject, recipient.Variables),
-                        Body = ReplaceVariables(body, recipient.Variables)
+                        Body = ReplaceVariables(body, recipient.Variables),
+                        SentAt = DateTime.UtcNow,
+                        Status = gmailSendResult?.Success == true ? "sent" : "failed"
                     };
-                    emailHistoryRecords.Add(historyRecord);
+
+                    emailHistoryRecords.Add(emailHistory);
                 }
             }
 
@@ -171,140 +173,292 @@ public static class EmailEndpoints
                 await client.From<EmailHistory>().Insert(emailHistoryRecords);
             }
 
-            // Update isSendRejectEmail flag for successfully sent emails
-            var successfulApplications = new List<ApplicationDetail>();
-            for (int i = 0; i < recipients.Count; i++)
+            return Results.Ok(new BulkEmailResponse
             {
-                var recipient = recipients[i];
-                var gmailSendResult = i < gmailResult.Results.Count ? gmailResult.Results[i] : null;
-                var application = candidateMap.ContainsKey(recipient.Email) ? candidateMap[recipient.Email] : null;
-
-                if (application != null && gmailSendResult?.Success == true)
+                Success = gmailResult.Success,
+                TotalSent = gmailResult.TotalSent,
+                TotalFailed = gmailResult.TotalFailed,
+                Results = recipients.Select((recipient, index) =>
                 {
-                    application.IsSendRejectEmail = true;
-                    successfulApplications.Add(application);
-                }
-            }
+                    var gmailSendResult = index < gmailResult.Results.Count ? gmailResult.Results[index] : null;
+                    var application = candidateMap.ContainsKey(recipient.Email) ? candidateMap[recipient.Email] : null;
 
-            // Batch update applications that had successful email sends
-            if (successfulApplications.Any())
-            {
-                foreach (var application in successfulApplications)
-                {
-                    await client.From<ApplicationDetail>().Where(a => a.Id == application.Id).Update(application);
-                }
-                Console.WriteLine($"📧 Updated isSendRejectEmail flag for {successfulApplications.Count} applications");
-            }
-
-            // Convert Gmail results to API response format
-            var results = new List<EmailSendResult>();
-            for (int i = 0; i < recipients.Count; i++)
-            {
-                var recipient = recipients[i];
-                var gmailSendResult = i < gmailResult.Results.Count ? gmailResult.Results[i] : null;
-                var application = candidateMap.ContainsKey(recipient.Email) ? candidateMap[recipient.Email] : null;
-
-                results.Add(new EmailSendResult
-                {
-                    CandidateId = application?.Id.ToString() ?? "",
-                    CandidateName = recipient.Name,
-                    Email = recipient.Email,
-                    Status = gmailSendResult?.Success == true ? "sent" : "failed",
-                    SentAt = gmailSendResult?.SentAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                    Error = gmailSendResult?.ErrorMessage
-                });
-            }
-
-            var response = new BulkEmailResponse
-            {
-                Success = results.All(r => r.Status == "sent"),
-                TotalSent = results.Count(r => r.Status == "sent"),
-                TotalFailed = results.Count(r => r.Status == "failed"),
-                Results = results
-            };
-
-            Console.WriteLine($"📧 Bulk email completed: {response.TotalSent} sent, {response.TotalFailed} failed");
-
-            return Results.Ok(response);
+                    return new EmailSendResult
+                    {
+                        CandidateId = application?.Id.ToString() ?? "",
+                        CandidateName = recipient.Name,
+                        Email = recipient.Email,
+                        Status = gmailSendResult?.Success == true ? "sent" : "failed",
+                        SentAt = gmailSendResult?.Success == true ? gmailSendResult.SentAt.ToString("yyyy-MM-ddTHH:mm:ssZ") : null,
+                        Error = gmailSendResult?.ErrorMessage
+                    };
+                }).ToList()
+            });
         }
         catch (Exception ex)
         {
             Console.WriteLine($"💥 ERROR in SendBulkRejectionEmails: {ex.Message}");
-            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message });
         }
     }
-    private static async Task<List<EmailTemplate>> CreateDefaultTemplates(Supabase.Client client, Guid companyId)
+
+    private static async Task<IResult> SendBulkSuccessEmails(
+        [FromBody] BulkEmailRequest request,
+        [FromServices] Supabase.Client client,
+        [FromServices] IGmailService gmailService,
+        ClaimsPrincipal user)
     {
-        var defaultTemplates = new List<EmailTemplate>
+        try
         {
-            new EmailTemplate
+            Console.WriteLine($"📧 Processing bulk success email request for {request.CandidateIds.Count} candidates");
+
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             {
-                CompanyId = companyId,
-                Name = "Professional Rejection",
-                Subject = "Thank you for your interest in {{jobTitle}}",
-                Body = GetDefaultEmailTemplate(),
-                IsDefault = true,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            },
-            new EmailTemplate
-            {
-                CompanyId = companyId,
-                Name = "Skills-Based Rejection",
-                Subject = "Update on your {{jobTitle}} application",
-                Body = @"Dear {{candidateName}},
-
-Thank you for applying for the {{jobTitle}} position at {{companyName}}. While we were impressed with your background, we have decided to move forward with candidates whose skills more closely match our specific requirements for this role.
-
-We encourage you to apply for future opportunities that may be a better fit for your qualifications.
-
-Best regards,
-{{companyName}} Hiring Team",
-                IsDefault = false,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                return Results.Unauthorized();
             }
-        };
 
-        var response = await client.From<EmailTemplate>().Insert(defaultTemplates);
-        return response.Models.ToList();
-    }
+            // Get hiring user and company info
+            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
+            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
 
-    private static string ReplaceVariables(string content, Dictionary<string, string> variables)
-    {
-        foreach (var variable in variables)
-        {
-            content = content.Replace($"{{{{{variable.Key}}}}}", variable.Value);
+            if (hiringUser == null)
+            {
+                return Results.Unauthorized();
+            }
+
+            var companyResponse = await client.From<Company>().Get();
+            var company = companyResponse.Models.FirstOrDefault(c => c.Id == hiringUser.CompanyId);
+
+            if (company == null)
+            {
+                return Results.BadRequest(new { error = "Company not found" });
+            }
+
+            // Parse candidate IDs
+            var candidateIds = request.CandidateIds
+                .Where(id => Guid.TryParse(id, out _))
+                .Select(Guid.Parse)
+                .ToList();
+
+            if (candidateIds.Count == 0)
+            {
+                return Results.BadRequest(new { error = "No valid candidate IDs provided" });
+            }
+
+            // Get candidate applications
+            var applicationsResponse = await client.From<ApplicationDetail>().Get();
+            var candidateApplications = applicationsResponse.Models
+                .Where(app => candidateIds.Contains(app.Id))
+                .ToList();
+
+            if (candidateApplications.Count == 0)
+            {
+                return Results.BadRequest(new { error = "No applications found for provided candidate IDs" });
+            }
+
+            // Get unique user IDs and job IDs
+            var userIds = candidateApplications.Select(app => app.CandidateUserId).Distinct().ToList();
+            var jobIds = candidateApplications.Select(app => app.JobId).Distinct().ToList();
+
+            // Fetch users and jobs
+            var usersResponse = await client.From<ApplicationUser>().Get();
+            var users = usersResponse.Models.Where(u => userIds.Contains(Guid.Parse(u.Id))).ToDictionary(u => Guid.Parse(u.Id), u => u);
+
+            var jobsResponse = await client.From<Job>().Get();
+            var jobs = jobsResponse.Models.Where(j => jobIds.Contains(j.Id)).ToDictionary(j => j.Id, j => j);
+
+            // Get email template if specified
+            EmailTemplate? template = null;
+            if (!string.IsNullOrEmpty(request.TemplateId) && Guid.TryParse(request.TemplateId, out var templateId))
+            {
+                var templateResponse = await client.From<EmailTemplate>()
+                    .Where(t => t.Id == templateId && t.CompanyId == hiringUser.CompanyId.Value)
+                    .Get();
+                template = templateResponse.Models.FirstOrDefault();
+            }
+
+            // Prepare email recipients
+            var recipients = new List<EmailRecipient>();
+            var candidateMap = new Dictionary<string, ApplicationDetail>();
+
+            foreach (var application in candidateApplications)
+            {
+                if (users.TryGetValue(application.CandidateUserId, out var candidateUser) &&
+                    jobs.TryGetValue(application.JobId, out var job))
+                {
+                    var variables = new Dictionary<string, string>
+                    {
+                        { "candidateName", candidateUser.FirstName + " " + candidateUser.LastName },
+                        { "jobTitle", job.Title },
+                        { "companyName", company.Name }
+                    };
+
+                    recipients.Add(new EmailRecipient
+                    {
+                        Email = candidateUser.Email,
+                        Name = candidateUser.FirstName + " " + candidateUser.LastName,
+                        Variables = variables
+                    });
+
+                    candidateMap[application.Id.ToString()] = application;
+                }
+            }
+
+            if (!recipients.Any())
+            {
+                return Results.BadRequest(new { error = "No valid candidates found for email sending" });
+            }
+
+            // Determine subject and body
+            var subject = !string.IsNullOrEmpty(request.CustomSubject)
+                ? request.CustomSubject
+                : template?.Subject ?? "Congratulations on your application progress!";
+
+            var body = !string.IsNullOrEmpty(request.CustomBody)
+                ? request.CustomBody
+                : template?.Body ?? GetDefaultSuccessTemplate();
+
+            // Send emails one by one to track individual results
+            var emailResults = new List<EmailSendResult>();
+            int sentCount = 0;
+            int failedCount = 0;
+
+            foreach (var recipient in recipients)
+            {
+                try
+                {
+                    var personalizedSubject = ReplaceVariables(subject, recipient.Variables);
+                    var personalizedBody = ReplaceVariables(body, recipient.Variables);
+
+                    // Send individual email
+                    var emailResult = await gmailService.SendEmailAsync(userId, recipient.Email, recipient.Name, personalizedSubject, personalizedBody);
+                    bool isEmailSent = emailResult.Success;
+
+                    // Save email history
+                    var application = candidateMap.Values.FirstOrDefault(c => users[c.CandidateUserId].Email == recipient.Email);
+                    if (application != null)
+                    {
+                        var emailHistory = new EmailHistory
+                        {
+                            Id = Guid.NewGuid(),
+                            ApplicationId = application.Id,
+                            TemplateId = template?.Id,
+                            Subject = personalizedSubject,
+                            Body = personalizedBody,
+                            SentAt = DateTime.UtcNow,
+                            Status = isEmailSent ? "sent" : "failed"
+                        };
+
+                        await client.From<EmailHistory>().Insert(emailHistory);
+                    }
+
+                    if (isEmailSent)
+                    {
+                        sentCount++;
+                        emailResults.Add(new EmailSendResult
+                        {
+                            CandidateId = candidateMap.Values.FirstOrDefault(c => users[c.CandidateUserId].Email == recipient.Email)?.Id.ToString() ?? "",
+                            CandidateName = recipient.Name,
+                            Email = recipient.Email,
+                            Status = "sent",
+                            SentAt = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                        });
+                    }
+                    else
+                    {
+                        failedCount++;
+                        emailResults.Add(new EmailSendResult
+                        {
+                            CandidateId = candidateMap.Values.FirstOrDefault(c => users[c.CandidateUserId].Email == recipient.Email)?.Id.ToString() ?? "",
+                            CandidateName = recipient.Name,
+                            Email = recipient.Email,
+                            Status = "failed",
+                            Error = "Failed to send email"
+                        });
+                    }
+
+                    // Small delay between emails to avoid rate limiting
+                    await Task.Delay(100);
+                }
+                catch (Exception emailEx)
+                {
+                    Console.WriteLine($"💥 ERROR sending email to {recipient.Email}: {emailEx.Message}");
+                    failedCount++;
+                    emailResults.Add(new EmailSendResult
+                    {
+                        CandidateId = candidateMap.Values.FirstOrDefault(c => users[c.CandidateUserId].Email == recipient.Email)?.Id.ToString() ?? "",
+                        CandidateName = recipient.Name,
+                        Email = recipient.Email,
+                        Status = "failed",
+                        Error = emailEx.Message
+                    });
+                }
+            }
+
+            Console.WriteLine($"✅ Success email sending completed. Sent: {sentCount}, Failed: {failedCount}");
+
+            return Results.Ok(new BulkEmailResponse
+            {
+                Success = sentCount > 0,
+                TotalSent = sentCount,
+                TotalFailed = failedCount,
+                Results = emailResults
+            });
         }
-        return content;
+        catch (Exception ex)
+        {
+            Console.WriteLine($"💥 ERROR in SendBulkSuccessEmails: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message });
+        }
     }
 
-    private static async Task SimulateEmailSending(string email, string subject, string body)
-    {
-        // Simulate email sending delay
-        await Task.Delay(100);
-
-        // In a real implementation, you would integrate with an email service like:
-        // - SendGrid
-        // - Amazon SES
-        // - Mailgun
-        // - Azure Communication Services
-
-        Console.WriteLine($"📧 [SIMULATED] Email sent to: {email}");
-        Console.WriteLine($"📧 [SIMULATED] Subject: {subject}");
-        Console.WriteLine($"📧 [SIMULATED] Body preview: {body.Substring(0, Math.Min(100, body.Length))}...");
-    }
-
+    // Helper methods
     private static string GetDefaultEmailTemplate()
     {
         return @"Dear {{candidateName}},
 
-Thank you for your interest in the {{jobTitle}} position at {{companyName}}. After careful consideration, we have decided to move forward with other candidates whose experience more closely aligns with our current needs.
+Thank you for your interest in the {{jobTitle}} position at {{companyName}}.
 
-We appreciate the time you took to apply and wish you the best in your job search.
+After careful consideration, we have decided to move forward with other candidates whose qualifications more closely match our current needs.
+
+We appreciate the time you invested in the application process and encourage you to apply for future opportunities that may be a better fit.
+
+We wish you the best in your job search.
 
 Best regards,
 {{companyName}} Hiring Team";
+    }
+
+    private static string GetDefaultSuccessTemplate()
+    {
+        return @"Dear {{candidateName}},
+
+Congratulations! We are pleased to inform you that your application for the {{jobTitle}} position at {{companyName}} has been successful in advancing to the next stage of our hiring process.
+
+We were impressed with your qualifications and experience, and we would like to continue the conversation about this opportunity.
+
+We will be in touch soon with details about the next steps in the process.
+
+Thank you for your continued interest in joining our team.
+
+Best regards,
+{{companyName}} Hiring Team";
+    }
+
+    private static string ReplaceVariables(string text, Dictionary<string, string> variables)
+    {
+        if (string.IsNullOrEmpty(text) || variables == null)
+            return text;
+
+        var result = text;
+        foreach (var variable in variables)
+        {
+            result = result.Replace($"{{{{{variable.Key}}}}}", variable.Value);
+        }
+        return result;
     }
 }
 

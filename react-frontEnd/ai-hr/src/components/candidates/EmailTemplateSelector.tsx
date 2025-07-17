@@ -9,6 +9,7 @@ interface EmailTemplate {
   name: string;
   subject: string;
   body: string;
+  emailType: string; // "Reject" or "Success"
   isDefault: boolean;
   createdAt: string;
   updatedAt: string;
@@ -17,11 +18,13 @@ interface EmailTemplate {
 interface EmailTemplateSelectorProps {
   onTemplateSelect: (template: EmailTemplate | null) => void;
   selectedTemplateId?: string;
+  emailType?: string; // Filter templates by type
 }
 
 export function EmailTemplateSelector({
   onTemplateSelect,
   selectedTemplateId,
+  emailType,
 }: EmailTemplateSelectorProps) {
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +33,7 @@ export function EmailTemplateSelector({
 
   useEffect(() => {
     fetchTemplates();
-  }, []);
+  }, [emailType]);
 
   const fetchTemplates = async () => {
     try {
@@ -53,7 +56,14 @@ export function EmailTemplateSelector({
         hasToken: !!token,
       });
 
-      const response = await fetch(`${API_BASE_URL}/api/email-templates`, {
+      // Build URL with email type filter if provided
+      const url = emailType
+        ? `${API_BASE_URL}/api/email-templates?emailType=${encodeURIComponent(
+            emailType
+          )}`
+        : `${API_BASE_URL}/api/email-templates`;
+
+      const response = await fetch(url, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -276,6 +286,7 @@ export function EmailTemplateSelector({
             setTemplates([...templates, newTemplate]);
             setShowCreateModal(false);
           }}
+          emailType={emailType}
         />
       )}
     </div>
@@ -292,7 +303,8 @@ function CreateTemplateModal({
   isOpen,
   onClose,
   onTemplateCreated,
-}: CreateTemplateModalProps) {
+  emailType = "Reject",
+}: CreateTemplateModalProps & { emailType?: string }) {
   const [formData, setFormData] = useState({
     name: "",
     subject: "",
@@ -320,7 +332,10 @@ function CreateTemplateModal({
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          emailType: emailType || "Reject", // Default to Reject if no type specified
+        }),
       });
 
       if (response.ok) {

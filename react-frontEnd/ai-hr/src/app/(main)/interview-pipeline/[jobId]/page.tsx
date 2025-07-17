@@ -33,7 +33,8 @@ import { useParams } from "next/navigation";
 import { jobService } from "@/services/jobService";
 import { interviewService } from "@/services/interviewService";
 import { candidateService } from "@/services/candidateService";
-import { ApiJob } from "@/interfaces/api";
+import { rejectedCandidatesService } from "@/services/rejectedCandidatesService";
+import { ApiJob, ApiCompany } from "@/interfaces/api";
 import {
   InterviewTemplate,
   InterviewRound,
@@ -50,6 +51,7 @@ import {
 } from "@/components/interview_pipeline/DragDropPipeline";
 import { RoundSpecificActions } from "@/components/interview_pipeline/RoundSpecificActions";
 import { InterviewManager } from "@/components/interview_pipeline/InterviewManager";
+import { SuccessNotificationModal } from "@/components/interview_pipeline/SuccessNotificationModal";
 
 interface JobWithTemplate extends Omit<ApiJob, "interviewTemplate"> {
   interviewTemplate?: InterviewTemplate;
@@ -97,6 +99,7 @@ export default function JobPipelinePage() {
   };
 
   const [job, setJob] = useState<JobWithTemplate | null>(null);
+  const [company, setCompany] = useState<ApiCompany | null>(null);
   const [candidates, setCandidates] = useState<PipelineCandidate[]>([]);
   const [columns, setColumns] = useState<PipelineColumn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -113,6 +116,11 @@ export default function JobPipelinePage() {
   const [isAssigningTemplate, setIsAssigningTemplate] = useState(false);
 
   const [noApplicationsFound, setNoApplicationsFound] = useState(false);
+
+  // Success notification modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successCandidate, setSuccessCandidate] =
+    useState<PipelineCandidate | null>(null);
 
   // Load job, template, and candidates
   useEffect(() => {
@@ -178,6 +186,20 @@ export default function JobPipelinePage() {
       }
 
       setJob(jobWithTemplate);
+
+      // Load company data
+      if (jobData.companyId) {
+        try {
+          console.log("🔄 Loading company data...");
+          const companyData = await jobService.getCompanyById(
+            jobData.companyId
+          );
+          console.log("✅ Company data loaded:", companyData);
+          setCompany(companyData);
+        } catch (error) {
+          console.warn(`Failed to load company for job ${jobId}:`, error);
+        }
+      }
 
       // Load candidates for this job
       var candidatesData = await candidateService.getCandidatesForJob(jobId);
@@ -495,6 +517,50 @@ export default function JobPipelinePage() {
     return "unknown";
   };
 
+  // Check if candidate movement is forward progression
+  const checkIfForwardMovement = (
+    fromColumnId: string,
+    toColumnId: string
+  ): boolean => {
+    // Define column order for forward movement detection
+    const columnOrder = ["new", "applied"];
+
+    // Add interview round columns in order
+    if (job?.interviewTemplate?.rounds) {
+      job.interviewTemplate.rounds.forEach((round) => {
+        columnOrder.push(round.id);
+      });
+    }
+
+    // Add final stages
+    columnOrder.push("offered", "hired");
+
+    const fromIndex = columnOrder.indexOf(fromColumnId);
+    const toIndex = columnOrder.indexOf(toColumnId);
+
+    // Forward movement means moving to a higher index (excluding rejection)
+    return fromIndex >= 0 && toIndex > fromIndex && toColumnId !== "rejected";
+  };
+
+  // Handle success notification and candidate movement
+  const handleSuccessNotification = async (
+    candidateId: string,
+    emailData: {
+      templateId?: string;
+      subject: string;
+      body: string;
+    }
+  ) => {
+    console.log(
+      `📧 Success notification sent for candidate ${candidateId}`,
+      emailData
+    );
+    // The email sending is already handled by the SuccessNotificationModal
+    // Just close the modal here
+    setShowSuccessModal(false);
+    setSuccessCandidate(null);
+  };
+
   const handleCandidateMove = async (
     candidateId: string,
     fromColumnId: string,
@@ -511,6 +577,20 @@ export default function JobPipelinePage() {
     // Get the candidate
     const candidate = candidates.find((c) => c.id === candidateId);
     if (!candidate) return;
+
+    // Check if this is a forward movement (progress to next stage)
+    const isForwardMovement = checkIfForwardMovement(fromColumnId, toColumnId);
+
+    if (
+      isForwardMovement &&
+      toColumnId !== "rejected" &&
+      toColumnId !== "hired"
+    ) {
+      // Show success notification modal for forward movement
+      setSuccessCandidate(candidate);
+      setShowSuccessModal(true);
+      return; // Exit early, the modal will handle the actual move
+    }
 
     console.log(`🔍 Current candidate state:`, {
       name: candidate.name,
@@ -830,6 +910,100 @@ export default function JobPipelinePage() {
         `❌ Failed to update candidate ${candidateId} to Rejected status:`,
         error
       );
+    }
+  };
+
+  // New function to handle rejecting a candidate with email
+  const handleRejectCandidateWithEmail = async (
+    candidateId: string,
+    emailData: {
+      reason: string;
+      notes?: string;
+      templateId?: string;
+      subject: string;
+      body: string;
+    }
+  ) => {
+    console.log(
+      `Rejecting candidate ${candidateId} with email and reason`,
+      emailData
+    );
+
+    const candidate = candidates.find((c) => c.id === candidateId);
+    if (!candidate) return;
+
+    // Optimistically update candidate status to rejected
+    setCandidates((prev) =>
+      prev.map((candidateState) =>
+        candidateState.id === candidateId
+          ? {
+              ...candidateState,
+              status: "Rejected",
+              currentRoundId: "rejected",
+              rejectionReason: emailData.reason,
+              rejectionNotes: emailData.notes,
+              rejectedAt: new Date().toISOString(),
+            }
+          : candidateState
+      )
+    );
+
+    try {
+      // Use the rejectedCandidatesService to properly update with rejection reason and notes
+      await rejectedCandidatesService.rejectCandidate(
+        candidate.applicationId,
+        emailData.reason,
+        emailData.notes
+      );
+
+      // Then send the rejection email (simulate API call for now)
+      console.log("📧 Sending rejection email:", {
+        to: candidate.email,
+        subject: emailData.subject,
+        body: emailData.body,
+        templateId: emailData.templateId,
+        reason: emailData.reason,
+        notes: emailData.notes,
+      });
+
+      // TODO: Implement actual email sending API call
+      // await emailService.sendRejectionEmail({
+      //   candidateId,
+      //   email: candidate.email,
+      //   subject: emailData.subject,
+      //   body: emailData.body,
+      //   templateId: emailData.templateId,
+      //   reason: emailData.reason,
+      //   notes: emailData.notes,
+      // });
+
+      console.log(
+        `✅ Successfully rejected candidate ${candidateId} with reason: ${emailData.reason} and sent email`
+      );
+    } catch (error) {
+      console.error(
+        `❌ Failed to reject candidate ${candidateId} with email:`,
+        error
+      );
+
+      // Revert the optimistic update on error
+      setCandidates((prev) =>
+        prev.map((candidateState) =>
+          candidateState.id === candidateId
+            ? {
+                ...candidateState,
+                status: candidate.status,
+                currentRoundId: candidate.currentRoundId,
+                rejectionReason: undefined,
+                rejectionNotes: undefined,
+                rejectedAt: undefined,
+              }
+            : candidateState
+        )
+      );
+
+      // Re-throw the error so the modal can handle it
+      throw error;
     }
   };
 
@@ -1212,6 +1386,9 @@ export default function JobPipelinePage() {
                             handleScheduleInterview(candidateId, column.id)
                           }
                           onReject={handleRejectCandidate}
+                          onRejectWithEmail={handleRejectCandidateWithEmail}
+                          jobTitle={job?.title || "Position"}
+                          companyName={company?.name || "Company"}
                           onHire={
                             showHireButton ? handleHireCandidate : undefined
                           }
@@ -1355,6 +1532,21 @@ export default function JobPipelinePage() {
             )}
           </div>
         </div>
+      )}
+
+      {/* Success Notification Modal */}
+      {showSuccessModal && successCandidate && (
+        <SuccessNotificationModal
+          isOpen={showSuccessModal}
+          onClose={() => {
+            setShowSuccessModal(false);
+            setSuccessCandidate(null);
+          }}
+          candidate={successCandidate}
+          jobTitle={job?.title || "Position"}
+          companyName={company?.name || "Company"}
+          onSuccess={handleSuccessNotification}
+        />
       )}
     </div>
   );

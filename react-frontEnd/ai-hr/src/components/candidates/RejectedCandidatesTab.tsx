@@ -519,6 +519,7 @@ interface EmailTemplate {
   name: string;
   subject: string;
   body: string;
+  emailType: string;
   isDefault: boolean;
   createdAt: string;
   updatedAt: string;
@@ -624,6 +625,7 @@ function EnhancedBulkEmailModal({
             <EmailTemplateSelector
               onTemplateSelect={handleTemplateSelect}
               selectedTemplateId={selectedTemplate?.id}
+              emailType="Reject"
             />
 
             {/* Email Customization */}

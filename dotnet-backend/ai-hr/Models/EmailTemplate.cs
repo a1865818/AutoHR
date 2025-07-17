@@ -21,6 +21,9 @@ namespace ai_hr.Models
         [Column("body")]
         public string Body { get; set; }
 
+        [Column("email_type")]
+        public string EmailType { get; set; } = "Reject"; // "Reject" or "Success"
+
         [Column("is_default")]
         public bool IsDefault { get; set; }
 

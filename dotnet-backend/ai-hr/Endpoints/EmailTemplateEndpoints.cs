@@ -35,7 +35,8 @@ namespace ai_hr.Endpoints
 
         private static async Task<IResult> GetTemplates(
             [FromServices] Supabase.Client client,
-            ClaimsPrincipal user)
+            ClaimsPrincipal user,
+            [FromQuery] string? emailType = null)
         {
             try
             {
@@ -69,6 +70,15 @@ namespace ai_hr.Endpoints
                     .OrderByDescending(t => t.CreatedAt)
                     .ToList();
 
+                // Apply email type filter if specified
+                if (!string.IsNullOrEmpty(emailType))
+                {
+                    companyTemplates = companyTemplates
+                        .Where(t => t.EmailType == emailType)
+                        .ToList();
+                    Console.WriteLine($"🔍 Filtered templates by email type '{emailType}': {companyTemplates.Count}");
+                }
+
                 Console.WriteLine($"🏢 Templates for company {hiringUser.CompanyId}: {companyTemplates.Count}");
 
                 // Convert to DTOs to avoid serialization issues with Supabase BaseModel
@@ -78,6 +88,7 @@ namespace ai_hr.Endpoints
                     name = template.Name,
                     subject = template.Subject,
                     body = template.Body,
+                    emailType = template.EmailType,
                     isDefault = template.IsDefault,
                     createdAt = template.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                     updatedAt = template.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -118,6 +129,7 @@ namespace ai_hr.Endpoints
                     Name = request.Name,
                     Subject = request.Subject,
                     Body = request.Body,
+                    EmailType = request.EmailType,
                     IsDefault = request.IsDefault,
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
@@ -135,6 +147,7 @@ namespace ai_hr.Endpoints
                         name = createdTemplate.Name,
                         subject = createdTemplate.Subject,
                         body = createdTemplate.Body,
+                        emailType = createdTemplate.EmailType,
                         isDefault = createdTemplate.IsDefault,
                         createdAt = createdTemplate.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                         updatedAt = createdTemplate.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -186,6 +199,7 @@ namespace ai_hr.Endpoints
                 existingTemplate.Name = request.Name ?? existingTemplate.Name;
                 existingTemplate.Subject = request.Subject ?? existingTemplate.Subject;
                 existingTemplate.Body = request.Body ?? existingTemplate.Body;
+                existingTemplate.EmailType = request.EmailType ?? existingTemplate.EmailType;
                 existingTemplate.IsDefault = request.IsDefault ?? existingTemplate.IsDefault;
                 existingTemplate.UpdatedAt = DateTime.UtcNow;
 
@@ -201,6 +215,7 @@ namespace ai_hr.Endpoints
                         name = updatedTemplate.Name,
                         subject = updatedTemplate.Subject,
                         body = updatedTemplate.Body,
+                        emailType = updatedTemplate.EmailType,
                         isDefault = updatedTemplate.IsDefault,
                         createdAt = updatedTemplate.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
                         updatedAt = updatedTemplate.UpdatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -258,6 +273,7 @@ namespace ai_hr.Endpoints
         public string Name { get; set; } = string.Empty;
         public string Subject { get; set; } = string.Empty;
         public string Body { get; set; } = string.Empty;
+        public string EmailType { get; set; } = "Reject"; // "Reject" or "Success"
         public bool IsDefault { get; set; } = false;
     }
 
@@ -266,6 +282,7 @@ namespace ai_hr.Endpoints
         public string? Name { get; set; }
         public string? Subject { get; set; }
         public string? Body { get; set; }
+        public string? EmailType { get; set; }
         public bool? IsDefault { get; set; }
     }
 }

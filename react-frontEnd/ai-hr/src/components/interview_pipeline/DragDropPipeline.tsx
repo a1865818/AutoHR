@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Candidate } from "@/interfaces";
 import { InterviewRound } from "@/interfaces/interview";
+import { HoverRejectModal } from "./HoverRejectModal";
 
 interface PipelineCandidate extends Candidate {
   currentRoundId?: string;
@@ -29,10 +30,22 @@ interface DragDropCandidateCardProps {
   onMove?: (candidateId: string, direction: "left" | "right") => void;
   onSchedule?: (candidateId: string) => void;
   onReject?: (candidateId: string) => void;
+  onRejectWithEmail?: (
+    candidateId: string,
+    emailData: {
+      reason: string;
+      notes?: string;
+      templateId?: string;
+      subject: string;
+      body: string;
+    }
+  ) => Promise<void>;
   onHire?: (candidateId: string) => void;
   onOffer?: (candidateId: string) => void;
   onViewProfile?: (candidateId: string) => void;
   onAddNote?: (candidateId: string, note: string) => void;
+  jobTitle?: string;
+  companyName?: string;
 }
 
 export function DragDropCandidateCard({
@@ -43,14 +56,18 @@ export function DragDropCandidateCard({
   onMove,
   onSchedule,
   onReject,
+  onRejectWithEmail,
   onHire,
   onOffer,
   onViewProfile,
   onAddNote,
+  jobTitle = "Position",
+  companyName = "Company",
 }: DragDropCandidateCardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
   const [note, setNote] = useState("");
   const dragRef = useRef<HTMLDivElement>(null);
 
@@ -115,6 +132,39 @@ export function DragDropCandidateCard({
       onAddNote?.(candidate.id, note);
       setNote("");
       setShowNoteModal(false);
+    }
+  };
+
+  const handleRejectWithEmail = async (
+    candidateId: string,
+    emailData: {
+      reason: string;
+      notes?: string;
+      templateId?: string;
+      subject: string;
+      body: string;
+    }
+  ) => {
+    try {
+      if (onRejectWithEmail) {
+        await onRejectWithEmail(candidateId, emailData);
+      } else {
+        // Fallback to simple reject
+        onReject?.(candidateId);
+      }
+      setShowRejectModal(false);
+    } catch (error) {
+      console.error("Error rejecting candidate with email:", error);
+      throw error; // Re-throw so the modal can handle the error
+    }
+  };
+
+  const handleRejectClick = () => {
+    if (onRejectWithEmail && jobTitle && companyName) {
+      setShowRejectModal(true);
+    } else {
+      // Fallback to simple reject
+      onReject?.(candidate.id);
     }
   };
 
@@ -309,9 +359,9 @@ export function DragDropCandidateCard({
                 </button>
               )}
 
-              {onReject && (
+              {(onReject || onRejectWithEmail) && (
                 <button
-                  onClick={() => onReject?.(candidate.id)}
+                  onClick={handleRejectClick}
                   className="flex-1 flex items-center justify-center space-x-1 text-xs bg-red-50 text-red-700 hover:bg-red-100 px-2 py-1 rounded transition-colors"
                 >
                   <XCircle className="h-3 w-3" />
@@ -353,6 +403,16 @@ export function DragDropCandidateCard({
           </div>
         </div>
       )}
+
+      {/* Hover Reject Modal */}
+      <HoverRejectModal
+        isOpen={showRejectModal}
+        onClose={() => setShowRejectModal(false)}
+        candidate={candidate}
+        jobTitle={jobTitle}
+        companyName={companyName}
+        onReject={handleRejectWithEmail}
+      />
 
       {/* Drag Indicator */}
       {isDragging && (

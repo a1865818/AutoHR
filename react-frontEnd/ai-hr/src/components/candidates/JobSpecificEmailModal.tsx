@@ -17,6 +17,10 @@ interface EmailTemplate {
   name: string;
   subject: string;
   body: string;
+  emailType: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 const DEFAULT_EMAIL_TEMPLATES: EmailTemplate[] = [
@@ -36,6 +40,10 @@ Thank you again for your interest in {companyName}. We wish you the best of luck
 
 Best regards,
 The {companyName} Team`,
+    emailType: "Reject",
+    isDefault: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
   {
     id: "friendly",
@@ -53,6 +61,10 @@ We wish you all the best in your job search and hope our paths cross again soon!
 
 Warm regards,
 The {companyName} Team`,
+    emailType: "Reject",
+    isDefault: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
   {
     id: "concise",
@@ -68,6 +80,10 @@ We appreciate your interest in {companyName} and encourage you to apply for futu
 
 Best regards,
 The {companyName} Team`,
+    emailType: "Reject",
+    isDefault: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
 ];
 

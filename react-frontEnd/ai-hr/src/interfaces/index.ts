@@ -80,6 +80,7 @@ export interface EmailTemplate {
   name: string;
   subject: string;
   body: string;
+  emailType: string; // "Reject" or "Success"
   isDefault: boolean;
   createdAt: string;
   updatedAt: string;
