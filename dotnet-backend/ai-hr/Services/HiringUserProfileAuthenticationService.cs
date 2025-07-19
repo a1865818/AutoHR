@@ -72,6 +72,7 @@ namespace ai_hr.Services
                     LastName = user.LastName,
                     UserCategory = "HiringUserProfile",
                     UserType = user.UserType,
+                    Roles = user.Roles,
                     CompanyId = user.CompanyId,
                     TokenExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpiryMinutes)
                 };
@@ -266,6 +267,7 @@ namespace ai_hr.Services
                     LastName = createdProfile.LastName,
                     UserCategory = "HiringUserProfile",
                     UserType = createdProfile.UserType,
+                    Roles = createdProfile.Roles,
                     CompanyId = createdProfile.CompanyId,
                     TokenExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpiryMinutes)
                 };
@@ -317,6 +319,7 @@ namespace ai_hr.Services
                     LastName = user.LastName,
                     UserCategory = "HiringUserProfile",
                     UserType = user.UserType,
+                    Roles = user.Roles,
                     CompanyId = user.CompanyId,
                     TokenExpiresAt = DateTime.UtcNow.AddMinutes(_jwtSettings.AccessTokenExpiryMinutes)
                 };

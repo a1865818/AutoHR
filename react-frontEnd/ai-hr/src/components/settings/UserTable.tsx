@@ -7,26 +7,63 @@ interface User {
   role: string;
   status: "active" | "pending" | "inactive";
   avatar?: string;
+  // Additional fields from backend
+  firstName?: string;
+  lastName?: string;
+  isActive?: boolean;
+  roles?: string;
+  userType?: string;
+  companyId?: string;
+  bio?: string;
+  linkedinUrl?: string;
+  location?: any;
+  preferences?: any;
+  createdAt?: string;
 }
 
 interface UserTableProps {
   users: User[];
   onEditUser: (userId: string) => void;
   onDeleteUser: (userId: string) => void;
+  currentUserRole?: string | undefined;
 }
 
-export function UserTable({ users, onEditUser, onDeleteUser }: UserTableProps) {
-  const getStatusColor = (status: User["status"]) => {
-    switch (status) {
-      case "active":
-        return "bg-green-100 text-green-800";
-      case "pending":
-        return "bg-yellow-100 text-yellow-800";
-      case "inactive":
-        return "bg-red-100 text-red-800";
-      default:
-        return "bg-gray-100 text-gray-800";
+export function UserTable({
+  users,
+  onEditUser,
+  onDeleteUser,
+  currentUserRole,
+}: UserTableProps) {
+  console.log("🔍 UserTable - currentUserRole:", currentUserRole);
+
+  const getStatusColor = (user: User) => {
+    // Use isActive field if available, otherwise fall back to status field
+    const isActive =
+      user.isActive !== undefined ? user.isActive : user.status === "active";
+
+    if (isActive) {
+      return "bg-green-100 text-green-800";
+    } else {
+      return "bg-red-100 text-red-800";
     }
+  };
+
+  const getStatusText = (user: User) => {
+    // Use isActive field if available, otherwise fall back to status field
+    const isActive =
+      user.isActive !== undefined ? user.isActive : user.status === "active";
+
+    return isActive ? "active" : "inactive";
+  };
+
+  const getRoleText = (user: User) => {
+    // Use roles field if available, otherwise fall back to role field
+    return user.roles || user.role || "User";
+  };
+
+  const isCurrentUserAdmin = () => {
+    // If currentUserRole is undefined, it means we're still loading user data
+    return currentUserRole === "Admin";
   };
 
   return (
@@ -44,9 +81,11 @@ export function UserTable({ users, onEditUser, onDeleteUser }: UserTableProps) {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Status
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
+              {isCurrentUserAdmin() && (
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              )}
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -72,42 +111,44 @@ export function UserTable({ users, onEditUser, onDeleteUser }: UserTableProps) {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
-                    {user.role}
+                    {getRoleText(user)}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span
                     className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
-                      user.status
+                      user
                     )}`}
                   >
-                    {user.status}
+                    {getStatusText(user)}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onEditUser(user.id);
-                    }}
-                    className="text-primary hover:text-blue-900 mr-2"
-                    type="button"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onDeleteUser(user.id);
-                    }}
-                    className="text-red-600 hover:text-red-900"
-                    type="button"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </td>
+                {isCurrentUserAdmin() && (
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onEditUser(user.id);
+                      }}
+                      className="text-primary hover:text-blue-900 mr-2"
+                      type="button"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onDeleteUser(user.id);
+                      }}
+                      className="text-red-600 hover:text-red-900"
+                      type="button"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>

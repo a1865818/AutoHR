@@ -206,6 +206,7 @@ export default function NewCompanyPage() {
           email: companyData.email,
           description: companyData.description,
           logoUrl: companyData.logoUrl || undefined,
+          creatorEmail: userData.email.trim(),
         },
       };
 

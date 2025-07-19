@@ -82,14 +82,14 @@ export function ProfileNavigation({
                 onClick={() => onTabChange(item.id)}
                 className={`w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all duration-200 group ${
                   isActive
-                    ? "bg-blue-50 text-blue-700 border border-blue-200 shadow-sm"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    ? "bg-indigo-100 text-indigo-700 border-l-4 border-indigo-600 shadow-sm font-semibold"
+                    : "text-gray-600 hover:bg-indigo-50 hover:text-indigo-600"
                 }`}
               >
                 <div
                   className={`mt-0.5 ${
                     isActive
-                      ? "text-blue-600"
+                      ? "text-indigo-600"
                       : "text-gray-400 group-hover:text-gray-600"
                   }`}
                 >
@@ -98,21 +98,21 @@ export function ProfileNavigation({
                 <div className="min-w-0 flex-1">
                   <div
                     className={`text-sm font-medium ${
-                      isActive ? "text-blue-900" : "text-gray-900"
+                      isActive ? "text-indigo-900" : "text-gray-900"
                     }`}
                   >
                     {item.label}
                   </div>
                   <div
                     className={`text-xs mt-0.5 ${
-                      isActive ? "text-blue-600" : "text-gray-500"
+                      isActive ? "text-indigo-600" : "text-gray-500"
                     }`}
                   >
                     {item.description}
                   </div>
                 </div>
                 {isActive && (
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mt-2"></div>
+                  <div className="w-2 h-2 bg-indigo-500 rounded-full mt-2"></div>
                 )}
               </button>
             );

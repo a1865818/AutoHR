@@ -13,6 +13,7 @@ namespace ai_hr.Contracts
 
         // HiringUserProfile specific fields (optional)
         public string? UserType { get; set; }
+        public string? Roles { get; set; }
         public Guid? CompanyId { get; set; }
     }
 }

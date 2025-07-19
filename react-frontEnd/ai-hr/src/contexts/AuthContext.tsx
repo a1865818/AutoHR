@@ -62,7 +62,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     // Only check auth status on client side
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       checkAuthStatus();
     }
   }, []);
@@ -70,12 +70,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Listen for storage events from other tabs
   useEffect(() => {
     // Don't set up storage events on server side
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return;
     }
 
     const cleanup = storageEvents.listen((event) => {
-      if (event.type === 'logout') {
+      if (event.type === "logout") {
         // Another tab logged out, clear auth state in this tab
         setUser(null);
         sessionCookies.clearSessionData();
@@ -87,9 +87,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         sessionStorage.removeItem("authToken");
         sessionStorage.removeItem("refreshToken");
         sessionStorage.removeItem("userCategory");
-      } else if (event.type === 'login') {
+      } else if (event.type === "login") {
         // Another tab logged in, refresh auth status
-    checkAuthStatus();
+        checkAuthStatus();
       }
     });
 
@@ -99,7 +99,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Handle automatic navigation on auth state changes
   useEffect(() => {
     // Only handle navigation on client side
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return;
     }
 
@@ -131,7 +131,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const checkAuthStatus = async () => {
     // Don't check auth status on server side
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       setIsLoading(false);
       return;
     }
@@ -142,37 +142,41 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // First try to get session data from cookies
       const sessionData = sessionCookies.getSessionData();
-      
+
       console.log("🔍 AuthContext: Session data from cookies:", {
         hasAuthToken: !!sessionData.authToken,
         hasUserCategory: !!sessionData.userCategory,
         hasUserData: !!sessionData.userData,
         userCategory: sessionData.userCategory,
       });
-      
-      if (sessionData.authToken && sessionData.userCategory && sessionData.userData) {
-                  try {
-            // Verify token with backend based on user category
-            const userData =
-              sessionData.userCategory === "ApplicationUser"
-                ? await apiService.getCurrentApplicationUser()
-                : await apiService.getCurrentUser();
 
-            console.log("🔍 AuthContext - Backend user data response:", userData);
+      if (
+        sessionData.authToken &&
+        sessionData.userCategory &&
+        sessionData.userData
+      ) {
+        try {
+          // Verify token with backend based on user category
+          const userData =
+            sessionData.userCategory === "ApplicationUser"
+              ? await apiService.getCurrentApplicationUser()
+              : await apiService.getCurrentUser();
 
-            const user: User = {
-              id: userData.id,
-              email: userData.email,
-              firstName: userData.firstName,
-              lastName: userData.lastName,
-              name: `${userData.firstName} ${userData.lastName}`,
-              role: userData.userType || userData.roles,
-              userType: userData.userType,
-              userCategory: userData.userCategory || sessionData.userCategory,
-              companyId: userData.companyId,
-            };
+          console.log("🔍 AuthContext - Backend user data response:", userData);
 
-            console.log("🔍 AuthContext - Constructed user object:", user);
+          const user: User = {
+            id: userData.id,
+            email: userData.email,
+            firstName: userData.firstName,
+            lastName: userData.lastName,
+            name: `${userData.firstName} ${userData.lastName}`,
+            role: userData.roles || "HiringUser",
+            userType: userData.userType,
+            userCategory: userData.userCategory || sessionData.userCategory,
+            companyId: userData.companyId,
+          };
+
+          console.log("🔍 AuthContext - Constructed user object:", user);
 
           setUser(user);
         } catch (error) {
@@ -189,45 +193,60 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           localStorage.getItem("userCategory") ||
           sessionStorage.getItem("userCategory");
 
-        console.log("🔍 AuthContext: Fallback to localStorage/sessionStorage:", {
-          hasToken: !!token,
-          hasUserCategory: !!userCategory,
-          userCategory: userCategory,
-        });
+        console.log(
+          "🔍 AuthContext: Fallback to localStorage/sessionStorage:",
+          {
+            hasToken: !!token,
+            hasUserCategory: !!userCategory,
+            userCategory: userCategory,
+          }
+        );
 
         if (token && userCategory) {
           try {
-        // Verify token with backend based on user category
-        const userData =
-          userCategory === "ApplicationUser"
-            ? await apiService.getCurrentApplicationUser()
-            : await apiService.getCurrentUser();
+            // Verify token with backend based on user category
+            const userData =
+              userCategory === "ApplicationUser"
+                ? await apiService.getCurrentApplicationUser()
+                : await apiService.getCurrentUser();
 
-            console.log("🔍 AuthContext (localStorage) - Backend user data response:", userData);
+            console.log(
+              "🔍 AuthContext (localStorage) - Backend user data response:",
+              userData
+            );
 
-        const user: User = {
-          id: userData.id,
-          email: userData.email,
-          firstName: userData.firstName,
-          lastName: userData.lastName,
-          name: `${userData.firstName} ${userData.lastName}`,
-          role: userData.userType || userData.roles,
-          userType: userData.userType,
-          userCategory: userData.userCategory || userCategory,
-          companyId: userData.companyId,
-        };
+            const user: User = {
+              id: userData.id,
+              email: userData.email,
+              firstName: userData.firstName,
+              lastName: userData.lastName,
+              name: `${userData.firstName} ${userData.lastName}`,
+              role: userData.roles || userData.userType || "HiringUser",
+              userType: userData.userType,
+              userCategory: userData.userCategory || userCategory,
+              companyId: userData.companyId,
+            };
 
-            console.log("🔍 AuthContext (localStorage) - Constructed user object:", user);
+            console.log(
+              "🔍 AuthContext (localStorage) - Constructed user object:",
+              user
+            );
 
-        setUser(user);
-            
+            setUser(user);
+
             // Migrate to cookies for future sessions
-            sessionCookies.setSessionData({
-              authToken: token,
-              refreshToken: localStorage.getItem("refreshToken") || sessionStorage.getItem("refreshToken") || "",
-              userCategory: user.userCategory,
-              userData: JSON.stringify(user),
-            }, true);
+            sessionCookies.setSessionData(
+              {
+                authToken: token,
+                refreshToken:
+                  localStorage.getItem("refreshToken") ||
+                  sessionStorage.getItem("refreshToken") ||
+                  "",
+                userCategory: user.userCategory,
+                userData: JSON.stringify(user),
+              },
+              true
+            );
           } catch (error) {
             console.error("Error verifying localStorage token:", error);
             // Clear invalid stored data
@@ -290,7 +309,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         role:
           userType === "application"
             ? "User"
-            : (response as any).userType || "User",
+            : (response as any).roles || "HiringUser",
         userType:
           userType === "application" ? undefined : (response as any).userType,
         userCategory:
@@ -312,7 +331,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         userCategory: user.userCategory,
         userData: JSON.stringify(user),
       };
-      
+
       sessionCookies.setSessionData(sessionData, rememberMe);
 
       // Also store in localStorage/sessionStorage for backward compatibility
@@ -323,7 +342,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       storage.setItem("userCategory", user.userCategory);
 
       // Notify other tabs about the login
-      storageEvents.dispatch('login', { userCategory: user.userCategory });
+      storageEvents.dispatch("login", { userCategory: user.userCategory });
 
       return true;
     } catch (error) {
@@ -374,7 +393,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         role:
           userData.userType === "application"
             ? "User"
-            : (response as any).userType || "User",
+            : (response as any).roles || (response as any).userType || "User",
         userType:
           userData.userType === "application"
             ? undefined
@@ -392,12 +411,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(user);
 
       // Store session data in cookies for cross-tab persistence
-      sessionCookies.setSessionData({
-        authToken: response.accessToken,
-        refreshToken: response.refreshToken,
-        userCategory: user.userCategory,
-        userData: JSON.stringify(user),
-      }, false); // Registration always uses session cookies (not remember me)
+      sessionCookies.setSessionData(
+        {
+          authToken: response.accessToken,
+          refreshToken: response.refreshToken,
+          userCategory: user.userCategory,
+          userData: JSON.stringify(user),
+        },
+        false
+      ); // Registration always uses session cookies (not remember me)
 
       // Also store in sessionStorage for backward compatibility
       sessionStorage.setItem("currentUser", JSON.stringify(user));
@@ -406,7 +428,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       sessionStorage.setItem("userCategory", user.userCategory);
 
       // Notify other tabs about the login
-      storageEvents.dispatch('login', { userCategory: user.userCategory });
+      storageEvents.dispatch("login", { userCategory: user.userCategory });
 
       setIsLoading(false);
       return true;
@@ -440,7 +462,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     sessionStorage.removeItem("userCategory");
 
     // Notify other tabs about the logout
-    storageEvents.dispatch('logout');
+    storageEvents.dispatch("logout");
 
     // Make API call in background (don't await to avoid delays)
     if (token) {
@@ -466,12 +488,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Update stored user data in cookies
       const sessionData = sessionCookies.getSessionData();
       if (sessionData.authToken) {
-        sessionCookies.setSessionData({
-          authToken: sessionData.authToken,
-          refreshToken: sessionData.refreshToken || "",
-          userCategory: updatedUser.userCategory,
-          userData: JSON.stringify(updatedUser),
-        }, true); // Preserve remember me setting
+        sessionCookies.setSessionData(
+          {
+            authToken: sessionData.authToken,
+            refreshToken: sessionData.refreshToken || "",
+            userCategory: updatedUser.userCategory,
+            userData: JSON.stringify(updatedUser),
+          },
+          true
+        ); // Preserve remember me setting
       }
 
       // Update stored user data in localStorage/sessionStorage

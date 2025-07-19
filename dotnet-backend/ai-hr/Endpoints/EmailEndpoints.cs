@@ -24,6 +24,92 @@ public static class EmailEndpoints
             .WithDescription("Sends personalized success/advancement emails to multiple candidates using Gmail API")
             .RequireAuthorization();
 
+        app.MapPost("/api/emails/team-invitation", SendTeamInvitationEmail)
+            .WithTags("Emails")
+            .WithName("SendTeamInvitationEmail")
+            .WithSummary("Send team invitation email via Gmail")
+            .WithDescription("Sends team invitation email to a potential team member using Gmail API")
+            .RequireAuthorization();
+    }
+
+    private static async Task<IResult> SendTeamInvitationEmail(
+        [FromBody] TeamInvitationEmailRequest request,
+        [FromServices] Supabase.Client client,
+        [FromServices] IGmailService gmailService,
+        ClaimsPrincipal user)
+    {
+        try
+        {
+            Console.WriteLine($"📧 Processing team invitation email request for {request.Email}");
+
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
+            {
+                return Results.Unauthorized();
+            }
+
+            // Get hiring user and company info
+            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
+            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
+
+            if (hiringUser == null)
+            {
+                return Results.Unauthorized();
+            }
+
+            var companyResponse = await client.From<Company>().Get();
+            var company = companyResponse.Models.FirstOrDefault(c => c.Id == hiringUser.CompanyId);
+
+            if (company == null)
+            {
+                return Results.BadRequest(new { error = "Company not found" });
+            }
+
+            // Validate request
+            if (string.IsNullOrEmpty(request.Email))
+            {
+                return Results.BadRequest(new { error = "Email address is required" });
+            }
+
+            if (string.IsNullOrEmpty(request.Subject) || string.IsNullOrEmpty(request.Body))
+            {
+                return Results.BadRequest(new { error = "Subject and body are required" });
+            }
+
+            // Send the email using Gmail service
+            var emailResult = await gmailService.SendEmailAsync(
+                userId,
+                request.Email,
+                request.Email, // Use email as name for team invitations
+                request.Subject,
+                request.Body
+            );
+
+            if (emailResult.Success)
+            {
+                Console.WriteLine($"✅ Team invitation email sent successfully to {request.Email}");
+                return Results.Ok(new
+                {
+                    success = true,
+                    messageId = emailResult.MessageId,
+                    sentAt = emailResult.SentAt
+                });
+            }
+            else
+            {
+                Console.WriteLine($"❌ Failed to send team invitation email to {request.Email}: {emailResult.ErrorMessage}");
+                return Results.BadRequest(new
+                {
+                    success = false,
+                    error = emailResult.ErrorMessage
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error sending team invitation email: {ex.Message}");
+            return Results.BadRequest(new { error = ex.Message });
+        }
     }
 
     private static async Task<IResult> SendBulkRejectionEmails(
@@ -463,6 +549,13 @@ Best regards,
 }
 
 // Request/Response models
+public class TeamInvitationEmailRequest
+{
+    public string Email { get; set; } = string.Empty;
+    public string Subject { get; set; } = string.Empty;
+    public string Body { get; set; } = string.Empty;
+}
+
 public class BulkEmailRequest
 {
     public List<string> CandidateIds { get; set; } = new();

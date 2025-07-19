@@ -399,11 +399,17 @@ function ApplicantSettingsNavigation({
               onClick={() => onTabChange(tab.id)}
               className={`w-full flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
                 activeTab === tab.id
-                  ? "bg-primary text-white"
-                  : "text-gray-700 hover:bg-gray-100"
+                  ? "bg-indigo-100 text-indigo-700 border-l-4 border-indigo-600 font-semibold"
+                  : "text-gray-700 hover:bg-indigo-50 hover:text-indigo-600"
               }`}
             >
-              <span className="mr-3 text-lg">{tab.icon}</span>
+              <span
+                className={`mr-3 text-lg ${
+                  activeTab === tab.id ? "text-indigo-600" : "text-gray-500"
+                }`}
+              >
+                {tab.icon}
+              </span>
               {tab.name}
             </button>
           ))}

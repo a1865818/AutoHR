@@ -16,6 +16,18 @@ export interface User {
   role: string;
   status: "active" | "pending" | "inactive";
   avatar?: string;
+  // Additional fields from backend
+  firstName?: string;
+  lastName?: string;
+  isActive?: boolean;
+  roles?: string;
+  userType?: string;
+  companyId?: string;
+  bio?: string;
+  linkedinUrl?: string;
+  location?: any;
+  preferences?: any;
+  createdAt?: string;
 }
 
 // Recruitment Settings Types

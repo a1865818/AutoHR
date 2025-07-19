@@ -41,6 +41,7 @@ export interface LoginResponse {
   lastName: string;
   userCategory: string;
   userType?: string;
+  roles?: string;
   companyId?: string;
   tokenExpiresAt: string;
 }

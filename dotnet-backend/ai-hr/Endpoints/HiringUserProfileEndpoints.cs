@@ -132,7 +132,9 @@ public static class HiringUserProfileEndpoints
                 LinkedinUrl = profile.LinkedinUrl,
                 Location = profile.Location,
                 Preferences = profile.Preferences,
-                CreatedAt = profile.CreatedAt
+                CreatedAt = profile.CreatedAt,
+                IsActive = profile.IsActive,
+                Roles = profile.Roles
             };
 
             return Results.Ok(profileDto);
@@ -145,17 +147,19 @@ public static class HiringUserProfileEndpoints
         }
     }
 
-    private static async Task<IResult> FilterHiringUserProfiles(string userType, Guid? companyId, Supabase.Client client)
+    private static async Task<IResult> FilterHiringUserProfiles(string? roles, Guid? companyId, Supabase.Client client)
     {
+
+        Console.WriteLine($"[DEBUG] FilterHiringUserProfiles called with roles='{roles}', companyId={companyId}");
         try
         {
             var response = await client.From<HiringUserProfile>().Get();
             var profiles = response.Models;
 
             // Apply filters if provided
-            if (!string.IsNullOrEmpty(userType))
+            if (!string.IsNullOrEmpty(roles))
             {
-                profiles = profiles.Where(p => p.UserType == userType).ToList();
+                profiles = profiles.Where(p => p.Roles == roles).ToList();
             }
 
             if (companyId.HasValue)
@@ -175,7 +179,9 @@ public static class HiringUserProfileEndpoints
                 LinkedinUrl = profile.LinkedinUrl,
                 Location = profile.Location,
                 Preferences = profile.Preferences,
-                CreatedAt = profile.CreatedAt
+                CreatedAt = profile.CreatedAt,
+                IsActive = profile.IsActive,
+                Roles = profile.Roles
             }).ToList();
 
             return Results.Ok(profileDtos);

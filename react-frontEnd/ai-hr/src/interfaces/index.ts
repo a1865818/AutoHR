@@ -78,7 +78,7 @@ export interface EmailTemplate {
   name: string;
   subject: string;
   body: string;
-  emailType: string; // "Reject" or "Success"
+  emailType: string; // "Reject", "Success", or "TeamInvitation"
   isDefault: boolean;
   createdAt: string;
   updatedAt: string;
@@ -148,5 +148,5 @@ export * from "./notifications";
 // Export apply form interfaces
 export * from "./apply";
 
-// Export interview interfaces
-export * from "./interview";
+// Export interview interfaces (explicitly to avoid conflicts)
+export type { InterviewRound, InterviewTemplate } from "./interview";

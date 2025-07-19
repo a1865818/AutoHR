@@ -191,7 +191,7 @@ export function SuccessNotificationModal({
       <div className="fixed inset-0 z-50">
         {/* Blurred background */}
         <div
-          className="absolute inset-0 bg-white/30 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-all duration-300"
           onClick={onClose}
         />
         {/* Modal content */}

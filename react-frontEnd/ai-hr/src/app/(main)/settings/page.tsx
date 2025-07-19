@@ -18,9 +18,13 @@ import {
   RecruitmentConfig,
   User,
 } from "@/interfaces";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { teamService } from "@/services/teamService";
+import { useAuth } from "@/contexts/AuthContext";
+import { apiService } from "@/services/api";
 
 export default function SettingsPage() {
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState("company");
   const [isLoading, setIsLoading] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
@@ -38,38 +42,19 @@ export default function SettingsPage() {
 
   // Company data state
   const [companyData, setCompanyData] = useState<CompanyData>({
-    name: "TechCorp Solutions",
-    website: "https://techcorp.com",
-    industry: "Technology",
-    size: "51-200",
-    description: "Leading technology solutions provider",
+    name: "",
+    website: "",
+    industry: "",
+    size: "",
+    description: "",
     logo: "",
   });
+  const [isLoadingCompany, setIsLoadingCompany] = useState(false);
 
   // Users state
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: "1",
-      name: "Caroline Robertson",
-      email: "caroline@techcorp.com",
-      role: "admin",
-      status: "active",
-    },
-    {
-      id: "2",
-      name: "John Smith",
-      email: "john@techcorp.com",
-      role: "recruiter",
-      status: "active",
-    },
-    {
-      id: "3",
-      name: "Sarah Johnson",
-      email: "sarah@techcorp.com",
-      role: "manager",
-      status: "pending",
-    },
-  ]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+  const [usersError, setUsersError] = useState<string | null>(null);
 
   // Recruitment config state
   const [recruitmentConfig, setRecruitmentConfig] = useState<RecruitmentConfig>(
@@ -132,6 +117,91 @@ export default function SettingsPage() {
     setToast((prev) => ({ ...prev, isVisible: false }));
   };
 
+  // Load company data
+  const loadCompanyData = async () => {
+    if (!user?.companyId) {
+      console.log("⚠️ No company ID found for user");
+      return;
+    }
+
+    setIsLoadingCompany(true);
+    try {
+      console.log("🏢 Loading company data for company ID:", user.companyId);
+      const company = await apiService.getCompanyById(user.companyId);
+
+      setCompanyData({
+        name: company.name || "",
+        website: company.website || "",
+        industry: company.industry || "",
+        size: company.companySize || "",
+        description: company.description || "",
+        logo: company.logoUrl || "",
+      });
+
+      console.log("✅ Company data loaded successfully:", company);
+    } catch (error) {
+      console.error("❌ Failed to load company data:", error);
+      showToast("Failed to load company data. Please try again.", "error");
+    } finally {
+      setIsLoadingCompany(false);
+    }
+  };
+
+  // Load team data when component mounts and authentication is confirmed
+  useEffect(() => {
+    console.log("🔍 Settings - useEffect triggered:", {
+      isAuthenticated,
+      authLoading,
+      user: user
+        ? {
+            id: user.id,
+            email: user.email,
+            companyId: user.companyId,
+            userCategory: user.userCategory,
+          }
+        : null,
+    });
+
+    if (isAuthenticated && !authLoading) {
+      loadTeamData();
+      loadCompanyData();
+    }
+  }, [isAuthenticated, authLoading, user]);
+
+  const loadTeamData = async () => {
+    // Don't load data if not authenticated
+    if (!isAuthenticated) {
+      console.log("⚠️ Skipping team data load - user not authenticated");
+      return;
+    }
+
+    console.log("🔍 Settings - loadTeamData called with user:", {
+      id: user?.id,
+      email: user?.email,
+      companyId: user?.companyId,
+      userCategory: user?.userCategory,
+      role: user?.role,
+      userType: user?.userType,
+      fullUser: user,
+    });
+
+    setIsLoadingUsers(true);
+    setUsersError(null);
+    try {
+      const teamMembers = await teamService.getTeamMembers();
+      setUsers(teamMembers);
+      console.log("✅ Team data loaded successfully:", teamMembers);
+    } catch (error) {
+      console.error("❌ Failed to load team data:", error);
+      setUsersError(
+        error instanceof Error ? error.message : "Failed to load team data"
+      );
+      showToast("Failed to load team data. Please try again.", "error");
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
   // Event handlers
 
   const handleNotificationToggle = (id: string, type: "email" | "push") => {
@@ -148,26 +218,40 @@ export default function SettingsPage() {
     role: string;
     message?: string;
   }) => {
+    if (!isAuthenticated) {
+      showToast("Authentication required to invite team members.", "error");
+      return;
+    }
+
+    if (authLoading) {
+      showToast("Please wait while user data is loading.", "error");
+      return;
+    }
+
+    // Check if user is admin
+    const currentUserRole = user?.role || "HiringUser";
+    console.log("🔍 Settings - currentUserRole:", currentUserRole);
+    if (currentUserRole !== "Admin") {
+      showToast("Only administrators can invite team members.", "error");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Simulate API call to send invitation
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const invitationResult = await teamService.inviteTeamMember(userData);
 
-      // Create a new user with pending status
-      const newUser = {
-        id: Date.now().toString(), // In real app, this would come from API
-        name: userData.email.split("@")[0], // Temporary name until they join
-        email: userData.email,
-        role: userData.role,
-        status: "pending" as const,
-      };
+      if (invitationResult.success) {
+        console.log("Invitation sent successfully:", invitationResult);
+        showToast(
+          `Invitation sent to ${userData.email} successfully!`,
+          "success"
+        );
 
-      setUsers((prev) => [...prev, newUser]);
-      console.log("Invitation sent:", userData);
-      showToast(
-        `Invitation sent to ${userData.email} successfully!`,
-        "success"
-      );
+        // Refresh the team members list to show any pending invitations
+        await loadTeamData();
+      } else {
+        throw new Error(invitationResult.error || "Failed to send invitation");
+      }
     } catch (error) {
       console.error("Failed to send invitation:", error);
       showToast("Failed to send invitation. Please try again.", "error");
@@ -177,11 +261,42 @@ export default function SettingsPage() {
   };
 
   const handleUpdateUser = async (updatedUser: User) => {
+    if (!isAuthenticated) {
+      showToast("Authentication required to update team members.", "error");
+      return;
+    }
+
+    if (authLoading) {
+      showToast("Please wait while user data is loading.", "error");
+      return;
+    }
+
+    // Check if user is admin
+    const currentUserRole = user?.role || "HiringUser";
+    console.log("🔍 Settings - currentUserRole (update):", currentUserRole);
+    if (currentUserRole !== "Admin") {
+      showToast("Only administrators can update team members.", "error");
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      // Prepare the data for the backend
+      const updateData = {
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+        email: updatedUser.email,
+        userType: updatedUser.userType,
+        bio: updatedUser.bio,
+        linkedinUrl: updatedUser.linkedinUrl,
+        location: updatedUser.location,
+        preferences: updatedUser.preferences,
+        isActive: updatedUser.isActive,
+      };
 
+      await teamService.updateTeamMember(updatedUser.id, updateData);
+
+      // Update the local state
       setUsers((prev) =>
         prev.map((user) => (user.id === updatedUser.id ? updatedUser : user))
       );
@@ -196,10 +311,38 @@ export default function SettingsPage() {
     }
   };
 
-  const handleDeleteUser = (userId: string) => {
-    console.log("Delete user:", userId);
-    setUsers((prev) => prev.filter((user) => user.id !== userId));
-    showToast("Team member deleted successfully!", "success");
+  const handleDeleteUser = async (userId: string) => {
+    if (!isAuthenticated) {
+      showToast("Authentication required to delete team members.", "error");
+      return;
+    }
+
+    if (authLoading) {
+      showToast("Please wait while user data is loading.", "error");
+      return;
+    }
+
+    // Check if user is admin
+    const currentUserRole = user?.role || "HiringUser";
+    console.log("🔍 Settings - currentUserRole (delete):", currentUserRole);
+    if (currentUserRole !== "Admin") {
+      showToast("Only administrators can delete team members.", "error");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      await teamService.deleteTeamMember(userId);
+
+      setUsers((prev) => prev.filter((user) => user.id !== userId));
+      console.log("Delete user:", userId);
+      showToast("Team member deleted successfully!", "success");
+    } catch (error) {
+      console.error("Failed to delete user:", error);
+      showToast("Failed to delete team member. Please try again.", "error");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Integration handlers
@@ -266,7 +409,18 @@ export default function SettingsPage() {
             onInviteUser={handleInviteUser}
             onUpdateUser={handleUpdateUser}
             onDeleteUser={handleDeleteUser}
-            isLoading={isLoading}
+            isLoading={
+              isLoading || isLoadingUsers || authLoading || isLoadingCompany
+            }
+            currentUserRole={
+              authLoading ? undefined : user?.role || "HiringUser"
+            }
+            companyId={user?.companyId}
+            companyName={isLoadingCompany ? "Loading..." : companyData.name}
+            inviterName={
+              `${user?.firstName || ""} ${user?.lastName || ""}`.trim() ||
+              user?.email
+            }
           />
         );
       case "recruitment":
