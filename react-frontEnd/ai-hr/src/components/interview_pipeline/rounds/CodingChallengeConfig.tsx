@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useRoundConfiguration } from "@/hooks/useRoundConfiguration";
 import { cleanJsonObject } from "@/utils/jsonUtils";
+import { RoundInstructions } from "./shared/RoundInstructions";
 
 interface ExternalPlatformConfig {
   platform: "hackerrank" | "codility" | "leetcode" | "custom";
@@ -204,8 +205,10 @@ export function CodingChallengeConfig({
         <h2 className="text-2xl font-bold text-gray-800">
           Coding Challenge Configuration
         </h2>
-       
       </div>
+
+      {/* Round Instructions */}
+      <RoundInstructions roundType="coding_challenge" />
 
       {/* Configuration Name */}
       <div className="mb-4">

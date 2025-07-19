@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useRoundConfiguration } from "@/hooks/useRoundConfiguration";
 import { cleanJsonObject } from "@/utils/jsonUtils";
+import { RoundInstructions } from "./shared/RoundInstructions";
 
 interface PanelMember {
   id: string;
@@ -410,6 +411,9 @@ export function PanelInterviewConfig({
           {saving ? "Saving..." : "Save Configuration"}
         </button> */}
       </div>
+
+      {/* Round Instructions */}
+      <RoundInstructions roundType="panel_interview" />
 
       {/* Configuration Name */}
       <div className="mb-4">
@@ -1041,7 +1045,11 @@ export function PanelInterviewConfig({
                   handleConfigChange({
                     votingRules: {
                       ...config.votingRules,
-                      type: e.target.value as "unanimous" | "majority" | "weighted" | "lead_decides",
+                      type: e.target.value as
+                        | "unanimous"
+                        | "majority"
+                        | "weighted"
+                        | "lead_decides",
                     },
                   })
                 }

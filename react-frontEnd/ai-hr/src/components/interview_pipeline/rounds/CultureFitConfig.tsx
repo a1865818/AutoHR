@@ -313,7 +313,8 @@ export function CultureFitConfig({
     const configToSave = {
       name: config.name,
       description:
-        savedConfig?.description || "Configuration for culture fit assessment round",
+        savedConfig?.description ||
+        "Configuration for culture fit assessment round",
       duration: config.duration,
       status: savedConfig?.status || "draft",
       configurationData: cleanConfigData,
@@ -377,8 +378,6 @@ export function CultureFitConfig({
       companyValues: config.companyValues.filter((v) => v.id !== valueId),
     });
   };
-
-
 
   const addCultureQuestion = () => {
     if (!newQuestion.text.trim()) return;
@@ -487,7 +486,6 @@ export function CultureFitConfig({
         <h2 className="text-2xl font-bold text-gray-800">
           Culture Fit Configuration
         </h2>
-       
       </div>
 
       {/* Configuration Name */}
@@ -1143,7 +1141,12 @@ export function CultureFitConfig({
                 <select
                   value={config.scoringMethod}
                   onChange={(e) =>
-                    handleConfigChange({ scoringMethod: e.target.value as "weighted" | "balanced" | "holistic" })
+                    handleConfigChange({
+                      scoringMethod: e.target.value as
+                        | "weighted"
+                        | "balanced"
+                        | "holistic",
+                    })
                   }
                   className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
                 >

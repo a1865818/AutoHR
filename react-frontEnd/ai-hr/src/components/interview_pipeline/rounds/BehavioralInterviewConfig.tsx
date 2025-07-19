@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useRoundConfiguration } from "@/hooks/useRoundConfiguration";
 import { cleanJsonObject } from "@/utils/jsonUtils";
+import { RoundInstructions } from "./shared/RoundInstructions";
 
 interface Competency {
   id: string;
@@ -289,7 +290,8 @@ export function BehavioralInterviewConfig({
     const configToSave = {
       name: config.name,
       description:
-        savedConfig?.description || "Configuration for behavioral interview round",
+        savedConfig?.description ||
+        "Configuration for behavioral interview round",
       duration: config.duration,
       status: savedConfig?.status || "draft",
       configurationData: cleanConfigData,
@@ -521,6 +523,9 @@ export function BehavioralInterviewConfig({
           {saving ? "Saving..." : "Save Configuration"}
         </button> */}
       </div>
+
+      {/* Round Instructions */}
+      <RoundInstructions roundType="behavioral_interview" />
 
       {/* Configuration Name */}
       <div className="mb-4">
@@ -1115,7 +1120,12 @@ export function BehavioralInterviewConfig({
               <select
                 value={config.scoringMethod}
                 onChange={(e) =>
-                  handleConfigChange({ scoringMethod: e.target.value as "star" | "likert" | "combined" })
+                  handleConfigChange({
+                    scoringMethod: e.target.value as
+                      | "star"
+                      | "likert"
+                      | "combined",
+                  })
                 }
                 className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
               >

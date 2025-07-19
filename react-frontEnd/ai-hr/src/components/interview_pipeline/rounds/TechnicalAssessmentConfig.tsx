@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useRoundConfiguration } from "@/hooks/useRoundConfiguration";
 import { cleanJsonObject } from "@/utils/jsonUtils";
+import { RoundInstructions } from "./shared/RoundInstructions";
 
 interface Question {
   id: string;
@@ -284,7 +285,8 @@ export function TechnicalAssessmentConfig({
     const configToSave = {
       name: config.name,
       description:
-        savedConfig?.description || "Configuration for technical assessment round",
+        savedConfig?.description ||
+        "Configuration for technical assessment round",
       duration: config.totalTimeLimit,
       status: savedConfig?.status || "draft",
       configurationData: cleanConfigData,
@@ -340,6 +342,9 @@ export function TechnicalAssessmentConfig({
           {saving ? "Saving..." : "Save Configuration"}
         </button> */}
       </div>
+
+      {/* Round Instructions */}
+      <RoundInstructions roundType="technical_assessment" />
 
       {/* Configuration Name */}
       <div className="mb-4">

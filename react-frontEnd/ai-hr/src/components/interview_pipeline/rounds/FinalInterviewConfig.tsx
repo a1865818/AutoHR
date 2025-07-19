@@ -2,6 +2,7 @@
 
 import { useRoundConfiguration } from "@/hooks/useRoundConfiguration";
 import { cleanJsonObject } from "@/utils/jsonUtils";
+import { RoundInstructions } from "./shared/RoundInstructions";
 import {
   AlertCircle,
   CheckCircle,
@@ -310,6 +311,9 @@ export function FinalInterviewConfig({
           Final Interview Configuration
         </h2>
       </div>
+
+      {/* Round Instructions */}
+      <RoundInstructions roundType="final_interview" />
 
       {/* Configuration Name */}
       <div className="mb-4">

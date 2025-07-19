@@ -1,8 +1,8 @@
-
 "use client";
 
 import { useRoundConfiguration } from "@/hooks/useRoundConfiguration";
 import { cleanJsonObject } from "@/utils/jsonUtils";
+import { RoundInstructions } from "./shared/RoundInstructions";
 import {
   AlertCircle,
   ChevronDown,
@@ -378,6 +378,9 @@ export function PhoneScreeningConfig({
           {saving ? "Saving..." : "Save Configuration"}
         </button> */}
       </div>
+
+      {/* Round Instructions */}
+      <RoundInstructions roundType="phone_screening" />
 
       {/* Configuration Name */}
       <div className="mb-4">
