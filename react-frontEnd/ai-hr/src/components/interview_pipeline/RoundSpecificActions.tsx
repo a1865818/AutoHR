@@ -101,15 +101,6 @@ export function RoundSpecificActions({
         />
       );
 
-    case "panel_interview":
-      return (
-        <PanelInterviewActions
-          round={round}
-          candidate={candidate}
-          onSchedule={onSchedule}
-        />
-      );
-
     case "final_interview":
       return (
         <FinalInterviewActions
@@ -160,7 +151,6 @@ function LastRoundActions({
         )}
 
         {(round.type === "video_interview" ||
-          round.type === "panel_interview" ||
           round.type === "final_interview") && (
           <button
             onClick={() => onSchedule?.(candidate.id, round.id)}
@@ -364,37 +354,6 @@ function CodingChallengeActions({ round, candidate, onComplete }: any) {
 
       <div className="text-xs text-gray-500">
         Deadline: {round.duration}h • Review required
-      </div>
-    </div>
-  );
-}
-
-// Panel Interview Component
-function PanelInterviewActions({ round, candidate, onSchedule }: any) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center space-x-2 text-sm">
-        <Users className="h-4 w-4 text-indigo-600" />
-        <span className="font-medium">Panel Interview</span>
-      </div>
-
-      <div className="space-y-2">
-        <button
-          onClick={() => onSchedule?.(candidate.id, round.id)}
-          className="w-full text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1"
-        >
-          <Users className="h-3 w-3" />
-          <span>Schedule Panel</span>
-        </button>
-
-        <button className="w-full text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1">
-          <FileText className="h-3 w-3" />
-          <span>Panel Feedback</span>
-        </button>
-      </div>
-
-      <div className="text-xs text-gray-500">
-        Duration: {round.duration} min • Multiple interviewers
       </div>
     </div>
   );

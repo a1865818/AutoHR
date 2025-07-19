@@ -95,14 +95,7 @@ export class InterviewStageConfig {
       description: "Coding exercise or challenge",
     },
 
-    "Panel Interview": {
-      id: "panel_interview",
-      label: "Panel Interview",
-      color: "indigo",
-      icon: "Users",
-      order: 6,
-      description: "Interview with multiple team members",
-    },
+
     "Final Interview": {
       id: "final_interview",
       label: "Final Interview",
@@ -154,7 +147,6 @@ export class InterviewStageConfig {
       technical_assessment: Code,
       coding_challenge: Code,
     
-      panel_interview: Users,
       final_interview: Crown,
       culture_fit: Heart,
       offer: Award,
@@ -187,8 +179,6 @@ export class InterviewStageConfig {
       "video_interview": "Video Interview",
       "technical_assessment": "Technical Assessment",
       "coding_challenge": "Coding Challenge",
-    
-      "panel_interview": "Panel Interview",
       "final_interview": "Final Interview",
       "culture_fit": "Culture Fit",
       "offer": "Offer"
@@ -218,8 +208,6 @@ export class InterviewStageConfig {
       phone_interview: "phone_screening",
       tech_assessment: "technical_assessment",
       coding_test: "coding_challenge",
-    
-      panel: "panel_interview",
       final: "final_interview",
       culture: "culture_fit",
     };

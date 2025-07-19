@@ -204,8 +204,6 @@ export default function InterviewsPage() {
       video_interview: Video,
       technical_assessment: Code,
       coding_challenge: Code,
-
-      panel_interview: Users,
       final_interview: Crown,
       culture_fit: Heart,
     };
@@ -218,8 +216,6 @@ export default function InterviewsPage() {
       video_interview: "text-green-600 bg-green-100",
       technical_assessment: "text-purple-600 bg-purple-100",
       coding_challenge: "text-orange-600 bg-orange-100",
-
-      panel_interview: "text-indigo-600 bg-indigo-100",
       final_interview: "text-yellow-600 bg-yellow-100",
       culture_fit: "text-red-600 bg-red-100",
     };

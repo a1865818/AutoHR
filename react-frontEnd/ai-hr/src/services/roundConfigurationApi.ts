@@ -119,35 +119,6 @@ export interface CodingChallengeConfiguration extends BaseRoundConfiguration {
   gradingCriteria: ScoringCriteria[];
   schedule: ScheduleConfig;
 }
-
-
-
-// Panel Interview Configuration
-export interface PanelInterviewConfiguration extends BaseRoundConfiguration {
-  panelComposition: {
-    minInterviewers: number;
-    maxInterviewers: number;
-    requiredRoles: string[];
-    interviewers: Interviewer[];
-  };
-  questionDistribution: {
-    interviewerId: string;
-    questions: Question[];
-    timeAllocation: number;
-  }[];
-  votingRules: {
-    type: "unanimous" | "majority" | "weighted";
-    weights?: { interviewerId: string; weight: number }[];
-    tieBreaker: "lead_interviewer" | "hiring_manager";
-  };
-  coordinationTools: {
-    sharedEvaluationForm: boolean;
-    realTimeScoring: boolean;
-    discussionTime: number;
-  };
-  schedule: ScheduleConfig;
-}
-
 // Final Interview Configuration
 export interface FinalInterviewConfiguration extends BaseRoundConfiguration {
   decisionCriteria: ScoringCriteria[];
@@ -187,8 +158,6 @@ export type RoundConfiguration =
   | VideoInterviewConfiguration
   | TechnicalAssessmentConfiguration
   | CodingChallengeConfiguration
-
-  | PanelInterviewConfiguration
   | FinalInterviewConfiguration;
 
 // API Response types
@@ -838,27 +807,6 @@ export const DEFAULT_CONFIGURATIONS = {
       maxSubmissions: 3,
       timeLimit: 120,
       deadline: 24,
-    },
-  },
-  panel_interview: {
-    roundType: "panel_interview",
-    name: "Panel Interview Configuration",
-    description: "Default configuration for panel interview round",
-    duration: 90,
-    panelComposition: {
-      minInterviewers: 2,
-      maxInterviewers: 4,
-      requiredRoles: ["Hiring Manager", "Team Lead"],
-      interviewers: [],
-    },
-    votingRules: {
-      type: "majority",
-      tieBreaker: "hiring_manager",
-    },
-    coordinationTools: {
-      sharedEvaluationForm: true,
-      realTimeScoring: false,
-      discussionTime: 15,
     },
   },
   final_interview: {

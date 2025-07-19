@@ -76,8 +76,6 @@ export class StageManager {
       "Video Interview",
       "Technical Assessment",
       "Coding Challenge",
-      "Behavioral Interview", 
-      "Panel Interview",
       "Final Interview",
       "Culture Fit",
       "Offer"
@@ -145,8 +143,6 @@ export class StageManager {
       "Video Interview": "Video interview with hiring team",
       "Technical Assessment": "Technical skills evaluation",
       "Coding Challenge": "Coding exercise or challenge",
-      "Behavioral Interview": "Behavioral and cultural assessment",
-      "Panel Interview": "Interview with multiple team members",
       "Final Interview": "Final round with leadership",
       "Culture Fit": "Cultural fit evaluation",
       "Offer": "Offer extended or candidate hired"
@@ -172,8 +168,6 @@ export class StageManager {
       "video_interview": "Video Interview",
       "technical_assessment": "Technical Assessment",
       "coding_challenge": "Coding Challenge",
-      "behavioral_interview": "Behavioral Interview",
-      "panel_interview": "Panel Interview",
       "final_interview": "Final Interview",
       "culture_fit": "Culture Fit",
       "offer": "Offer"

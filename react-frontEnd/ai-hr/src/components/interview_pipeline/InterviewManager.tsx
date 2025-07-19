@@ -62,8 +62,6 @@ export function InterviewManager({
         return Phone;
       case "video_interview":
         return Video;
-      case "panel_interview":
-        return Users;
       default:
         return Calendar;
     }

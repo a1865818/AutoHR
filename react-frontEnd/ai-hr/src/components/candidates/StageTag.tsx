@@ -17,10 +17,6 @@ export function StageTag({ stage }: StageTagProps) {
         return "bg-purple-500 text-white";
       case "Coding Challenge":
         return "bg-orange-500 text-white";
-      case "Behavioral Interview":
-        return "bg-pink-500 text-white";
-      case "Panel Interview":
-        return "bg-indigo-500 text-white";
       case "Final Interview":
         return "bg-yellow-500 text-white";
       case "Culture Fit":

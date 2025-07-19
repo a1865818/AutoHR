@@ -65,9 +65,6 @@ export function PipelineJobCard({
         return Code;
       case "coding_challenge":
         return Code;
-
-      case "panel_interview":
-        return Users;
       case "final_interview":
         return Crown;
       case "culture_fit":
@@ -87,9 +84,6 @@ export function PipelineJobCard({
         return "bg-purple-100 text-purple-800";
       case "coding_challenge":
         return "bg-orange-100 text-orange-800";
-
-      case "panel_interview":
-        return "bg-indigo-100 text-indigo-800";
       case "final_interview":
         return "bg-yellow-100 text-yellow-800";
       case "culture_fit":

@@ -83,14 +83,6 @@ export default function CreateInterviewPage() {
     },
 
     {
-      type: "panel_interview",
-      label: "Panel Interview",
-      description: "Interview with multiple team members",
-      icon: Users,
-      color: "indigo",
-      duration: 60,
-    },
-    {
       type: "final_interview",
       label: "Final Interview",
       description: "Final decision-making interview with leadership",

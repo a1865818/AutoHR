@@ -4,7 +4,6 @@ export type CandidateStage =
   | "Video Interview" 
   | "Technical Assessment" 
   | "Coding Challenge" 
-  | "Panel Interview" 
   | "Final Interview" 
   | "Culture Fit"
   | "Offer";

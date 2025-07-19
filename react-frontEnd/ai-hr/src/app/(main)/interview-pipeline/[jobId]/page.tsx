@@ -441,9 +441,6 @@ export default function JobPipelinePage() {
         return "border-purple-400 bg-purple-50";
       case "coding_challenge":
         return "border-orange-400 bg-orange-50";
-
-      case "panel_interview":
-        return "border-indigo-400 bg-indigo-50";
       case "final_interview":
         return "border-yellow-400 bg-yellow-50";
       case "culture_fit":
@@ -463,9 +460,6 @@ export default function JobPipelinePage() {
         return Code;
       case "coding_challenge":
         return Code;
-
-      case "panel_interview":
-        return Users;
       case "final_interview":
         return Crown;
       case "culture_fit":

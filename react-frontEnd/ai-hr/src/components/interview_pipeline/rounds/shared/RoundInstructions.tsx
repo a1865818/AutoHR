@@ -22,7 +22,6 @@ export type RoundType =
   | "video_interview"
   | "technical_assessment"
   | "coding_challenge"
-  | "panel_interview"
   | "final_interview"
   | "culture_fit";
 
@@ -155,36 +154,6 @@ const ROUND_INSTRUCTIONS: Record<RoundType, RoundInstructionData> = {
       "Testing and debugging approach",
       "Time and space complexity awareness",
       "Communication during problem-solving",
-    ],
-  },
-
-  panel_interview: {
-    icon: Users,
-    title: "Panel Interview",
-    purpose:
-      "Multi-perspective evaluation involving key team members and stakeholders",
-    description:
-      "Panel interviews bring together multiple interviewers to assess candidates from different angles simultaneously. They're efficient for senior roles, reduce bias through diverse perspectives, and give candidates exposure to potential teammates and company culture.",
-    configurationTips: [
-      "Limit panel size to 3-5 people to avoid overwhelming candidates",
-      "Assign specific question areas to each panel member to avoid repetition",
-      "Designate a lead interviewer to manage flow and timing",
-      "Plan for 60-90 minutes with time for each member's questions",
-      "Brief panel members on candidate background and evaluation criteria",
-    ],
-    bestPractices: [
-      "Introduce all panel members and their roles at the beginning",
-      "Coordinate questions in advance to ensure comprehensive coverage",
-      "Allow time for panel discussion after candidate leaves",
-      "Encourage all members to participate while avoiding overwhelming candidate",
-      "Use diverse panel composition to reduce bias and broaden perspectives",
-    ],
-    keyMetrics: [
-      "Overall team fit",
-      "Multi-dimensional skill assessment",
-      "Stakeholder alignment",
-      "Communication under pressure",
-      "Ability to engage diverse personalities",
     ],
   },
   final_interview: {

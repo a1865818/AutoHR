@@ -21,8 +21,7 @@ namespace ai_hr.Contracts
 
             var validStages = new[] {
                 "Applied", "Phone Screening", "Video Interview", "Technical Assessment",
-                "Coding Challenge", "Behavioral Interview", "Panel Interview",
-                "Final Interview", "Culture Fit", "Offer"
+                "Coding Challenge", "Final Interview", "Culture Fit", "Offer"
             };
 
             return validStages.Contains(Stage);
