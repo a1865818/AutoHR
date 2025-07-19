@@ -28,7 +28,7 @@ namespace ai_hr.Models
         public DateTime? AvailabilityDate { get; set; }
 
         [Column("status")]
-        public string Status { get; set; } = "applied"; // Remove nullable and set default
+        public string Status { get; set; } = "In Progress"; // Changed default from "applied" to match pipeline
 
         [Column("stage")]
         public string Stage { get; set; } = "Applied"; // Updated default to match new system
@@ -98,7 +98,7 @@ namespace ai_hr.Models
             Id = Guid.NewGuid();
             AppliedAt = DateTime.UtcNow;
             StatusChangedAt = DateTime.UtcNow;
-            Status = "applied";
+            Status = "In Progress";
             Stage = "Applied";
             CurrentRoundId = "new";
         }

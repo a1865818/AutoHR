@@ -70,8 +70,9 @@ public static class ApplicationDetailEndpoints
                 AvailabilityDate = request.AvailabilityDate,
                 JobSource = request.JobSource,
                 AiAnalysis = request.AiAnalysis,
-                Status = "applied", // Explicitly set default status
-                Stage = "Applied", // Updated to new stage system
+                Status = "In Progress", 
+                Stage = "Applied",
+                CurrentRoundId = "new",
                 AppliedAt = DateTime.UtcNow,
                 StatusChangedAt = DateTime.UtcNow
             };
@@ -474,8 +475,9 @@ public static class ApplicationDetailEndpoints
                 ResumeUrl = resumeUrl,
                 CoverLetterText = BuildGuestCoverLetter(firstName, lastName, email, phoneNumber, city, country, coverLetter),
                 JobSource = "guest_application",
-                Status = "applied",
+                Status = "In Progress", // Changed from "applied" to match pipeline expectations
                 Stage = "Applied",
+                CurrentRoundId = "new", // Ensure currentRoundId is set to "new" for pipeline
                 AppliedAt = DateTime.UtcNow,
                 StatusChangedAt = DateTime.UtcNow,
             };
