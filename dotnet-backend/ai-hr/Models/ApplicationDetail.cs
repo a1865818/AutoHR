@@ -77,7 +77,7 @@ namespace ai_hr.Models
         // Valid stages for the new granular system
         public static readonly string[] ValidStages = {
             "Applied", "Phone Screening", "Video Interview", "Technical Assessment",
-            "Coding Challenge", "Behavioral Interview", "Panel Interview",
+            "Coding Challenge", "Panel Interview",
             "Final Interview", "Culture Fit", "Offer"
         };
 

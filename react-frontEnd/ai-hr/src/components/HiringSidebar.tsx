@@ -227,7 +227,7 @@ export function HiringSidebar() {
 
                 {/* Create Interview Template Button */}
                 <Link
-                  href="/interviews/create"
+                  href="/interview-templates/create"
                   className={`group relative flex items-center py-3 px-4 rounded-xl text-sm font-medium text-gray-700
                   bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200
                   border border-gray-200 hover:border-gray-300

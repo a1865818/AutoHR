@@ -130,31 +130,6 @@ export function TemplateManager({
         canDelete: true,
       },
     },
-    {
-      id: "custom_behavioral",
-      name: "Leadership Behavioral Interview",
-      description: "Behavioral interview focused on leadership competencies",
-      roundType: "behavioral_interview",
-      scope: "company",
-      isDefault: false,
-      isActive: true,
-      configuration: DEFAULT_CONFIGURATIONS.behavioral_interview,
-      metadata: {
-        createdBy: "HR Team",
-        createdAt: "2024-02-01T00:00:00Z",
-        updatedAt: "2024-02-15T00:00:00Z",
-        usageCount: 34,
-        rating: 4.9,
-        tags: ["behavioral", "leadership", "management"],
-        version: "1.2.0",
-      },
-      permissions: {
-        canView: true,
-        canEdit: true,
-        canClone: true,
-        canDelete: true,
-      },
-    },
   ];
 
   useEffect(() => {

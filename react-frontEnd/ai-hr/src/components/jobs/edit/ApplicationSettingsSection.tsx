@@ -72,14 +72,14 @@ export function ApplicationSettingsSection({
   }, []);
 
   const handleCreateTemplate = () => {
-    router.push("/interviews/create");
+    router.push("/interview-templates/create");
   };
 
   const handleCreateTemplateWithId = (templateId?: string) => {
     if (templateId) {
-      router.push(`/interviews/edit?id=${templateId}`);
+      router.push(`/interview-templates/edit?id=${templateId}`);
     } else {
-      router.push("/interviews/create");
+      router.push("/interview-templates/create");
     }
   };
 

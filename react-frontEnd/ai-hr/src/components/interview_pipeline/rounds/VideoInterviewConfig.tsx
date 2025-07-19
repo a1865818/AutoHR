@@ -19,7 +19,7 @@ import { useEffect, useState } from "react";
 interface Question {
   id: string;
   text: string;
-  category: "technical" | "behavioral" | "culture" | "experience" | "scenario";
+  category: "technical" | "culture" | "experience" | "scenario";
   followUpPrompts: string[];
 }
 
@@ -63,7 +63,7 @@ const defaultQuestions: Question[] = [
   {
     id: "vq2",
     text: "Describe a time when you had to work with a difficult team member.",
-    category: "behavioral",
+    category: "culture",
     followUpPrompts: [
       "How did you handle the situation?",
       "What was the outcome?",
@@ -451,7 +451,7 @@ export function VideoInterviewConfig({
   const getCategoryColor = (category: Question["category"]) => {
     const colors = {
       technical: "bg-blue-100 text-blue-800",
-      behavioral: "bg-green-100 text-green-800",
+
       culture: "bg-purple-100 text-purple-800",
       experience: "bg-amber-100 text-amber-800",
       scenario: "bg-rose-100 text-rose-800",
@@ -462,7 +462,7 @@ export function VideoInterviewConfig({
   const getCategoryLabel = (category: Question["category"]) => {
     const labels = {
       technical: "Technical",
-      behavioral: "Behavioral",
+
       culture: "Culture",
       experience: "Experience",
       scenario: "Scenario",

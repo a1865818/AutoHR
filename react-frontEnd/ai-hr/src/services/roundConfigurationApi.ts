@@ -120,35 +120,7 @@ export interface CodingChallengeConfiguration extends BaseRoundConfiguration {
   schedule: ScheduleConfig;
 }
 
-// Behavioral Interview Configuration
-export interface BehavioralInterviewConfiguration
-  extends BaseRoundConfiguration {
-  competencyFramework: {
-    competency: string;
-    description: string;
-    behavioralIndicators: string[];
-    questions: Question[];
-  }[];
-  starMethodQuestions: Question[];
-  scoringCriteria: ScoringCriteria[];
-  evaluationGuide: {
-    competency: string;
-    levels: {
-      level: number;
-      description: string;
-      behaviorExamples: string[];
-    }[];
-  }[];
-  biasPreventionMeasures: {
-    structuredInterview: boolean;
-    standardizedQuestions: boolean;
-    scoringRubrics: boolean;
-    multipleInterviewers: boolean;
-  };
-  interviewerGuidelines: string;
-  candidateInstructions: string;
-  schedule: ScheduleConfig;
-}
+
 
 // Panel Interview Configuration
 export interface PanelInterviewConfiguration extends BaseRoundConfiguration {
@@ -215,7 +187,7 @@ export type RoundConfiguration =
   | VideoInterviewConfiguration
   | TechnicalAssessmentConfiguration
   | CodingChallengeConfiguration
-  | BehavioralInterviewConfiguration
+
   | PanelInterviewConfiguration
   | FinalInterviewConfiguration;
 
@@ -866,30 +838,6 @@ export const DEFAULT_CONFIGURATIONS = {
       maxSubmissions: 3,
       timeLimit: 120,
       deadline: 24,
-    },
-  },
-  behavioral_interview: {
-    roundType: "behavioral_interview",
-    name: "Behavioral Interview Configuration",
-    description: "Default configuration for behavioral interview round",
-    duration: 60,
-    competencyFramework: [
-      {
-        competency: "Leadership",
-        description: "Ability to guide and influence others",
-        behavioralIndicators: [
-          "Takes initiative",
-          "Motivates team members",
-          "Makes decisions",
-        ],
-        questions: [],
-      },
-    ],
-    biasPreventionMeasures: {
-      structuredInterview: true,
-      standardizedQuestions: true,
-      scoringRubrics: true,
-      multipleInterviewers: false,
     },
   },
   panel_interview: {

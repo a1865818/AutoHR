@@ -21,13 +21,7 @@ import {
 export interface Question {
   id: string;
   text: string;
-  type:
-    | "open"
-    | "multiple_choice"
-    | "rating"
-    | "coding"
-    | "scenario"
-    | "behavioral";
+  type: "open" | "multiple_choice" | "rating" | "coding" | "scenario";
   category?: string;
   difficulty?: "easy" | "medium" | "hard";
   timeLimit?: number; // in minutes
@@ -55,8 +49,8 @@ interface QuestionBuilderProps {
 export function QuestionBuilder({
   questions,
   onQuestionsChange,
-  availableCategories = ["General", "Technical", "Behavioral", "Experience"],
-  allowedTypes = ["open", "multiple_choice", "rating", "behavioral"],
+  availableCategories = ["General", "Technical", "Experience"],
+  allowedTypes = ["open", "multiple_choice", "rating"],
   showPointsSystem = true,
   showTimeLimit = true,
   showDifficulty = true,
@@ -110,12 +104,6 @@ export function QuestionBuilder({
       label: "Scenario",
       icon: Users,
       description: "Situational question",
-    },
-    {
-      value: "behavioral",
-      label: "Behavioral",
-      icon: Users,
-      description: "STAR method question",
     },
   ];
 
@@ -493,7 +481,6 @@ function QuestionEditor({
     { value: "rating", label: "Rating Scale", icon: Target },
     { value: "coding", label: "Coding Challenge", icon: FileText },
     { value: "scenario", label: "Scenario", icon: Users },
-    { value: "behavioral", label: "Behavioral", icon: Users },
   ].filter((type) => allowedTypes.includes(type.value as Question["type"]));
 
   const handleSave = () => {

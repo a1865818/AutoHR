@@ -65,27 +65,27 @@ export default function InterviewsPage() {
   useEffect(() => {
     // Wait for authentication to be loaded before trying to load data
     if (!authLoading) {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+      const loadData = async () => {
+        try {
+          setLoading(true);
+          setError(null);
 
-        const [templatesData, statsData] = await Promise.all([
-          interviewService.getInterviewTemplates(),
-          interviewService.getInterviewStats(),
-        ]);
+          const [templatesData, statsData] = await Promise.all([
+            interviewService.getInterviewTemplates(),
+            interviewService.getInterviewStats(),
+          ]);
 
-        setTemplates(templatesData);
-        setStats(statsData);
-      } catch (err) {
-        console.error("Error loading interview data:", err);
-        setError("Failed to load interview data");
-      } finally {
-        setLoading(false);
-      }
-    };
+          setTemplates(templatesData);
+          setStats(statsData);
+        } catch (err) {
+          console.error("Error loading interview data:", err);
+          setError("Failed to load interview data");
+        } finally {
+          setLoading(false);
+        }
+      };
 
-    loadData();
+      loadData();
     }
   }, [authLoading]);
 
@@ -120,7 +120,7 @@ export default function InterviewsPage() {
       }));
 
       // Navigate to edit page for the cloned template
-      router.push(`/interviews/edit?id=${clonedTemplate.id}`);
+      router.push(`/interview-templates/edit?id=${clonedTemplate.id}`);
     } catch (err: any) {
       console.error("Error cloning template:", err);
       setError(err.message || "Failed to clone template");
@@ -204,7 +204,7 @@ export default function InterviewsPage() {
       video_interview: Video,
       technical_assessment: Code,
       coding_challenge: Code,
-      behavioral_interview: MessageSquare,
+
       panel_interview: Users,
       final_interview: Crown,
       culture_fit: Heart,
@@ -218,7 +218,7 @@ export default function InterviewsPage() {
       video_interview: "text-green-600 bg-green-100",
       technical_assessment: "text-purple-600 bg-purple-100",
       coding_challenge: "text-orange-600 bg-orange-100",
-      behavioral_interview: "text-pink-600 bg-pink-100",
+
       panel_interview: "text-indigo-600 bg-indigo-100",
       final_interview: "text-yellow-600 bg-yellow-100",
       culture_fit: "text-red-600 bg-red-100",

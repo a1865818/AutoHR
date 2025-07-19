@@ -88,14 +88,7 @@ export default function EditInterviewPage() {
       color: "orange",
       duration: 90,
     },
-    {
-      type: "behavioral_interview",
-      label: "Behavioral Interview",
-      description: "Assess soft skills and cultural fit",
-      icon: MessageSquare,
-      color: "pink",
-      duration: 45,
-    },
+
     {
       type: "panel_interview",
       label: "Panel Interview",
@@ -438,8 +431,8 @@ export default function EditInterviewPage() {
       }
 
       console.log("🎉 All operations completed successfully, redirecting...");
-      // Redirect back to the interviews list page
-      router.push("/interviews");
+      // Redirect back to the interview templates list page
+      router.push("/interview-templates");
     } catch (error: any) {
       console.error("❌ Error updating interview template:", error);
       setError(error.message || "Failed to update interview template");
@@ -773,7 +766,7 @@ export default function EditInterviewPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Link
-              href="/interviews"
+              href="/interview-templates"
               className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />

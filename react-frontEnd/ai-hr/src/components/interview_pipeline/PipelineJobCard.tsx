@@ -65,8 +65,7 @@ export function PipelineJobCard({
         return Code;
       case "coding_challenge":
         return Code;
-      case "behavioral_interview":
-        return MessageSquare;
+
       case "panel_interview":
         return Users;
       case "final_interview":
@@ -88,8 +87,7 @@ export function PipelineJobCard({
         return "bg-purple-100 text-purple-800";
       case "coding_challenge":
         return "bg-orange-100 text-orange-800";
-      case "behavioral_interview":
-        return "bg-pink-100 text-pink-800";
+
       case "panel_interview":
         return "bg-indigo-100 text-indigo-800";
       case "final_interview":

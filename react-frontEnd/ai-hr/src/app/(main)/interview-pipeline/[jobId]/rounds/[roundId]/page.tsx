@@ -25,7 +25,7 @@ import { PhoneScreeningConfig } from "@/components/interview_pipeline/rounds/Pho
 import { VideoInterviewConfig } from "@/components/interview_pipeline/rounds/VideoInterviewConfig";
 import { TechnicalAssessmentConfig } from "@/components/interview_pipeline/rounds/TechnicalAssessmentConfig";
 import { CodingChallengeConfig } from "@/components/interview_pipeline/rounds/CodingChallengeConfig";
-import { BehavioralInterviewConfig } from "@/components/interview_pipeline/rounds/BehavioralInterviewConfig";
+
 import { PanelInterviewConfig } from "@/components/interview_pipeline/rounds/PanelInterviewConfig";
 import { FinalInterviewConfig } from "@/components/interview_pipeline/rounds/FinalInterviewConfig";
 import { CultureFitConfig } from "@/components/interview_pipeline/rounds/CultureFitConfig";
@@ -42,7 +42,6 @@ interface InterviewType {
   video_interview: string;
   technical_assessment: string;
   coding_challenge: string;
-  behavioral_interview: string;
   panel_interview: string;
   final_interview: string;
   culture_fit: string;
@@ -450,7 +449,7 @@ export default function RoundConfigurationPage() {
       video_interview: Video,
       technical_assessment: Code,
       coding_challenge: Code,
-      behavioral_interview: MessageSquare,
+
       panel_interview: Users,
       final_interview: Crown,
       culture_fit: Heart,
@@ -464,7 +463,7 @@ export default function RoundConfigurationPage() {
       video_interview: "Video Interview",
       technical_assessment: "Technical Assessment",
       coding_challenge: "Coding Challenge",
-      behavioral_interview: "Behavioral Interview",
+
       panel_interview: "Panel Interview",
       final_interview: "Final Interview",
       culture_fit: "Culture Fit",
@@ -492,8 +491,7 @@ export default function RoundConfigurationPage() {
         return <TechnicalAssessmentConfig {...commonProps} />;
       case "coding_challenge":
         return <CodingChallengeConfig {...commonProps} />;
-      case "behavioral_interview":
-        return <BehavioralInterviewConfig {...commonProps} />;
+
       case "panel_interview":
         return <PanelInterviewConfig {...commonProps} />;
       case "final_interview":

@@ -94,14 +94,7 @@ export class InterviewStageConfig {
       order: 4,
       description: "Coding exercise or challenge",
     },
-    "Behavioral Interview": {
-      id: "behavioral_interview",
-      label: "Behavioral Interview",
-      color: "pink",
-      icon: "MessageSquare",
-      order: 5,
-      description: "Behavioral and cultural assessment",
-    },
+
     "Panel Interview": {
       id: "panel_interview",
       label: "Panel Interview",
@@ -160,7 +153,7 @@ export class InterviewStageConfig {
       video_interview: Video,
       technical_assessment: Code,
       coding_challenge: Code,
-      behavioral_interview: MessageSquare,
+    
       panel_interview: Users,
       final_interview: Crown,
       culture_fit: Heart,
@@ -194,7 +187,7 @@ export class InterviewStageConfig {
       "video_interview": "Video Interview",
       "technical_assessment": "Technical Assessment",
       "coding_challenge": "Coding Challenge",
-      "behavioral_interview": "Behavioral Interview",
+    
       "panel_interview": "Panel Interview",
       "final_interview": "Final Interview",
       "culture_fit": "Culture Fit",
@@ -225,7 +218,7 @@ export class InterviewStageConfig {
       phone_interview: "phone_screening",
       tech_assessment: "technical_assessment",
       coding_test: "coding_challenge",
-      behavioral: "behavioral_interview",
+    
       panel: "panel_interview",
       final: "final_interview",
       culture: "culture_fit",

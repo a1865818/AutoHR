@@ -22,7 +22,6 @@ export type RoundType =
   | "video_interview"
   | "technical_assessment"
   | "coding_challenge"
-  | "behavioral_interview"
   | "panel_interview"
   | "final_interview"
   | "culture_fit";
@@ -158,35 +157,7 @@ const ROUND_INSTRUCTIONS: Record<RoundType, RoundInstructionData> = {
       "Communication during problem-solving",
     ],
   },
-  behavioral_interview: {
-    icon: MessageSquare,
-    title: "Behavioral Interview",
-    purpose:
-      "Assess soft skills, past behavior patterns, and cultural fit indicators",
-    description:
-      "Behavioral interviews use past experiences to predict future performance. They evaluate leadership, teamwork, conflict resolution, and other soft skills that are crucial for success but hard to assess through technical evaluations alone.",
-    configurationTips: [
-      "Use STAR method (Situation, Task, Action, Result) for structured responses",
-      "Focus on competencies most critical for the specific role",
-      "Ask follow-up questions to understand candidate's specific contribution",
-      "Include scenarios relevant to your company culture and values",
-      "Plan for 45-60 minutes to allow for detailed example exploration",
-    ],
-    bestPractices: [
-      "Listen for specific examples rather than hypothetical responses",
-      "Probe for challenges faced and lessons learned from failures",
-      "Ask about working style, motivation, and career goals",
-      "Assess self-awareness and ability to receive/act on feedback",
-      "Look for consistency between different examples and scenarios",
-    ],
-    keyMetrics: [
-      "Leadership and influence",
-      "Teamwork and collaboration",
-      "Problem-solving creativity",
-      "Adaptability and resilience",
-      "Communication and interpersonal skills",
-    ],
-  },
+
   panel_interview: {
     icon: Users,
     title: "Panel Interview",

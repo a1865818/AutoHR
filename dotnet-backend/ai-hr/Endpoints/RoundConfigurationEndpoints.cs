@@ -592,7 +592,7 @@ public static class RoundConfigurationEndpoints
             "video_interview" => new { duration = 45, platform = "zoom", recordMeeting = true },
             "technical_assessment" => new { duration = 90, gradingSystem = new { passingScore = 70 } },
             "coding_challenge" => new { duration = 120, maxSubmissions = 3 },
-            "behavioral_interview" => new { duration = 60, structuredInterview = true },
+
             "panel_interview" => new { duration = 90, minInterviewers = 2, maxInterviewers = 4 },
             "final_interview" => new { duration = 60, executiveInvolvement = true },
             "culture_fit" => new { duration = 45, focusAreas = new[] { "values", "team_fit" } },

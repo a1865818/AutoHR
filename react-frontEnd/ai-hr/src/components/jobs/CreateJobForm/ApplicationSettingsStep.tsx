@@ -115,16 +115,16 @@ export function ApplicationSettingsStep({
   };
 
   const handleCreateTemplate = () => {
-    router.push("/interviews/create");
+    router.push("/interview-templates/create");
   };
 
   const handleCreateTemplateWithId = (templateId?: string) => {
     if (templateId) {
       // If we have a template ID (placeholder), redirect to edit it
-      router.push(`/interviews/edit?id=${templateId}`);
+      router.push(`/interview-templates/edit?id=${templateId}`);
     } else {
       // Otherwise, create a new template
-      router.push("/interviews/create");
+      router.push("/interview-templates/create");
     }
   };
 

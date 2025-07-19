@@ -81,14 +81,7 @@ export default function CreateInterviewPage() {
       color: "orange",
       duration: 90,
     },
-    {
-      type: "behavioral_interview",
-      label: "Behavioral Interview",
-      description: "Assess soft skills and cultural fit",
-      icon: MessageSquare,
-      color: "pink",
-      duration: 45,
-    },
+
     {
       type: "panel_interview",
       label: "Panel Interview",

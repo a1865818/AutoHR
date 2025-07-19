@@ -5,7 +5,6 @@ export type InterviewType =
   | 'video_interview'
   | 'technical_assessment'
   | 'coding_challenge'
-  | 'behavioral_interview'
   | 'panel_interview'
   | 'final_interview'
   | 'culture_fit';
@@ -15,7 +14,6 @@ export const INTERVIEW_TYPE_TO_STAGE_MAP: Record<InterviewType, CandidateStage> 
   'video_interview': 'Video Interview',
   'technical_assessment': 'Technical Assessment',
   'coding_challenge': 'Coding Challenge',
-  'behavioral_interview': 'Behavioral Interview',
   'panel_interview': 'Panel Interview',
   'final_interview': 'Final Interview',
   'culture_fit': 'Culture Fit'
@@ -27,7 +25,6 @@ export const STAGE_TO_INTERVIEW_TYPE_MAP: Record<CandidateStage, InterviewType |
   'Video Interview': 'video_interview',
   'Technical Assessment': 'technical_assessment',
   'Coding Challenge': 'coding_challenge',
-  'Behavioral Interview': 'behavioral_interview',
   'Panel Interview': 'panel_interview',
   'Final Interview': 'final_interview',
   'Culture Fit': 'culture_fit',

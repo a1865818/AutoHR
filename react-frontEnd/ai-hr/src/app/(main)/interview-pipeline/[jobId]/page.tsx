@@ -441,8 +441,7 @@ export default function JobPipelinePage() {
         return "border-purple-400 bg-purple-50";
       case "coding_challenge":
         return "border-orange-400 bg-orange-50";
-      case "behavioral_interview":
-        return "border-pink-400 bg-pink-50";
+
       case "panel_interview":
         return "border-indigo-400 bg-indigo-50";
       case "final_interview":
@@ -464,8 +463,7 @@ export default function JobPipelinePage() {
         return Code;
       case "coding_challenge":
         return Code;
-      case "behavioral_interview":
-        return MessageSquare;
+
       case "panel_interview":
         return Users;
       case "final_interview":
@@ -1222,7 +1220,7 @@ export default function JobPipelinePage() {
                     Assign Template
                   </button>
                   <Link
-                    href="/interviews/create"
+                    href="/interview-templates/create"
                     className="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 transition-colors"
                   >
                     <Plus className="w-4 h-4 mr-2" />
@@ -1508,7 +1506,7 @@ export default function JobPipelinePage() {
 
             <div className="flex justify-end space-x-3 mt-6">
               <Link
-                href="/interviews/create"
+                href="/interview-templates/create"
                 className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors font-medium"
               >
                 Create New Template

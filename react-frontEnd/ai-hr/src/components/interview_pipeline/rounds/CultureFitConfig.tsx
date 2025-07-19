@@ -22,7 +22,7 @@ interface CompanyValue {
   description: string;
   weight: number; // 1-5
   assessmentQuestions: string[];
-  behavioralIndicators: string[];
+  indicators: string[];
 }
 
 interface CultureQuestion {
