@@ -69,7 +69,10 @@ CREATE TABLE companies (
     founded_year INTEGER,
     is_verified BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    -- NEW: Track company creator for Admin role assignment
+    created_by UUID REFERENCES hiring_user_profiles(id), -- Links to the hiring user who created this company
+    creator_email VARCHAR(320) -- Temporary field to store creator email until they register
 );
 ```
 
@@ -730,3 +733,52 @@ ALTER publication supabase_realtime ADD TABLE messages;
 - Microservices-ready design
 
 This schema provides a solid foundation for your AI HR platform while maintaining flexibility for future enhancements and AI-powered features!
+
+---
+
+## Database Migrations
+
+### Admin Role Implementation Migration
+
+To implement the admin role logic where only company creators get Admin privileges, run the following SQL migration:
+
+```sql
+-- Add new columns to companies table
+ALTER TABLE companies
+ADD COLUMN created_by UUID REFERENCES hiring_user_profiles(id),
+ADD COLUMN creator_email VARCHAR(320),
+ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+
+-- Create index for performance
+CREATE INDEX idx_companies_created_by ON companies(created_by);
+CREATE INDEX idx_companies_creator_email ON companies(creator_email);
+
+-- Update existing companies (optional - for existing data)
+-- Note: This would require manual intervention to identify company creators
+-- UPDATE companies SET creator_email = email WHERE creator_email IS NULL;
+
+-- Add comment to document the admin role logic
+COMMENT ON COLUMN companies.created_by IS 'UUID of the hiring user who created this company and should have Admin role';
+COMMENT ON COLUMN companies.creator_email IS 'Temporary field to store creator email during registration flow';
+```
+
+### Admin Role Logic Rules
+
+1. **Company Creation**: When a new company is created, the `creator_email` field stores the email of the user who will be the admin.
+
+2. **User Registration**: When a hiring user registers:
+
+   - System checks if their email matches any company's `creator_email`
+   - If match found: User gets "Admin" role and company's `created_by` field is updated
+   - If no match: User gets "HiringUser" role
+
+3. **Role Restrictions**:
+
+   - Admin roles cannot be manually assigned through API endpoints
+   - Admin users cannot change their company association
+   - Only one Admin per company (the creator)
+
+4. **Security Measures**:
+   - `UpdateHiringUserProfileRequest` does not include role field
+   - Profile update endpoints preserve existing roles
+   - Admin verification helper methods check both role and company ownership

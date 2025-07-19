@@ -88,46 +88,88 @@ namespace ai_hr.Services
         {
             try
             {
-                Console.WriteLine($"[DEBUG] Starting registration for email: {request.Email}");
-                Console.WriteLine($"[DEBUG] UserType: {request.UserType ?? "NULL"}");
-                Console.WriteLine($"[DEBUG] UserCategory: {request.UserCategory ?? "NULL"}");
-
                 // Validate HiringUserProfile specific requirements
                 if (string.IsNullOrEmpty(request.UserType))
                 {
-                    Console.WriteLine("[DEBUG] Registration failed: UserType is null or empty");
                     return null; // UserType is required for HiringUserProfile
                 }
 
 
 
                 // Check if user already exists in either table
-                Console.WriteLine("[DEBUG] Checking for existing ApplicationUser...");
                 var existingAppUserResponse = await _supabaseClient
                     .From<ApplicationUser>()
                     .Where(u => u.Email == request.Email)
                     .Get();
 
-                Console.WriteLine("[DEBUG] Checking for existing HiringUserProfile...");
                 var existingHiringUserResponse = await _supabaseClient
                     .From<HiringUserProfile>()
                     .Where(u => u.Email == request.Email)
                     .Get();
 
-                Console.WriteLine($"[DEBUG] Existing ApplicationUser count: {existingAppUserResponse.Models.Count()}");
-                Console.WriteLine($"[DEBUG] Existing HiringUserProfile count: {existingHiringUserResponse.Models.Count()}");
-
                 if (existingAppUserResponse.Models.Any() || existingHiringUserResponse.Models.Any())
                 {
-                    Console.WriteLine("[DEBUG] Registration failed: User already exists");
                     return null; // User already exists
                 }
 
-                Console.WriteLine("[DEBUG] No existing user found, proceeding with registration");
-
                 // Hash password
                 var hashedPassword = BCrypt.Net.BCrypt.HashPassword(request.Password);
-                Console.WriteLine("[DEBUG] Password hashed successfully");
+
+                // Check if this user should be assigned Admin role (company creator)
+                string assignedRole = "HiringUser"; // Default role
+
+                if (request.CompanyId.HasValue)
+                {
+                    // Get the company to check if this user is the creator
+                    var companyResponse = await _supabaseClient
+                        .From<Company>()
+                        .Where(c => c.Id == request.CompanyId.Value)
+                        .Get();
+
+                    var company = companyResponse.Models.FirstOrDefault();
+
+                    if (company != null)
+                    {
+                        if (!string.IsNullOrEmpty(company.CreatorEmail))
+                        {
+                            bool emailMatch = string.Equals(company.CreatorEmail, request.Email, StringComparison.OrdinalIgnoreCase);
+                            Console.WriteLine($"[DEBUG] Email match result: {emailMatch}");
+
+                            if (emailMatch)
+                            {
+                                assignedRole = "Admin";
+                                Console.WriteLine($"[DEBUG] User {request.Email} is the creator of company {company.Name}, assigning Admin role");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[DEBUG] User {request.Email} is not the creator of company {company.Name} (creator: {company.CreatorEmail}), assigning HiringUser role");
+                            }
+                        }
+                        else
+                        {
+                            // TEMPORARY: Fallback to company email if creator_email column doesn't exist yet
+                            bool emailMatch = string.Equals(company.email, request.Email, StringComparison.OrdinalIgnoreCase);
+
+                            if (emailMatch)
+                            {
+                                assignedRole = "Admin";
+                                Console.WriteLine($"[DEBUG] User {request.Email} matches company email, assigning Admin role (fallback)");
+                            }
+                            else
+                            {
+                                Console.WriteLine($"[DEBUG] User {request.Email} does not match company email ({company.email}), assigning HiringUser role");
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[DEBUG] Company not found for ID: {request.CompanyId}, assigning default HiringUser role");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"[DEBUG] No CompanyId provided, assigning default HiringUser role");
+                }
 
                 // Create HiringUserProfile
                 var newProfile = new HiringUserProfile
@@ -144,10 +186,10 @@ namespace ai_hr.Services
                     Preferences = request.Preferences ?? new Dictionary<string, object>(),
                     CreatedAt = DateTime.UtcNow,
                     IsActive = true,
-                    Roles = "HiringUser"
+                    Roles = assignedRole // Use determined role instead of hardcoded "HiringUser"
                 };
 
-                Console.WriteLine("[DEBUG] HiringUserProfile object created, attempting database insert...");
+                Console.WriteLine($"[DEBUG] HiringUserProfile object created with role: {assignedRole}, attempting database insert...");
 
                 var response = await _supabaseClient
                     .From<HiringUserProfile>()
@@ -162,7 +204,40 @@ namespace ai_hr.Services
                     return null; // Registration failed
                 }
 
-                Console.WriteLine($"[DEBUG] User created successfully with ID: {createdProfile.Id}");
+                Console.WriteLine($"[DEBUG] User created successfully with ID: {createdProfile.Id} and role: {createdProfile.Roles}");
+
+                // If this user is the company creator, update the company's CreatedBy field
+                if (assignedRole == "Admin" && request.CompanyId.HasValue)
+                {
+                    try
+                    {
+                        Console.WriteLine($"[DEBUG] Updating company {request.CompanyId} to link creator {createdProfile.Id}");
+
+                        var companyUpdateResponse = await _supabaseClient
+                            .From<Company>()
+                            .Where(c => c.Id == request.CompanyId.Value)
+                            .Get();
+
+                        var companyToUpdate = companyUpdateResponse.Models.FirstOrDefault();
+                        if (companyToUpdate != null)
+                        {
+                            companyToUpdate.CreatedBy = createdProfile.Id;
+                            companyToUpdate.UpdatedAt = DateTime.UtcNow;
+
+                            await _supabaseClient
+                                .From<Company>()
+                                .Where(c => c.Id == request.CompanyId.Value)
+                                .Update(companyToUpdate);
+
+                            Console.WriteLine($"[DEBUG] Company {request.CompanyId} successfully linked to creator {createdProfile.Id}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[DEBUG] Warning: Failed to update company CreatedBy field: {ex.Message}");
+                        // Don't fail registration if this update fails
+                    }
+                }
 
                 // Generate tokens for immediate login
                 var accessToken = _jwtService.GenerateAccessToken(createdProfile);

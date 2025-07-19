@@ -78,7 +78,7 @@ export default function PublicLayout({
                     Sign In
                   </Link>
                   <Link
-                    href="/signup"
+                    href="/signup/select-type"
                     className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                   >
                     Sign Up
@@ -128,7 +128,10 @@ export default function PublicLayout({
                   </Link>
                 </li>
                 <li>
-                  <Link href="/signup" className="hover:text-blue-600">
+                  <Link
+                    href="/signup/applicant"
+                    className="hover:text-blue-600"
+                  >
                     Create Account
                   </Link>
                 </li>
@@ -151,7 +154,7 @@ export default function PublicLayout({
                   </Link>
                 </li>
                 <li>
-                  <Link href="/signup" className="hover:text-blue-600">
+                  <Link href="/signup/hiring" className="hover:text-blue-600">
                     Post Jobs
                   </Link>
                 </li>

@@ -291,7 +291,7 @@ const LoginPage: React.FC = () => {
             <p className="text-sm text-gray-600">
               Don&apos;t have an account?{" "}
               <Link
-                href="/signup"
+                href="/signup/select-type"
                 className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
               >
                 Sign up here

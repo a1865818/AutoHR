@@ -93,7 +93,7 @@ const defaultCompanyValues: CompanyValue[] = [
       "Tell me about a time when you came up with a creative solution to a problem",
       "How do you stay current with industry trends and innovations?",
     ],
-    behavioralIndicators: [
+    indicators: [
       "Proposes creative solutions",
       "Embraces new technologies",
       "Challenges status quo",
@@ -109,7 +109,7 @@ const defaultCompanyValues: CompanyValue[] = [
       "Describe your ideal team environment",
       "How do you handle disagreements with team members?",
     ],
-    behavioralIndicators: [
+    indicators: [
       "Shares knowledge freely",
       "Seeks input from others",
       "Supports team success",
@@ -125,7 +125,7 @@ const defaultCompanyValues: CompanyValue[] = [
       "Tell me about a time when you had to make a difficult ethical decision",
       "How do you handle situations where you disagree with company policies?",
     ],
-    behavioralIndicators: [
+    indicators: [
       "Takes responsibility for mistakes",
       "Acts transparently",
       "Maintains confidentiality",
@@ -260,7 +260,7 @@ export function CultureFitConfig({
     description: "",
     weight: 3,
     assessmentQuestions: [""],
-    behavioralIndicators: [""],
+    indicators: [""],
   });
 
   const [newQuestion, setNewQuestion] = useState({
@@ -354,7 +354,7 @@ export function CultureFitConfig({
       assessmentQuestions: newValue.assessmentQuestions.filter(
         (q) => q.trim() !== ""
       ),
-      behavioralIndicators: newValue.behavioralIndicators.filter(
+      indicators: newValue.indicators.filter(
         (i) => i.trim() !== ""
       ),
     };
@@ -368,7 +368,7 @@ export function CultureFitConfig({
       description: "",
       weight: 3,
       assessmentQuestions: [""],
-      behavioralIndicators: [""],
+      indicators: [""],
     });
     setShowAddValue(false);
   };
@@ -583,7 +583,7 @@ export function CultureFitConfig({
                       Behavioral Indicators
                     </h5>
                     <div className="flex flex-wrap gap-2">
-                      {value.behavioralIndicators.map((indicator, index) => (
+                      {value.indicators.map((indicator, index) => (
                         <span
                           key={index}
                           className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs"

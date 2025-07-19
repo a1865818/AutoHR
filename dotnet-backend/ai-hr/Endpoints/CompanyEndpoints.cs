@@ -78,6 +78,13 @@ public static class CompanyEndpoints
             .WithName("GetPublicCompanyById")
             .WithSummary("Get public company by ID")
             .WithDescription("Retrieves complete details of a specific company with their job postings - no authentication required");
+
+        // DEBUG: Test endpoint to check database schema
+        app.MapGet("/debug/companies/schema", CheckCompanySchema)
+            .WithTags("Debug")
+            .WithName("CheckCompanySchema")
+            .WithSummary("Check company table schema")
+            .WithDescription("Debug endpoint to check if creator_email column exists");
     }
 
     private static async Task<IResult> CreateCompany(CreateCompanyRequest request, Supabase.Client client)
@@ -96,6 +103,12 @@ public static class CompanyEndpoints
                 return Results.BadRequest(new { error = "Email is required" });
             }
 
+            // Validate creator email
+            if (string.IsNullOrEmpty(request.CreatorEmail))
+            {
+                return Results.BadRequest(new { error = "Creator email is required" });
+            }
+
             var company = new Company
             {
                 Name = request.Name,
@@ -109,7 +122,14 @@ public static class CompanyEndpoints
                 email = request.email,
                 IsVerified = false,
                 CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                // Store creator email temporarily until they register
+                CreatorEmail = request.CreatorEmail,
+                CreatedBy = null // Will be updated when the creator registers
             };
+
+            Console.WriteLine($"[DEBUG] Company object created with creator email: '{company.CreatorEmail}'");
+            Console.WriteLine($"[DEBUG] Company email: '{company.email}'");
 
             var response = await client.From<Company>().Insert(company);
 
@@ -125,8 +145,17 @@ public static class CompanyEndpoints
             }
 
             Console.WriteLine($"[DEBUG] Created company ID: {createdCompany.Id}");
+            Console.WriteLine($"[DEBUG] Company creator email: {request.CreatorEmail}");
 
-            // Create a response DTO that matches the existing company structure
+            // Verify the company was created with the correct data
+            Console.WriteLine($"[DEBUG] Created company data verification:");
+            Console.WriteLine($"[DEBUG] - Name: {createdCompany.Name}");
+            Console.WriteLine($"[DEBUG] - Email: {createdCompany.email}");
+            Console.WriteLine($"[DEBUG] - Creator Email: {createdCompany.CreatorEmail}");
+            Console.WriteLine($"[DEBUG] - Created By: {createdCompany.CreatedBy}");
+
+            // Store the creator email in a temporary way - we'll use company metadata or create a tracking table
+            // For now, let's add it to the response so the frontend can use it during registration
             var companyResponse = new
             {
                 id = createdCompany.Id,  // Use lowercase 'id' to match frontend expectations
@@ -140,7 +169,8 @@ public static class CompanyEndpoints
                 foundedYear = createdCompany.FoundedYear,
                 email = createdCompany.email,
                 isVerified = createdCompany.IsVerified,
-                createdAt = createdCompany.CreatedAt
+                createdAt = createdCompany.CreatedAt,
+                creatorEmail = request.CreatorEmail // Include creator email in response
             };
 
             Console.WriteLine($"[DEBUG] Returning company response with ID: {companyResponse.id}");
@@ -718,6 +748,100 @@ public static class CompanyEndpoints
         catch (Exception ex)
         {
             Console.WriteLine($"Error retrieving public company: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+    // DEBUG: Test endpoint to check database schema
+    private static async Task<IResult> CheckCompanySchema(Supabase.Client client)
+    {
+        try
+        {
+            Console.WriteLine("[DEBUG] Testing company schema...");
+
+            // Try to get companies and check if creator_email field exists
+            var response = await client.From<Company>().Get();
+            var companies = response.Models;
+
+            if (companies.Any())
+            {
+                var firstCompany = companies.First();
+                Console.WriteLine($"[DEBUG] First company: {firstCompany.Name}");
+                Console.WriteLine($"[DEBUG] Creator email field value: '{firstCompany.CreatorEmail}'");
+                Console.WriteLine($"[DEBUG] Creator email field type: {firstCompany.CreatorEmail?.GetType()}");
+
+                return Results.Ok(new
+                {
+                    message = "Company table exists and has data",
+                    hasData = true,
+                    sampleCompany = new
+                    {
+                        id = firstCompany.Id,
+                        name = firstCompany.Name,
+                        email = firstCompany.email,
+                        creatorEmail = firstCompany.CreatorEmail,
+                        createdBy = firstCompany.CreatedBy,
+                        hasCreatorEmailField = firstCompany.CreatorEmail != null
+                    }
+                });
+            }
+            else
+            {
+                // Try to create a test company to see if the field works
+                var testCompany = new Company
+                {
+                    Name = "Test Company",
+                    Description = "Test",
+                    Website = "test.com",
+                    LogoUrl = "",
+                    Industry = "Test",
+                    CompanySize = "1-10",
+                    Headquarters = new Dictionary<string, string>(),
+                    email = "test@test.com",
+                    CreatorEmail = "creator@test.com"
+                };
+
+                try
+                {
+                    var testResponse = await client.From<Company>().Insert(testCompany);
+                    var createdTestCompany = testResponse.Models.FirstOrDefault();
+
+                    if (createdTestCompany != null)
+                    {
+                        Console.WriteLine($"[DEBUG] Test company created successfully");
+                        Console.WriteLine($"[DEBUG] Test company creator email: '{createdTestCompany.CreatorEmail}'");
+
+                        // Clean up - delete the test company
+                        await client.From<Company>().Delete(createdTestCompany);
+
+                        return Results.Ok(new
+                        {
+                            message = "Creator email column exists and works",
+                            hasData = false,
+                            creatorEmailWorks = true,
+                            testResult = "Column exists and can be written/read"
+                        });
+                    }
+                }
+                catch (Exception testEx)
+                {
+                    Console.WriteLine($"[DEBUG] Test company creation failed: {testEx.Message}");
+                    return Results.Ok(new
+                    {
+                        message = "Creator email column may not exist",
+                        hasData = false,
+                        creatorEmailWorks = false,
+                        error = testEx.Message
+                    });
+                }
+            }
+
+            return Results.Ok(new { message = "Company table exists but is empty", hasData = false });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error checking company schema: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }

@@ -38,12 +38,48 @@ public static class HiringUserProfileEndpoints
             .WithName("DeleteHiringUserProfile")
             .WithSummary("Delete hiring user profile")
             .WithDescription("Permanently removes a hiring user profile from the system");
+
+        app.MapGet("/hiring-user-profiles/{id}/role-info", GetUserRoleInfo)
+            .WithTags("Hiring User Profiles")
+            .WithName("GetUserRoleInfo")
+            .WithSummary("Get user role information")
+            .WithDescription("Returns role and company ownership information for a hiring user");
+    }
+
+    // Helper method to verify if a user is a company admin
+    private static async Task<bool> IsCompanyAdmin(Guid userId, Guid companyId, Supabase.Client client)
+    {
+        try
+        {
+            var userResponse = await client.From<HiringUserProfile>().Get();
+            var user = userResponse.Models.FirstOrDefault(u => u.Id == userId);
+
+            if (user == null || user.Roles != "Admin" || user.CompanyId != companyId)
+            {
+                return false;
+            }
+
+            // Double-check by verifying the user is the company creator
+            var companyResponse = await client.From<Company>().Get();
+            var company = companyResponse.Models.FirstOrDefault(c => c.Id == companyId);
+
+            return company != null && company.CreatedBy == userId;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error checking admin status: {ex.Message}");
+            return false;
+        }
     }
 
     private static async Task<IResult> CreateHiringUserProfile(CreateHiringUserProfileRequest request, Supabase.Client client)
     {
         try
         {
+            // SECURITY: Prevent manual Admin role assignment
+            // Admin roles are automatically assigned during registration for company creators
+            // This endpoint should not be used to create profiles with Admin privileges
+
             var profile = new HiringUserProfile
             {
                 FirstName = request.FirstName,
@@ -55,7 +91,10 @@ public static class HiringUserProfileEndpoints
                 LinkedinUrl = request.LinkedinUrl,
                 Location = request.Location,
                 Preferences = request.Preferences,
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                // Force HiringUser role for manual profile creation
+                // Admin role can only be assigned during registration flow
+                Roles = "HiringUser"
             };
 
             var response = await client.From<HiringUserProfile>().Insert(profile);
@@ -167,28 +206,52 @@ public static class HiringUserProfileEndpoints
                 return Results.NotFound(new { message = $"Hiring user profile with ID {id} not found" });
             }
 
-            Console.WriteLine($"[DEBUG] Profile found: {profile.Email}");
+            Console.WriteLine($"[DEBUG] Profile found: {profile.Email} with role: {profile.Roles}");
             Console.WriteLine($"[DEBUG] Updating profile properties...");
+
+            // SECURITY: Preserve role assignments and prevent unauthorized changes
+            // Admin roles can only be assigned during company creation registration
+            // Once assigned, roles should not be changed through this endpoint
+            var originalRole = profile.Roles;
 
             // Update properties if provided in the request
             if (request.FirstName != null) profile.FirstName = request.FirstName;
             if (request.LastName != null) profile.LastName = request.LastName;
             if (request.Email != null) profile.Email = request.Email;
             if (request.UserType != null) profile.UserType = request.UserType;
-            if (request.CompanyId.HasValue) profile.CompanyId = request.CompanyId;
+
+            // SECURITY: Only allow company changes for non-Admin users
+            // Admins are tied to their company and shouldn't be moved
+            if (request.CompanyId.HasValue)
+            {
+                if (profile.Roles == "Admin")
+                {
+                    Console.WriteLine($"[DEBUG] Warning: Attempted to change company for Admin user {profile.Email}, ignoring request");
+                    // Don't change company for Admin users
+                }
+                else
+                {
+                    profile.CompanyId = request.CompanyId;
+                }
+            }
+
             if (request.Bio != null) profile.Bio = request.Bio;
             if (request.LinkedinUrl != null) profile.LinkedinUrl = request.LinkedinUrl;
             if (request.Location != null) profile.Location = request.Location;
             if (request.Preferences != null) profile.Preferences = request.Preferences;
 
+            // SECURITY: Ensure role is preserved
+            profile.Roles = originalRole;
+
             Console.WriteLine($"[DEBUG] Calling Supabase update...");
             var response = await client.From<HiringUserProfile>().Update(profile);
 
-            Console.WriteLine($"[DEBUG] Update successful");
+            Console.WriteLine($"[DEBUG] Update successful for user with role: {profile.Roles}");
             return Results.Ok(new
             {
                 message = "Profile updated successfully",
                 id = id,
+                role = profile.Roles,
                 updatedAt = DateTime.UtcNow
             });
         }
@@ -218,6 +281,61 @@ public static class HiringUserProfileEndpoints
         catch (Exception ex)
         {
             Console.WriteLine($"Error deleting hiring user profile: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+    private static async Task<IResult> GetUserRoleInfo(Guid id, Supabase.Client client)
+    {
+        try
+        {
+            var response = await client.From<HiringUserProfile>().Get();
+            var profile = response.Models.FirstOrDefault(p => p.Id == id);
+
+            if (profile == null)
+            {
+                return Results.NotFound(new { message = $"Hiring user profile with ID {id} not found" });
+            }
+
+            // Get company information if user has a company
+            object companyInfo = null;
+            if (profile.CompanyId.HasValue)
+            {
+                var companyResponse = await client.From<Company>().Get();
+                var company = companyResponse.Models.FirstOrDefault(c => c.Id == profile.CompanyId.Value);
+
+                if (company != null)
+                {
+                    companyInfo = new
+                    {
+                        Id = company.Id,
+                        Name = company.Name,
+                        IsCreator = company.CreatedBy == profile.Id,
+                        CreatedAt = company.CreatedAt
+                    };
+                }
+            }
+
+            var roleInfo = new
+            {
+                UserId = profile.Id,
+                Email = profile.Email,
+                FirstName = profile.FirstName,
+                LastName = profile.LastName,
+                Role = profile.Roles,
+                UserType = profile.UserType,
+                CompanyId = profile.CompanyId,
+                Company = companyInfo,
+                IsAdmin = profile.Roles == "Admin",
+                CreatedAt = profile.CreatedAt
+            };
+
+            return Results.Ok(roleInfo);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error retrieving role info: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }

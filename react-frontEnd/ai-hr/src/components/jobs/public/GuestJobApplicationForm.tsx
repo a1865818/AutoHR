@@ -627,7 +627,7 @@ export function GuestJobApplicationForm({
           </p>
           <div className="flex space-x-3">
             <Link
-              href="/signup"
+              href="/signup/applicant"
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm"
             >
               Create Account

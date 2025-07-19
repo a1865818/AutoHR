@@ -24,5 +24,8 @@ namespace ai_hr.Contracts
         public int? FoundedYear { get; set; }
 
         public string email { get; set; }
+
+        // NEW: Email of the hiring user who will be the admin/creator of this company
+        public string CreatorEmail { get; set; }
     }
 }

@@ -55,6 +55,7 @@ export interface ApplicationUserLoginResponse {
   tokenExpiresAt: string;
 }
 
+// Company registration for new company setup
 export interface CompanyRegisterRequest {
   name: string;
   industry: string;
@@ -68,6 +69,9 @@ export interface CompanyRegisterRequest {
   email: string;
   description: string;
   logoUrl?: string;
+  foundedYear?: number;
+  // NEW: Email of the hiring user who will be the admin/creator
+  creatorEmail: string;
 }
 
 export interface CompanyRegisterResponse {

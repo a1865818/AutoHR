@@ -43,5 +43,16 @@ namespace ai_hr.Models
 
         [Column("email")]
         public string email { get; set; }
+
+        // NEW: Track who created this company for Admin role assignment
+        [Column("created_by")]
+        public Guid? CreatedBy { get; set; }
+
+        // NEW: Temporary field to store creator email until they register
+        [Column("creator_email")]
+        public string? CreatorEmail { get; set; }
+
+        [Column("updated_at")]
+        public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     }
 }

@@ -191,7 +191,7 @@ export function PublicJobFilters({
           </p>
           <div className="flex space-x-2">
             <a
-              href="/signup"
+              href="/signup/applicant"
               className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors"
             >
               Sign Up Free
