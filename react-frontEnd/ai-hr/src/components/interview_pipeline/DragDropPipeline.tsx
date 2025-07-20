@@ -12,6 +12,7 @@ import {
   AlertTriangle,
   Clock,
   Award,
+  FileText,
 } from "lucide-react";
 import { Candidate } from "@/interfaces";
 import { InterviewRound } from "@/interfaces/interview";
@@ -44,8 +45,10 @@ interface DragDropCandidateCardProps {
   onOffer?: (candidateId: string) => void;
   onViewProfile?: (candidateId: string) => void;
   onAddNote?: (candidateId: string, note: string) => void;
+  onMarkAssessment?: (candidateId: string, roundId: string) => void;
   jobTitle?: string;
   companyName?: string;
+  roundType?: string;
 }
 
 export function DragDropCandidateCard({
@@ -61,8 +64,10 @@ export function DragDropCandidateCard({
   onOffer,
   onViewProfile,
   onAddNote,
+  onMarkAssessment,
   jobTitle = "Position",
   companyName = "Company",
+  roundType,
 }: DragDropCandidateCardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
@@ -335,6 +340,17 @@ export function DragDropCandidateCard({
                 <MessageSquare className="h-3 w-3" />
                 <span>Add Note</span>
               </button>
+
+              {/* Assessment Marking Button - Only show for technical rounds */}
+              {(roundType === "technical_assessment" || roundType === "coding_challenge") && onMarkAssessment && (
+                <button
+                  onClick={() => onMarkAssessment?.(candidate.id, roundId || "")}
+                  className="flex-1 flex items-center justify-center space-x-1 text-xs bg-purple-50 text-purple-700 hover:bg-purple-100 px-2 py-1 rounded transition-colors"
+                >
+                  <FileText className="h-3 w-3" />
+                  <span>Mark Assessment</span>
+                </button>
+              )}
             </div>
 
             {/* Offer, Hire, Reject Buttons */}

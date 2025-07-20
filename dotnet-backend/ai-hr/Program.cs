@@ -194,5 +194,6 @@ app.MapSavedJobsEndpoints();
 app.MapEmailEndpoints();
 app.MapEmailTemplateEndpoints();
 app.MapGmailAuthEndpoints();
+app.MapAssessmentEndpoints();
 
 app.Run();
