@@ -29,7 +29,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { jobService } from "@/services/jobService";
 import { interviewService } from "@/services/interviewService";
 import { candidateService } from "@/services/candidateService";
@@ -73,6 +73,7 @@ interface PipelineColumn {
 
 export default function JobPipelinePage() {
   const params = useParams();
+  const router = useRouter();
   const jobId = params.jobId as string;
 
   const formatDate = (dateValue: any): string => {
@@ -824,6 +825,10 @@ export default function JobPipelinePage() {
     // TODO: Implement notes functionality
   };
 
+  const handleMarkAssessment = (candidateId: string, roundId: string) => {
+    router.push(`/interview-pipeline/${jobId}/rounds/${roundId}/assessment/${candidateId}`);
+  };
+
   const handleHireCandidate = async (candidateId: string) => {
     console.log(`Hiring candidate ${candidateId}`);
 
@@ -1395,6 +1400,8 @@ export default function JobPipelinePage() {
                           onAddNote={(candidateId, note) =>
                             handleAddNotes(candidateId, column.id, note)
                           }
+                          onMarkAssessment={handleMarkAssessment}
+                          roundType={column.round?.type}
                         />
 
                         {/* Round-specific actions */}
