@@ -528,6 +528,40 @@ class ApplicationService {
     return userCategory;
   }
 
+  // Get technical assessment for a candidate and round
+  async getTechnicalAssessment(candidateId: string, roundId: string): Promise<{
+    url: string;
+    fileName: string;
+    uploadedAt: string;
+  } | null> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/assessments/submissions/${candidateId}/${roundId}`,
+        {
+          method: "GET",
+          headers: this.getHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null; // No assessment found
+        }
+        throw new Error(`Failed to get technical assessment: ${response.statusText}`);
+      }
+
+      const submission = await response.json();
+      return {
+        url: submission.pdfUrl,
+        fileName: submission.submissionData?.fileName || "Assessment",
+        uploadedAt: submission.submittedAt
+      };
+    } catch (error) {
+      console.warn("Error getting technical assessment:", error);
+      return null;
+    }
+  }
+
   // Helper method to build cover letter text with all application data
   private buildCoverLetterText(
     applicationData: ApplicationData,

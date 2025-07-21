@@ -177,8 +177,7 @@ export default function ResumeSelector({
     event.stopPropagation();
 
     try {
-      const downloadUrl = await resumeService.getResumeDownloadUrl(resume);
-      window.open(downloadUrl, "_blank");
+      await resumeService.downloadResumeFile(resume);
     } catch (error) {
       console.error("Download failed:", error);
       setError("Failed to download resume");

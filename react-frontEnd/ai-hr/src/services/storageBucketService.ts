@@ -13,7 +13,7 @@ interface FileUploadResponse {
 }
 
 interface SignedUrlResponse {
-  signedURL?: string;
+  url?: string;
   token?: string;
   error?: string;
 }
@@ -178,7 +178,7 @@ class StorageBucketService {
       const urlResponse = await this.getFileUrl(bucketName, fileName);
 
       return {
-        url: urlResponse.signedURL || `${bucketName}/${fileName}`,
+        url: urlResponse.url || `${bucketName}/${fileName}`,
         fileName: file.name,
         fileSize: file.size,
         uploadedAt: new Date().toISOString(),

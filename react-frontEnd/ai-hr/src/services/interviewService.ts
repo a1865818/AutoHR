@@ -76,6 +76,8 @@ class InterviewService {
     const url = `${API_BASE_URL}${endpoint}`;
     const token = this.getAuthToken();
 
+    console.log("url:", url);
+
     const headers: Record<string, string> = {};
 
     if (options?.method && ["POST", "PUT", "PATCH"].includes(options.method)) {
@@ -198,7 +200,24 @@ class InterviewService {
     }
 
     try {
-      const template = await this.fetchApi(`/interviews/templates/${id}`);
+      const template = await this.fetchApi(`/interviews/templates/${id}/applicant`);
+      if (!template) {
+        throw new Error("Interview template not found");
+      }
+      return template;
+    } catch (error) {
+      console.error("❌ Failed to load interview template:", error);
+      throw error;
+    }
+  }
+
+  async getInterviewTemplateApplicant(id: string, companyId: string): Promise<InterviewTemplate> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to view interview template");
+    }
+
+    try {
+      const template = await this.fetchApi(`/interviews/templates/${id}/applicant?companyId=${companyId}`);
       if (!template) {
         throw new Error("Interview template not found");
       }

@@ -209,18 +209,13 @@ class JobService {
       console.log("🔍 JobService - Extracted job:", job);
       console.log(
         "🔍 JobService - Job has InterviewTemplate:",
-        !!(job as any)?.InterviewTemplate
+        !!(job as any)?.interviewTemplate
       );
 
       if (!job) {
         throw new Error("Job not found");
       }
 
-      // Map PascalCase InterviewTemplate to camelCase interviewTemplate
-      if ((job as any).InterviewTemplate && !(job as any).interviewTemplate) {
-        (job as any).interviewTemplate = (job as any).InterviewTemplate;
-        console.log("🔄 Mapped InterviewTemplate to interviewTemplate");
-      }
 
       return {
         ...job,

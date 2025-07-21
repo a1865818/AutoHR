@@ -3,6 +3,7 @@
 import { ApplicationDetailResponse } from "@/interfaces";
 import { applicationService } from "@/services/applyService";
 import { jobService } from "@/services/jobService";
+import { interviewService } from "@/services/interviewService";
 import {
   AlertCircle,
   ArrowRight,
@@ -14,10 +15,17 @@ import {
   Mail,
   MapPin,
   Phone,
+  Upload,
+  Download,
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
+import { TechnicalAssessmentUpload } from "./TechnicalAssessmentUpload";
+import { InterviewPipelineTimeline } from "./InterviewPipelineTimeline";
+import { InterviewRound } from "@/interfaces/interview";
+import { storageBucketService } from "@/services/storageBucketService";
 
 interface ApplicationSuccessPageProps {
   jobId: string;
@@ -30,12 +38,20 @@ export function ApplicationSuccessPage({
 }: ApplicationSuccessPageProps) {
   const searchParams = useSearchParams();
   const applicationId = propApplicationId || searchParams.get("applicationId");
+  const { user } = useAuth();
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [applicationStatus, setApplicationStatus] =
     useState<ApplicationDetailResponse | null>(null);
   const [jobData, setJobData] = useState<any>(null);
+  const [interviewRounds, setInterviewRounds] = useState<InterviewRound[]>([]);
+  const [technicalAssessment, setTechnicalAssessment] = useState<{
+    url: string;
+    fileName: string;
+    uploadedAt: string;
+  } | null>(null);
+  const [currentRoundId, setCurrentRoundId] = useState<string | null>(null);
 
   useEffect(() => {
     loadApplicationData();
@@ -58,7 +74,52 @@ export function ApplicationSuccessPage({
 
       // Load job data
       const job = await jobService.getJobById(jobId);
+      console.log("job:", job.interviewTemplateId);
       setJobData(job);
+
+      // Load interview template and rounds if available
+      let technicalRoundId = null;
+      if (job.interviewTemplateId) {
+        try {
+          const template = job.interviewTemplate;
+          console.log("template:", template);
+          if (template && template.rounds) {
+            const sortedRounds = template.rounds.sort(
+              (a, b) => a.roundOrder - b.roundOrder
+            );
+            setInterviewRounds(sortedRounds);
+
+            // Set current round ID for technical assessment (first technical round)
+            const technicalRound = sortedRounds.find(
+              (round) => round.type === "technical_assessment"
+            );
+            if (technicalRound) {
+              technicalRoundId = technicalRound.id;
+              setCurrentRoundId(technicalRound.id);
+            }
+          }
+        } catch (error) {
+          console.warn("Could not load interview template:", error);
+        }
+      }
+
+      // Load technical assessment if application exists and we have round info
+      if (applicationId && technicalRoundId && user?.id) {
+        try {
+          const assessment = await applicationService.getTechnicalAssessment(
+            user.id,
+            technicalRoundId
+          );
+          if (assessment && assessment.url) {
+            setTechnicalAssessment(assessment);
+          } else {
+            setTechnicalAssessment(null);
+          }
+        } catch (error) {
+          console.warn("Could not load technical assessment:", error);
+          setTechnicalAssessment(null);
+        }
+      }
     } catch (error) {
       console.error("Error loading application data:", error);
       setError(
@@ -198,6 +259,9 @@ export function ApplicationSuccessPage({
     );
   }
 
+  // Show error banner but continue with page if we have basic data
+  const showErrorBanner = error && jobData;
+
   const displayStatus = applicationStatus?.status || "applied";
   const submittedDate =
     applicationStatus?.appliedAt || new Date().toISOString();
@@ -223,6 +287,25 @@ export function ApplicationSuccessPage({
           </div>
         </div>
       </div>
+
+      {/* Error Banner */}
+      {showErrorBanner && (
+        <div className="max-w-4xl mx-auto px-6 py-4">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-center">
+              <AlertCircle className="h-5 w-5 text-yellow-600 mr-2" />
+              <div>
+                <h3 className="text-sm font-medium text-yellow-900">
+                  Some data couldn't be loaded
+                </h3>
+                <p className="text-sm text-yellow-700 mt-1">
+                  {error} - The timeline below shows available information.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="max-w-4xl mx-auto px-6 py-8">
@@ -318,61 +401,61 @@ export function ApplicationSuccessPage({
               </div>
             </div>
 
-            {/* Timeline */}
-            <div className="bg-white rounded-lg border p-6">
-              <h2 className="text-xl font-semibold text-gray-900 mb-4">
-                Application Timeline
-              </h2>
-              <div className="space-y-4">
-                <div className="flex items-center">
-                  <div className="bg-green-500 rounded-full w-3 h-3 mr-4"></div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-900">
-                      Application Submitted
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {new Date(submittedDate).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
+            {/* Application Timeline */}
+            <InterviewPipelineTimeline
+              rounds={interviewRounds}
+              currentStage={applicationStatus?.stage}
+              applicationStatus={displayStatus}
+              appliedDate={submittedDate}
+              statusChangedAt={applicationStatus?.statusChangedAt}
+            />
 
-                {displayStatus !== "applied" && (
-                  <div className="flex items-center">
-                    <div className="bg-blue-500 rounded-full w-3 h-3 mr-4"></div>
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">
-                        Application Under Review
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {applicationStatus?.statusChangedAt
-                          ? new Date(
-                              applicationStatus.statusChangedAt
-                            ).toLocaleDateString()
-                          : "In progress"}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center">
-                  <div className="bg-gray-300 rounded-full w-3 h-3 mr-4"></div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-500">
-                      Interview Process
-                    </p>
-                    <p className="text-sm text-gray-400">Pending</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center">
-                  <div className="bg-gray-300 rounded-full w-3 h-3 mr-4"></div>
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-500">Final Decision</p>
-                    <p className="text-sm text-gray-400">Pending</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* Technical Assessment Upload */}
+            {interviewRounds.some(
+              (round) =>
+                round.type === "technical_assessment" ||
+                round.type === "coding_challenge"
+            ) &&
+              user?.id &&
+              currentRoundId && (
+                <>
+                  <TechnicalAssessmentUpload
+                    candidateId={user.id}
+                    roundId={currentRoundId}
+                    jobId={jobId}
+                    existingAssessment={technicalAssessment || undefined}
+                    onUploadSuccess={async (fileUrl, fileName) => {
+                      // Refetch the latest assessment from backend after upload
+                      try {
+                        const assessment =
+                          await applicationService.getTechnicalAssessment(
+                            user.id,
+                            currentRoundId
+                          );
+                        if (assessment) {
+                          setTechnicalAssessment(assessment);
+                        } else {
+                          setTechnicalAssessment({
+                            url: fileUrl,
+                            fileName,
+                            uploadedAt: new Date().toISOString(),
+                          });
+                        }
+                      } catch (err) {
+                        // fallback to local
+                        setTechnicalAssessment({
+                          url: fileUrl,
+                          fileName,
+                          uploadedAt: new Date().toISOString(),
+                        });
+                      }
+                    }}
+                    onUploadError={(error) => {
+                      console.error("Assessment upload failed:", error);
+                    }}
+                  />
+                </>
+              )}
           </div>
 
           {/* Sidebar */}
@@ -503,5 +586,81 @@ export function ApplicationSuccessPage({
         </div>
       </div>
     </div>
+  );
+}
+
+import React from "react";
+
+interface DownloadTechnicalAssessmentButtonProps {
+  fileUrl: string;
+  fileName: string;
+}
+
+const BUCKET_NAME = process.env.NEXT_PUBLIC_BUCKET_NAME || "resume-storage";
+
+function extractFileNameFromUrl(url: string): string {
+  // Try to extract the file name from the URL (works for /bucket/file or signed URLs)
+  try {
+    const urlObj = new URL(url, window.location.origin);
+    const pathParts = urlObj.pathname.split("/");
+    return pathParts[pathParts.length - 1];
+  } catch {
+    // fallback: just return the input
+    return url;
+  }
+}
+
+export function DownloadTechnicalAssessmentButton({
+  fileUrl,
+  fileName,
+}: DownloadTechnicalAssessmentButtonProps) {
+  const [downloading, setDownloading] = React.useState(false);
+
+  const handleDownload = async () => {
+    setDownloading(true);
+    try {
+      // Try to extract bucket and file name from the URL if possible
+      // If not, fallback to defaults
+      let bucket = BUCKET_NAME;
+      let file = fileName;
+      try {
+        const urlObj = new URL(fileUrl, window.location.origin);
+        const pathParts = urlObj.pathname.split("/").filter(Boolean);
+        if (pathParts.length >= 2) {
+          bucket = pathParts[pathParts.length - 2];
+          file = pathParts[pathParts.length - 1];
+        } else {
+          file = extractFileNameFromUrl(fileUrl);
+        }
+      } catch {
+        // fallback to provided values
+      }
+      const blob = await storageBucketService.downloadFile(bucket, file);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = file;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Download failed:", error);
+      alert("Failed to download file.");
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      className="mt-4 flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-60"
+      onClick={handleDownload}
+      disabled={downloading}
+    >
+      <Download className="h-4 w-4 mr-2" />
+      {downloading ? "Downloading..." : `Download Assessment (${fileName})`}
+    </button>
   );
 }

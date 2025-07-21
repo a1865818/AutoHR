@@ -426,6 +426,42 @@ class AssessmentService {
     }
   }
 
+  // Create a new assessment submission
+  async createSubmission(
+    candidateId: string,
+    roundId: string,
+    jobId: string,
+    pdfUrl: string,
+    submissionData: any
+  ): Promise<AssessmentSubmission> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to create assessment submission");
+    }
+
+    try {
+      const requestBody = {
+        CandidateId: candidateId,
+        candidateId: candidateId,
+        RoundId: roundId,
+        roundId: roundId,
+        JobId: jobId,
+        jobId: jobId,
+        PdfUrl: pdfUrl, 
+        SubmissionData: submissionData,
+        submissionData: submissionData,
+      };
+      console.log('[AssessmentService] Submitting assessment:', requestBody);
+      const submission = await this.fetchApi("/assessments/submissions", {
+        method: "POST",
+        body: JSON.stringify(requestBody),
+      });
+      return submission;
+    } catch (error) {
+      console.error("❌ Failed to create assessment submission:", error);
+      throw error;
+    }
+  }
+
   // Mock method to get questions for a round
   async getRoundQuestions(jobId: string, roundId: string): Promise<Question[]> {
     // This would normally fetch from the round configuration

@@ -12,8 +12,8 @@ namespace ai_hr.Endpoints
         public static void MapAssessmentEndpoints(this WebApplication app)
         {
             Console.WriteLine("🔧 Mapping Assessment Endpoints...");
-            
-            var group = app.MapGroup("/api/assessments")
+
+            var group = app.MapGroup("/assessments")
                 .WithTags("Assessments")
                 .RequireAuthorization();
 
@@ -185,6 +185,7 @@ namespace ai_hr.Endpoints
         {
             try
             {
+                Console.WriteLine($"[Backend] Incoming AssessmentSubmissionCreateRequest: {System.Text.Json.JsonSerializer.Serialize(request)}");
                 var submission = new AssessmentSubmission
                 {
                     CandidateId = request.CandidateId,
@@ -357,14 +358,14 @@ namespace ai_hr.Endpoints
             try
             {
                 Console.WriteLine($"🔍 SaveAssessmentGrade called with request: {System.Text.Json.JsonSerializer.Serialize(request)}");
-                
+
                 var userId = GetUserId(user);
                 if (!userId.HasValue)
                 {
                     Console.WriteLine("❌ User ID not found in claims");
                     return Results.Unauthorized();
                 }
-                
+
                 Console.WriteLine($"✅ User ID: {userId.Value}");
 
                 // Check if submission exists
@@ -496,7 +497,7 @@ namespace ai_hr.Endpoints
                 return Results.Problem("Failed to save assessment grade");
             }
         }
-        
+
 
         private static async Task<IResult> UpdateAssessmentGrade(
             Guid id,
@@ -648,4 +649,4 @@ namespace ai_hr.Endpoints
             return scores;
         }
     }
-} 
+}

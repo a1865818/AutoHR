@@ -99,7 +99,7 @@ public static class StorageBucketEndpoints
         var storage = client.Storage;
         var bucket = storage.From(bucketName);
         var file = await bucket.Download(fileName, (EventHandler<float>?)null);
-        return Results.Ok(file);
+        return Results.File(file, contentType: "application/pdf", fileDownloadName: fileName);
     }
 
     public static async Task<IResult> ListFiles(Supabase.Client client, string bucketName)

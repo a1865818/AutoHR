@@ -19,6 +19,7 @@ import {
   Mail,
 } from "lucide-react";
 import Link from "next/link";
+import { ApplicationTimeline } from "./ApplicationTimeline";
 
 interface ApplicationCardProps {
   application: ApplicationWithJobDetails;
@@ -165,9 +166,12 @@ export default function ApplicationCard({
         {/* Header */}
         <div className="flex items-start justify-between mb-4 gap-4">
           <div className="flex-1 min-w-0">
-            <h3 className="text-xl font-semibold text-gray-900 mb-2 break-words">
+            <Link
+              href={`/applicant/jobs/${application.jobId}/application-success?applicationId=${application.id}`}
+              className="text-xl font-semibold text-gray-900 mb-2 break-words hover:text-blue-600 transition-colors cursor-pointer block"
+            >
               {application.job?.title || "Unknown Position"}
-            </h3>
+            </Link>
             <div className="flex items-center text-gray-600 mb-2">
               <Building2 className="h-4 w-4 mr-2 flex-shrink-0" />
               <span className="font-medium truncate">
@@ -227,6 +231,17 @@ export default function ApplicationCard({
           )}
         </div>
 
+        {/* Compact Timeline */}
+        <div className="mb-4">
+          <ApplicationTimeline
+            status={application.status || ""}
+            stage={application.stage}
+            appliedAt={application.appliedAt}
+            statusChangedAt={application.statusChangedAt}
+            showDetails={false}
+          />
+        </div>
+
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <button
@@ -260,6 +275,17 @@ export default function ApplicationCard({
         {/* Expandable Details */}
         {showDetails && (
           <div className="mt-6 pt-6 border-t border-gray-200 w-full">
+            {/* Application Timeline */}
+            <div className="mb-6">
+              <ApplicationTimeline
+                status={application.status || ""}
+                stage={application.stage}
+                appliedAt={application.appliedAt}
+                statusChangedAt={application.statusChangedAt}
+                showDetails={true}
+              />
+            </div>
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
               {/* Application Details */}
               <div className="min-w-0">
@@ -420,7 +446,9 @@ export default function ApplicationCard({
                 {/* Detect and pretty-print metadata if present */}
                 {(() => {
                   // Use a non-greedy match for metadata block (without 's' flag for compatibility)
-                  const metaMatch = application.coverLetterText.match(/\[APPLICATION_METADATA\]([\s\S]*?)\[\/APPLICATION_METADATA\]/);
+                  const metaMatch = application.coverLetterText.match(
+                    /\[APPLICATION_METADATA\]([\s\S]*?)\[\/APPLICATION_METADATA\]/
+                  );
                   if (metaMatch) {
                     let metaObj = null;
                     try {
@@ -430,7 +458,9 @@ export default function ApplicationCard({
                     }
                     return (
                       <div className="mb-4">
-                        <div className="text-xs text-gray-500 mb-1">Application Metadata</div>
+                        <div className="text-xs text-gray-500 mb-1">
+                          Application Metadata
+                        </div>
                         <pre className="bg-gray-100 rounded p-4 text-xs text-gray-800 overflow-x-auto max-h-60 whitespace-pre-wrap">
                           {metaObj
                             ? JSON.stringify(metaObj, null, 2)

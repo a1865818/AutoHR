@@ -14,64 +14,66 @@ public static class InterviewEndpoints
         // Interview Templates Endpoints
         group.MapGet("/templates", GetInterviewTemplates)
             .WithName("GetInterviewTemplates")
-            .WithSummary("Get all interview templates for the user's company")
-            .RequireAuthorization();
+            .WithSummary("Get all interview templates for the user's company");
 
         group.MapGet("/templates/{id:guid}", GetInterviewTemplate)
             .WithName("GetInterviewTemplate")
-            .WithSummary("Get a specific interview template by ID")
-            .RequireAuthorization();
+            .WithSummary("Get a specific interview template by ID");
+
+        group.MapGet("/templates/{id:guid}/applicant", GetApplicantInterviewTemplate)
+            .WithName("GetApplicantInterviewTemplate")
+            .WithSummary("Get a specific interview template by ID for applicants");
 
         group.MapPost("/templates", CreateInterviewTemplate)
             .WithName("CreateInterviewTemplate")
-            .WithSummary("Create a new interview template")
-            .RequireAuthorization();
+            .WithSummary("Create a new interview template");
+        // .RequireAuthorization();
 
         group.MapPut("/templates/{id:guid}", UpdateInterviewTemplate)
             .WithName("UpdateInterviewTemplate")
-            .WithSummary("Update an existing interview template")
-            .RequireAuthorization();
+            .WithSummary("Update an existing interview template");
+        // .RequireAuthorization();
 
         group.MapDelete("/templates/{id:guid}", DeleteInterviewTemplate)
             .WithName("DeleteInterviewTemplate")
-            .WithSummary("Delete an interview template")
-            .RequireAuthorization();
+            .WithSummary("Delete an interview template");
+        // .RequireAuthorization();
 
         group.MapPost("/templates/{id:guid}/clone", CloneInterviewTemplate)
             .WithName("CloneInterviewTemplate")
-            .WithSummary("Clone an existing interview template")
-            .RequireAuthorization();
+            .WithSummary("Clone an existing interview template");
+        // .RequireAuthorization();
 
         group.MapPost("/templates/{id:guid}/set-default", SetDefaultInterviewTemplate)
             .WithName("SetDefaultInterviewTemplate")
-            .WithSummary("Set a template as the default template")
-            .RequireAuthorization();
+            .WithSummary("Set a template as the default template");
+        // .RequireAuthorization();
 
         group.MapGet("/stats", GetInterviewStats)
             .WithName("GetInterviewStats")
-            .WithSummary("Get interview statistics")
-            .RequireAuthorization();
+            .WithSummary("Get interview statistics");
+        // .RequireAuthorization();
 
         // Interview Rounds Endpoints
         group.MapGet("/templates/{templateId:guid}/rounds", GetInterviewRounds)
             .WithName("GetInterviewRounds")
-            .WithSummary("Get all rounds for a template")
-            .RequireAuthorization();
+            .WithSummary("Get all rounds for a template");
+        // .RequireAuthorization();
 
         group.MapPost("/templates/{templateId:guid}/rounds", CreateInterviewRound)
             .WithName("CreateInterviewRound")
-            .WithSummary("Create a new interview round")
-            .RequireAuthorization();
+            .WithSummary("Create a new interview round");
+        // .RequireAuthorization();
 
         group.MapPut("/rounds/{id:guid}", UpdateInterviewRound)
             .WithName("UpdateInterviewRound")
-            .WithSummary("Update an existing interview round")
-            .RequireAuthorization();
+            .WithSummary("Update an existing interview round");
+        // .RequireAuthorization();
 
         group.MapDelete("/rounds/{id:guid}", DeleteInterviewRound)
             .WithName("DeleteInterviewRound")
-            .WithSummary("Delete an interview round")
-            .RequireAuthorization();
+            .WithSummary("Delete an interview round");
+        // .RequireAuthorization();
     }
 
     private static async Task<IResult> GetInterviewTemplates(
@@ -149,6 +151,33 @@ public static class InterviewEndpoints
         catch (Exception ex)
         {
             return Results.Problem($"Error retrieving interview template: {ex.Message}");
+        }
+    }
+
+    private static async Task<IResult> GetApplicantInterviewTemplate(
+        Guid id,
+        Guid? companyId,
+        Supabase.Client client)
+    {
+        try
+        {
+            var templateResponse = await client.From<InterviewTemplate>().Get();
+            var template = templateResponse.Models.FirstOrDefault(t => t.Id == id &&
+                (t.CompanyId == companyId || t.CompanyId == null));
+
+            if (template == null)
+                return Results.NotFound();
+
+            // Get rounds for the template
+            var roundsResponse = await client.From<InterviewRound>().Get();
+            var rounds = roundsResponse.Models.Where(r => r.TemplateId == id).OrderBy(r => r.RoundOrder).ToList();
+
+            var response = MapToResponseDto(template, rounds);
+            return Results.Ok(response);
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem($"Error retrieving public interview template: {ex.Message}");
         }
     }
 
@@ -294,8 +323,6 @@ public static class InterviewEndpoints
     {
         try
         {
-            Console.WriteLine($"🔍 Starting clone for template: {id}");
-
             var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
             {
@@ -309,7 +336,6 @@ public static class InterviewEndpoints
                 return Results.BadRequest(new { error = "Invalid user ID format" });
             }
 
-            Console.WriteLine($"🔍 Getting hiring user for: {userGuid}");
             var hiringUserResponse = await client.From<HiringUserProfile>().Get();
             var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
 
@@ -319,7 +345,7 @@ public static class InterviewEndpoints
                 return Results.Unauthorized();
             }
 
-            Console.WriteLine($"🔍 Getting original template: {id}");
+
             var templateResponse = await client.From<InterviewTemplate>().Get();
             var originalTemplate = templateResponse.Models.FirstOrDefault(t => t.Id == id &&
                 (t.CompanyId == hiringUser.CompanyId || t.CompanyId == null));
@@ -329,8 +355,6 @@ public static class InterviewEndpoints
                 Console.WriteLine("❌ Original template not found");
                 return Results.NotFound();
             }
-
-            Console.WriteLine($"🔍 Found original template: {originalTemplate.Name}");
 
             var clonedTemplate = new InterviewTemplate
             {

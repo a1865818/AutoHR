@@ -301,16 +301,44 @@ class ResumeService {
       }
 
       // Get signed URL from storage
-      const bucketName = "resumes";
+      const bucketName = "resume-storage";
       const urlResponse = await storageBucketService.getFileUrl(
         bucketName,
         resume.fileName
       );
 
-      return urlResponse.signedURL || resume.url;
+      return urlResponse.url || resume.url;
     } catch (error) {
       console.error("Failed to get download URL:", error);
       return resume.url; // Fallback to original URL
+    }
+  }
+
+  // Download resume as a blob and trigger browser download
+  async downloadResumeFile(resume: Resume): Promise<void> {
+    try {
+      // Determine bucket and file name
+      const bucketName = process.env.BUCKET_NAME || "resume-storage";
+      // Prefer fileName property, fallback to extracting from url
+      let fileName = resume.fileName;
+      if (!fileName && resume.url) {
+        const urlParts = resume.url.split("/");
+        fileName = urlParts[urlParts.length - 1];
+      }
+      // Download the file as a blob
+      const blob = await storageBucketService.downloadFile(bucketName, fileName);
+      const typedBlob = new Blob([blob], { type: "application/pdf" }); // fallback to PDF, could be improved
+      const downloadUrl = window.URL.createObjectURL(typedBlob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = resume.originalName || fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error("Failed to download resume file:", error);
+      throw error;
     }
   }
 
