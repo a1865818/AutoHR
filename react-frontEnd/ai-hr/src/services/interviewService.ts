@@ -104,7 +104,7 @@ class InterviewService {
           errorData = text
             ? JSON.parse(text)
             : { error: `HTTP ${response.status}: ${response.statusText}` };
-        } catch (e) {
+        } catch {
           errorData = {
             error: `HTTP ${response.status}: ${response.statusText}`,
           };
@@ -144,10 +144,12 @@ class InterviewService {
 
         try {
           return JSON.parse(text);
-        } catch (parseError: any) {
+        } catch (parseError: unknown) {
           console.error("❌ JSON Parse Error:", parseError);
           throw new Error(
-            `Invalid JSON response from server: ${parseError.message}`
+            `Invalid JSON response from server: ${
+              parseError instanceof Error ? parseError.message : "Unknown error"
+            }`
           );
         }
       }
@@ -156,22 +158,30 @@ class InterviewService {
       if (text.trim().startsWith("{") || text.trim().startsWith("[")) {
         try {
           return JSON.parse(text);
-        } catch (parseError: any) {
-          throw new Error(`Invalid JSON response: ${parseError.message}`);
+        } catch (parseError: unknown) {
+          throw new Error(
+            `Invalid JSON response: ${
+              parseError instanceof Error ? parseError.message : "Unknown error"
+            }`
+          );
         }
       }
 
       return text || null;
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (
-        error.message &&
+        error instanceof Error &&
         (error.message.includes("JSON") || error.message.includes("HTTP"))
       ) {
         throw error;
       }
 
       console.error("🚨 Network/Fetch Error:", { url, error });
-      throw new Error(`Network error: ${error.message || "Unknown error"}`);
+      throw new Error(
+        `Network error: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   }
 
@@ -200,7 +210,7 @@ class InterviewService {
     }
 
     try {
-      const template = await this.fetchApi(`/interviews/templates/${id}/applicant`);
+      const template = await this.fetchApi(`/interviews/templates/${id}`);
       if (!template) {
         throw new Error("Interview template not found");
       }
@@ -211,13 +221,18 @@ class InterviewService {
     }
   }
 
-  async getInterviewTemplateApplicant(id: string, companyId: string): Promise<InterviewTemplate> {
+  async getInterviewTemplateApplicant(
+    id: string,
+    companyId: string
+  ): Promise<InterviewTemplate> {
     if (!this.isAuthenticated()) {
       throw new Error("Authentication required to view interview template");
     }
 
     try {
-      const template = await this.fetchApi(`/interviews/templates/${id}/applicant?companyId=${companyId}`);
+      const template = await this.fetchApi(
+        `/interviews/templates/${id}/applicant?companyId=${companyId}`
+      );
       if (!template) {
         throw new Error("Interview template not found");
       }
