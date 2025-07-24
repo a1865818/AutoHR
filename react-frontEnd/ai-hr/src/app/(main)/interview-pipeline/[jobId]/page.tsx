@@ -1,30 +1,23 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ArrowLeft,
   Users,
   Calendar,
-  Clock,
   MapPin,
   Building,
   GitBranch,
   Plus,
   Search,
-  Filter,
-  MoreVertical,
   Phone,
   Video,
   Code,
-  MessageSquare,
   Crown,
   Heart,
   User,
-  Mail,
-  Star,
   Loader2,
   AlertCircle,
-  CheckCircle,
   XCircle,
   ChevronRight,
 } from "lucide-react";
@@ -34,6 +27,7 @@ import { jobService } from "@/services/jobService";
 import { interviewService } from "@/services/interviewService";
 import { candidateService } from "@/services/candidateService";
 import { rejectedCandidatesService } from "@/services/rejectedCandidatesService";
+import { assessmentService } from "@/services/assessmentService";
 import { ApiJob, ApiCompany } from "@/interfaces/api";
 import {
   InterviewTemplate,
@@ -60,6 +54,8 @@ interface JobWithTemplate extends Omit<ApiJob, "interviewTemplate"> {
 interface PipelineCandidate extends Candidate {
   currentRoundId?: string;
   roundProgress?: number;
+  hasSubmittedAssessment?: boolean;
+  isAssessmentGraded?: boolean;
 }
 
 interface PipelineColumn {
@@ -75,6 +71,15 @@ export default function JobPipelinePage() {
   const params = useParams();
   const router = useRouter();
   const jobId = params.jobId as string;
+
+  // Early validation - redirect if jobId is invalid
+  useEffect(() => {
+    if (!jobId || jobId === "undefined") {
+      console.error("❌ Invalid jobId detected:", jobId);
+      router.push("/interview-pipeline");
+      return;
+    }
+  }, [jobId, router]);
 
   const formatDate = (dateValue: any): string => {
     if (!dateValue) return "N/A";
@@ -235,21 +240,91 @@ export default function JobPipelinePage() {
         candidate.status = matchingApplicationDetail?.status || "In Progress";
       }
 
-      const pipelineCandidates: PipelineCandidate[] = candidatesData.map(
-        (candidate) => {
+      // Check submission status for candidates in technical rounds
+      const pipelineCandidates: PipelineCandidate[] = await Promise.all(
+        candidatesData.map(async (candidate) => {
+          const currentRoundId = getCurrentRoundId(
+            candidate,
+            jobWithTemplate.interviewTemplate
+          );
+          
+          console.log(`🔍 Current round determination for ${candidate.name}:`, {
+            candidateStage: candidate.stage,
+            candidateCurrentRoundId: candidate.currentRoundId,
+            calculatedCurrentRoundId: currentRoundId,
+            availableRounds: jobWithTemplate.interviewTemplate?.rounds?.map(r => ({ id: r.id, name: r.name, type: r.type }))
+          });
+          
+          // Check if this candidate is in a technical assessment round
+          let hasSubmittedAssessment = false;
+          let isAssessmentGraded = false;
+          if (jobWithTemplate.interviewTemplate?.rounds && currentRoundId) {
+            const currentRound = jobWithTemplate.interviewTemplate.rounds.find(r => r.id === currentRoundId);
+                      console.log(`🔍 Pipeline processing candidate ${candidate.name}:`, {
+            applicationId: candidate.id,
+            candidateUserId: candidate.candidateUserId,
+            hasCandidateUserId: !!candidate.candidateUserId,
+            candidateUserIdLength: candidate.candidateUserId?.length,
+            currentRoundId,
+            roundType: currentRound?.type,
+            isInTechnicalRound: currentRound && (currentRound.type === "technical_assessment" || currentRound.type === "coding_challenge")
+          });
+          
+          // Safety check for missing candidateUserId
+          if (!candidate.candidateUserId) {
+            console.warn(`⚠️ WARNING: Candidate ${candidate.name} (${candidate.id}) is missing candidateUserId!`);
+          }
+            
+            if (currentRound && (currentRound.type === "technical_assessment" || currentRound.type === "coding_challenge")) {
+              try {
+                console.log(`🔍 About to check submission for:`, {
+                  candidateName: candidate.name,
+                  applicationId: candidate.id,
+                  candidateUserId: candidate.candidateUserId,
+                  roundId: currentRoundId,
+                  roundName: currentRound.name,
+                  roundType: currentRound.type
+                });
+                
+                hasSubmittedAssessment = await assessmentService.hasSubmittedAssessment(
+                  candidate.candidateUserId,
+                  currentRoundId
+                );
+                console.log(`📝 Candidate ${candidate.name} submission status:`, {
+                  hasSubmitted: hasSubmittedAssessment,
+                  applicationId: candidate.id,
+                  candidateUserId: candidate.candidateUserId,
+                  roundId: currentRoundId
+                });
+
+                isAssessmentGraded = await assessmentService.isSubmissionGraded(
+                  candidate.candidateUserId,
+                  currentRoundId
+                );
+                console.log(`📝 Candidate ${candidate.name} grading status:`, {
+                  isGraded: isAssessmentGraded,
+                  applicationId: candidate.id,
+                  candidateUserId: candidate.candidateUserId,
+                  roundId: currentRoundId
+                });
+              } catch (error) {
+                console.warn(`Failed to check submission status for candidate ${candidate.id}:`, error);
+                hasSubmittedAssessment = false;
+              }
+            }
+          }
+
           return {
             ...candidate,
-
-            currentRoundId: getCurrentRoundId(
-              candidate,
-              jobWithTemplate.interviewTemplate
-            ),
+            currentRoundId,
             roundProgress: calculateRoundProgress(
               candidate,
               jobWithTemplate.interviewTemplate
             ),
+            hasSubmittedAssessment,
+            isAssessmentGraded,
           };
-        }
+        })
       );
 
       console.log("🔍 Pipeline candidates:", pipelineCandidates);
@@ -825,8 +900,19 @@ export default function JobPipelinePage() {
     // TODO: Implement notes functionality
   };
 
-  const handleMarkAssessment = (candidateId: string, roundId: string) => {
-    router.push(`/interview-pipeline/${jobId}/rounds/${roundId}/assessment/${candidateId}`);
+  const handleMarkAssessment = (candidateUserId: string, roundId: string) => {
+    // Validate jobId before navigation
+    if (!jobId || jobId === "undefined") {
+      console.error("❌ Cannot navigate to assessment: invalid jobId", jobId);
+      return;
+    }
+    console.log("🔍 Navigating to assessment marking with:", {
+      jobId,
+      roundId,
+      candidateUserId,
+      url: `/interview-pipeline/${jobId}/rounds/${roundId}/assessment/${candidateUserId}`
+    });
+    router.push(`/interview-pipeline/${jobId}/rounds/${roundId}/assessment/${candidateUserId}`);
   };
 
   const handleHireCandidate = async (candidateId: string) => {
@@ -1400,8 +1486,10 @@ export default function JobPipelinePage() {
                           onAddNote={(candidateId, note) =>
                             handleAddNotes(candidateId, column.id, note)
                           }
-                          onMarkAssessment={handleMarkAssessment}
+                          onMarkAssessment={(candidateId, roundId) => handleMarkAssessment(candidate.candidateUserId, roundId)}
                           roundType={column.round?.type}
+                          hasSubmittedAssessment={candidate.hasSubmittedAssessment}
+                          isAssessmentGraded={candidate.isAssessmentGraded}
                         />
 
                         {/* Round-specific actions */}

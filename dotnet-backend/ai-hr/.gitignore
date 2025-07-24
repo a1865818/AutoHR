@@ -1,6 +1,9 @@
 ai-hr.csproj.nuget.g.props
 ai-hr.csproj.nuget.g.targets
 
+Google.Apis.*
+
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/
