@@ -230,6 +230,7 @@ public static class EmailEndpoints
 
             // Save email history
             var emailHistoryRecords = new List<EmailHistory>();
+            var applicationsToUpdate = new List<ApplicationDetail>();
             for (int i = 0; i < recipients.Count; i++)
             {
                 var recipient = recipients[i];
@@ -250,6 +251,13 @@ public static class EmailEndpoints
                     };
 
                     emailHistoryRecords.Add(emailHistory);
+
+                    // Update IsSendRejectEmail if email was sent successfully
+                    if (gmailSendResult?.Success == true && application.IsSendRejectEmail != true)
+                    {
+                        application.IsSendRejectEmail = true;
+                        applicationsToUpdate.Add(application);
+                    }
                 }
             }
 
@@ -257,6 +265,15 @@ public static class EmailEndpoints
             if (emailHistoryRecords.Any())
             {
                 await client.From<EmailHistory>().Insert(emailHistoryRecords);
+            }
+
+            // Update ApplicationDetail records for successful sends
+            if (applicationsToUpdate.Any())
+            {
+                foreach (var app in applicationsToUpdate)
+                {
+                    await client.From<ApplicationDetail>().Update(app);
+                }
             }
 
             return Results.Ok(new BulkEmailResponse

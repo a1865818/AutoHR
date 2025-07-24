@@ -826,7 +826,9 @@ export default function JobPipelinePage() {
   };
 
   const handleMarkAssessment = (candidateId: string, roundId: string) => {
-    router.push(`/interview-pipeline/${jobId}/rounds/${roundId}/assessment/${candidateId}`);
+    router.push(
+      `/interview-pipeline/${jobId}/rounds/${roundId}/assessment/${candidateId}`
+    );
   };
 
   const handleHireCandidate = async (candidateId: string) => {
