@@ -200,7 +200,7 @@ class InterviewService {
     }
 
     try {
-      const template = await this.fetchApi(`/interviews/templates/${id}/applicant`);
+      const template = await this.fetchApi(`/interviews/templates/${id}/`);
       if (!template) {
         throw new Error("Interview template not found");
       }
