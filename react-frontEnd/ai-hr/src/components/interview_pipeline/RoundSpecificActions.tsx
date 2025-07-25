@@ -24,10 +24,12 @@ import {
 } from "lucide-react";
 import { InterviewType, InterviewRound } from "@/interfaces/interview";
 import { Candidate } from "@/interfaces";
+import { useRouter } from "next/navigation";
 
 interface RoundSpecificActionsProps {
   round: InterviewRound;
-  candidate: Candidate;
+  candidate?: Candidate;
+  jobId?: string;
   isLastRound?: boolean;
   onSchedule?: (candidateId: string, roundId: string) => void;
   onComplete?: (candidateId: string, roundId: string, result: any) => void;
@@ -39,6 +41,7 @@ interface RoundSpecificActionsProps {
 export function RoundSpecificActions({
   round,
   candidate,
+  jobId,
   isLastRound = false,
   onSchedule,
   onComplete,
@@ -88,6 +91,7 @@ export function RoundSpecificActions({
         <TechnicalAssessmentActions
           round={round}
           candidate={candidate}
+          jobId={jobId}
           onComplete={onComplete}
         />
       );
@@ -97,6 +101,7 @@ export function RoundSpecificActions({
         <CodingChallengeActions
           round={round}
           candidate={candidate}
+          jobId={jobId}
           onComplete={onComplete}
         />
       );
@@ -142,7 +147,7 @@ function LastRoundActions({
       <div className="space-y-2">
         {round.type === "phone_screening" && (
           <button
-            onClick={() => onSchedule?.(candidate.id, round.id)}
+            onClick={() => onSchedule?.(candidate?.id, round.id)}
             className="w-full text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1"
           >
             <Calendar className="h-3 w-3" />
@@ -153,7 +158,7 @@ function LastRoundActions({
         {(round.type === "video_interview" ||
           round.type === "final_interview") && (
           <button
-            onClick={() => onSchedule?.(candidate.id, round.id)}
+            onClick={() => onSchedule?.(candidate?.id, round.id)}
             className="w-full text-xs bg-green-50 text-green-700 hover:bg-green-100 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1"
           >
             <Video className="h-3 w-3" />
@@ -177,14 +182,14 @@ function LastRoundActions({
         </div>
         <div className="grid grid-cols-2 gap-2">
           <button
-            onClick={() => onHire?.(candidate.id)}
+            onClick={() => onHire?.(candidate?.id)}
             className="text-xs bg-green-600 text-white hover:bg-green-700 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1"
           >
             <CheckCircle className="h-3 w-3" />
             <span>Hire</span>
           </button>
           <button
-            onClick={() => onReject?.(candidate.id)}
+            onClick={() => onReject?.(candidate?.id)}
             className="text-xs bg-red-600 text-white hover:bg-red-700 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1"
           >
             <X className="h-3 w-3" />
@@ -213,7 +218,7 @@ function PhoneScreeningActions({ round, candidate, onSchedule }: any) {
 
       <div className="space-y-2">
         <button
-          onClick={() => onSchedule?.(candidate.id, round.id)}
+          onClick={() => onSchedule?.(candidate?.id, round.id)}
           className="w-full text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1"
         >
           <Calendar className="h-3 w-3" />
@@ -245,7 +250,7 @@ function VideoInterviewActions({ round, candidate, onSchedule }: any) {
 
       <div className="space-y-2">
         <button
-          onClick={() => onSchedule?.(candidate.id, round.id)}
+          onClick={() => onSchedule?.(candidate?.id, round.id)}
           className="w-full text-xs bg-green-50 text-green-700 hover:bg-green-100 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1"
         >
           <Video className="h-3 w-3" />
@@ -271,8 +276,9 @@ function VideoInterviewActions({ round, candidate, onSchedule }: any) {
 }
 
 // Technical Assessment Component
-function TechnicalAssessmentActions({ round, candidate, onComplete }: any) {
+function TechnicalAssessmentActions({ round, candidate, jobId, onComplete }: any) {
   const [testScore, setTestScore] = useState(0);
+  const router = useRouter();
 
   return (
     <div className="space-y-3">
@@ -286,31 +292,7 @@ function TechnicalAssessmentActions({ round, candidate, onComplete }: any) {
           <Code className="h-3 w-3" />
           <span>Send Test Link</span>
         </button>
-
-        <button className="w-full text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1">
-          <FileText className="h-3 w-3" />
-          <span>View Submission</span>
-        </button>
-
-        <div className="flex space-x-1">
-          <input
-            type="number"
-            placeholder="Score"
-            value={testScore}
-            onChange={(e) => setTestScore(Number(e.target.value))}
-            className="flex-1 text-xs px-2 py-1 border rounded"
-            min="0"
-            max="100"
-          />
-          <button
-            onClick={() =>
-              onComplete?.(candidate.id, round.id, { score: testScore })
-            }
-            className="text-xs bg-green-50 text-green-700 hover:bg-green-100 px-2 py-1 rounded transition-colors"
-          >
-            Grade
-          </button>
-        </div>
+        {/* Removed grade input and button from here */}
       </div>
 
       <div className="text-xs text-gray-500">
@@ -321,7 +303,9 @@ function TechnicalAssessmentActions({ round, candidate, onComplete }: any) {
 }
 
 // Coding Challenge Component
-function CodingChallengeActions({ round, candidate, onComplete }: any) {
+function CodingChallengeActions({ round, candidate, jobId, onComplete }: any) {
+  const router = useRouter();
+
   return (
     <div className="space-y-3">
       <div className="flex items-center space-x-2 text-sm">
@@ -334,22 +318,7 @@ function CodingChallengeActions({ round, candidate, onComplete }: any) {
           <Upload className="h-3 w-3" />
           <span>Send Challenge</span>
         </button>
-
-        <button className="w-full text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1">
-          <Download className="h-3 w-3" />
-          <span>Download Solution</span>
-        </button>
-
-        <div className="flex space-x-1">
-          <button className="flex-1 text-xs bg-green-50 text-green-700 hover:bg-green-100 px-2 py-1 rounded transition-colors flex items-center justify-center space-x-1">
-            <ThumbsUp className="h-3 w-3" />
-            <span>Pass</span>
-          </button>
-          <button className="flex-1 text-xs bg-red-50 text-red-700 hover:bg-red-100 px-2 py-1 rounded transition-colors flex items-center justify-center space-x-1">
-            <ThumbsDown className="h-3 w-3" />
-            <span>Fail</span>
-          </button>
-        </div>
+        {/* Removed grade input and button from here */}
       </div>
 
       <div className="text-xs text-gray-500">
@@ -370,7 +339,7 @@ function FinalInterviewActions({ round, candidate, onSchedule }: any) {
 
       <div className="space-y-2">
         <button
-          onClick={() => onSchedule?.(candidate.id, round.id)}
+          onClick={() => onSchedule?.(candidate?.id, round.id)}
           className="w-full text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1"
         >
           <Calendar className="h-3 w-3" />
@@ -401,7 +370,7 @@ function DefaultRoundActions({ round, candidate, onSchedule }: any) {
 
       <div className="space-y-2">
         <button
-          onClick={() => onSchedule?.(candidate.id, round.id)}
+          onClick={() => onSchedule?.(candidate?.id, round.id)}
           className="w-full text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1"
         >
           <Calendar className="h-3 w-3" />

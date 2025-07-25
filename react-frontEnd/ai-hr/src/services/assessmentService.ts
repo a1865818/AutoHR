@@ -497,6 +497,45 @@ class AssessmentService {
     }
   }
 
+  // Get submission data for a candidate and round
+  async getSubmission(
+    candidateId: string,
+    roundId: string
+  ): Promise<AssessmentSubmission & { grade?: AssessmentGrade }> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to view submission");
+    }
+
+    try {
+      console.log(
+        `[AssessmentService] Fetching submission for candidate ${candidateId} in round ${roundId}`
+      );
+
+      // Fetch submission data
+      const submission = await this.fetchApi(
+        `/assessments/submissions/${candidateId}/${roundId}`
+      );
+
+      // Try to fetch grade data if submission exists
+      let grade = null;
+      try {
+        grade = await this.fetchApi(
+          `/assessments/submissions/${submission.id}/grade`
+        );
+      } catch (gradeError) {
+        console.log("No grade found for this submission:", gradeError);
+      }
+
+      return {
+        ...submission,
+        grade,
+      };
+    } catch (error) {
+      console.error("❌ Failed to fetch submission:", error);
+      throw error;
+    }
+  }
+
   // Mock method to get questions for a round
   async getRoundQuestions(): Promise<Question[]> {
     // This would normally fetch from the round configuration

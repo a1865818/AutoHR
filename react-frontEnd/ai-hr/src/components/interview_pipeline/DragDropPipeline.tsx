@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Candidate } from "@/interfaces";
 import { HoverRejectModal } from "./HoverRejectModal";
+import { useRouter } from "next/navigation";
 
 interface PipelineCandidate extends Candidate {
   currentRoundId?: string;
@@ -76,6 +77,7 @@ export function DragDropCandidateCard({
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [note, setNote] = useState("");
   const dragRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
@@ -318,6 +320,25 @@ export function DragDropCandidateCard({
         >
           Schedule
         </button>
+        {/* {hasSubmittedAssessment && roundId && (
+          <button
+            onClick={() => router.push(`/interview-pipeline/${candidate.jobId}/submissions/${candidate.candidateUserId}?roundId=${roundId}`)}
+            className="flex-1 text-xs bg-gray-50 text-indigo-700 hover:bg-indigo-100 px-2 py-1.5 rounded transition-colors"
+          >
+            View Submission
+          </button>
+        )} */}
+      </div>
+
+      <div className="flex items-center space-x-1 mt-2">
+  {hasSubmittedAssessment && roundId && (
+          <button
+            onClick={() => router.push(`/interview-pipeline/${candidate.jobId}/submissions/${candidate.candidateUserId}?roundId=${roundId}`)}
+            className="flex-1 text-xs bg-gray-50 text-indigo-700 hover:bg-indigo-100 px-2 py-1.5 rounded transition-colors"
+          >
+            View Submission
+          </button>
+        )}
       </div>
 
       {/* Quick Actions (shown on hover) */}
@@ -394,6 +415,8 @@ export function DragDropCandidateCard({
                   </span>
                 </button>
               )}
+
+
             </div>
 
             {/* Offer, Hire, Reject Buttons */}

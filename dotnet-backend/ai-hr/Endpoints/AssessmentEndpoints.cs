@@ -67,12 +67,97 @@ namespace ai_hr.Endpoints
                 .WithSummary("Test endpoint to verify assessment API is working");
         }
 
-        // Assessment Submission Endpoints
+        //// Assessment Submission Endpoints
+        //private static async Task<IResult> GetAssessmentSubmission(
+        //    Guid candidateId,
+        //    Guid roundId,
+        //    Supabase.Client client,
+        //    ClaimsPrincipal user)
+        //{
+        //    try
+        //    {
+        //        Console.WriteLine($"🔍 GetAssessmentSubmission called with:");
+        //        Console.WriteLine($"   candidateId: {candidateId}");
+        //        Console.WriteLine($"   roundId: {roundId}");
+
+        //        var response = await client
+        //            .From<AssessmentSubmission>()
+        //            .Where(x => x.CandidateId == candidateId && x.RoundId == roundId)
+        //            .Get();
+
+        //        Console.WriteLine($"🔍 Query returned {response.Models.Count} results");
+
+        //        var submission = response.Models.FirstOrDefault();
+        //        if (submission == null)
+        //        {
+        //            Console.WriteLine($"❌ No submission found for candidateId: {candidateId}, roundId: {roundId}");
+
+        //            // Let's also check what submissions DO exist in the table
+        //            var allSubmissionsResponse = await client.From<AssessmentSubmission>().Get();
+        //            var allSubmissions = allSubmissionsResponse.Models;
+        //            Console.WriteLine($"🔍 Total submissions in database: {allSubmissions.Count}");
+
+        //            foreach (var sub in allSubmissions.Take(5)) // Show first 5
+        //            {
+        //                Console.WriteLine($"   - CandidateId: {sub.CandidateId}, RoundId: {sub.RoundId}, Status: {sub.Status}");
+        //            }
+
+        //            return Results.NotFound("Assessment submission not found");
+        //        }
+
+        //        // Convert bucket path to signed URL for browser access
+        //        string accessiblePdfUrl = submission.PdfUrl;
+        //        if (!string.IsNullOrEmpty(submission.PdfUrl) && !submission.PdfUrl.StartsWith("http"))
+        //        {
+        //            try
+        //            {
+        //                // Extract bucket name and file name from stored path
+        //                var pathParts = submission.PdfUrl.Split('/', 2);
+        //                if (pathParts.Length == 2)
+        //                {
+        //                    var bucketName = pathParts[0];
+        //                    var fileName = pathParts[1];
+
+        //                    Console.WriteLine($"🔗 Converting bucket path to signed URL: {bucketName}/{fileName}");
+        //                    accessiblePdfUrl = await StorageBucketEndpoints.get_file_url_backend(client, bucketName, fileName);
+        //                    Console.WriteLine($"✅ Generated signed URL for PDF access");
+        //                }
+        //            }
+        //            catch (Exception urlEx)
+        //            {
+        //                Console.WriteLine($"⚠️ Failed to generate signed URL for PDF: {urlEx.Message}");
+        //                // Keep original URL as fallback
+        //            }
+        //        }
+
+        //        var responseDto = new AssessmentSubmissionResponse
+        //        {
+        //            Id = submission.Id,
+        //            CandidateId = submission.CandidateId,
+        //            RoundId = submission.RoundId,
+        //            JobId = submission.JobId,
+        //            SubmittedAt = submission.SubmittedAt,
+        //            PdfUrl = accessiblePdfUrl, // Use signed URL
+        //            Status = submission.Status,
+        //            SubmissionData = submission.SubmissionData,
+        //            CreatedAt = submission.CreatedAt,
+        //            UpdatedAt = submission.UpdatedAt
+        //        };
+
+        //        return Results.Ok(responseDto);
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        Console.WriteLine($"Error getting assessment submission: {ex.Message}");
+        //        return Results.Problem("Failed to get assessment submission");
+        //    }
+        //}
+
         private static async Task<IResult> GetAssessmentSubmission(
-            Guid candidateId,
-            Guid roundId,
-            Supabase.Client client,
-            ClaimsPrincipal user)
+    Guid candidateId,
+    Guid roundId,
+    Supabase.Client client,
+    ClaimsPrincipal user)
         {
             try
             {
@@ -86,22 +171,11 @@ namespace ai_hr.Endpoints
                     .Get();
 
                 Console.WriteLine($"🔍 Query returned {response.Models.Count} results");
-                
+
                 var submission = response.Models.FirstOrDefault();
                 if (submission == null)
                 {
                     Console.WriteLine($"❌ No submission found for candidateId: {candidateId}, roundId: {roundId}");
-                    
-                    // Let's also check what submissions DO exist in the table
-                    var allSubmissionsResponse = await client.From<AssessmentSubmission>().Get();
-                    var allSubmissions = allSubmissionsResponse.Models;
-                    Console.WriteLine($"🔍 Total submissions in database: {allSubmissions.Count}");
-                    
-                    foreach (var sub in allSubmissions.Take(5)) // Show first 5
-                    {
-                        Console.WriteLine($"   - CandidateId: {sub.CandidateId}, RoundId: {sub.RoundId}, Status: {sub.Status}");
-                    }
-                    
                     return Results.NotFound("Assessment submission not found");
                 }
 
@@ -111,23 +185,60 @@ namespace ai_hr.Endpoints
                 {
                     try
                     {
-                        // Extract bucket name and file name from stored path
                         var pathParts = submission.PdfUrl.Split('/', 2);
                         if (pathParts.Length == 2)
                         {
                             var bucketName = pathParts[0];
                             var fileName = pathParts[1];
-                            
-                            Console.WriteLine($"🔗 Converting bucket path to signed URL: {bucketName}/{fileName}");
                             accessiblePdfUrl = await StorageBucketEndpoints.get_file_url_backend(client, bucketName, fileName);
-                            Console.WriteLine($"✅ Generated signed URL for PDF access");
                         }
                     }
                     catch (Exception urlEx)
                     {
                         Console.WriteLine($"⚠️ Failed to generate signed URL for PDF: {urlEx.Message}");
-                        // Keep original URL as fallback
                     }
+                }
+
+                // --- Fetch candidate info from ApplicationUser ---
+                CandidateInfo? candidateInfo = null;
+                try
+                {
+                    // ApplicationUser.Id is a string, so convert candidateId to string
+                    var candidateUserResponse = await client
+                        .From<ApplicationUser>()
+                        .Get();
+
+                    var candidateUser = candidateUserResponse.Models
+                        .FirstOrDefault(u => 
+                            string.Equals(
+                                u.Id.Replace("-", "").ToLowerInvariant(), 
+                                candidateId.ToString().Replace("-", "").ToLowerInvariant()
+                            )
+                        );
+
+                    Console.WriteLine($"Looking for ApplicationUser with Id: {candidateId.ToString()}");
+                    Console.WriteLine($"Found {candidateUserResponse.Models.Count} users");
+                    if (candidateUserResponse.Models.Count > 0)
+                    {
+                        Console.WriteLine($"First user Id: {candidateUserResponse.Models[0].Id}");
+                    }
+
+                    if (candidateUser != null)
+                    {
+                        candidateInfo = new CandidateInfo
+                        {
+                            Id = Guid.TryParse(candidateUser.Id, out var guid) ? guid : Guid.Empty,
+                            Name = $"{candidateUser.FirstName} {candidateUser.LastName}".Trim(),
+                            Email = candidateUser.Email,
+                            Photo = candidateUser.SocialLink != null && candidateUser.SocialLink.ContainsKey("photo")
+                                ? candidateUser.SocialLink["photo"]?.ToString()
+                                : null
+                        };
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Failed to fetch candidate info: {ex.Message}");
                 }
 
                 var responseDto = new AssessmentSubmissionResponse
@@ -137,11 +248,12 @@ namespace ai_hr.Endpoints
                     RoundId = submission.RoundId,
                     JobId = submission.JobId,
                     SubmittedAt = submission.SubmittedAt,
-                    PdfUrl = accessiblePdfUrl, // Use signed URL
+                    PdfUrl = accessiblePdfUrl,
                     Status = submission.Status,
                     SubmissionData = submission.SubmissionData,
                     CreatedAt = submission.CreatedAt,
-                    UpdatedAt = submission.UpdatedAt
+                    UpdatedAt = submission.UpdatedAt,
+                    Candidate = candidateInfo
                 };
 
                 return Results.Ok(responseDto);

@@ -712,7 +712,7 @@ export default function JobPipelinePage() {
         toColumnId
       );
 
-      console.log(
+    console.log(
         `✅ Successfully updated candidate ${candidateId} status in backend`,
         updateResult
       );
@@ -1209,6 +1209,8 @@ export default function JobPipelinePage() {
     });
     router.push(`/interview-pipeline/${jobId}/rounds/${roundId}/assessment/${candidateUserId}`);
   };
+
+
 
   const handleHireCandidate = async (candidateId: string) => {
     console.log(`Hiring candidate ${candidateId}`);
@@ -1824,27 +1826,26 @@ export default function JobPipelinePage() {
                           hasSubmittedAssessment={candidate.hasSubmittedAssessment}
                           isAssessmentGraded={candidate.isAssessmentGraded}
                         />
-
-                        {/* Round-specific actions */}
-                        {column.round && (
-                          <RoundSpecificActions
-                            round={column.round}
-                            candidate={candidate}
-                            isLastRound={isLastRound(column.round.id)}
-                            onSchedule={handleScheduleInterview}
-                            onComplete={handleCompleteRound}
-                            onAddNotes={handleAddNotes}
-                            onHire={
-                              column.id === "offered"
-                                ? handleHireCandidate
-                                : undefined
-                            }
-                            onReject={handleRejectCandidate}
-                          />
-                        )}
                       </div>
                     );
                   })
+                )}
+                {/* Render RoundSpecificActions once per column, after all candidates, only if there are candidates */}
+                {column.round && column.candidates.length > 0 && (
+                  <RoundSpecificActions
+                    round={column.round}
+                    jobId={jobId}
+                    isLastRound={isLastRound(column.round.id)}
+                    onSchedule={handleScheduleInterview}
+                    onComplete={handleCompleteRound}
+                    onAddNotes={handleAddNotes}
+                    onHire={
+                      column.id === "offered"
+                        ? handleHireCandidate
+                        : undefined
+                    }
+                    onReject={handleRejectCandidate}
+                  />
                 )}
               </div>
             </DroppableColumn>
@@ -1952,7 +1953,7 @@ export default function JobPipelinePage() {
             )}
           </div>
         </div>
-            )}
+      )}
 
       {/* Round-Specific Bulk Notification Modal */}
       {activeBulkNotificationRound && (
