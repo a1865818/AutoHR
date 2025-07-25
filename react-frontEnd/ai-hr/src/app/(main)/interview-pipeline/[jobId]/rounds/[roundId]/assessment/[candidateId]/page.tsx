@@ -44,6 +44,10 @@ export default function AssessmentMarkingPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isReviewMode, setIsReviewMode] = useState<boolean>(false); // true = review existing grade, false = grade new submission
+  const [isRegrading, setIsRegrading] = useState<boolean>(false);
+  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
+  const [deleting, setDeleting] = useState<boolean>(false);
+  const [gradeId, setGradeId] = useState<string | null>(null);
 
   useEffect(() => {
     loadAssessmentData();
@@ -98,6 +102,7 @@ export default function AssessmentMarkingPage() {
                 console.log("📊 Found existing grade:", existingGrade);
                 setQuestionScores(existingGrade.questionScores);
                 setOverallNotes(existingGrade.overallNotes);
+                setGradeId(existingGrade.id);
                 setIsReviewMode(true); // Set to review mode when existing grade is loaded
                 console.log("🔍 Switched to review mode - form will be read-only");
               }
@@ -219,6 +224,34 @@ export default function AssessmentMarkingPage() {
     }
   };
 
+  // Handler for re-grading
+  const handleRegrade = () => {
+    setIsReviewMode(false);
+    setIsRegrading(true);
+    setSuccessMessage(null);
+    setError(null);
+  };
+
+  // Handler for delete grade
+  const handleDeleteGrade = async () => {
+    if (!gradeId) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      await assessmentService.deleteAssessmentGrade(gradeId);
+      setShowDeleteModal(false);
+      setSuccessMessage("Grade deleted successfully. You can now re-grade this submission.");
+      setIsReviewMode(false);
+      setIsRegrading(false);
+      setGradeId(null);
+      // Reload submission data to update status
+      await loadAssessmentData();
+    } catch {
+      setError("Failed to delete grade. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
 
   const getScoreColor = (percentage: number) => {
@@ -370,16 +403,29 @@ export default function AssessmentMarkingPage() {
                   Graded
                 </div>
                 <button
-                  onClick={() => router.back()}
-                  className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+                  onClick={handleRegrade}
+                  className="flex items-center space-x-2 px-3 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors"
                 >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span>Back to Pipeline</span>
+                  <RotateCcw className="h-4 w-4" />
+                  <span>Re-grade</span>
                 </button>
+                <button
+                  onClick={() => setShowDeleteModal(true)}
+                  className="flex items-center space-x-2 px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                >
+                  <XCircle className="h-4 w-4" />
+                  <span>Delete Grade</span>
+                </button>
+             
               </div>
             ) : (
               // Grading Mode - Editable form
               <>
+                {isRegrading && (
+                  <div className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm font-medium mr-2">
+                    Re-grading (previous grade will be replaced)
+                  </div>
+                )}
                 <button
                   onClick={handleResetScores}
                   className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-md transition-colors"
@@ -393,7 +439,7 @@ export default function AssessmentMarkingPage() {
                   className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <Save className="h-4 w-4" />
-                  <span>{saving ? "Saving..." : "Save Grade"}</span>
+                  <span>{saving ? "Saving..." : isRegrading ? "Save Re-grade" : "Save Grade"}</span>
                 </button>
               </>
             )}
@@ -609,6 +655,32 @@ export default function AssessmentMarkingPage() {
           </div>
         </div>
       </div>
+
+      {/* Delete Grade Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-white/40">
+          <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-2 text-gray-900">Delete Grade?</h3>
+            <p className="text-gray-700 mb-4">Are you sure you want to delete this grade? This action cannot be undone. The candidate&apos;s submission will return to the &apos;Submitted&apos; state and you can re-grade it.</p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteGrade}
+                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50"
+                disabled={deleting}
+              >
+                {deleting ? "Deleting..." : "Delete Grade"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

@@ -316,6 +316,22 @@ class AssessmentService {
     }
   }
 
+  // Delete assessment grade by grade ID
+  async deleteAssessmentGrade(gradeId: string): Promise<void> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to delete assessment grade");
+    }
+    try {
+      await this.fetchApi(`/assessments/grades/${gradeId}`, {
+        method: "DELETE",
+      });
+      console.log("✅ Assessment grade deleted successfully");
+    } catch (error) {
+      console.error("❌ Failed to delete assessment grade:", error);
+      throw error;
+    }
+  }
+
   // Get all assessment submissions for a job
   async getJobAssessmentSubmissions(
     jobId: string
