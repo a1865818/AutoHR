@@ -20,6 +20,8 @@ import {
   AlertCircle,
   XCircle,
   ChevronRight,
+  Mail,
+  Send,
 } from "lucide-react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -37,15 +39,13 @@ import {
 } from "@/interfaces/interview";
 import { Candidate, CandidateStage } from "@/interfaces";
 import { StageManager } from "@/utils/stageManager";
-import { PipelineCandidateCard } from "@/components/interview_pipeline/PipelineCandidateCard";
 import {
   DragDropCandidateCard,
   DroppableColumn,
   BulkActions,
 } from "@/components/interview_pipeline/DragDropPipeline";
 import { RoundSpecificActions } from "@/components/interview_pipeline/RoundSpecificActions";
-import { InterviewManager } from "@/components/interview_pipeline/InterviewManager";
-import { SuccessNotificationModal } from "@/components/interview_pipeline/SuccessNotificationModal";
+import { BulkNotificationModal } from "@/components/interview_pipeline/BulkNotificationModal";
 
 interface JobWithTemplate extends Omit<ApiJob, "interviewTemplate"> {
   interviewTemplate?: InterviewTemplate;
@@ -123,13 +123,24 @@ export default function JobPipelinePage() {
 
   const [noApplicationsFound, setNoApplicationsFound] = useState(false);
 
-  // Success notification modal state
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [successCandidate, setSuccessCandidate] =
-    useState<PipelineCandidate | null>(null);
-  // Store move parameters for completing the move after email confirmation
-  const [pendingMove, setPendingMove] = useState<{
+  // Pending notification state - track candidates moved but not yet emailed
+  const [pendingNotifications, setPendingNotifications] = useState<Array<{
     candidateId: string;
+    candidateName: string;
+    fromColumn: string;
+    toColumn: string;
+    movedAt: Date;
+    emailSent: boolean;
+  }>>([]);
+  
+  // Bulk notification modal state - track which round modal is open
+  const [activeBulkNotificationRound, setActiveBulkNotificationRound] = useState<string | null>(null);
+  
+  // Backward movement warning modal state
+  const [showBackwardWarningModal, setShowBackwardWarningModal] = useState(false);
+  const [pendingBackwardMove, setPendingBackwardMove] = useState<{
+    candidateId: string;
+    candidate: PipelineCandidate;
     fromColumnId: string;
     toColumnId: string;
   } | null>(null);
@@ -752,38 +763,128 @@ export default function JobPipelinePage() {
     }
   };
 
-  // Handle success notification and candidate movement
-  const handleSuccessNotification = async (
-    candidateId: string,
-    emailData: {
-      templateId?: string;
-      subject: string;
-      body: string;
+  // Helper function to group notifications by target round
+  const getGroupedNotifications = () => {
+    const groups: Record<string, Array<{
+      candidateId: string;
+      candidateName: string;
+      fromColumn: string;
+      toColumn: string;
+      movedAt: Date;
+      emailSent: boolean;
+    }>> = {};
+    
+    pendingNotifications.filter(n => !n.emailSent).forEach(notification => {
+      if (!groups[notification.toColumn]) {
+        groups[notification.toColumn] = [];
+      }
+      groups[notification.toColumn].push(notification);
+    });
+    
+    return groups;
+  };
+
+  // Get round display name and appropriate email template type
+  const getRoundInfo = (roundId: string) => {
+    switch (roundId) {
+      case "new":
+      case "applied":
+        return { 
+          displayName: "Applied Stage", 
+          templateType: "Success",
+          description: "Initial application confirmation"
+        };
+      case "hired":
+        return { 
+          displayName: "Hired", 
+          templateType: "Success",
+          description: "Job offer and congratulations"
+        };
+      case "offered":
+        return { 
+          displayName: "Offer Stage", 
+          templateType: "Success",
+          description: "Offer preparation and next steps"
+        };
+      case "rejected":
+        return { 
+          displayName: "Rejected", 
+          templateType: "Reject",
+          description: "Application status update"
+        };
+      default:
+        // Find the specific interview round
+        const round = job?.interviewTemplate?.rounds?.find(r => r.id === roundId);
+        if (round) {
+          return {
+            displayName: round.name || `${round.type} Round`,
+            templateType: "Success", // Use "Success" for all progress notifications
+            description: `${round.type} interview preparation and next steps`
+          };
+        }
+        return { 
+          displayName: roundId, 
+          templateType: "Success",
+          description: "Interview round progression"
+        };
     }
-  ) => {
-    console.log(
-      `📧 Success notification sent for candidate ${candidateId}`,
-      emailData
+  };
+
+  // Handle confirmation of backward movement
+  const handleBackwardMoveConfirm = async () => {
+    if (!pendingBackwardMove) return;
+    
+    console.log(`⚠️ Confirmed backward move for ${pendingBackwardMove.candidate.name}`);
+    
+    // Close the warning modal
+    setShowBackwardWarningModal(false);
+    
+    // Proceed with the backward move using the same logic as normal moves
+    await completeCandidateMove(
+      pendingBackwardMove.candidateId,
+      pendingBackwardMove.fromColumnId,
+      pendingBackwardMove.toColumnId
     );
     
-    // After email confirmation, complete the pending move
-    if (pendingMove && pendingMove.candidateId === candidateId) {
-      console.log(`🚀 Completing pending move for candidate ${candidateId}`, pendingMove);
-      
-      // Call the same move logic but without triggering the modal again
-      await completeCandidateMove(
-        pendingMove.candidateId,
-        pendingMove.fromColumnId,
-        pendingMove.toColumnId
+    // Clear the pending move
+    setPendingBackwardMove(null);
+  };
+
+  const handleBackwardMoveCancel = () => {
+    console.log(`❌ Cancelled backward move for ${pendingBackwardMove?.candidate.name}`);
+    setShowBackwardWarningModal(false);
+    setPendingBackwardMove(null);
+  };
+
+  // Handle bulk notification sending for a specific round
+  const handleBulkNotificationSend = async (
+    notificationsToSend: Array<{
+      candidateId: string;
+      candidateName: string;
+      fromColumn: string;
+      toColumn: string;
+    }>
+  ) => {
+    console.log(`📧 Sending bulk notifications to ${notificationsToSend.length} candidates`);
+    
+    try {
+      // Mark these notifications as email sent
+      setPendingNotifications(prev => 
+        prev.map(notification => 
+          notificationsToSend.some(n => n.candidateId === notification.candidateId)
+            ? { ...notification, emailSent: true }
+            : notification
+        )
       );
       
-      // Clear the pending move
-      setPendingMove(null);
+      console.log(`✅ Successfully marked ${notificationsToSend.length} notifications as sent`);
+      
+      // Close the modal
+      setActiveBulkNotificationRound(null);
+      
+    } catch (error) {
+      console.error(`❌ Error sending bulk notifications:`, error);
     }
-    
-    // Close the modal
-    setShowSuccessModal(false);
-    setSuccessCandidate(null);
   };
 
   const handleCandidateMove = async (
@@ -805,21 +906,53 @@ export default function JobPipelinePage() {
 
     // Check if this is a forward movement (progress to next stage)
     const isForwardMovement = checkIfForwardMovement(fromColumnId, toColumnId);
+    
+    // Check if this is a backward movement (reverse in hiring process)
+    const isBackwardMovement = !isForwardMovement && toColumnId !== "rejected" && fromColumnId !== toColumnId;
+
+    if (isBackwardMovement) {
+      // Show warning modal for backward movement
+      setPendingBackwardMove({
+        candidateId,
+        candidate,
+        fromColumnId,
+        toColumnId,
+      });
+      setShowBackwardWarningModal(true);
+      return; // Exit early, the modal will handle the move if confirmed
+    }
 
     if (
       isForwardMovement &&
       toColumnId !== "rejected" &&
       toColumnId !== "hired"
     ) {
-      // Store move parameters and show success notification modal for forward movement
-      setPendingMove({
+      // Add to pending notifications instead of showing modal
+      const newNotification = {
         candidateId,
-        fromColumnId,
-        toColumnId,
+        candidateName: candidate.name,
+        fromColumn: fromColumnId,
+        toColumn: toColumnId,
+        movedAt: new Date(),
+        emailSent: false,
+      };
+      
+      setPendingNotifications(prev => {
+        // Check if this candidate already has a pending notification
+        const existingIndex = prev.findIndex(n => n.candidateId === candidateId);
+        if (existingIndex >= 0) {
+          // Update existing notification
+          const updated = [...prev];
+          updated[existingIndex] = newNotification;
+          return updated;
+        } else {
+          // Add new notification
+          return [...prev, newNotification];
+        }
       });
-      setSuccessCandidate(candidate);
-      setShowSuccessModal(true);
-      return; // Exit early, the modal will handle the actual move
+      
+      console.log(`📝 Added pending notification for ${candidate.name} (${fromColumnId} → ${toColumnId})`);
+      // Continue with the move - don't return early
     }
 
     console.log(`🔍 Current candidate state:`, {
@@ -1500,6 +1633,44 @@ export default function JobPipelinePage() {
         </div>
       )}
 
+      {/* Round-Based Pending Notifications */}
+      {Object.entries(getGroupedNotifications()).length > 0 && (
+        <div className="mx-6 mb-4 space-y-3">
+          {Object.entries(getGroupedNotifications()).map(([roundId, notifications]) => {
+            const roundInfo = getRoundInfo(roundId);
+            return (
+              <div key={roundId} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-shrink-0">
+                      <Mail className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-medium text-blue-800">
+                        {roundInfo.displayName} - Pending Notifications
+                      </h3>
+                      <p className="text-sm text-blue-600">
+                        {notifications.length} candidate{notifications.length !== 1 ? 's' : ''} moved to this round, not yet notified
+                      </p>
+                      <p className="text-xs text-blue-500 mt-1">
+                        {roundInfo.description}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setActiveBulkNotificationRound(roundId)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <Send className="h-4 w-4 mr-2" />
+                    Send {notifications.length} Email{notifications.length !== 1 ? 's' : ''}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* Pipeline Board */}
       <div className="flex-1 overflow-x-auto overflow-y-hidden">
         <div className="flex h-full p-6 space-x-6 min-w-max">
@@ -1781,23 +1952,94 @@ export default function JobPipelinePage() {
             )}
           </div>
         </div>
-      )}
+            )}
 
-      {/* Success Notification Modal */}
-      {showSuccessModal && successCandidate && (
-        <SuccessNotificationModal
-          isOpen={showSuccessModal}
-          onClose={() => {
-            setShowSuccessModal(false);
-            setSuccessCandidate(null);
-            setPendingMove(null); // Clear pending move if modal is closed without confirmation
-          }}
-          candidate={successCandidate}
+      {/* Round-Specific Bulk Notification Modal */}
+      {activeBulkNotificationRound && (
+        <BulkNotificationModal
+          isOpen={!!activeBulkNotificationRound}
+          onClose={() => setActiveBulkNotificationRound(null)}
+          pendingNotifications={getGroupedNotifications()[activeBulkNotificationRound] || []}
           jobTitle={job?.title || "Position"}
           companyName={company?.name || "Company"}
-          onSuccess={handleSuccessNotification}
+          onNotificationsSent={handleBulkNotificationSend}
+          roundInfo={getRoundInfo(activeBulkNotificationRound)}
         />
       )}
+
+      {/* Backward Movement Warning Modal */}
+      {showBackwardWarningModal && pendingBackwardMove && (
+        <div className="fixed inset-0 z-50 overflow-hidden">
+          <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm" />
+          
+          <div className="absolute inset-0 flex items-center justify-center p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              {/* Header */}
+              <div className="flex items-center mb-4">
+                <div className="flex-shrink-0">
+                  <div className="h-10 w-10 rounded-full bg-yellow-100 flex items-center justify-center">
+                    <AlertCircle className="h-6 w-6 text-yellow-600" />
+                  </div>
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-lg font-medium text-gray-900">
+                    Confirm Backward Movement
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    You're moving a candidate backwards in the hiring process
+                  </p>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="mb-6">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center space-x-2 text-sm">
+                    <User className="h-4 w-4 text-yellow-600" />
+                    <span className="font-medium text-yellow-800">
+                      {pendingBackwardMove.candidate.name}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2 mt-2 text-sm text-yellow-700">
+                    <span>{getRoundInfo(pendingBackwardMove.fromColumnId).displayName}</span>
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>{getRoundInfo(pendingBackwardMove.toColumnId).displayName}</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-2 text-sm text-gray-600">
+                  <p>⚠️ <strong>This candidate may have already:</strong></p>
+                  <ul className="list-disc list-inside ml-4 space-y-1">
+                    <li>Completed assessments for the current round</li>
+                    <li>Been interviewed by team members</li>
+                    <li>Received progress notifications</li>
+                  </ul>
+                  <p className="mt-3">
+                    Moving them backward will reset their position in the hiring process.
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex space-x-3">
+                <button
+                  onClick={handleBackwardMoveCancel}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBackwardMoveConfirm}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-yellow-600 hover:bg-yellow-700 rounded-md transition-colors"
+                >
+                  Move Backward
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+ 
     </div>
   );
 }
