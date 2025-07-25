@@ -127,6 +127,12 @@ export default function JobPipelinePage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successCandidate, setSuccessCandidate] =
     useState<PipelineCandidate | null>(null);
+  // Store move parameters for completing the move after email confirmation
+  const [pendingMove, setPendingMove] = useState<{
+    candidateId: string;
+    fromColumnId: string;
+    toColumnId: string;
+  } | null>(null);
 
   // Load job, template, and candidates
   useEffect(() => {
@@ -610,6 +616,142 @@ export default function JobPipelinePage() {
     return fromIndex >= 0 && toIndex > fromIndex && toColumnId !== "rejected";
   };
 
+  // Complete candidate move without showing modal (used after email confirmation)
+  const completeCandidateMove = async (
+    candidateId: string,
+    fromColumnId: string,
+    toColumnId: string
+  ) => {
+    console.log(`🚀 Completing candidate move: ${candidateId} from ${fromColumnId} to ${toColumnId}`);
+
+    // Get the candidate
+    const candidate = candidates.find((c) => c.id === candidateId);
+    if (!candidate) {
+      console.error(`Candidate ${candidateId} not found`);
+      return;
+    }
+
+    console.log(`🔍 Current candidate state:`, {
+      name: candidate.name,
+      currentStatus: candidate.status,
+      currentStage: candidate.stage,
+      toColumnId,
+    });
+
+    // Determine new status and stage based on target column
+    let newStatus: "In Progress" | "Hired" | "Rejected" | "Offered" =
+      "In Progress";
+    let newStage: CandidateStage;
+
+    switch (toColumnId) {
+      case "new":
+      case "applied":
+        newStatus = "In Progress";
+        newStage = "Applied";
+        break;
+      case "hired":
+        newStatus = "Hired";
+        newStage = "Offer";
+        break;
+      case "rejected":
+        newStatus = "Rejected";
+        newStage = candidate.stage; // Keep current stage
+        break;
+      case "offered":
+        newStatus = "Offered";
+        newStage = "Offer";
+        break;
+      default:
+        // For interview rounds, determine stage from the round
+        newStatus = "In Progress";
+        newStage = StageManager.getStageForColumnMove(
+          toColumnId,
+          "In Progress",
+          job?.interviewTemplate
+        );
+    }
+
+    console.log(`🎯 Determined new values:`, {
+      newStatus,
+      newStage,
+      toColumnId,
+    });
+
+    // Validate stage transition
+    if (!StageManager.isValidStageTransition(candidate.stage, newStage)) {
+      console.warn(
+        `Invalid stage transition from ${candidate.stage} to ${newStage}`
+      );
+      return;
+    }
+
+    // Make API call to update in backend FIRST, then update local state
+    try {
+      console.log(`📤 Sending to backend:`, {
+        applicationId: candidate.applicationId,
+        newStatus,
+        newStage,
+        toColumnId,
+      });
+
+      const updateResult = await candidateService.updateCandidateStatus(
+        candidate.applicationId,
+        newStatus,
+        newStage,
+        toColumnId
+      );
+
+      console.log(
+        `✅ Successfully updated candidate ${candidateId} status in backend`,
+        updateResult
+      );
+
+      // NOW update local state with the actual backend response (or fallback to our calculated values)
+      const finalStatus =
+        updateResult && typeof updateResult === "object" && updateResult.status
+          ? updateResult.status
+          : newStatus;
+      const finalStage =
+        updateResult && typeof updateResult === "object" && updateResult.stage
+          ? updateResult.stage
+          : newStage;
+      const finalCurrentRoundId =
+        updateResult &&
+        typeof updateResult === "object" &&
+        updateResult.currentRoundId
+          ? updateResult.currentRoundId
+          : toColumnId;
+
+      console.log(`🔄 Updating local state with final values:`, {
+        finalStatus,
+        finalStage,
+        finalCurrentRoundId,
+        source:
+          updateResult && typeof updateResult === "object" && updateResult.stage
+            ? "backend_response"
+            : "calculated_values",
+      });
+
+      setCandidates((prev) =>
+        prev.map((c) =>
+          c.id === candidateId
+            ? {
+                ...c,
+                currentRoundId: finalCurrentRoundId,
+                status: finalStatus,
+                stage: finalStage,
+              }
+            : c
+        )
+      );
+
+      console.log(`✅ Successfully completed candidate move for ${candidate.name}`);
+
+    } catch (error) {
+      console.error(`❌ Error updating candidate status:`, error);
+    }
+  };
+
   // Handle success notification and candidate movement
   const handleSuccessNotification = async (
     candidateId: string,
@@ -623,8 +765,23 @@ export default function JobPipelinePage() {
       `📧 Success notification sent for candidate ${candidateId}`,
       emailData
     );
-    // The email sending is already handled by the SuccessNotificationModal
-    // Just close the modal here
+    
+    // After email confirmation, complete the pending move
+    if (pendingMove && pendingMove.candidateId === candidateId) {
+      console.log(`🚀 Completing pending move for candidate ${candidateId}`, pendingMove);
+      
+      // Call the same move logic but without triggering the modal again
+      await completeCandidateMove(
+        pendingMove.candidateId,
+        pendingMove.fromColumnId,
+        pendingMove.toColumnId
+      );
+      
+      // Clear the pending move
+      setPendingMove(null);
+    }
+    
+    // Close the modal
     setShowSuccessModal(false);
     setSuccessCandidate(null);
   };
@@ -654,7 +811,12 @@ export default function JobPipelinePage() {
       toColumnId !== "rejected" &&
       toColumnId !== "hired"
     ) {
-      // Show success notification modal for forward movement
+      // Store move parameters and show success notification modal for forward movement
+      setPendingMove({
+        candidateId,
+        fromColumnId,
+        toColumnId,
+      });
       setSuccessCandidate(candidate);
       setShowSuccessModal(true);
       return; // Exit early, the modal will handle the actual move
@@ -1628,6 +1790,7 @@ export default function JobPipelinePage() {
           onClose={() => {
             setShowSuccessModal(false);
             setSuccessCandidate(null);
+            setPendingMove(null); // Clear pending move if modal is closed without confirmation
           }}
           candidate={successCandidate}
           jobTitle={job?.title || "Position"}
