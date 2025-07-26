@@ -124,20 +124,24 @@ export default function JobPipelinePage() {
   const [noApplicationsFound, setNoApplicationsFound] = useState(false);
 
   // Pending notification state - track candidates moved but not yet emailed
-  const [pendingNotifications, setPendingNotifications] = useState<Array<{
-    candidateId: string;
-    candidateName: string;
-    fromColumn: string;
-    toColumn: string;
-    movedAt: Date;
-    emailSent: boolean;
-  }>>([]);
-  
+  const [pendingNotifications, setPendingNotifications] = useState<
+    Array<{
+      candidateId: string;
+      candidateName: string;
+      fromColumn: string;
+      toColumn: string;
+      movedAt: Date;
+      emailSent: boolean;
+    }>
+  >([]);
+
   // Bulk notification modal state - track which round modal is open
-  const [activeBulkNotificationRound, setActiveBulkNotificationRound] = useState<string | null>(null);
-  
+  const [activeBulkNotificationRound, setActiveBulkNotificationRound] =
+    useState<string | null>(null);
+
   // Backward movement warning modal state
-  const [showBackwardWarningModal, setShowBackwardWarningModal] = useState(false);
+  const [showBackwardWarningModal, setShowBackwardWarningModal] =
+    useState(false);
   const [pendingBackwardMove, setPendingBackwardMove] = useState<{
     candidateId: string;
     candidate: PipelineCandidate;
@@ -264,35 +268,48 @@ export default function JobPipelinePage() {
             candidate,
             jobWithTemplate.interviewTemplate
           );
-          
+
           console.log(`🔍 Current round determination for ${candidate.name}:`, {
             candidateStage: candidate.stage,
             candidateCurrentRoundId: candidate.currentRoundId,
             calculatedCurrentRoundId: currentRoundId,
-            availableRounds: jobWithTemplate.interviewTemplate?.rounds?.map(r => ({ id: r.id, name: r.name, type: r.type }))
+            availableRounds: jobWithTemplate.interviewTemplate?.rounds?.map(
+              (r) => ({ id: r.id, name: r.name, type: r.type })
+            ),
           });
-          
+
           // Check if this candidate is in a technical assessment round
           let hasSubmittedAssessment = false;
           let isAssessmentGraded = false;
           if (jobWithTemplate.interviewTemplate?.rounds && currentRoundId) {
-            const currentRound = jobWithTemplate.interviewTemplate.rounds.find(r => r.id === currentRoundId);
-                      console.log(`🔍 Pipeline processing candidate ${candidate.name}:`, {
-            applicationId: candidate.id,
-            candidateUserId: candidate.candidateUserId,
-            hasCandidateUserId: !!candidate.candidateUserId,
-            candidateUserIdLength: candidate.candidateUserId?.length,
-            currentRoundId,
-            roundType: currentRound?.type,
-            isInTechnicalRound: currentRound && (currentRound.type === "technical_assessment" || currentRound.type === "coding_challenge")
-          });
-          
-          // Safety check for missing candidateUserId
-          if (!candidate.candidateUserId) {
-            console.warn(`⚠️ WARNING: Candidate ${candidate.name} (${candidate.id}) is missing candidateUserId!`);
-          }
-            
-            if (currentRound && (currentRound.type === "technical_assessment" || currentRound.type === "coding_challenge")) {
+            const currentRound = jobWithTemplate.interviewTemplate.rounds.find(
+              (r) => r.id === currentRoundId
+            );
+            console.log(`🔍 Pipeline processing candidate ${candidate.name}:`, {
+              applicationId: candidate.id,
+              candidateUserId: candidate.candidateUserId,
+              hasCandidateUserId: !!candidate.candidateUserId,
+              candidateUserIdLength: candidate.candidateUserId?.length,
+              currentRoundId,
+              roundType: currentRound?.type,
+              isInTechnicalRound:
+                currentRound &&
+                (currentRound.type === "technical_assessment" ||
+                  currentRound.type === "coding_challenge"),
+            });
+
+            // Safety check for missing candidateUserId
+            if (!candidate.candidateUserId) {
+              console.warn(
+                `⚠️ WARNING: Candidate ${candidate.name} (${candidate.id}) is missing candidateUserId!`
+              );
+            }
+
+            if (
+              currentRound &&
+              (currentRound.type === "technical_assessment" ||
+                currentRound.type === "coding_challenge")
+            ) {
               try {
                 console.log(`🔍 About to check submission for:`, {
                   candidateName: candidate.name,
@@ -300,19 +317,23 @@ export default function JobPipelinePage() {
                   candidateUserId: candidate.candidateUserId,
                   roundId: currentRoundId,
                   roundName: currentRound.name,
-                  roundType: currentRound.type
+                  roundType: currentRound.type,
                 });
-                
-                hasSubmittedAssessment = await assessmentService.hasSubmittedAssessment(
-                  candidate.candidateUserId,
-                  currentRoundId
+
+                hasSubmittedAssessment =
+                  await assessmentService.hasSubmittedAssessment(
+                    candidate.candidateUserId,
+                    currentRoundId
+                  );
+                console.log(
+                  `📝 Candidate ${candidate.name} submission status:`,
+                  {
+                    hasSubmitted: hasSubmittedAssessment,
+                    applicationId: candidate.id,
+                    candidateUserId: candidate.candidateUserId,
+                    roundId: currentRoundId,
+                  }
                 );
-                console.log(`📝 Candidate ${candidate.name} submission status:`, {
-                  hasSubmitted: hasSubmittedAssessment,
-                  applicationId: candidate.id,
-                  candidateUserId: candidate.candidateUserId,
-                  roundId: currentRoundId
-                });
 
                 isAssessmentGraded = await assessmentService.isSubmissionGraded(
                   candidate.candidateUserId,
@@ -322,10 +343,13 @@ export default function JobPipelinePage() {
                   isGraded: isAssessmentGraded,
                   applicationId: candidate.id,
                   candidateUserId: candidate.candidateUserId,
-                  roundId: currentRoundId
+                  roundId: currentRoundId,
                 });
               } catch (error) {
-                console.warn(`Failed to check submission status for candidate ${candidate.id}:`, error);
+                console.warn(
+                  `Failed to check submission status for candidate ${candidate.id}:`,
+                  error
+                );
                 hasSubmittedAssessment = false;
               }
             }
@@ -633,7 +657,9 @@ export default function JobPipelinePage() {
     fromColumnId: string,
     toColumnId: string
   ) => {
-    console.log(`🚀 Completing candidate move: ${candidateId} from ${fromColumnId} to ${toColumnId}`);
+    console.log(
+      `🚀 Completing candidate move: ${candidateId} from ${fromColumnId} to ${toColumnId}`
+    );
 
     // Get the candidate
     const candidate = candidates.find((c) => c.id === candidateId);
@@ -712,7 +738,7 @@ export default function JobPipelinePage() {
         toColumnId
       );
 
-    console.log(
+      console.log(
         `✅ Successfully updated candidate ${candidateId} status in backend`,
         updateResult
       );
@@ -756,8 +782,9 @@ export default function JobPipelinePage() {
         )
       );
 
-      console.log(`✅ Successfully completed candidate move for ${candidate.name}`);
-
+      console.log(
+        `✅ Successfully completed candidate move for ${candidate.name}`
+      );
     } catch (error) {
       console.error(`❌ Error updating candidate status:`, error);
     }
@@ -765,22 +792,27 @@ export default function JobPipelinePage() {
 
   // Helper function to group notifications by target round
   const getGroupedNotifications = () => {
-    const groups: Record<string, Array<{
-      candidateId: string;
-      candidateName: string;
-      fromColumn: string;
-      toColumn: string;
-      movedAt: Date;
-      emailSent: boolean;
-    }>> = {};
-    
-    pendingNotifications.filter(n => !n.emailSent).forEach(notification => {
-      if (!groups[notification.toColumn]) {
-        groups[notification.toColumn] = [];
-      }
-      groups[notification.toColumn].push(notification);
-    });
-    
+    const groups: Record<
+      string,
+      Array<{
+        candidateId: string;
+        candidateName: string;
+        fromColumn: string;
+        toColumn: string;
+        movedAt: Date;
+        emailSent: boolean;
+      }>
+    > = {};
+
+    pendingNotifications
+      .filter((n) => !n.emailSent)
+      .forEach((notification) => {
+        if (!groups[notification.toColumn]) {
+          groups[notification.toColumn] = [];
+        }
+        groups[notification.toColumn].push(notification);
+      });
+
     return groups;
   };
 
@@ -789,43 +821,45 @@ export default function JobPipelinePage() {
     switch (roundId) {
       case "new":
       case "applied":
-        return { 
-          displayName: "Applied Stage", 
+        return {
+          displayName: "Applied Stage",
           templateType: "Success",
-          description: "Initial application confirmation"
+          description: "Initial application confirmation",
         };
       case "hired":
-        return { 
-          displayName: "Hired", 
+        return {
+          displayName: "Hired",
           templateType: "Success",
-          description: "Job offer and congratulations"
+          description: "Job offer and congratulations",
         };
       case "offered":
-        return { 
-          displayName: "Offer Stage", 
+        return {
+          displayName: "Offer Stage",
           templateType: "Success",
-          description: "Offer preparation and next steps"
+          description: "Offer preparation and next steps",
         };
       case "rejected":
-        return { 
-          displayName: "Rejected", 
+        return {
+          displayName: "Rejected",
           templateType: "Reject",
-          description: "Application status update"
+          description: "Application status update",
         };
       default:
         // Find the specific interview round
-        const round = job?.interviewTemplate?.rounds?.find(r => r.id === roundId);
+        const round = job?.interviewTemplate?.rounds?.find(
+          (r) => r.id === roundId
+        );
         if (round) {
           return {
             displayName: round.name || `${round.type} Round`,
             templateType: "Success", // Use "Success" for all progress notifications
-            description: `${round.type} interview preparation and next steps`
+            description: `${round.type} interview preparation and next steps`,
           };
         }
-        return { 
-          displayName: roundId, 
+        return {
+          displayName: roundId,
           templateType: "Success",
-          description: "Interview round progression"
+          description: "Interview round progression",
         };
     }
   };
@@ -833,25 +867,29 @@ export default function JobPipelinePage() {
   // Handle confirmation of backward movement
   const handleBackwardMoveConfirm = async () => {
     if (!pendingBackwardMove) return;
-    
-    console.log(`⚠️ Confirmed backward move for ${pendingBackwardMove.candidate.name}`);
-    
+
+    console.log(
+      `⚠️ Confirmed backward move for ${pendingBackwardMove.candidate.name}`
+    );
+
     // Close the warning modal
     setShowBackwardWarningModal(false);
-    
+
     // Proceed with the backward move using the same logic as normal moves
     await completeCandidateMove(
       pendingBackwardMove.candidateId,
       pendingBackwardMove.fromColumnId,
       pendingBackwardMove.toColumnId
     );
-    
+
     // Clear the pending move
     setPendingBackwardMove(null);
   };
 
   const handleBackwardMoveCancel = () => {
-    console.log(`❌ Cancelled backward move for ${pendingBackwardMove?.candidate.name}`);
+    console.log(
+      `❌ Cancelled backward move for ${pendingBackwardMove?.candidate.name}`
+    );
     setShowBackwardWarningModal(false);
     setPendingBackwardMove(null);
   };
@@ -865,23 +903,28 @@ export default function JobPipelinePage() {
       toColumn: string;
     }>
   ) => {
-    console.log(`📧 Sending bulk notifications to ${notificationsToSend.length} candidates`);
-    
+    console.log(
+      `📧 Sending bulk notifications to ${notificationsToSend.length} candidates`
+    );
+
     try {
       // Mark these notifications as email sent
-      setPendingNotifications(prev => 
-        prev.map(notification => 
-          notificationsToSend.some(n => n.candidateId === notification.candidateId)
+      setPendingNotifications((prev) =>
+        prev.map((notification) =>
+          notificationsToSend.some(
+            (n) => n.candidateId === notification.candidateId
+          )
             ? { ...notification, emailSent: true }
             : notification
         )
       );
-      
-      console.log(`✅ Successfully marked ${notificationsToSend.length} notifications as sent`);
-      
+
+      console.log(
+        `✅ Successfully marked ${notificationsToSend.length} notifications as sent`
+      );
+
       // Close the modal
       setActiveBulkNotificationRound(null);
-      
     } catch (error) {
       console.error(`❌ Error sending bulk notifications:`, error);
     }
@@ -906,9 +949,12 @@ export default function JobPipelinePage() {
 
     // Check if this is a forward movement (progress to next stage)
     const isForwardMovement = checkIfForwardMovement(fromColumnId, toColumnId);
-    
+
     // Check if this is a backward movement (reverse in hiring process)
-    const isBackwardMovement = !isForwardMovement && toColumnId !== "rejected" && fromColumnId !== toColumnId;
+    const isBackwardMovement =
+      !isForwardMovement &&
+      toColumnId !== "rejected" &&
+      fromColumnId !== toColumnId;
 
     if (isBackwardMovement) {
       // Show warning modal for backward movement
@@ -936,10 +982,12 @@ export default function JobPipelinePage() {
         movedAt: new Date(),
         emailSent: false,
       };
-      
-      setPendingNotifications(prev => {
+
+      setPendingNotifications((prev) => {
         // Check if this candidate already has a pending notification
-        const existingIndex = prev.findIndex(n => n.candidateId === candidateId);
+        const existingIndex = prev.findIndex(
+          (n) => n.candidateId === candidateId
+        );
         if (existingIndex >= 0) {
           // Update existing notification
           const updated = [...prev];
@@ -950,8 +998,10 @@ export default function JobPipelinePage() {
           return [...prev, newNotification];
         }
       });
-      
-      console.log(`📝 Added pending notification for ${candidate.name} (${fromColumnId} → ${toColumnId})`);
+
+      console.log(
+        `📝 Added pending notification for ${candidate.name} (${fromColumnId} → ${toColumnId})`
+      );
       // Continue with the move - don't return early
     }
 
@@ -1205,12 +1255,12 @@ export default function JobPipelinePage() {
       jobId,
       roundId,
       candidateUserId,
-      url: `/interview-pipeline/${jobId}/rounds/${roundId}/assessment/${candidateUserId}`
+      url: `/interview-pipeline/${jobId}/rounds/${roundId}/assessment/${candidateUserId}`,
     });
-    router.push(`/interview-pipeline/${jobId}/rounds/${roundId}/assessment/${candidateUserId}`);
+    router.push(
+      `/interview-pipeline/${jobId}/rounds/${roundId}/assessment/${candidateUserId}`
+    );
   };
-
-
 
   const handleHireCandidate = async (candidateId: string) => {
     console.log(`Hiring candidate ${candidateId}`);
@@ -1638,38 +1688,46 @@ export default function JobPipelinePage() {
       {/* Round-Based Pending Notifications */}
       {Object.entries(getGroupedNotifications()).length > 0 && (
         <div className="mx-6 mb-4 space-y-3">
-          {Object.entries(getGroupedNotifications()).map(([roundId, notifications]) => {
-            const roundInfo = getRoundInfo(roundId);
-            return (
-              <div key={roundId} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0">
-                      <Mail className="h-5 w-5 text-blue-600" />
+          {Object.entries(getGroupedNotifications()).map(
+            ([roundId, notifications]) => {
+              const roundInfo = getRoundInfo(roundId);
+              return (
+                <div
+                  key={roundId}
+                  className="bg-blue-50 border border-blue-200 rounded-lg p-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="flex-shrink-0">
+                        <Mail className="h-5 w-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-blue-800">
+                          {roundInfo.displayName} - Pending Notifications
+                        </h3>
+                        <p className="text-sm text-blue-600">
+                          {notifications.length} candidate
+                          {notifications.length !== 1 ? "s" : ""} moved to this
+                          round, not yet notified
+                        </p>
+                        <p className="text-xs text-blue-500 mt-1">
+                          {roundInfo.description}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-sm font-medium text-blue-800">
-                        {roundInfo.displayName} - Pending Notifications
-                      </h3>
-                      <p className="text-sm text-blue-600">
-                        {notifications.length} candidate{notifications.length !== 1 ? 's' : ''} moved to this round, not yet notified
-                      </p>
-                      <p className="text-xs text-blue-500 mt-1">
-                        {roundInfo.description}
-                      </p>
-                    </div>
+                    <button
+                      onClick={() => setActiveBulkNotificationRound(roundId)}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    >
+                      <Send className="h-4 w-4 mr-2" />
+                      Send {notifications.length} Email
+                      {notifications.length !== 1 ? "s" : ""}
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setActiveBulkNotificationRound(roundId)}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    <Send className="h-4 w-4 mr-2" />
-                    Send {notifications.length} Email{notifications.length !== 1 ? 's' : ''}
-                  </button>
                 </div>
-              </div>
-            );
-          })}
+              );
+            }
+          )}
         </div>
       )}
 
@@ -1821,9 +1879,16 @@ export default function JobPipelinePage() {
                           onAddNote={(candidateId, note) =>
                             handleAddNotes(candidateId, column.id, note)
                           }
-                          onMarkAssessment={(candidateId, roundId) => handleMarkAssessment(candidate.candidateUserId, roundId)}
+                          onMarkAssessment={(candidateId, roundId) =>
+                            handleMarkAssessment(
+                              candidate.candidateUserId,
+                              roundId
+                            )
+                          }
                           roundType={column.round?.type}
-                          hasSubmittedAssessment={candidate.hasSubmittedAssessment}
+                          hasSubmittedAssessment={
+                            candidate.hasSubmittedAssessment
+                          }
                           isAssessmentGraded={candidate.isAssessmentGraded}
                         />
                       </div>
@@ -1840,9 +1905,7 @@ export default function JobPipelinePage() {
                     onComplete={handleCompleteRound}
                     onAddNotes={handleAddNotes}
                     onHire={
-                      column.id === "offered"
-                        ? handleHireCandidate
-                        : undefined
+                      column.id === "offered" ? handleHireCandidate : undefined
                     }
                     onReject={handleRejectCandidate}
                   />
@@ -1960,7 +2023,9 @@ export default function JobPipelinePage() {
         <BulkNotificationModal
           isOpen={!!activeBulkNotificationRound}
           onClose={() => setActiveBulkNotificationRound(null)}
-          pendingNotifications={getGroupedNotifications()[activeBulkNotificationRound] || []}
+          pendingNotifications={
+            getGroupedNotifications()[activeBulkNotificationRound] || []
+          }
           jobTitle={job?.title || "Position"}
           companyName={company?.name || "Company"}
           onNotificationsSent={handleBulkNotificationSend}
@@ -1972,7 +2037,7 @@ export default function JobPipelinePage() {
       {showBackwardWarningModal && pendingBackwardMove && (
         <div className="fixed inset-0 z-50 overflow-hidden">
           <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm" />
-          
+
           <div className="absolute inset-0 flex items-center justify-center p-4">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
               {/* Header */}
@@ -2002,21 +2067,31 @@ export default function JobPipelinePage() {
                     </span>
                   </div>
                   <div className="flex items-center space-x-2 mt-2 text-sm text-yellow-700">
-                    <span>{getRoundInfo(pendingBackwardMove.fromColumnId).displayName}</span>
+                    <span>
+                      {
+                        getRoundInfo(pendingBackwardMove.fromColumnId)
+                          .displayName
+                      }
+                    </span>
                     <ArrowLeft className="h-4 w-4" />
-                    <span>{getRoundInfo(pendingBackwardMove.toColumnId).displayName}</span>
+                    <span>
+                      {getRoundInfo(pendingBackwardMove.toColumnId).displayName}
+                    </span>
                   </div>
                 </div>
-                
+
                 <div className="space-y-2 text-sm text-gray-600">
-                  <p>⚠️ <strong>This candidate may have already:</strong></p>
+                  <p>
+                    ⚠️ <strong>This candidate may have already:</strong>
+                  </p>
                   <ul className="list-disc list-inside ml-4 space-y-1">
                     <li>Completed assessments for the current round</li>
                     <li>Been interviewed by team members</li>
                     <li>Received progress notifications</li>
                   </ul>
                   <p className="mt-3">
-                    Moving them backward will reset their position in the hiring process.
+                    Moving them backward will reset their position in the hiring
+                    process.
                   </p>
                 </div>
               </div>
@@ -2040,7 +2115,6 @@ export default function JobPipelinePage() {
           </div>
         </div>
       )}
- 
     </div>
   );
 }
