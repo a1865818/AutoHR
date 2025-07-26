@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { X, Mail, Check, User, ArrowRight, Eye, EyeOff, Loader2 } from "lucide-react";
+import {
+  X,
+  Mail,
+  Check,
+  User,
+  ArrowRight,
+  Eye,
+  EyeOff,
+  Loader2,
+} from "lucide-react";
 import { apiService } from "@/services/api";
 import { EmailTemplateSelector } from "../candidates/EmailTemplateSelector";
 import { GmailAuthModal } from "../candidates/GmailAuthModal";
@@ -49,25 +58,28 @@ export function BulkNotificationModal({
   onNotificationsSent,
   roundInfo,
 }: BulkNotificationModalProps) {
-  const [selectedNotifications, setSelectedNotifications] = useState<string[]>([]);
+  const [selectedNotifications, setSelectedNotifications] = useState<string[]>(
+    []
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [emailsSent, setEmailsSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Email template and customization states
-  const [selectedTemplate, setSelectedTemplate] = useState<EmailTemplate | null>(null);
+  const [selectedTemplate, setSelectedTemplate] =
+    useState<EmailTemplate | null>(null);
   const [customSubject, setCustomSubject] = useState("");
   const [customBody, setCustomBody] = useState("");
   const [showPreview, setShowPreview] = useState(false);
   const [showGmailAuthModal, setShowGmailAuthModal] = useState(false);
 
   // Filter out already sent notifications
-  const unsentNotifications = pendingNotifications.filter(n => !n.emailSent);
+  const unsentNotifications = pendingNotifications.filter((n) => !n.emailSent);
 
   // Initialize with all unsent notifications selected
   useEffect(() => {
     if (isOpen && selectedNotifications.length === 0) {
-      setSelectedNotifications(unsentNotifications.map(n => n.candidateId));
+      setSelectedNotifications(unsentNotifications.map((n) => n.candidateId));
     }
   }, [isOpen, unsentNotifications.length]);
 
@@ -94,14 +106,14 @@ export function BulkNotificationModal({
     if (selectedNotifications.length === unsentNotifications.length) {
       setSelectedNotifications([]);
     } else {
-      setSelectedNotifications(unsentNotifications.map(n => n.candidateId));
+      setSelectedNotifications(unsentNotifications.map((n) => n.candidateId));
     }
   };
 
   const handleSelectNotification = (candidateId: string) => {
-    setSelectedNotifications(prev => 
+    setSelectedNotifications((prev) =>
       prev.includes(candidateId)
-        ? prev.filter(id => id !== candidateId)
+        ? prev.filter((id) => id !== candidateId)
         : [...prev, candidateId]
     );
   };
@@ -112,12 +124,18 @@ export function BulkNotificationModal({
 
   const getColumnDisplayName = (columnId: string) => {
     switch (columnId) {
-      case "new": return "New Applications";
-      case "applied": return "Applied";
-      case "hired": return "Hired";
-      case "rejected": return "Rejected";
-      case "offered": return "Offered";
-      default: return columnId; // For custom interview rounds
+      case "new":
+        return "New Applications";
+      case "applied":
+        return "Applied";
+      case "hired":
+        return "Hired";
+      case "rejected":
+        return "Rejected";
+      case "offered":
+        return "Offered";
+      default:
+        return columnId; // For custom interview rounds
     }
   };
 
@@ -137,10 +155,12 @@ export function BulkNotificationModal({
 
   const handleSendNotifications = async () => {
     if (selectedNotifications.length === 0) return;
-    
+
     // Validate template and content
     if (!selectedTemplate || !customSubject.trim() || !customBody.trim()) {
-      setError("Please select an email template and ensure both subject and body are filled.");
+      setError(
+        "Please select an email template and ensure both subject and body are filled."
+      );
       return;
     }
 
@@ -149,12 +169,12 @@ export function BulkNotificationModal({
 
     try {
       // Check Gmail authorization first
-      const authData = await apiService.makeRequest<{ isAuthorized: boolean; error?: string }>(
-        "/api/gmail/auth/status",
-        {
-          method: "GET",
-        }
-      );
+      const authData = await apiService.makeRequest<{
+        isAuthorized: boolean;
+        error?: string;
+      }>("/api/gmail/auth/status", {
+        method: "GET",
+      });
 
       if (!authData.isAuthorized) {
         setShowGmailAuthModal(true);
@@ -163,7 +183,7 @@ export function BulkNotificationModal({
       }
 
       // Get the selected notifications
-      const notificationsToSend = unsentNotifications.filter(n => 
+      const notificationsToSend = unsentNotifications.filter((n) =>
         selectedNotifications.includes(n.candidateId)
       );
 
@@ -178,19 +198,21 @@ export function BulkNotificationModal({
 
       console.log("📧 Sending bulk notifications:", emailRequestData);
 
-      const emailResult = await apiService.makeRequest<{ success: boolean; error?: string }>(
-        "/api/emails/bulk-success",
-        {
-          method: "POST",
-          body: JSON.stringify(emailRequestData),
-        }
-      );
+      const emailResult = await apiService.makeRequest<{
+        success: boolean;
+        error?: string;
+      }>("/api/emails/bulk-success", {
+        method: "POST",
+        body: JSON.stringify(emailRequestData),
+      });
 
       if (emailResult.success) {
-        console.log(`✅ Successfully sent notifications to ${selectedNotifications.length} candidates`);
+        console.log(
+          `✅ Successfully sent notifications to ${selectedNotifications.length} candidates`
+        );
         setEmailsSent(true);
         onNotificationsSent(notificationsToSend);
-        
+
         // Auto-close after 2 seconds
         setTimeout(() => {
           onClose();
@@ -236,26 +258,32 @@ export function BulkNotificationModal({
                 Notifications Sent Successfully!
               </h3>
               <p className="text-gray-600">
-                {selectedNotifications.length} candidate{selectedNotifications.length !== 1 ? 's' : ''} {selectedNotifications.length !== 1 ? 'have' : 'has'} been notified of their progress.
+                {selectedNotifications.length} candidate
+                {selectedNotifications.length !== 1 ? "s" : ""}{" "}
+                {selectedNotifications.length !== 1 ? "have" : "has"} been
+                notified of their progress.
               </p>
             </div>
-                  </div>
-      </div>
+          </div>
+        </div>
 
-      {/* Gmail Authorization Modal */}
-      <GmailAuthModal
-        isOpen={showGmailAuthModal}
-        onClose={() => setShowGmailAuthModal(false)}
-        onAuthComplete={handleGmailAuthComplete}
-      />
-    </div>
-  );
-}
+        {/* Gmail Authorization Modal */}
+        <GmailAuthModal
+          isOpen={showGmailAuthModal}
+          onClose={() => setShowGmailAuthModal(false)}
+          onAuthComplete={handleGmailAuthComplete}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
-      <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm" onClick={onClose} />
-      
+      <div
+        className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
+
       <div className="absolute inset-0 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
           {/* Header */}
@@ -267,7 +295,8 @@ export function BulkNotificationModal({
                   Send {roundInfo.displayName} Notifications
                 </h2>
                 <p className="text-sm text-gray-500">
-                  {roundInfo.description} • {pendingNotifications.length} candidate{pendingNotifications.length !== 1 ? 's' : ''}
+                  {roundInfo.description} • {pendingNotifications.length}{" "}
+                  candidate{pendingNotifications.length !== 1 ? "s" : ""}
                 </p>
               </div>
             </div>
@@ -290,7 +319,9 @@ export function BulkNotificationModal({
             {unsentNotifications.length === 0 ? (
               <div className="text-center py-8">
                 <Mail className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-500">No pending notifications to send.</p>
+                <p className="text-gray-500">
+                  No pending notifications to send.
+                </p>
               </div>
             ) : (
               <div className="space-y-6">
@@ -306,9 +337,15 @@ export function BulkNotificationModal({
                   />
                   <p className="text-xs text-gray-500 mt-2">
                     {roundInfo.templateType === "Success" ? (
-                      <>Showing <strong>Success</strong> templates - these work for all forward progress notifications</>
+                      <>
+                        Showing <strong>Success</strong> templates - these work
+                        for all forward progress notifications
+                      </>
                     ) : roundInfo.templateType === "Reject" ? (
-                      <>Showing <strong>Rejection</strong> templates - for candidates being rejected</>
+                      <>
+                        Showing <strong>Rejection</strong> templates - for
+                        candidates being rejected
+                      </>
                     ) : (
                       <>Showing templates for: {roundInfo.templateType}</>
                     )}
@@ -320,11 +357,16 @@ export function BulkNotificationModal({
                   <div className="space-y-4">
                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                       <p className="text-sm text-blue-700">
-                        🎯 <strong>{roundInfo.displayName} Notifications:</strong> {roundInfo.description}
+                        🎯{" "}
+                        <strong>{roundInfo.displayName} Notifications:</strong>{" "}
+                        {roundInfo.description}
                       </p>
                       {roundInfo.templateType === "Success" && (
                         <p className="text-xs text-blue-600 mt-1">
-                          💡 <strong>Tip:</strong> You can customize the email content below to be specific to this round (e.g., mention technical preparation, coding challenges, etc.)
+                          💡 <strong>Tip:</strong> You can customize the email
+                          content below to be specific to this round (e.g.,
+                          mention technical preparation, coding challenges,
+                          etc.)
                         </p>
                       )}
                     </div>
@@ -340,7 +382,8 @@ export function BulkNotificationModal({
                         placeholder="Enter email subject"
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        Available variables: {"{{candidateName}}"}, {"{{jobTitle}}"}, {"{{companyName}}"}
+                        Available variables: {"{{candidateName}}"},{" "}
+                        {"{{jobTitle}}"}, {"{{companyName}}"}
                       </p>
                     </div>
 
@@ -356,7 +399,8 @@ export function BulkNotificationModal({
                         placeholder="Enter email content"
                       />
                       <p className="text-xs text-gray-500 mt-1">
-                        Available variables: {"{{candidateName}}"}, {"{{jobTitle}}"}, {"{{companyName}}"}
+                        Available variables: {"{{candidateName}}"},{" "}
+                        {"{{jobTitle}}"}, {"{{companyName}}"}
                       </p>
                     </div>
 
@@ -381,16 +425,20 @@ export function BulkNotificationModal({
                           Email Preview (using first selected candidate):
                         </h5>
                         {(() => {
-                          const firstSelectedNotification = unsentNotifications.find(n => 
-                            selectedNotifications.includes(n.candidateId)
-                          );
+                          const firstSelectedNotification =
+                            unsentNotifications.find((n) =>
+                              selectedNotifications.includes(n.candidateId)
+                            );
                           if (!firstSelectedNotification) return null;
-                          
-                          const preview = getPreviewContent(firstSelectedNotification.candidateName);
+
+                          const preview = getPreviewContent(
+                            firstSelectedNotification.candidateName
+                          );
                           return (
                             <div className="space-y-2">
                               <p className="text-sm">
-                                <strong>To:</strong> {firstSelectedNotification.candidateName}
+                                <strong>To:</strong>{" "}
+                                {firstSelectedNotification.candidateName}
                               </p>
                               <p className="text-sm">
                                 <strong>Subject:</strong> {preview.subject}
@@ -413,13 +461,16 @@ export function BulkNotificationModal({
                   <h4 className="text-lg font-medium text-gray-900 mb-4">
                     Select Recipients
                   </h4>
-                  
+
                   {/* Select All */}
                   <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-3">
                       <input
                         type="checkbox"
-                        checked={selectedNotifications.length === unsentNotifications.length}
+                        checked={
+                          selectedNotifications.length ===
+                          unsentNotifications.length
+                        }
                         onChange={handleSelectAll}
                         className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                       />
@@ -441,11 +492,15 @@ export function BulkNotificationModal({
                       >
                         <input
                           type="checkbox"
-                          checked={selectedNotifications.includes(notification.candidateId)}
-                          onChange={() => handleSelectNotification(notification.candidateId)}
+                          checked={selectedNotifications.includes(
+                            notification.candidateId
+                          )}
+                          onChange={() =>
+                            handleSelectNotification(notification.candidateId)
+                          }
                           className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                         />
-                        
+
                         <div className="flex-1">
                           <div className="flex items-center space-x-2">
                             <User className="h-4 w-4 text-gray-400" />
@@ -453,13 +508,18 @@ export function BulkNotificationModal({
                               {notification.candidateName}
                             </span>
                           </div>
-                          
+
                           <div className="flex items-center space-x-2 mt-1 text-sm text-gray-500">
-                            <span>{getColumnDisplayName(notification.fromColumn)}</span>
+                            <span>
+                              {getColumnDisplayName(notification.fromColumn)}
+                            </span>
                             <ArrowRight className="h-3 w-3" />
-                            <span>{getColumnDisplayName(notification.toColumn)}</span>
+                            <span>
+                              {getColumnDisplayName(notification.toColumn)}
+                            </span>
                             <span className="ml-2">
-                              ({new Date(notification.movedAt).toLocaleString()})
+                              ({new Date(notification.movedAt).toLocaleString()}
+                              )
                             </span>
                           </div>
                         </div>
@@ -475,7 +535,8 @@ export function BulkNotificationModal({
           <div className="p-6 border-t border-gray-200">
             <div className="flex items-center justify-between">
               <p className="text-sm text-gray-500">
-                {roundInfo.displayName} notification emails will be sent to selected candidates
+                {roundInfo.displayName} notification emails will be sent to
+                selected candidates
               </p>
               <div className="flex space-x-3">
                 <button
@@ -487,8 +548,8 @@ export function BulkNotificationModal({
                 <button
                   onClick={handleSendNotifications}
                   disabled={
-                    selectedNotifications.length === 0 || 
-                    isSubmitting || 
+                    selectedNotifications.length === 0 ||
+                    isSubmitting ||
                     !selectedTemplate ||
                     !customSubject.trim() ||
                     !customBody.trim()
@@ -503,7 +564,10 @@ export function BulkNotificationModal({
                   ) : (
                     <>
                       <Mail className="h-4 w-4" />
-                      <span>Send {selectedNotifications.length} Notification{selectedNotifications.length !== 1 ? 's' : ''}</span>
+                      <span>
+                        Send {selectedNotifications.length} Notification
+                        {selectedNotifications.length !== 1 ? "s" : ""}
+                      </span>
                     </>
                   )}
                 </button>
@@ -512,6 +576,13 @@ export function BulkNotificationModal({
           </div>
         </div>
       </div>
+
+      {/* Gmail Authorization Modal */}
+      <GmailAuthModal
+        isOpen={showGmailAuthModal}
+        onClose={() => setShowGmailAuthModal(false)}
+        onAuthComplete={handleGmailAuthComplete}
+      />
     </div>
   );
-} 
+}

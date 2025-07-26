@@ -56,7 +56,7 @@ class StorageBucketService {
       const contentType = response.headers.get("content-type");
       if (contentType && contentType.includes("application/json")) {
         const text = await response.text();
-        return text ? JSON.parse(text) : {};
+        return text ? JSON.parse(text) : {} as T;
       }
 
       return {} as T;

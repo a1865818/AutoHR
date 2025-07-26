@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { FileText, Plus, Edit3, Trash2, Save, X, Download, Eye } from "lucide-react";
 
-interface Resume {
+export interface Resume {
   id: string;
   name: string;
   url: string;

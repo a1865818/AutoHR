@@ -1,3 +1,15 @@
+// Resume interface that matches what ResumeSelector expects
+export interface Resume {
+  id: string;
+  originalName: string; // This is what the component expects
+  url: string;
+  fileSize: number;
+  uploadedAt: string;
+  type?: "resume" | "cover_letter" | "portfolio" | "certificate" | "other";
+  isDefault?: boolean;
+  description?: string;
+}
+
 class ResumeService {
   private baseUrl: string;
 
@@ -227,6 +239,169 @@ class ResumeService {
       console.warn("Failed to get file type from URL:", error);
       return "Unknown";
     }
+  }
+
+  // Get user's resumes
+  async getUserResumes(): Promise<Resume[]> {
+    const { token, userId } = this.getAuthData();
+    
+    if (!token || !userId) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      // Get current user profile which contains the ResumeList
+      const response = await fetch(`${this.baseUrl}/auth/me`, {
+        method: "GET",
+        headers: this.getHeaders(),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user profile: ${response.statusText}`);
+      }
+
+      const userData = await response.json();
+      const resumeList = userData.resumeList || [];
+
+      // Convert the backend resume format to our frontend format
+      const resumes: Resume[] = resumeList.map((resume: any) => ({
+        id: resume.id || `resume_${Date.now()}`,
+        originalName: resume.originalName || resume.fileName || "Unknown",
+        url: resume.url || resume.fileName || "",
+        fileSize: resume.fileSize || 0,
+        uploadedAt: resume.uploadedAt || new Date().toISOString(),
+        type: "resume",
+        isDefault: false,
+        description: resume.description || "",
+      }));
+
+      return resumes;
+    } catch (error) {
+      console.error("❌ Failed to fetch user resumes:", error);
+      throw error;
+    }
+  }
+
+  // Validate resume file
+  validateResumeFile(file: File): { isValid: boolean; error?: string } {
+    const allowedTypes = [
+      "application/pdf"
+    ];
+    const maxSize = 10 * 1024 * 1024; // 10MB
+
+    if (!allowedTypes.includes(file.type)) {
+      return {
+        isValid: false,
+        error: "Please upload a PDF or Word document",
+      };
+    }
+
+    if (file.size > maxSize) {
+      return {
+        isValid: false,
+        error: "File size must be less than 10MB",
+      };
+    }
+
+    return { isValid: true };
+  }
+
+  // Upload resume
+  async uploadResume(file: File): Promise<Resume> {
+    const { token, userId } = this.getAuthData();
+    
+    if (!token || !userId) {
+      throw new Error("User not authenticated");
+    }
+
+    // Validate file first
+    const validation = this.validateResumeFile(file);
+    if (!validation.isValid) {
+      throw new Error(validation.error || "Invalid file");
+    }
+
+    try {
+      // Use storage bucket service to upload
+      const { storageBucketService } = await import('./storageBucketService');
+      const uploadResult = await storageBucketService.uploadResume(file, userId);
+
+      // Create resume object
+      const newResume: Resume = {
+        id: `resume_${Date.now()}`,
+        originalName: file.name,
+        url: uploadResult.url,
+        fileSize: uploadResult.fileSize,
+        uploadedAt: uploadResult.uploadedAt,
+        type: "resume",
+        isDefault: false,
+      };
+
+      // Get current user profile to update ResumeList
+      const currentResumes = await this.getUserResumes();
+      const updatedResumeList = [...currentResumes, newResume];
+
+      // Save to user profile using the existing API
+      const { apiService } = await import('./api');
+      await apiService.updateApplicationUserProfile({
+        resumeList: updatedResumeList.map(resume => ({
+          id: resume.id,
+          originalName: resume.originalName,
+          url: resume.url,
+          fileSize: resume.fileSize,
+          uploadedAt: resume.uploadedAt,
+          type: resume.type,
+          isDefault: resume.isDefault,
+          description: resume.description,
+        }))
+      });
+
+      console.log("✅ Resume uploaded successfully:", newResume);
+
+      return newResume;
+    } catch (error) {
+      console.error("❌ Failed to upload resume:", error);
+      throw error;
+    }
+  }
+
+  // Delete resume
+  async deleteResume(resumeId: string): Promise<void> {
+    const { token, userId } = this.getAuthData();
+    
+    if (!token || !userId) {
+      throw new Error("User not authenticated");
+    }
+
+    try {
+      // Get current resumes
+      const currentResumes = await this.getUserResumes();
+      const updatedResumeList = currentResumes.filter(r => r.id !== resumeId);
+
+      // Update user profile with the filtered resume list
+      const { apiService } = await import('./api');
+      await apiService.updateApplicationUserProfile({
+        resumeList: updatedResumeList.map(resume => ({
+          id: resume.id,
+          originalName: resume.originalName,
+          url: resume.url,
+          fileSize: resume.fileSize,
+          uploadedAt: resume.uploadedAt,
+          type: resume.type,
+          isDefault: resume.isDefault,
+          description: resume.description,
+        }))
+      });
+
+      console.log("✅ Resume deleted successfully:", resumeId);
+    } catch (error) {
+      console.error("❌ Failed to delete resume:", error);
+      throw error;
+    }
+  }
+
+  // Download resume file (alias for existing method)
+  async downloadResumeFile(resume: Resume): Promise<void> {
+    return this.downloadResume(resume.url, resume.originalName);
   }
 }
 

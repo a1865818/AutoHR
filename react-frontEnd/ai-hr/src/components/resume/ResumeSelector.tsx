@@ -8,7 +8,6 @@ import {
   Download,
   Check,
   AlertCircle,
-  Plus,
 } from "lucide-react";
 import { resumeService, Resume } from "@/services/resumeService";
 

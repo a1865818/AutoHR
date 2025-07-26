@@ -14,6 +14,14 @@ namespace ai_hr.Contracts
         public string? RejectionNotes { get; set; }
         public bool? IsSendRejectEmail { get; set; }
 
+        // Notification tracking fields for each round type
+        public bool? IsSendPhoneScreening { get; set; }
+        public bool? IsSendVideoInterview { get; set; }
+        public bool? IsSendTechAssessment { get; set; }
+        public bool? IsSendCodeChallenge { get; set; }
+        public bool? IsSendCultureFit { get; set; }
+        public bool? IsSendFinalInterview { get; set; }
+
         // Validation method for stage
         public bool IsValidStage()
         {

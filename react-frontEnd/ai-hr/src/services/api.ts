@@ -182,6 +182,10 @@ class ApiService {
     return this.makeRequest<any>("/auth/me");
   }
 
+  async getPendingNotifications(jobId: string): Promise<any> {
+    return this.makeRequest<any>(`/applicationdetails/job/${jobId}/pending-notifications`);
+  }
+
   async updateHiringUserProfile(id: string, data: any): Promise<any> {
     return this.makeRequest<any>(`/hiring-user-profiles/${id}`, {
       method: "PUT",

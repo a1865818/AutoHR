@@ -38,6 +38,12 @@ public static class ApplicationDetailEndpoints
             .WithSummary("Update application")
             .WithDescription("Update an existing job application's details, documents, or status");
 
+        app.MapGet("/applicationdetails/job/{jobId}/pending-notifications", GetPendingNotifications)
+            .WithTags("Application Details")
+            .WithName("GetPendingNotifications")
+            .WithSummary("Get pending notifications for a job")
+            .WithDescription("Retrieves candidates who have moved to rounds but haven't been notified yet");
+
         app.MapDelete("/applicationdetails/{id}", DeleteApplicationDetail)
             .WithTags("Application Details")
             .WithName("DeleteApplicationDetail")
@@ -70,7 +76,7 @@ public static class ApplicationDetailEndpoints
                 AvailabilityDate = request.AvailabilityDate,
                 JobSource = request.JobSource,
                 AiAnalysis = request.AiAnalysis,
-                Status = "In Progress", 
+                Status = "In Progress",
                 Stage = "Applied",
                 CurrentRoundId = "new",
                 AppliedAt = DateTime.UtcNow,
@@ -306,6 +312,32 @@ public static class ApplicationDetailEndpoints
                 applicationDetail.IsSendRejectEmail = request.IsSendRejectEmail.Value;
             }
 
+            // Handle notification flag fields
+            if (request.IsSendPhoneScreening.HasValue)
+            {
+                applicationDetail.IsSendPhoneScreening = request.IsSendPhoneScreening.Value;
+            }
+            if (request.IsSendVideoInterview.HasValue)
+            {
+                applicationDetail.IsSendVideoInterview = request.IsSendVideoInterview.Value;
+            }
+            if (request.IsSendTechAssessment.HasValue)
+            {
+                applicationDetail.IsSendTechAssessment = request.IsSendTechAssessment.Value;
+            }
+            if (request.IsSendCodeChallenge.HasValue)
+            {
+                applicationDetail.IsSendCodeChallenge = request.IsSendCodeChallenge.Value;
+            }
+            if (request.IsSendCultureFit.HasValue)
+            {
+                applicationDetail.IsSendCultureFit = request.IsSendCultureFit.Value;
+            }
+            if (request.IsSendFinalInterview.HasValue)
+            {
+                applicationDetail.IsSendFinalInterview = request.IsSendFinalInterview.Value;
+            }
+
             // Set rejected timestamp when status is changed to Rejected
             if (request.Status == "Rejected" && applicationDetail.RejectedAt == null)
             {
@@ -335,6 +367,13 @@ public static class ApplicationDetailEndpoints
                 stage = updatedApplicationDetail.Stage,
                 currentRoundId = updatedApplicationDetail.CurrentRoundId,
                 statusChangedAt = updatedApplicationDetail.StatusChangedAt,
+                // Include notification flags in response
+                isSendPhoneScreening = updatedApplicationDetail.IsSendPhoneScreening,
+                isSendVideoInterview = updatedApplicationDetail.IsSendVideoInterview,
+                isSendTechAssessment = updatedApplicationDetail.IsSendTechAssessment,
+                isSendCodeChallenge = updatedApplicationDetail.IsSendCodeChallenge,
+                isSendCultureFit = updatedApplicationDetail.IsSendCultureFit,
+                isSendFinalInterview = updatedApplicationDetail.IsSendFinalInterview,
                 message = "Application updated successfully"
             });
         }
@@ -380,6 +419,121 @@ public static class ApplicationDetailEndpoints
         catch (Exception ex)
         {
             Console.WriteLine($"Error deleting application detail: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+    private static async Task<IResult> GetPendingNotifications(Guid jobId, Supabase.Client client)
+    {
+        try
+        {
+            Console.WriteLine($"🔍 Fetching pending notifications for job: {jobId}");
+
+            // Get all applications for this job
+            var response = await client.From<ApplicationDetail>().Where(ad => ad.JobId == jobId).Get();
+            var applications = response.Models;
+
+            if (applications == null || !applications.Any())
+            {
+                return Results.Ok(new { pendingNotifications = new List<object>() });
+            }
+
+            // Get job details to understand the interview template
+            var jobResponse = await client.From<Job>().Where(j => j.Id == jobId).Get();
+            var job = jobResponse.Models.FirstOrDefault();
+
+            if (job == null)
+            {
+                return Results.NotFound(new { message = $"Job with ID {jobId} not found" });
+            }
+
+            // Get interview template if exists
+            var template = (InterviewTemplate?)null;
+            if (job.InterviewTemplateId.HasValue)
+            {
+                var templateResponse = await client.From<InterviewTemplate>().Where(it => it.Id == job.InterviewTemplateId.Value).Get();
+                template = templateResponse.Models.FirstOrDefault();
+            }
+
+            // Get interview rounds if template exists
+            var rounds = new List<InterviewRound>();
+            if (template != null)
+            {
+                var roundsResponse = await client.From<InterviewRound>().Where(ir => ir.TemplateId == template.Id).Get();
+                rounds = roundsResponse.Models?.ToList() ?? new List<InterviewRound>();
+            }
+
+            var pendingNotifications = new List<object>();
+
+            foreach (var app in applications)
+            {
+                // Skip if candidate is rejected or hired
+                if (app.Status == "Rejected" || app.Status == "Hired")
+                    continue;
+
+                // Check notification flags based on current round
+                var currentRoundId = app.CurrentRoundId;
+                var needsNotification = false;
+                var roundType = "";
+
+                // Map round IDs to notification flags
+                if (!string.IsNullOrEmpty(currentRoundId))
+                {
+                    // Try to parse currentRoundId as Guid, if it fails, skip this application
+                    if (Guid.TryParse(currentRoundId, out var roundIdGuid))
+                    {
+                        var round = rounds.FirstOrDefault(r => r.Id == roundIdGuid);
+                        if (round != null)
+                        {
+                            roundType = round.Type;
+                            needsNotification = roundType switch
+                            {
+                                "phone_screening" => !app.IsSendPhoneScreening,
+                                "video_interview" => !app.IsSendVideoInterview,
+                                "technical_assessment" => !app.IsSendTechAssessment,
+                                "coding_challenge" => !app.IsSendCodeChallenge,
+                                "culture_fit" => !app.IsSendCultureFit,
+                                "final_interview" => !app.IsSendFinalInterview,
+                                _ => false
+                            };
+                        }
+                    }
+                }
+
+                if (needsNotification)
+                {
+                    // Get candidate user details - convert Guid to string before querying
+                    var candidateUserIdString = app.CandidateUserId.ToString();
+                    var userResponse = await client.From<ApplicationUser>().Where(u => u.Id == candidateUserIdString).Get();
+                    var candidateUser = userResponse.Models.FirstOrDefault();
+
+                    var candidateName = candidateUser != null
+                        ? $"{candidateUser.FirstName} {candidateUser.LastName}"
+                        : "Unknown Candidate";
+
+                    pendingNotifications.Add(new
+                    {
+                        candidateId = app.Id.ToString(),
+                        candidateName = candidateName,
+                        fromColumn = "", // We don't track previous column in this context
+                        toColumn = currentRoundId,
+                        movedAt = app.StatusChangedAt,
+                        emailSent = false,
+                        roundType = roundType,
+                        stage = app.Stage,
+                        status = app.Status
+                    });
+                }
+            }
+
+            Console.WriteLine($"✅ Found {pendingNotifications.Count} pending notifications for job {jobId}");
+
+            return Results.Ok(new { pendingNotifications });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Error fetching pending notifications: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }

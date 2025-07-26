@@ -371,6 +371,33 @@ export default function JobPipelinePage() {
       console.log("🔍 Pipeline candidates:", pipelineCandidates);
 
       setCandidates(pipelineCandidates);
+
+      // Load pending notifications from the database
+      try {
+        console.log("🔍 Loading pending notifications from database...");
+        const { apiService } = await import("@/services/api");
+        const pendingNotificationsResponse =
+          await apiService.getPendingNotifications(jobId);
+
+        if (
+          pendingNotificationsResponse &&
+          pendingNotificationsResponse.pendingNotifications
+        ) {
+          console.log(
+            "✅ Loaded pending notifications:",
+            pendingNotificationsResponse.pendingNotifications
+          );
+          setPendingNotifications(
+            pendingNotificationsResponse.pendingNotifications
+          );
+        } else {
+          console.log("📭 No pending notifications found");
+          setPendingNotifications([]);
+        }
+      } catch (error) {
+        console.warn("⚠️ Failed to load pending notifications:", error);
+        setPendingNotifications([]);
+      }
     } catch (error) {
       console.error("Error loading job pipeline:", error);
       setError(
@@ -655,7 +682,8 @@ export default function JobPipelinePage() {
   const completeCandidateMove = async (
     candidateId: string,
     fromColumnId: string,
-    toColumnId: string
+    toColumnId: string,
+    handlePendingNotifications: boolean = false
   ) => {
     console.log(
       `🚀 Completing candidate move: ${candidateId} from ${fromColumnId} to ${toColumnId}`
@@ -785,6 +813,51 @@ export default function JobPipelinePage() {
       console.log(
         `✅ Successfully completed candidate move for ${candidate.name}`
       );
+
+      // Handle pending notifications if requested
+      if (handlePendingNotifications) {
+        console.log(`🔄 Handling pending notifications for candidate move`);
+
+        // Check if this is a backward movement
+        const isBackwardMovement =
+          !checkIfForwardMovement(fromColumnId, toColumnId) &&
+          toColumnId !== "rejected" &&
+          fromColumnId !== toColumnId;
+
+        if (isBackwardMovement) {
+          console.log(`🔄 Processing backward movement pending notifications`);
+
+          // Update pending notifications for backward movement
+          setPendingNotifications((prev) => {
+            // Remove any existing notification for this candidate
+            const filtered = prev.filter((n) => n.candidateId !== candidateId);
+
+            // Add new pending notification for the target round (if it's not a final status)
+            if (
+              toColumnId !== "rejected" &&
+              toColumnId !== "hired" &&
+              toColumnId !== "offered"
+            ) {
+              const newNotification = {
+                candidateId,
+                candidateName: candidate.name,
+                fromColumn: fromColumnId,
+                toColumn: toColumnId,
+                movedAt: new Date(),
+                emailSent: false,
+              };
+
+              console.log(
+                `📝 Added pending notification for backward move: ${candidate.name} (${fromColumnId} → ${toColumnId})`
+              );
+
+              return [...filtered, newNotification];
+            }
+
+            return filtered;
+          });
+        }
+      }
     } catch (error) {
       console.error(`❌ Error updating candidate status:`, error);
     }
@@ -879,7 +952,8 @@ export default function JobPipelinePage() {
     await completeCandidateMove(
       pendingBackwardMove.candidateId,
       pendingBackwardMove.fromColumnId,
-      pendingBackwardMove.toColumnId
+      pendingBackwardMove.toColumnId,
+      true // Handle pending notifications for backward movement
     );
 
     // Clear the pending move
@@ -908,7 +982,63 @@ export default function JobPipelinePage() {
     );
 
     try {
-      // Mark these notifications as email sent
+      // Get the current round info to determine which notification flag to set
+      const currentRoundId = notificationsToSend[0]?.toColumn;
+
+      // Map round types to notification flags
+      const notificationFlagMap: Record<string, string> = {
+        phone_screening: "IsSendPhoneScreening",
+        video_interview: "IsSendVideoInterview",
+        technical_assessment: "IsSendTechAssessment",
+        coding_challenge: "IsSendCodeChallenge",
+        culture_fit: "IsSendCultureFit",
+        final_interview: "IsSendFinalInterview",
+      };
+
+      // Get the round type from the job template
+      const currentRound = job?.interviewTemplate?.rounds?.find(
+        (r) => r.id === currentRoundId
+      );
+      const roundType = currentRound?.type;
+      const flagToSet = roundType ? notificationFlagMap[roundType] : null;
+
+      if (flagToSet) {
+        console.log(
+          `🔄 Setting ${flagToSet} to true for ${notificationsToSend.length} candidates`
+        );
+
+        // Update notification flags in the backend for each candidate
+        const { apiService } = await import("@/services/api");
+
+        for (const notification of notificationsToSend) {
+          try {
+            const candidate = candidates.find(
+              (c) => c.id === notification.candidateId
+            );
+            if (candidate) {
+              await apiService.makeRequest(
+                `/applicationdetails/${candidate.applicationId}`,
+                {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    [flagToSet]: true,
+                  }),
+                }
+              );
+              console.log(
+                `✅ Set ${flagToSet} for candidate ${notification.candidateId}`
+              );
+            }
+          } catch (error) {
+            console.warn(
+              `⚠️ Failed to set notification flag for candidate ${notification.candidateId}:`,
+              error
+            );
+          }
+        }
+      }
+
+      // Mark these notifications as email sent in local state
       setPendingNotifications((prev) =>
         prev.map((notification) =>
           notificationsToSend.some(
@@ -1160,6 +1290,83 @@ export default function JobPipelinePage() {
         finalStage,
         finalCurrentRoundId
       );
+
+      // Handle notification flags for backward movement
+      if (isBackwardMovement) {
+        console.log(`🔄 Resetting notification flags for backward movement`);
+
+        // Determine which notification flag to reset based on the previous round
+        const previousRound = job?.interviewTemplate?.rounds?.find(
+          (r) => r.id === fromColumnId
+        );
+        if (previousRound) {
+          const notificationFlagMap: Record<string, string> = {
+            phone_screening: "IsSendPhoneScreening",
+            video_interview: "IsSendVideoInterview",
+            technical_assessment: "IsSendTechAssessment",
+            coding_challenge: "IsSendCodeChallenge",
+            culture_fit: "IsSendCultureFit",
+            final_interview: "IsSendFinalInterview",
+          };
+
+          const flagToReset = notificationFlagMap[previousRound.type];
+          if (flagToReset) {
+            try {
+              console.log(
+                `🔄 Resetting ${flagToReset} to false for candidate ${candidateId}`
+              );
+
+              // Update the notification flag in the backend
+              const { apiService } = await import("@/services/api");
+              await apiService.makeRequest(
+                `/applicationdetails/${candidate.applicationId}`,
+                {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    [flagToReset]: false,
+                  }),
+                }
+              );
+
+              console.log(
+                `✅ Successfully reset ${flagToReset} for candidate ${candidateId}`
+              );
+            } catch (error) {
+              console.warn(`⚠️ Failed to reset notification flag:`, error);
+            }
+          }
+        }
+
+        // Update pending notifications for backward movement
+        setPendingNotifications((prev) => {
+          // Remove any existing notification for this candidate
+          const filtered = prev.filter((n) => n.candidateId !== candidateId);
+
+          // Add new pending notification for the target round (if it's not a final status)
+          if (
+            toColumnId !== "rejected" &&
+            toColumnId !== "hired" &&
+            toColumnId !== "offered"
+          ) {
+            const newNotification = {
+              candidateId,
+              candidateName: candidate.name,
+              fromColumn: fromColumnId,
+              toColumn: toColumnId,
+              movedAt: new Date(),
+              emailSent: false,
+            };
+
+            console.log(
+              `📝 Added pending notification for backward move: ${candidate.name} (${fromColumnId} → ${toColumnId})`
+            );
+
+            return [...filtered, newNotification];
+          }
+
+          return filtered;
+        });
+      }
     } catch (error) {
       console.error(`❌ Error updating candidate status:`, error);
     }

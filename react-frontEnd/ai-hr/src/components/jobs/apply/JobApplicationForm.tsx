@@ -1281,13 +1281,13 @@ export default function JobApplicationForm({
             </p>
             <div className="space-y-2">
               <Link
-                href={`/jobs/${jobId}`}
+                href={`/applicant/jobs/${jobId}`}
                 className="block w-full px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors"
               >
                 View Job Details
               </Link>
               <Link
-                href="/applications"
+                href="/applicant/applications"
                 className="block w-full px-4 py-2 bg-gray-300 text-gray-700 rounded-md hover:bg-gray-400 transition-colors"
               >
                 View My Applications
