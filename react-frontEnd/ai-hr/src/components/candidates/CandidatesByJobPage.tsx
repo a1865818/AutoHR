@@ -19,8 +19,13 @@ import {
   CandidateWithJobDetails,
   Job,
 } from "@/interfaces";
+import {
+  InterviewTemplate,
+  INTERVIEW_TYPE_TO_STAGE_MAP,
+} from "@/interfaces/interview";
 import { candidateRankingService } from "@/services/candidateRankingService";
 import { candidateService } from "@/services/candidateService";
+import { interviewService } from "@/services/interviewService";
 import { jobService } from "@/services/jobService";
 import { rejectedCandidatesService } from "@/services/rejectedCandidatesService";
 import {
@@ -191,6 +196,8 @@ function CandidatesByJobPageComponent({ jobId }: CandidatesByJobPageProps) {
     null
   );
   const [job, setJob] = useState<Job | null>(null);
+  const [interviewTemplate, setInterviewTemplate] =
+    useState<InterviewTemplate | null>(null);
 
   // Use dynamic stage configurations
   const { stageConfigs, loading: stageConfigsLoading } =
@@ -291,6 +298,37 @@ function CandidatesByJobPageComponent({ jobId }: CandidatesByJobPageProps) {
         if (jobData) {
           const convertedJob = jobService.convertApiJobToJob(jobData);
           setJob(convertedJob);
+
+          // Load interview template if job has one
+          if (jobData.interviewTemplateId) {
+            try {
+              console.log(
+                "🔄 Loading interview template for job:",
+                jobData.interviewTemplateId
+              );
+              const template = await interviewService.getInterviewTemplate(
+                jobData.interviewTemplateId
+              );
+              const rounds = await interviewService.getInterviewRounds(
+                jobData.interviewTemplateId
+              );
+              const templateWithRounds = {
+                ...template,
+                rounds: rounds.sort((a, b) => a.roundOrder - b.roundOrder),
+              };
+              setInterviewTemplate(templateWithRounds);
+              console.log("✅ Interview template loaded:", templateWithRounds);
+            } catch (err) {
+              console.warn(
+                `Failed to load interview template for job ${jobId}:`,
+                err
+              );
+              setInterviewTemplate(null);
+            }
+          } else {
+            console.log("ℹ️ No interview template associated with this job");
+            setInterviewTemplate(null);
+          }
         }
 
         // Load candidates for this job
@@ -564,27 +602,68 @@ function CandidatesByJobPageComponent({ jobId }: CandidatesByJobPageProps) {
       let newStage: CandidateStage;
 
       if (action === "approve") {
+        console.log(
+          `🎯 Approving candidate ${candidate.name} from stage: ${candidate.stage}`
+        );
+        console.log(`🔍 Interview template available:`, {
+          hasTemplate: !!interviewTemplate,
+          templateName: interviewTemplate?.name,
+          roundsCount: interviewTemplate?.rounds?.length || 0,
+          rounds:
+            interviewTemplate?.rounds?.map((r) => ({
+              type: r.type,
+              name: r.name,
+              order: r.roundOrder,
+              stage: INTERVIEW_TYPE_TO_STAGE_MAP[r.type],
+            })) || [],
+        });
+
         if (candidate.stage === "Applied") {
           newStatus = "In Progress";
-          newStage = "Phone Screening";
+          // Use template to determine first stage, fallback to hardcoded if no template
+          if (
+            interviewTemplate?.rounds &&
+            interviewTemplate.rounds.length > 0
+          ) {
+            const firstRound = interviewTemplate.rounds[0];
+            newStage = INTERVIEW_TYPE_TO_STAGE_MAP[firstRound.type];
+            console.log(
+              `✅ Moving from Applied to first template round: ${newStage}`
+            );
+          } else {
+            newStage = "Phone Screening"; // Fallback
+            console.log(
+              `⚠️ No template available, using fallback: ${newStage}`
+            );
+          }
         } else if (candidate.stage === "Offer") {
           newStatus = "Hired";
           newStage = "Offer";
+          console.log(`✅ Moving from Offer to Hired`);
         } else {
-          const stageOrder = StageManager.getStageOrder();
-          const currentIndex = stageOrder.indexOf(candidate.stage);
-          if (currentIndex !== -1 && currentIndex < stageOrder.length - 1) {
-            newStatus = "In Progress";
-            newStage = stageOrder[currentIndex + 1];
-          } else {
-            newStatus = "In Progress";
-            newStage = "Offer";
-          }
+          // Use template-based progression for interview stages
+          newStatus = "In Progress";
+          newStage = StageManager.getNextStageFromTemplate(
+            candidate.stage,
+            interviewTemplate
+          );
+          console.log(
+            `✅ Template-based progression: ${candidate.stage} → ${newStage}`
+          );
         }
       } else {
         newStatus = "Rejected";
         newStage = candidate.stage;
+        console.log(`❌ Rejecting candidate, keeping stage: ${newStage}`);
       }
+
+      console.log(`📤 Updating candidate status:`, {
+        candidateId,
+        currentStage: candidate.stage,
+        newStage,
+        newStatus,
+        action,
+      });
 
       await candidateService.updateCandidateStatus(
         candidate.applicationId,

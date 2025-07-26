@@ -35,6 +35,13 @@ public static class CandidateEndpoints
             .WithSummary("Get rejected candidates for specific job")
             .WithDescription("Retrieves all rejected candidates for a specific job posting")
             .RequireAuthorization();
+
+        app.MapGet("/candidates/{candidateId}/details", GetCandidateDetails)
+            .WithTags("Candidates")
+            .WithName("GetCandidateDetails")
+            .WithSummary("Get detailed candidate information")
+            .WithDescription("Retrieves detailed information for a specific candidate including profile data and experiences")
+            .RequireAuthorization();
     }
 
     private static async Task<IResult> GetCandidatesByCompany(Guid companyId, Supabase.Client client)
@@ -297,7 +304,6 @@ public static class CandidateEndpoints
 
                 var assessmentScore = app.OverallAiScore ?? CandidateRankingEndpoints.CalculateInitialRankingScore(app);
 
-                // ✅ FIX: Use the same name construction logic as GetCandidatesByCompany
                 var candidateName = candidateUser != null
                     ? $"{candidateUser.FirstName} {candidateUser.LastName}"
                     : $"Unknown User ({candidateUserIdString.Substring(0, 8)}...)";
@@ -312,6 +318,8 @@ public static class CandidateEndpoints
                     jobId = app.JobId.ToString(),
                     name = candidateName,
                     email = candidateUser?.Email ?? "No email available",
+                    location = candidateUser?.Location,
+                    experiences = candidateUser?.Experiences,
                     photo = candidateUser != null
                         ? $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(candidateName)}&size=32&background=e5e7eb&color=374151&rounded=true"
                         : "https://ui-avatars.com/api/?name=Unknown&size=32&background=f87171&color=ffffff&rounded=true",
@@ -478,7 +486,6 @@ public static class CandidateEndpoints
                     jobDepartment = job?.Department,
                     name = candidateUser != null ? $"{candidateUser.FirstName} {candidateUser.LastName}" : "Unknown Candidate",
                     email = candidateUser?.Email ?? "unknown@example.com",
-                    phone = candidateUser?.PhoneNumber,
                     company = company.Name,
                     role = job?.Title,
                     stage = app.Stage,
@@ -593,7 +600,6 @@ public static class CandidateEndpoints
                     jobDepartment = job.Department,
                     name = candidateUser != null ? $"{candidateUser.FirstName} {candidateUser.LastName}" : "Unknown Candidate",
                     email = candidateUser?.Email ?? "unknown@example.com",
-                    phone = candidateUser?.PhoneNumber,
                     company = companyName,
                     role = job.Title,
                     stage = app.Stage,
@@ -623,6 +629,116 @@ public static class CandidateEndpoints
         catch (Exception ex)
         {
             Console.WriteLine($"Error fetching rejected candidates for job: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+    private static async Task<IResult> GetCandidateDetails(string candidateId, Supabase.Client client)
+    {
+        try
+        {
+            Console.WriteLine($"Fetching detailed candidate information for: {candidateId}");
+
+            // Parse the candidateId string to Guid
+            if (!Guid.TryParse(candidateId, out Guid candidateIdGuid))
+            {
+                return Results.BadRequest(new { message = $"Invalid candidate ID format: {candidateId}" });
+            }
+
+            // Get the application detail first
+            var appResponse = await client.From<ApplicationDetail>()
+                .Where(ad => ad.Id == candidateIdGuid)
+                .Get();
+
+            var application = appResponse.Models?.FirstOrDefault();
+            if (application == null)
+            {
+                return Results.NotFound(new { message = $"Application not found: {candidateId}" });
+            }
+
+            // Get job details
+            var jobResponse = await client.From<Job>()
+                .Where(j => j.Id == application.JobId)
+                .Get();
+
+            var job = jobResponse.Models?.FirstOrDefault();
+            if (job == null)
+            {
+                return Results.NotFound(new { message = $"Job not found for application: {candidateId}" });
+            }
+
+            // Get company information
+            var companyResponse = await client.From<Company>()
+                .Where(c => c.Id == job.CompanyId)
+                .Get();
+
+            var company = companyResponse.Models?.FirstOrDefault();
+            var companyName = company?.Name ?? "Unknown Company";
+
+            // Get candidate user details
+            var candidateUserIdString = application.CandidateUserId.ToString();
+            var userResponse = await client.From<ApplicationUser>()
+                .Where(u => u.Id == candidateUserIdString)
+                .Get();
+
+            var candidateUser = userResponse.Models?.FirstOrDefault();
+            if (candidateUser == null)
+            {
+                return Results.NotFound(new { message = $"Candidate user not found: {application.CandidateUserId}" });
+            }
+
+            var candidateName = $"{candidateUser.FirstName} {candidateUser.LastName}";
+            var assessmentScore = application.OverallAiScore ?? CandidateRankingEndpoints.CalculateInitialRankingScore(application);
+
+            var detailedCandidate = new
+            {
+                id = application.Id.ToString(),
+                applicationId = application.Id.ToString(),
+                candidateUserId = application.CandidateUserId.ToString(),
+                jobId = application.JobId.ToString(),
+                name = candidateName,
+                email = candidateUser.Email,
+                phoneNumber = candidateUser.PhoneNumber,
+                location = candidateUser.Location,
+                experiences = candidateUser.Experiences,
+                education = candidateUser.Education,
+                photo = $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(candidateName)}&size=64&background=e5e7eb&color=374151&rounded=true",
+                role = job.Title,
+                company = companyName,
+                companyLogo = !string.IsNullOrEmpty(company?.LogoUrl)
+                    ? company.LogoUrl
+                    : $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(companyName.Substring(0, 1).ToUpper())}&size=24&background=3b82f6&color=ffffff&rounded=true",
+                assessment = (int)Math.Round(assessmentScore),
+                stage = application.Stage,
+                status = application.Status,
+                appliedAt = application.AppliedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                resumeUrl = application.ResumeUrl,
+                coverLetterText = application.CoverLetterText,
+                expectedSalary = application.ExpectedSalary,
+                availabilityDate = application.AvailabilityDate?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                jobSource = application.JobSource,
+                overallAiScore = application.OverallAiScore,
+                jobTitle = job.Title,
+                jobDepartment = job.Department ?? "",
+                jobLocationType = job.LocationType ?? "Unknown",
+                jobEmploymentType = job.EmploymentType ?? "Unknown",
+                hiringNotes = application.HiringNotes ?? "",
+                notesCreatedAt = application.NotesCreatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                notesUpdatedAt = application.NotesUpdatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                rejectionReason = application.RejectionReason,
+                rejectionNotes = application.RejectionNotes,
+                rejectedAt = application.RejectedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                isSendRejectEmail = application.IsSendRejectEmail,
+                currentRoundId = application.CurrentRoundId
+            };
+
+            Console.WriteLine($"✅ Returning detailed candidate information for: {candidateName}");
+            return Results.Ok(detailedCandidate);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching candidate details: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }

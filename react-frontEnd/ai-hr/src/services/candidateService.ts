@@ -1,4 +1,5 @@
 import {
+  Candidate,
   CandidateWithJobDetails,
   CandidatesResponse,
 } from "@/interfaces/index";
@@ -319,6 +320,44 @@ class CandidateService {
       return data;
     } catch (error) {
       console.error("❌ Failed to fetch application details:", error);
+      throw error;
+    }
+  }
+
+  // Get detailed candidate information
+  async getCandidateDetails(candidateId: string): Promise<Candidate> {
+    const { token, userCategory } = this.getAuthData();
+    if (!token) {
+      throw new Error("User not authenticated");
+    }
+
+    if (userCategory === "ApplicationUser") {
+      throw new Error(
+        "Access denied - only hiring users can view candidate details"
+      );
+    }
+
+    console.log("📤 Fetching detailed candidate information for:", candidateId);
+
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/candidates/${candidateId}/details`,
+        {
+          method: "GET",
+          headers: this.getHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to fetch candidate details: ${error}`);
+      }
+
+      const data = await response.json();
+      console.log("✅ Candidate details fetched successfully:", data);
+      return data;
+    } catch (error) {
+      console.error("❌ Failed to fetch candidate details:", error);
       throw error;
     }
   }

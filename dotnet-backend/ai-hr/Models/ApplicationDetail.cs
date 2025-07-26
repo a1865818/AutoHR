@@ -74,6 +74,24 @@ namespace ai_hr.Models
         [Column("isSendRejectEmail")]
         public bool IsSendRejectEmail { get; set; } = false;
 
+        [Column("isSendPhoneScreening")]
+        public bool IsSendPhoneScreening { get; set; } = false;
+
+        [Column("isSendVideoInterview")]
+        public bool IsSendVideoInterview { get; set; } = false;
+
+        [Column("isSendTechAssessment")]
+        public bool IsSendTechAssessment { get; set; } = false;
+
+        [Column("isSendCodeChallenge")]
+        public bool IsSendCodeChallenge { get; set; } = false;
+
+        [Column("isSendCultureFit")]
+        public bool IsSendCultureFit { get; set; } = false;
+
+        [Column("isSendFinalInterview")]
+        public bool IsSendFinalInterview { get; set; } = false;
+
         // Valid stages for the new granular system
         public static readonly string[] ValidStages = {
             "Applied", "Phone Screening", "Video Interview", "Technical Assessment",

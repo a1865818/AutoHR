@@ -1,18 +1,3 @@
-import { storageBucketService } from "./storageBucketService";
-
-export interface Resume {
-  id: string;
-  fileName: string;
-  originalName: string;
-  url: string;
-  fileSize: number;
-  uploadedAt: string;
-}
-
-export interface ResumeListResponse {
-  resumes: Resume[];
-}
-
 class ResumeService {
   private baseUrl: string;
 
@@ -20,355 +5,229 @@ class ResumeService {
     this.baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5189";
   }
 
-  private getHeaders(): HeadersInit {
-    // Check cookies first, then localStorage/sessionStorage
-    let token = null;
-
-    // Try to get from cookies first
-    if (typeof window !== "undefined") {
-      const cookies = document.cookie.split(";");
-      for (let i = 0; i < cookies.length; i++) {
-        let cookie = cookies[i];
-        while (cookie.charAt(0) === " ") {
-          cookie = cookie.substring(1, cookie.length);
-        }
-        if (cookie.indexOf("authToken=") === 0) {
-          token = decodeURIComponent(
-            cookie.substring("authToken=".length, cookie.length)
-          );
-          break;
-        }
-      }
-    }
-
-    // Fallback to localStorage/sessionStorage
-    if (!token) {
-      token =
-        localStorage.getItem("authToken") ||
-        sessionStorage.getItem("authToken");
-    }
-
-    console.log("🔍 ResumeService: Token sources", {
-      fromCookie:
-        !!token &&
-        token !==
-          (localStorage.getItem("authToken") ||
-            sessionStorage.getItem("authToken")),
-      fromStorage:
-        !!token &&
-        token ===
-          (localStorage.getItem("authToken") ||
-            sessionStorage.getItem("authToken")),
-      hasToken: !!token,
-      tokenLength: token?.length || 0,
-    });
-
-    return {
-      "Content-Type": "application/json",
-      Authorization: token ? `Bearer ${token}` : "",
-    };
-  }
-
   private getAuthData() {
-    // Check cookies first, then localStorage/sessionStorage
+    if (typeof window === "undefined") {
+      return { token: null, userId: null, userCategory: null, companyId: null };
+    }
+
+    // Check cookies first, then localStorage and sessionStorage
     let token = null;
-    let userId = null;
     let userCategory = null;
+    let userId = null;
+    let companyId = null;
 
     // Try to get from cookies first
-    if (typeof window !== "undefined") {
-      const cookies = document.cookie.split(";");
-      for (let i = 0; i < cookies.length; i++) {
-        let cookie = cookies[i];
-        while (cookie.charAt(0) === " ") {
-          cookie = cookie.substring(1, cookie.length);
-        }
-        if (cookie.indexOf("authToken=") === 0) {
-          token = decodeURIComponent(
-            cookie.substring("authToken=".length, cookie.length)
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      let cookie = cookies[i];
+      while (cookie.charAt(0) === " ") {
+        cookie = cookie.substring(1, cookie.length);
+      }
+      if (cookie.indexOf("authToken=") === 0) {
+        token = decodeURIComponent(
+          cookie.substring("authToken=".length, cookie.length)
+        );
+      } else if (cookie.indexOf("userCategory=") === 0) {
+        userCategory = decodeURIComponent(
+          cookie.substring("userCategory=".length, cookie.length)
+        );
+      } else if (cookie.indexOf("userData=") === 0) {
+        try {
+          const userData = JSON.parse(
+            decodeURIComponent(
+              cookie.substring("userData=".length, cookie.length)
+            )
           );
-        } else if (cookie.indexOf("userData=") === 0) {
-          try {
-            const userData = JSON.parse(
-              decodeURIComponent(
-                cookie.substring("userData=".length, cookie.length)
-              )
-            );
-            userId = userData.id;
-            userCategory = userData.userCategory;
-          } catch (error) {
-            console.warn("Failed to parse userData from cookie:", error);
-          }
+          userId = userData.id;
+          companyId = userData.companyId;
+        } catch (error) {
+          console.warn("Failed to parse userData from cookie:", error);
         }
       }
     }
 
-    // Fallback to localStorage/sessionStorage
+    // Fallback to localStorage/sessionStorage if not found in cookies
     if (!token) {
       token =
         localStorage.getItem("authToken") ||
         sessionStorage.getItem("authToken");
-    }
-    if (!userId) {
-      userId =
-        localStorage.getItem("userId") || sessionStorage.getItem("userId");
     }
     if (!userCategory) {
       userCategory =
         localStorage.getItem("userCategory") ||
         sessionStorage.getItem("userCategory");
     }
-
-    return { token, userId, userCategory };
-  }
-
-  private async makeRequest<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
-        ...options,
-        headers: {
-          ...this.getHeaders(),
-          ...options.headers,
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(
-          `${response.status}: ${errorText || response.statusText}`
-        );
+    if (!userId || !companyId) {
+      const currentUserStr =
+        localStorage.getItem("currentUser") ||
+        sessionStorage.getItem("currentUser");
+      if (currentUserStr) {
+        try {
+          const currentUser = JSON.parse(currentUserStr);
+          if (!userId) userId = currentUser.id;
+          if (!companyId) companyId = currentUser.companyId;
+        } catch (error) {
+          console.warn("Failed to parse currentUser from storage:", error);
+        }
       }
-
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        const text = await response.text();
-        return text ? JSON.parse(text) : {};
-      }
-
-      return {} as T;
-    } catch (error) {
-      console.error("Resume API request failed:", error);
-      throw error;
     }
+
+    return { token, userId, userCategory, companyId };
   }
 
-  // Upload new resume and add to user's resume list
-  async uploadResume(file: File): Promise<Resume> {
-    const { userId } = this.getAuthData();
+  private getHeaders(): HeadersInit {
+    const { token } = this.getAuthData();
 
-    if (!userId) {
+    const headers: HeadersInit = {
+      "Content-Type": "application/json",
+    };
+
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+
+    return headers;
+  }
+
+  // Download resume file
+  async downloadResume(resumeUrl: string, fileName: string): Promise<void> {
+    const { token, userCategory } = this.getAuthData();
+    
+    if (!token) {
       throw new Error("User not authenticated");
     }
 
-    try {
-      // Upload file to storage bucket
-      const uploadResult = await storageBucketService.uploadResume(
-        file,
-        userId
-      );
-
-      // Create resume object
-      const newResume: Resume = {
-        id: `resume_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        fileName: `${userId}_${Date.now()}_${file.name}`,
-        originalName: file.name,
-        url: uploadResult.url,
-        fileSize: uploadResult.fileSize,
-        uploadedAt: uploadResult.uploadedAt,
-      };
-
-      // Add to user's resume list
-      await this.addResumeToUserList(newResume);
-
-      return newResume;
-    } catch (error) {
-      console.error("Resume upload failed:", error);
-      throw new Error(
-        `Resume upload failed: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
+    if (userCategory === "ApplicationUser") {
+      throw new Error("Access denied - only hiring users can download resumes");
     }
-  }
 
-  // Add resume to user's ResumeList in database
-  private async addResumeToUserList(resume: Resume): Promise<void> {
+    console.log("📤 Downloading resume:", { resumeUrl, fileName });
+
     try {
-      // Get current user's resume list
-      const currentResumes = await this.getUserResumes();
+      // Parse resumeUrl to extract bucket name and file name
+      // Expected format: "bucketName/fileName" or full URL
+      let bucketName: string;
+      let filePath: string;
 
-      // Add new resume to the list
-      const updatedResumes = [...currentResumes, resume];
+      if (resumeUrl.startsWith("http")) {
+        // Handle full URLs - extract the path
+        const url = new URL(resumeUrl);
+        const pathParts = url.pathname.split("/").filter(Boolean);
+        if (pathParts.length >= 2) {
+          bucketName = pathParts[0];
+          filePath = pathParts.slice(1).join("/");
+        } else {
+          throw new Error("Invalid resume URL format");
+        }
+      } else {
+        // Handle relative paths like "resume-storage/fileName"
+        const pathParts = resumeUrl.split("/");
+        if (pathParts.length >= 2) {
+          bucketName = pathParts[0];
+          filePath = pathParts.slice(1).join("/");
+        } else {
+          throw new Error("Invalid resume URL format");
+        }
+      }
 
-      // Update user profile with new resume list
-      await this.updateUserResumeList(updatedResumes);
+      console.log("📁 Parsed resume URL:", { bucketName, filePath });
+
+      // Use the storage bucket service to download the file
+      const { storageBucketService } = await import('./storageBucketService');
+      const blob = await storageBucketService.downloadFile(bucketName, filePath);
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      console.log("✅ Resume downloaded successfully:", fileName);
     } catch (error) {
-      console.error("Failed to add resume to user list:", error);
+      console.error("❌ Failed to download resume:", error);
       throw error;
     }
   }
 
-  // Get user's current resume list
-  async getUserResumes(): Promise<Resume[]> {
-    try {
-      const userProfile = await this.makeRequest<any>("/auth/me");
-
-      if (!userProfile.resumeList || !Array.isArray(userProfile.resumeList)) {
-        return [];
-      }
-
-      return userProfile.resumeList.map((item: any) => ({
-        id: item.id || `resume_${Date.now()}`,
-        fileName: item.fileName || "",
-        originalName: item.originalName || item.fileName || "Unknown",
-        url: item.url || "",
-        fileSize: item.fileSize || 0,
-        uploadedAt: item.uploadedAt || new Date().toISOString(),
-      }));
-    } catch (error) {
-      console.error("Failed to get user resumes:", error);
-      return [];
+  // Get resume file information
+  async getResumeFileInfo(resumeUrl: string): Promise<{
+    fileName: string;
+    fileType: string;
+    fileSize?: string;
+  }> {
+    if (!resumeUrl) {
+      throw new Error("Resume URL is required");
     }
-  }
 
-  // Update user's resume list in database
-  private async updateUserResumeList(resumes: Resume[]): Promise<void> {
     try {
-      const resumeListData = resumes.map((resume) => ({
-        id: resume.id,
-        fileName: resume.fileName,
-        originalName: resume.originalName,
-        url: resume.url,
-        fileSize: resume.fileSize,
-        uploadedAt: resume.uploadedAt,
-      }));
+      // Extract file information from URL
+      const fileName = this.extractFileNameFromUrl(resumeUrl);
+      const fileType = this.getFileTypeFromUrl(resumeUrl);
 
-      await this.makeRequest("/auth/profile", {
-        method: "PUT",
-        body: JSON.stringify({
-          ResumeList: resumeListData,
-        }),
-      });
-    } catch (error) {
-      console.error("Failed to update user resume list:", error);
-      throw error;
-    }
-  }
-
-  // Delete resume from user's list and storage
-  async deleteResume(resumeId: string): Promise<void> {
-    try {
-      // Get current resumes
-      const currentResumes = await this.getUserResumes();
-
-      // Find the resume to delete
-      const resumeToDelete = currentResumes.find((r) => r.id === resumeId);
-      if (!resumeToDelete) {
-        throw new Error("Resume not found");
-      }
-
-      // Remove from storage bucket
-      try {
-        const bucketName = "resumes";
-        await storageBucketService.deleteFile(
-          bucketName,
-          resumeToDelete.fileName
-        );
-      } catch (storageError) {
-        console.warn(
-          "Failed to delete from storage, continuing with database cleanup:",
-          storageError
-        );
-      }
-
-      // Remove from user's list
-      const updatedResumes = currentResumes.filter((r) => r.id !== resumeId);
-      await this.updateUserResumeList(updatedResumes);
-    } catch (error) {
-      console.error("Failed to delete resume:", error);
-      throw error;
-    }
-  }
-
-  // Get resume download URL
-  async getResumeDownloadUrl(resume: Resume): Promise<string> {
-    try {
-      if (resume.url.startsWith("http")) {
-        return resume.url; // Already a full URL
-      }
-
-      // Get signed URL from storage
-      const bucketName = "resume-storage";
-      const urlResponse = await storageBucketService.getFileUrl(
-        bucketName,
-        resume.fileName
-      );
-
-      return urlResponse.url || resume.url;
-    } catch (error) {
-      console.error("Failed to get download URL:", error);
-      return resume.url; // Fallback to original URL
-    }
-  }
-
-  // Download resume as a blob and trigger browser download
-  async downloadResumeFile(resume: Resume): Promise<void> {
-    try {
-      // Determine bucket and file name
-      const bucketName = process.env.BUCKET_NAME || "resume-storage";
-      // Prefer fileName property, fallback to extracting from url
-      let fileName = resume.fileName;
-      if (!fileName && resume.url) {
-        const urlParts = resume.url.split("/");
-        fileName = urlParts[urlParts.length - 1];
-      }
-      // Download the file as a blob
-      const blob = await storageBucketService.downloadFile(bucketName, fileName);
-      const typedBlob = new Blob([blob], { type: "application/pdf" }); // fallback to PDF, could be improved
-      const downloadUrl = window.URL.createObjectURL(typedBlob);
-      const a = document.createElement("a");
-      a.href = downloadUrl;
-      a.download = resume.originalName || fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(downloadUrl);
-    } catch (error) {
-      console.error("Failed to download resume file:", error);
-      throw error;
-    }
-  }
-
-  // Validate resume file
-  validateResumeFile(file: File): { isValid: boolean; error?: string } {
-    // Check file type
-    const allowedTypes = [
-      "application/pdf",
-      "application/msword",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ];
-
-    if (!allowedTypes.includes(file.type)) {
       return {
-        isValid: false,
-        error: "Only PDF and Word documents are allowed",
+        fileName,
+        fileType,
+        fileSize: "Unknown", // File size would require additional API call
       };
+    } catch (error) {
+      console.error("❌ Failed to get resume file info:", error);
+      throw error;
     }
+  }
 
-    // Check file size (10MB limit)
-    const maxSize = 10 * 1024 * 1024;
-    if (file.size > maxSize) {
-      return {
-        isValid: false,
-        error: "File size must be less than 10MB",
-      };
+  // Extract file name from resume URL
+  private extractFileNameFromUrl(resumeUrl: string): string {
+    try {
+      // Handle different URL formats
+      if (resumeUrl.includes("/")) {
+        const parts = resumeUrl.split("/");
+        const fileName = parts[parts.length - 1];
+        
+        // Remove any query parameters
+        const cleanFileName = fileName.split("?")[0];
+        
+        // If no extension, assume it's a PDF
+        if (!cleanFileName.includes(".")) {
+          return `${cleanFileName}.pdf`;
+        }
+        
+        return cleanFileName;
+      }
+      
+      return resumeUrl;
+    } catch (error) {
+      console.warn("Failed to extract file name from URL:", error);
+      return "resume.pdf";
     }
+  }
 
-    return { isValid: true };
+  // Get file type from resume URL
+  private getFileTypeFromUrl(resumeUrl: string): string {
+    try {
+      const fileName = this.extractFileNameFromUrl(resumeUrl);
+      const extension = fileName.split(".").pop()?.toLowerCase();
+      
+      switch (extension) {
+        case "pdf":
+          return "PDF";
+        case "doc":
+          return "DOC";
+        case "docx":
+          return "DOCX";
+        case "txt":
+          return "TXT";
+        default:
+          return extension?.toUpperCase() || "Unknown";
+      }
+    } catch (error) {
+      console.warn("Failed to get file type from URL:", error);
+      return "Unknown";
+    }
   }
 }
 
-export const resumeService = new ResumeService();
+export const resumeService = new ResumeService(); 

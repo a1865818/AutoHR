@@ -1,9 +1,16 @@
 import { Candidate } from "@/interfaces";
 import { formatTimestampDetailed } from "@/utils/timezoneUtils";
-import { Edit, Plus, X } from "lucide-react";
+import { Edit, Plus, X, Download, FileText } from "lucide-react";
 import { useEffect, useState } from "react";
 import { RejectionReasonModal } from "./RejectionReasonModal";
 import { rejectedCandidatesService } from "@/services/rejectedCandidatesService";
+import { candidateService } from "@/services/candidateService";
+import { resumeService } from "@/services/resumeService";
+import {
+  formatExperienceForDisplay,
+  formatExperiencesList,
+} from "@/utils/experienceUtils";
+import { getResumeFileInfo, getFileIcon } from "@/utils/resumeUtils";
 
 interface CandidateDetailProps {
   candidate: Candidate;
@@ -33,6 +40,17 @@ export function CandidateDetail({
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [showRejectionModal, setShowRejectionModal] = useState(false);
 
+  // State for detailed candidate data
+  const [detailedCandidate, setDetailedCandidate] = useState<Candidate | null>(
+    null
+  );
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const [resumeFileInfo, setResumeFileInfo] = useState<{
+    fileName: string;
+    fileType: string;
+    fileIcon: string;
+  } | null>(null);
+
   const handleTabChange = (
     tab: "info" | "interview" | "assessment" | "files" | "notes"
   ) => {
@@ -53,6 +71,41 @@ export function CandidateDetail({
   useEffect(() => {
     setCurrentNote(note);
   }, [note]);
+
+  // Load detailed candidate information when component mounts
+  useEffect(() => {
+    const loadDetailedCandidateData = async () => {
+      if (!candidate.id) return;
+
+      setLoadingDetails(true);
+      try {
+        console.log(
+          "🔄 Loading detailed candidate information for:",
+          candidate.id
+        );
+        const detailedData = await candidateService.getCandidateDetails(
+          candidate.id
+        );
+        setDetailedCandidate(detailedData);
+
+        // Process resume file information
+        if (detailedData.resumeUrl) {
+          const fileInfo = getResumeFileInfo(detailedData.resumeUrl);
+          setResumeFileInfo(fileInfo);
+        }
+
+        console.log("✅ Detailed candidate data loaded:", detailedData);
+      } catch (error) {
+        console.error("❌ Failed to load detailed candidate data:", error);
+        // Fallback to basic candidate data
+        setDetailedCandidate(candidate);
+      } finally {
+        setLoadingDetails(false);
+      }
+    };
+
+    loadDetailedCandidateData();
+  }, [candidate.id]);
 
   const handleEvaluationChange = (
     step: "step1" | "step2",
@@ -101,6 +154,23 @@ export function CandidateDetail({
       setShowRejectionModal(true);
     } else {
       onAction(candidate.id, "decline");
+    }
+  };
+
+  const handleResumeDownload = async () => {
+    if (!detailedCandidate?.resumeUrl || !resumeFileInfo) {
+      console.warn("No resume available for download");
+      return;
+    }
+
+    try {
+      await resumeService.downloadResume(
+        detailedCandidate.resumeUrl,
+        resumeFileInfo.fileName
+      );
+    } catch (error) {
+      console.error("Failed to download resume:", error);
+      alert("Failed to download resume. Please try again.");
     }
   };
 
@@ -158,36 +228,64 @@ export function CandidateDetail({
               <h4 className="text-xs font-medium text-gray-500 mb-2">
                 Contact Information
               </h4>
-              <p className="text-sm text-gray-700">email@example.com</p>
-              <p className="text-sm text-gray-700">+1 (555) 123-4567</p>
+              {loadingDetails ? (
+                <div className="animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-700">
+                    {detailedCandidate?.email ||
+                      candidate.email ||
+                      "Email not available"}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    {detailedCandidate?.phoneNumber ||
+                      "Phone number not provided"}
+                  </p>
+                  {detailedCandidate?.location && (
+                    <p className="text-sm text-gray-700">
+                      {detailedCandidate.location.city &&
+                      detailedCandidate.location.country
+                        ? `${detailedCandidate.location.city}, ${detailedCandidate.location.country}`
+                        : detailedCandidate.location.city ||
+                          detailedCandidate.location.country ||
+                          "Location not specified"}
+                    </p>
+                  )}
+                </>
+              )}
             </div>
             <div>
               <h4 className="text-xs font-medium text-gray-500 mb-2">
                 Experience
               </h4>
-              <p className="text-sm text-gray-700">5+ years in UI/UX Design</p>
-              <p className="text-sm text-gray-700">
-                Previously at {candidate.company}
-              </p>
-            </div>
-            <div>
-              <h4 className="text-xs font-medium text-gray-500 mb-2">Skills</h4>
-              <div className="flex flex-wrap gap-1">
-                {[
-                  "Figma",
-                  "Sketch",
-                  "Adobe XD",
-                  "Prototyping",
-                  "User Research",
-                ].map((skill) => (
-                  <span
-                    key={skill}
-                    className="px-2 py-1 bg-gray-100 text-xs rounded"
-                  >
-                    {skill}
-                  </span>
-                ))}
-              </div>
+              {loadingDetails ? (
+                <div className="animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded"></div>
+                </div>
+              ) : (
+                <>
+                  {detailedCandidate?.experiences &&
+                  detailedCandidate.experiences.length > 0 ? (
+                    <div className="space-y-2">
+                      {formatExperiencesList(detailedCandidate.experiences).map(
+                        (experience, index) => (
+                          <p key={index} className="text-sm text-gray-700">
+                            {experience}
+                          </p>
+                        )
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-700">
+                      No experience data available
+                    </p>
+                  )}
+                </>
+              )}
             </div>
           </div>
         );
@@ -252,30 +350,62 @@ export function CandidateDetail({
               <h4 className="text-xs font-medium text-gray-500 mb-2">
                 Resume & Portfolio
               </h4>
-              <div className="space-y-2">
-                {[
-                  { name: "Resume.pdf", size: "245 KB", type: "PDF" },
-                  { name: "Portfolio.zip", size: "12.3 MB", type: "ZIP" },
-                  { name: "Cover_Letter.pdf", size: "156 KB", type: "PDF" },
-                ].map((file) => (
-                  <div
-                    key={file.name}
-                    className="flex items-center justify-between p-2 border rounded hover:bg-gray-50"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">
-                        {file.name}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {file.size} • {file.type}
-                      </p>
+              {loadingDetails ? (
+                <div className="animate-pulse space-y-2">
+                  <div className="h-12 bg-gray-200 rounded"></div>
+                  <div className="h-12 bg-gray-200 rounded"></div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {detailedCandidate?.resumeUrl && resumeFileInfo ? (
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 transition-colors">
+                      <div className="flex items-center space-x-3">
+                        <div className="text-2xl">
+                          {resumeFileInfo.fileIcon}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">
+                            {resumeFileInfo.fileName}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {resumeFileInfo.fileType} • Resume
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleResumeDownload}
+                        className="flex items-center space-x-1 text-blue-500 text-xs hover:text-blue-700 transition-colors"
+                      >
+                        <Download className="h-3 w-3" />
+                        <span>Download</span>
+                      </button>
                     </div>
-                    <button className="text-blue-500 text-xs hover:text-blue-700">
-                      Download
-                    </button>
-                  </div>
-                ))}
-              </div>
+                  ) : (
+                    <div className="flex items-center justify-center p-6 border-2 border-dashed border-gray-300 rounded-lg">
+                      <div className="text-center">
+                        <FileText className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                        <p className="text-sm text-gray-500">
+                          No resume available
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cover Letter Section */}
+                  {detailedCandidate?.coverLetterText && (
+                    <div className="mt-4">
+                      <h5 className="text-xs font-medium text-gray-500 mb-2">
+                        Cover Letter
+                      </h5>
+                      <div className="p-4 bg-gray-50 rounded-lg max-h-64 overflow-y-auto">
+                        <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">
+                          {detailedCandidate.coverLetterText}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         );

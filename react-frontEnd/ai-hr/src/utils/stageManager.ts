@@ -1,5 +1,5 @@
 import { CandidateStage } from '@/interfaces';
-import { InterviewTemplate, INTERVIEW_TYPE_TO_STAGE_MAP } from '@/interfaces/interview';
+import { InterviewTemplate, INTERVIEW_TYPE_TO_STAGE_MAP, InterviewRound } from '@/interfaces/interview';
 
 export class StageManager {
   /**
@@ -149,6 +149,107 @@ export class StageManager {
     };
     
     return descriptions[stage] || "Unknown stage";
+  }
+
+  /**
+   * Gets the next stage based on the current stage and interview template
+   */
+  static getNextStageFromTemplate(
+    currentStage: CandidateStage,
+    template: InterviewTemplate | null
+  ): CandidateStage {
+    console.log(`🔍 StageManager.getNextStageFromTemplate:`, {
+      currentStage,
+      hasTemplate: !!template,
+      templateRoundsCount: template?.rounds?.length || 0
+    });
+
+    // If no template, fallback to hardcoded progression
+    if (!template?.rounds || template.rounds.length === 0) {
+      console.log(`⚠️ No template or rounds available, using fallback progression`);
+      const stageOrder = this.getStageOrder();
+      const currentIndex = stageOrder.indexOf(currentStage);
+      if (currentIndex !== -1 && currentIndex < stageOrder.length - 1) {
+        return stageOrder[currentIndex + 1];
+      }
+      return "Offer";
+    }
+
+    // If candidate is at "Applied" stage, move to first round
+    if (currentStage === "Applied") {
+      const firstRound = template.rounds[0];
+      const firstStage = INTERVIEW_TYPE_TO_STAGE_MAP[firstRound.type];
+      console.log(`✅ Moving from Applied to first round: ${firstStage}`);
+      return firstStage;
+    }
+
+    // If candidate is at "Offer" stage, they're already at the end
+    if (currentStage === "Offer") {
+      console.log(`✅ Candidate already at Offer stage`);
+      return "Offer";
+    }
+
+    // Find current round in template
+    const currentRoundIndex = template.rounds.findIndex(
+      round => INTERVIEW_TYPE_TO_STAGE_MAP[round.type] === currentStage
+    );
+
+    console.log(`🔍 Current round index: ${currentRoundIndex}`);
+
+    if (currentRoundIndex === -1) {
+      // Current stage not found in template, fallback to hardcoded progression
+      console.log(`⚠️ Current stage ${currentStage} not found in template, using fallback`);
+      const stageOrder = this.getStageOrder();
+      const currentIndex = stageOrder.indexOf(currentStage);
+      if (currentIndex !== -1 && currentIndex < stageOrder.length - 1) {
+        return stageOrder[currentIndex + 1];
+      }
+      return "Offer";
+    }
+
+    // Check if there's a next round
+    if (currentRoundIndex < template.rounds.length - 1) {
+      const nextRound = template.rounds[currentRoundIndex + 1];
+      const nextStage = INTERVIEW_TYPE_TO_STAGE_MAP[nextRound.type];
+      console.log(`✅ Moving to next round: ${nextStage}`);
+      return nextStage;
+    } else {
+      // This is the last round, move to Offer
+      console.log(`✅ Last round completed, moving to Offer`);
+      return "Offer";
+    }
+  }
+
+  /**
+   * Gets the current round index in the template
+   */
+  static getCurrentRoundIndex(
+    currentStage: CandidateStage,
+    template: InterviewTemplate | null
+  ): number {
+    if (!template?.rounds) return -1;
+
+    return template.rounds.findIndex(
+      round => INTERVIEW_TYPE_TO_STAGE_MAP[round.type] === currentStage
+    );
+  }
+
+  /**
+   * Gets the next round from template based on current stage
+   */
+  static getNextRoundFromTemplate(
+    currentStage: CandidateStage,
+    template: InterviewTemplate | null
+  ): InterviewRound | null {
+    if (!template?.rounds) return null;
+
+    const currentRoundIndex = this.getCurrentRoundIndex(currentStage, template);
+    
+    if (currentRoundIndex === -1 || currentRoundIndex >= template.rounds.length - 1) {
+      return null; // No next round
+    }
+
+    return template.rounds[currentRoundIndex + 1];
   }
 
   /**

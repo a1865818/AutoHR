@@ -15,6 +15,27 @@ export interface Candidate {
   jobId: string;
   name: string;
   email: string;
+  phoneNumber?: string;
+  location?: { city?: string; country?: string };
+  experiences?: Array<{
+    title: string;
+    company: string;
+    startDate: string;
+    endDate?: string;
+    isCurrent?: boolean;
+    location?: string;
+    description?: string;
+  }>;
+  education?: Array<{
+    institution: string;
+    major: string;
+    degree: string;
+    location?: string;
+    description?: string;
+    startDate: string;
+    endDate?: string;
+    isCurrentlyAttending?: boolean;
+  }>;
   photo?: string;
   role?: string;
   company: string;
