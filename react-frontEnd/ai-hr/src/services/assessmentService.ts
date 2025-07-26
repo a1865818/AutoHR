@@ -10,7 +10,7 @@ export interface AssessmentSubmission {
   submittedAt: string;
   pdfUrl: string;
   status: "submitted" | "graded" | "pending";
-  submissionData?: any;
+  submissionData?: Record<string, unknown>;
 }
 
 export interface QuestionScore {
@@ -99,7 +99,7 @@ class AssessmentService {
           errorData = text
             ? JSON.parse(text)
             : { error: `HTTP ${response.status}: ${response.statusText}` };
-        } catch (e) {
+        } catch {
           errorData = {
             error: `HTTP ${response.status}: ${response.statusText}`,
           };
@@ -139,10 +139,12 @@ class AssessmentService {
 
         try {
           return JSON.parse(text);
-        } catch (parseError: any) {
+        } catch (parseError: unknown) {
           console.error("❌ JSON Parse Error:", parseError);
           throw new Error(
-            `Invalid JSON response from server: ${parseError.message}`
+            `Invalid JSON response from server: ${
+              parseError instanceof Error ? parseError.message : "Unknown error"
+            }`
           );
         }
       }
@@ -151,22 +153,30 @@ class AssessmentService {
       if (text.trim().startsWith("{") || text.trim().startsWith("[")) {
         try {
           return JSON.parse(text);
-        } catch (parseError: any) {
-          throw new Error(`Invalid JSON response: ${parseError.message}`);
+        } catch (parseError: unknown) {
+          throw new Error(
+            `Invalid JSON response: ${
+              parseError instanceof Error ? parseError.message : "Unknown error"
+            }`
+          );
         }
       }
 
       return text || null;
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (
-        error.message &&
+        error instanceof Error &&
         (error.message.includes("JSON") || error.message.includes("HTTP"))
       ) {
         throw error;
       }
 
       console.error("🚨 Network/Fetch Error:", { url, error });
-      throw new Error(`Network error: ${error.message || "Unknown error"}`);
+      throw new Error(
+        `Network error: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
     }
   }
 
@@ -174,79 +184,42 @@ class AssessmentService {
     return !!this.getAuthToken();
   }
 
-  // Test method to check if the API is accessible
-  async testApiConnection(): Promise<boolean> {
-    try {
-      console.log("🔍 Testing API connection...");
-      const result = await this.fetchApi("/assessments/test");
-      console.log("✅ API connection successful:", result);
-      return true;
-    } catch (error) {
-      console.error("❌ API connection failed:", error);
-      console.log("⚠️ Backend not available, using mock data mode");
-      return false;
-    }
-  }
-
-  // Save grade locally for mock submissions
-  private saveMockGrade(gradeData: AssessmentGradeRequest): AssessmentGrade {
-    const mockGrade: AssessmentGrade = {
-      id: `mock_grade_${Date.now()}`,
-      submissionId: gradeData.submissionId,
-      candidateId: "mock_candidate", // Will be extracted from submission
-      roundId: "mock_round", // Will be extracted from submission
-      jobId: "mock_job", // Will be extracted from submission
-      totalScore: gradeData.totalScore,
-      maxScore: gradeData.maxScore,
-      percentage:
-        gradeData.maxScore > 0
-          ? (gradeData.totalScore / gradeData.maxScore) * 100
-          : 0,
-      overallNotes: gradeData.overallNotes,
-      questionScores: gradeData.questionScores,
-      gradedBy: "mock_grader",
-      gradedAt: new Date().toISOString(),
-      status: "final",
+  // Diagnostic method to check what's causing the 500 error
+  async diagnoseSubmissionError(): Promise<{
+    candidateExists: boolean;
+    roundExists: boolean;
+    jobExists: boolean;
+    authValid: boolean;
+    issues: string[];
+  }> {
+    const diagnosis = {
+      candidateExists: false,
+      roundExists: false,
+      jobExists: false,
+      authValid: false,
+      issues: [] as string[],
     };
 
-    // Save to localStorage for persistence
-    const existingGrades = this.getMockGrades();
-    existingGrades.push(mockGrade);
-    localStorage.setItem(
-      "mock_assessment_grades",
-      JSON.stringify(existingGrades)
-    );
-
-    console.log("💾 Mock grade saved locally:", mockGrade);
-    return mockGrade;
-  }
-
-  // Get all mock grades from localStorage
-  private getMockGrades(): AssessmentGrade[] {
     try {
-      const grades = localStorage.getItem("mock_assessment_grades");
-      return grades ? JSON.parse(grades) : [];
+      // Check authentication by testing the API
+      await this.fetchApi("/assessments/test");
+      diagnosis.authValid = true;
+      console.log("✅ Authentication is valid");
     } catch (error) {
-      console.error("Error reading mock grades:", error);
-      return [];
+      diagnosis.authValid = false;
+      diagnosis.issues.push("Authentication failed - invalid or expired token");
+      console.error("❌ Authentication test failed:", error);
     }
-  }
 
-  // Get mock grade for a specific submission
-  async getMockGrade(submissionId: string): Promise<AssessmentGrade | null> {
-    const grades = this.getMockGrades();
-    return grades.find((grade) => grade.submissionId === submissionId) || null;
-  }
+    // Note: We can't directly check if candidate/round/job exist without specific endpoints
+    // But we can provide guidance based on the error
+    console.log("🔍 Diagnosis complete:", diagnosis);
 
-  // Get all mock grades for a submission (for history)
-  async getMockGradeHistory(submissionId: string): Promise<AssessmentGrade[]> {
-    const grades = this.getMockGrades();
-    return grades.filter((grade) => grade.submissionId === submissionId);
-  }
+    if (!diagnosis.authValid) {
+      diagnosis.issues.push("Try logging out and logging back in");
+    }
 
-  // Get all mock grades (for admin view)
-  async getAllMockGrades(): Promise<AssessmentGrade[]> {
-    return this.getMockGrades();
+    return diagnosis;
   }
 
   // Get assessment submission for a candidate and round
@@ -296,12 +269,15 @@ class AssessmentService {
   async saveAssessmentGrade(
     data: AssessmentGradeRequest
   ): Promise<AssessmentGrade> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to save assessment grade");
+    }
+
     try {
       console.log("💾 Saving assessment grade:", data);
       console.log("💾 API URL:", `${API_BASE_URL}/assessments/grades`);
       console.log("💾 Request body:", JSON.stringify(data, null, 2));
 
-      // Always try to save to backend first
       const grade = await this.fetchApi("/assessments/grades", {
         method: "POST",
         body: JSON.stringify(data),
@@ -315,18 +291,7 @@ class AssessmentService {
         message: error instanceof Error ? error.message : "Unknown error",
         stack: error instanceof Error ? error.stack : undefined,
       });
-
-      // Check if it's a 404 error (backend not running)
-      if (error instanceof Error && error.message.includes("404")) {
-        console.log("🔄 Backend not running (404), saving locally as fallback");
-        const mockGrade = this.saveMockGrade(data);
-        console.log("✅ Grade saved locally:", mockGrade);
-        return mockGrade;
-      }
-
-      // For other errors, still save locally as fallback
-      console.log("🔄 Backend error, saving locally as fallback");
-      return this.saveMockGrade(data);
+      throw error;
     }
   }
 
@@ -347,6 +312,22 @@ class AssessmentService {
       return grade;
     } catch (error) {
       console.error("❌ Failed to update assessment grade:", error);
+      throw error;
+    }
+  }
+
+  // Delete assessment grade by grade ID
+  async deleteAssessmentGrade(gradeId: string): Promise<void> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to delete assessment grade");
+    }
+    try {
+      await this.fetchApi(`/assessments/grades/${gradeId}`, {
+        method: "DELETE",
+      });
+      console.log("✅ Assessment grade deleted successfully");
+    } catch (error) {
+      console.error("❌ Failed to delete assessment grade:", error);
       throw error;
     }
   }
@@ -389,40 +370,108 @@ class AssessmentService {
     }
   }
 
-  // Create a submission for testing (will be replaced with real submission later)
-  async createMockSubmission(
+  // Check if candidate has submitted an assessment for this round
+  async hasSubmittedAssessment(
     candidateId: string,
-    roundId: string,
-    jobId: string
-  ): Promise<AssessmentSubmission> {
+    roundId: string
+  ): Promise<boolean> {
     if (!this.isAuthenticated()) {
-      throw new Error(
-        "Authentication required to create assessment submission"
-      );
+      throw new Error("Authentication required to check submission status");
     }
 
     try {
-      const submissionData = {
+      console.log("🔍 Checking submission status for:", {
         candidateId,
         roundId,
-        jobId,
-        pdfUrl: "/interview-faq.pdf", // Using the attached PDF for now
-        submissionData: {
-          mock: true,
-          createdAt: new Date().toISOString(),
-        },
-      };
-
-      const submission = await this.fetchApi("/assessments/submissions", {
-        method: "POST",
-        body: JSON.stringify(submissionData),
+        candidateIdType: typeof candidateId,
+        roundIdType: typeof roundId,
+        candidateIdLength: candidateId?.length,
+        roundIdLength: roundId?.length,
+        endpoint: `/assessments/submissions/${candidateId}/${roundId}`,
+        apiBaseUrl: API_BASE_URL,
       });
 
-      console.log("📝 Created submission:", submission);
-      return submission;
+      const submission = await this.getAssessmentSubmission(
+        candidateId,
+        roundId
+      );
+
+      console.log("🔍 Submission check result:", {
+        candidateId,
+        roundId,
+        foundSubmission: !!submission,
+        submissionStatus: submission?.status,
+        submissionData: submission,
+      });
+
+      return (
+        submission !== null &&
+        (submission.status === "submitted" || submission.status === "graded")
+      );
     } catch (error) {
-      console.error("❌ Failed to create assessment submission:", error);
-      throw error;
+      console.error("❌ Failed to check submission status:", error);
+      console.error("❌ Error details:", {
+        candidateId,
+        roundId,
+        errorMessage: error instanceof Error ? error.message : "Unknown error",
+        errorStack: error instanceof Error ? error.stack : undefined,
+      });
+      return false;
+    }
+  }
+
+  // Check if a submission has been graded by verifying actual grade record exists
+  async isSubmissionGraded(
+    candidateId: string,
+    roundId: string
+  ): Promise<boolean> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to check grading status");
+    }
+
+    try {
+      console.log("🔍 Checking if submission is graded for:", {
+        candidateId,
+        roundId,
+      });
+
+      // First, get the submission
+      const submission = await this.getAssessmentSubmission(
+        candidateId,
+        roundId
+      );
+
+      if (!submission) {
+        console.log("📝 No submission found - not graded");
+        return false;
+      }
+
+      // Then, check if an actual grade record exists for this submission
+      try {
+        const grade = await this.getAssessmentGrade(submission.id);
+        const isGraded = grade !== null;
+
+        console.log("🔍 Grade check result:", {
+          candidateId,
+          roundId,
+          submissionId: submission.id,
+          submissionStatus: submission.status,
+          gradeExists: isGraded,
+          gradeData: grade,
+        });
+
+        return isGraded;
+      } catch (gradeError) {
+        // If we get a 404 for the grade, it means no grade exists
+        if (gradeError instanceof Error && gradeError.message.includes("404")) {
+          console.log("📝 No grade record found - submission not graded");
+          return false;
+        }
+        throw gradeError;
+      }
+    } catch (error) {
+      console.error("❌ Failed to check grading status:", error);
+      return false;
     }
   }
 
@@ -432,10 +481,12 @@ class AssessmentService {
     roundId: string,
     jobId: string,
     pdfUrl: string,
-    submissionData: any
+    submissionData: Record<string, unknown>
   ): Promise<AssessmentSubmission> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to create assessment submission");
+      throw new Error(
+        "Authentication required to create assessment submission"
+      );
     }
 
     try {
@@ -446,11 +497,11 @@ class AssessmentService {
         roundId: roundId,
         JobId: jobId,
         jobId: jobId,
-        PdfUrl: pdfUrl, 
+        PdfUrl: pdfUrl,
         SubmissionData: submissionData,
         submissionData: submissionData,
       };
-      console.log('[AssessmentService] Submitting assessment:', requestBody);
+      console.log("[AssessmentService] Submitting assessment:", requestBody);
       const submission = await this.fetchApi("/assessments/submissions", {
         method: "POST",
         body: JSON.stringify(requestBody),
@@ -462,8 +513,47 @@ class AssessmentService {
     }
   }
 
+  // Get submission data for a candidate and round
+  async getSubmission(
+    candidateId: string,
+    roundId: string
+  ): Promise<AssessmentSubmission & { grade?: AssessmentGrade }> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to view submission");
+    }
+
+    try {
+      console.log(
+        `[AssessmentService] Fetching submission for candidate ${candidateId} in round ${roundId}`
+      );
+
+      // Fetch submission data
+      const submission = await this.fetchApi(
+        `/assessments/submissions/${candidateId}/${roundId}`
+      );
+
+      // Try to fetch grade data if submission exists
+      let grade = null;
+      try {
+        grade = await this.fetchApi(
+          `/assessments/submissions/${submission.id}/grade`
+        );
+      } catch (gradeError) {
+        console.log("No grade found for this submission:", gradeError);
+      }
+
+      return {
+        ...submission,
+        grade,
+      };
+    } catch (error) {
+      console.error("❌ Failed to fetch submission:", error);
+      throw error;
+    }
+  }
+
   // Mock method to get questions for a round
-  async getRoundQuestions(jobId: string, roundId: string): Promise<Question[]> {
+  async getRoundQuestions(): Promise<Question[]> {
     // This would normally fetch from the round configuration
     // For now, return mock questions
     const mockQuestions: Question[] = [

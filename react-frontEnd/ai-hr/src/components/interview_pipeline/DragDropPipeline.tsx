@@ -9,14 +9,12 @@ import {
   MessageSquare,
   Star,
   User,
-  AlertTriangle,
-  Clock,
   Award,
   FileText,
 } from "lucide-react";
 import { Candidate } from "@/interfaces";
-import { InterviewRound } from "@/interfaces/interview";
 import { HoverRejectModal } from "./HoverRejectModal";
+import { useRouter } from "next/navigation";
 
 interface PipelineCandidate extends Candidate {
   currentRoundId?: string;
@@ -49,6 +47,8 @@ interface DragDropCandidateCardProps {
   jobTitle?: string;
   companyName?: string;
   roundType?: string;
+  hasSubmittedAssessment?: boolean;
+  isAssessmentGraded?: boolean;
 }
 
 export function DragDropCandidateCard({
@@ -68,6 +68,8 @@ export function DragDropCandidateCard({
   jobTitle = "Position",
   companyName = "Company",
   roundType,
+  hasSubmittedAssessment = false,
+  isAssessmentGraded = false,
 }: DragDropCandidateCardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
@@ -75,6 +77,7 @@ export function DragDropCandidateCard({
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [note, setNote] = useState("");
   const dragRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
@@ -95,20 +98,21 @@ export function DragDropCandidateCard({
     setIsDragging(false);
   }, []);
 
-  const formatDate = (dateValue: any): string => {
+  const formatDate = (dateValue: unknown): string => {
     if (!dateValue) return "N/A";
     try {
       let dateStr = dateValue;
       if (typeof dateValue === "object" && dateValue !== null) {
-        dateStr = dateValue.value || dateValue.Value || dateValue.toString();
+        const dateObj = dateValue as Record<string, unknown>;
+        dateStr = dateObj.value || dateObj.Value || dateValue.toString();
       }
-      const date = new Date(dateStr);
+      const date = new Date(dateStr as string);
       if (isNaN(date.getTime())) return "N/A";
       return date.toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
       });
-    } catch (e) {
+    } catch {
       return "N/A";
     }
   };
@@ -246,6 +250,27 @@ export function DragDropCandidateCard({
           </div>
         </div>
 
+        {/* Assessment Submission Status - Only show for technical rounds */}
+        {(roundType === "technical_assessment" || roundType === "coding_challenge") && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-500">Submission</span>
+            <div
+              className={`flex items-center space-x-1 px-2 py-1 rounded ${
+                isAssessmentGraded
+                  ? "text-blue-600 bg-blue-50"
+                  : hasSubmittedAssessment
+                  ? "text-green-600 bg-green-50"
+                  : "text-orange-600 bg-orange-50"
+              }`}
+            >
+              <FileText className="h-3 w-3" />
+              <span className="font-medium">
+                {isAssessmentGraded ? "Graded" : hasSubmittedAssessment ? "Submitted" : "Pending"}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Applied Date */}
         <div className="flex items-center justify-between text-xs">
           <span className="text-gray-500">Applied</span>
@@ -295,6 +320,25 @@ export function DragDropCandidateCard({
         >
           Schedule
         </button>
+        {/* {hasSubmittedAssessment && roundId && (
+          <button
+            onClick={() => router.push(`/interview-pipeline/${candidate.jobId}/submissions/${candidate.candidateUserId}?roundId=${roundId}`)}
+            className="flex-1 text-xs bg-gray-50 text-indigo-700 hover:bg-indigo-100 px-2 py-1.5 rounded transition-colors"
+          >
+            View Submission
+          </button>
+        )} */}
+      </div>
+
+      <div className="flex items-center space-x-1 mt-2">
+  {hasSubmittedAssessment && roundId && (
+          <button
+            onClick={() => router.push(`/interview-pipeline/${candidate.jobId}/submissions/${candidate.candidateUserId}?roundId=${roundId}`)}
+            className="flex-1 text-xs bg-gray-50 text-indigo-700 hover:bg-indigo-100 px-2 py-1.5 rounded transition-colors"
+          >
+            View Submission
+          </button>
+        )}
       </div>
 
       {/* Quick Actions (shown on hover) */}
@@ -344,13 +388,35 @@ export function DragDropCandidateCard({
               {/* Assessment Marking Button - Only show for technical rounds */}
               {(roundType === "technical_assessment" || roundType === "coding_challenge") && onMarkAssessment && (
                 <button
-                  onClick={() => onMarkAssessment?.(candidate.id, roundId || "")}
-                  className="flex-1 flex items-center justify-center space-x-1 text-xs bg-purple-50 text-purple-700 hover:bg-purple-100 px-2 py-1 rounded transition-colors"
+                  onClick={() => hasSubmittedAssessment && onMarkAssessment?.(candidate.candidateUserId, roundId || "")}
+                  disabled={!hasSubmittedAssessment}
+                  className={`flex-1 flex items-center justify-center space-x-1 text-xs px-2 py-1 rounded transition-colors ${
+                    hasSubmittedAssessment
+                      ? isAssessmentGraded
+                        ? "bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer"
+                        : "bg-purple-50 text-purple-700 hover:bg-purple-100 cursor-pointer"
+                      : "bg-gray-50 text-gray-400 cursor-not-allowed"
+                  }`}
+                  title={
+                    hasSubmittedAssessment
+                      ? isAssessmentGraded
+                        ? "Review assessment grade"
+                        : "Mark submitted assessment"
+                      : "Waiting for candidate to submit assessment"
+                  }
                 >
                   <FileText className="h-3 w-3" />
-                  <span>Mark Assessment</span>
+                  <span>
+                    {hasSubmittedAssessment
+                      ? isAssessmentGraded
+                        ? "Review Grade"
+                        : "Mark Assessment"
+                      : "Awaiting Submission"}
+                  </span>
                 </button>
               )}
+
+
             </div>
 
             {/* Offer, Hire, Reject Buttons */}
@@ -443,7 +509,7 @@ export function DragDropCandidateCard({
 // Droppable Column Component
 interface DroppableColumnProps {
   children: React.ReactNode;
-  onDrop?: (candidateData: any) => void;
+  onDrop?: (candidateData: { candidateId: string; fromColumn: string }) => void;
   className?: string;
 }
 
