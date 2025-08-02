@@ -185,12 +185,27 @@ export function PipelineCandidateCard({
         >
           View Profile
         </button>
-        <button
-          onClick={() => onSchedule?.(candidate.id)}
-          className="flex-1 text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
-        >
-          Schedule
-        </button>
+        {candidate.meetingScheduled && candidate.meetLink ? (
+          <button
+            onClick={() => {
+              // Open Google Meet link in new tab
+              window.open(candidate.meetLink, "_blank");
+            }}
+            className="flex-1 text-xs bg-blue-500 text-white hover:bg-blue-600 px-2 py-1 rounded transition-colors"
+            title={`Join interview: ${
+              candidate.meetingData?.summary || "Video Interview"
+            }`}
+          >
+            Interview
+          </button>
+        ) : (
+          <button
+            onClick={() => onSchedule?.(candidate.id)}
+            className="flex-1 text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
+          >
+            Schedule
+          </button>
+        )}
       </div>
 
       {/* Quick Actions (shown on hover) */}

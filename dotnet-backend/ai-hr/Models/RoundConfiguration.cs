@@ -34,6 +34,9 @@ public class RoundConfiguration : BaseModel
     [Column("configuration_data")]
     public Dictionary<string, object>? ConfigurationData { get; set; }
 
+    [Column("google_calendar_event_id")]
+    public Guid? GoogleCalendarEventId { get; set; }
+
     [Column("created_at")]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

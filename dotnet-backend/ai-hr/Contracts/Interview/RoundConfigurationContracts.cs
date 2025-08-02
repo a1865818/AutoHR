@@ -3,6 +3,21 @@ using System.Text.Json;
 
 namespace ai_hr.Contracts.Interview;
 
+// Meeting data DTO
+public class MeetingData
+{
+    public string? MeetLink { get; set; }
+    public string? EventId { get; set; }
+    public Guid? CalendarEventId { get; set; }
+    public Guid? ApplicationId { get; set; }
+    public string? Summary { get; set; }
+    public DateTime StartTime { get; set; }
+    public DateTime EndTime { get; set; }
+    public string Timezone { get; set; } = "UTC";
+    public string[]? Attendees { get; set; }
+    public string Status { get; set; } = "confirmed";
+}
+
 // Base configuration request/response
 public class RoundConfigurationRequest
 {
@@ -35,6 +50,10 @@ public class RoundConfigurationResponse
     public int Version { get; set; }
     public List<QuestionDto> Questions { get; set; } = new();
     public List<ScoringCriteriaDto> ScoringCriteria { get; set; } = new();
+
+    // Meeting information
+    public bool MeetingScheduled { get; set; } = false;
+    public MeetingData? MeetingData { get; set; }
 }
 
 // Default configuration DTOs

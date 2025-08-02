@@ -13,8 +13,6 @@ namespace ai_hr.Endpoints
     {
         public static void MapAssessmentEndpoints(this WebApplication app)
         {
-            Console.WriteLine("🔧 Mapping Assessment Endpoints...");
-
             var group = app.MapGroup("/assessments")
                 .WithTags("Assessments")
                 .RequireAuthorization();

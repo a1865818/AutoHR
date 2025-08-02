@@ -3,6 +3,8 @@
 import { useRoundConfiguration } from "@/hooks/useRoundConfiguration";
 import { cleanJsonObject } from "@/utils/jsonUtils";
 import { RoundInstructions } from "./shared/RoundInstructions";
+import { googleCalendarService } from "@/services/googleCalendarService";
+import { roundConfigurationAPI } from "@/services/roundConfigurationApi";
 import {
   AlertCircle,
   ChevronDown,
@@ -13,6 +15,7 @@ import {
   Trash2,
   Users,
   Video,
+  CheckCircle,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -33,13 +36,19 @@ interface Interviewer {
 
 interface VideoInterviewConfiguration {
   name: string;
-  platform: "zoom" | "teams" | "meet" | "custom";
-  customPlatformUrl?: string;
+  platform: "meet"; // Only Google Meet supported
   duration: number;
   questions: Question[];
   interviewers: Interviewer[];
   candidatePreparation: string;
   interviewerGuidelines: string;
+  // New scheduling fields
+  meetingTitle?: string;
+  meetingDate?: string;
+  meetingTime?: string;
+  meetingDuration?: number;
+  scheduledMeetingId?: string;
+  meetLink?: string;
 }
 
 interface VideoInterviewConfigProps {
@@ -83,7 +92,7 @@ const defaultInterviewers: Interviewer[] = [
 
 const defaultConfig: VideoInterviewConfiguration = {
   name: "Video Interview Configuration",
-  platform: "zoom",
+  platform: "meet",
   duration: 60,
   questions: defaultQuestions,
   interviewers: defaultInterviewers,
@@ -107,6 +116,20 @@ export function VideoInterviewConfig({
   } = useRoundConfiguration(jobId, roundId);
   const [config, setConfig] =
     useState<VideoInterviewConfiguration>(defaultConfig);
+
+  // Google Calendar Authorization States
+  const [isGoogleCalendarAuthorized, setIsGoogleCalendarAuthorized] =
+    useState(false);
+  const [checkingAuthorization, setCheckingAuthorization] = useState(true);
+  const [authorizingGoogleCalendar, setAuthorizingGoogleCalendar] =
+    useState(false);
+  const [revokingAuthorization, setRevokingAuthorization] = useState(false);
+  const [googleCalendarAuthError, setGoogleCalendarAuthError] = useState("");
+
+  // Google Meet Link States
+  const [generatingMeetLink, setGeneratingMeetLink] = useState(false);
+  const [meetLink, setMeetLink] = useState("");
+  const [meetLinkError, setMeetLinkError] = useState("");
 
   // Load configuration from the backend when available
   useEffect(() => {
@@ -187,6 +210,9 @@ export function VideoInterviewConfig({
         const mergedConfig = {
           ...baseConfig,
           ...cleanConfigData,
+          // Ensure meetingDuration defaults to duration if not set
+          meetingDuration:
+            cleanConfigData.meetingDuration || baseConfig.duration,
           // Use sanitized arrays
           questions: sanitizedQuestions,
           interviewers: sanitizedInterviewers,
@@ -290,11 +316,17 @@ export function VideoInterviewConfig({
     // Create a clean configuration data object with only the properties we need
     const configDataToSave = {
       platform: config.platform,
-      customPlatformUrl: config.customPlatformUrl,
       questions: simplifiedQuestions, // Ensure questions are included
       interviewers: sanitizedInterviewers,
       interviewerGuidelines: config.interviewerGuidelines,
       candidatePreparation: config.candidatePreparation,
+      // Include scheduling data
+      meetingTitle: config.meetingTitle,
+      meetingDate: config.meetingDate,
+      meetingTime: config.meetingTime,
+      meetingDuration: config.meetingDuration,
+      scheduledMeetingId: config.scheduledMeetingId,
+      meetLink: config.meetLink,
     };
 
     // Make sure questions are logged before cleaning
@@ -448,6 +480,117 @@ export function VideoInterviewConfig({
     });
   };
 
+  // Google Calendar Handler Functions
+  const checkGoogleCalendarAuthorization = async () => {
+    try {
+      setCheckingAuthorization(true);
+      const response = await googleCalendarService.isAuthorized();
+      if (response.success && response.data) {
+        setIsGoogleCalendarAuthorized(response.data.isAuthorized);
+      }
+    } catch (error) {
+      console.error("Error checking Google Calendar authorization:", error);
+      setGoogleCalendarAuthError("Failed to check authorization status");
+    } finally {
+      setCheckingAuthorization(false);
+    }
+  };
+
+  const handleAuthorizeGoogleCalendar = async () => {
+    try {
+      setAuthorizingGoogleCalendar(true);
+      setGoogleCalendarAuthError("");
+
+      // Use popup window for authorization
+      const success = await googleCalendarService.authorizeWithPopup();
+
+      if (success) {
+        setIsGoogleCalendarAuthorized(true);
+      } else {
+        setGoogleCalendarAuthError("Authorization was cancelled or failed");
+      }
+    } catch (error) {
+      console.error("Error authorizing Google Calendar:", error);
+      setGoogleCalendarAuthError("Failed to authorize Google Calendar");
+    } finally {
+      setAuthorizingGoogleCalendar(false);
+    }
+  };
+
+  const handleRevokeGoogleCalendarAuthorization = async () => {
+    try {
+      setRevokingAuthorization(true);
+      setGoogleCalendarAuthError("");
+
+      const response = await googleCalendarService.revokeAuthorization();
+
+      if (response.success) {
+        setIsGoogleCalendarAuthorized(false);
+        setMeetLink(""); // Clear any existing meet link
+      } else {
+        setGoogleCalendarAuthError(
+          response.message || "Failed to revoke authorization"
+        );
+      }
+    } catch (error) {
+      console.error("Error revoking Google Calendar authorization:", error);
+      setGoogleCalendarAuthError(
+        "Failed to revoke Google Calendar authorization"
+      );
+    } finally {
+      setRevokingAuthorization(false);
+    }
+  };
+
+  const handleGenerateMeetLink = async () => {
+    try {
+      setGeneratingMeetLink(true);
+      setMeetLinkError("");
+      setMeetLink("");
+
+      console.log("Generating Meet link for job:", jobId, "round:", roundId);
+      console.log("Current platform configuration:", config.platform);
+
+      const response = await roundConfigurationAPI.generateMeetLink(
+        jobId,
+        roundId
+      );
+
+      if (response.success && response.data) {
+        setMeetLink(response.data.meetLink);
+        console.log(
+          "Meet link generated successfully:",
+          response.data.meetLink
+        );
+
+        // Show a success message if the platform was migrated
+        if (response.message && response.message.includes("migrated")) {
+          // You could add a toast notification here if you have a toast system
+          console.log(
+            "Platform configuration was automatically migrated to Google Meet"
+          );
+        }
+      } else {
+        const errorMessage =
+          response.message || "Failed to generate Google Meet link";
+        setMeetLinkError(errorMessage);
+        console.error("Failed to generate Meet link:", errorMessage);
+      }
+    } catch (error) {
+      console.error("Error generating Google Meet link:", error);
+      setMeetLinkError(
+        "Failed to generate Google Meet link. Please check the console for details."
+      );
+    } finally {
+      setGeneratingMeetLink(false);
+    }
+  };
+
+  // Check Google Calendar authorization on component mount
+  useEffect(() => {
+    checkGoogleCalendarAuthorization();
+  }, []);
+
   const getCategoryColor = (category: Question["category"]) => {
     const colors = {
       technical: "bg-blue-100 text-blue-800",
@@ -526,7 +669,7 @@ export function VideoInterviewConfig({
         <h2 className="text-2xl font-bold text-gray-800">
           Video Interview Configuration
         </h2>
-        {/* <button
+        <button
           onClick={handleSaveConfiguration}
           disabled={saving}
           className={`px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center ${
@@ -535,7 +678,7 @@ export function VideoInterviewConfig({
         >
           {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
           {saving ? "Saving..." : "Save Configuration"}
-        </button> */}
+        </button>
       </div>
 
       {/* Round Instructions */}
@@ -586,44 +729,85 @@ export function VideoInterviewConfig({
             key="platform-expanded"
             className="p-4 border-t border-gray-200 space-y-4"
           >
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Video Platform
-              </label>
-              <select
-                value={config.platform}
-                onChange={(e) =>
-                  handleConfigChange({ platform: e.target.value as any })
-                }
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-              >
-                <option value="zoom">Zoom</option>
-                <option value="teams">Microsoft Teams</option>
-                <option value="meet">Google Meet</option>
-                <option value="custom">Custom Platform</option>
-              </select>
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium text-blue-800">
+                  Google Meet Integration
+                </h3>
+                <Video className="h-5 w-5 text-blue-500" />
+              </div>
+
+              <p className="text-sm text-blue-700 mb-3">
+                This interview will be conducted via Google Meet.
+              </p>
+
+              {/* Google Calendar Authorization Status */}
+              <div className="mb-4 p-3 bg-white rounded-md border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium text-gray-700 mr-2">
+                      Google Calendar Access:
+                    </span>
+                    {checkingAuthorization ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-gray-500" />
+                    ) : isGoogleCalendarAuthorized ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        Authorized
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        Not Authorized
+                      </span>
+                    )}
+                  </div>
+
+                  <div>
+                    {isGoogleCalendarAuthorized ? (
+                      <button
+                        onClick={handleRevokeGoogleCalendarAuthorization}
+                        disabled={revokingAuthorization}
+                        className="text-xs text-red-600 hover:text-red-800 disabled:opacity-50"
+                      >
+                        {revokingAuthorization
+                          ? "Revoking..."
+                          : "Revoke Access"}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleAuthorizeGoogleCalendar}
+                        disabled={authorizingGoogleCalendar}
+                        className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {authorizingGoogleCalendar ? (
+                          <>
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                            Authorizing...
+                          </>
+                        ) : (
+                          "Authorize Google Calendar"
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {googleCalendarAuthError && (
+                  <div className="mt-2 flex items-center text-xs text-red-600">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    {googleCalendarAuthError}
+                  </div>
+                )}
+
+                <p className="mt-2 text-xs text-gray-500">
+                  Authorization is required to schedule meetings in your
+                  personal calendar.
+                </p>
+              </div>
             </div>
 
-            {config.platform === "custom" && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Custom Platform URL
-                </label>
-                <input
-                  type="url"
-                  value={config.customPlatformUrl || ""}
-                  onChange={(e) =>
-                    handleConfigChange({ customPlatformUrl: e.target.value })
-                  }
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="https://your-platform.com/meeting"
-                />
-              </div>
-            )}
-
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Duration (minutes)
+                Interview Duration (minutes)
               </label>
               <input
                 type="number"
@@ -631,13 +815,16 @@ export function VideoInterviewConfig({
                 onChange={(e) => {
                   // Allow the field to be cleared for typing
                   if (e.target.value === "") {
-                    handleConfigChange({ duration: 15 });
+                    handleConfigChange({ duration: 15, meetingDuration: 15 });
                   } else {
                     const value = parseInt(e.target.value);
                     // Handle NaN and enforce min/max
                     if (!isNaN(value)) {
                       const validValue = Math.max(15, Math.min(180, value));
-                      handleConfigChange({ duration: validValue });
+                      handleConfigChange({
+                        duration: validValue,
+                        meetingDuration: validValue,
+                      });
                     }
                   }
                 }}
@@ -645,6 +832,25 @@ export function VideoInterviewConfig({
                 min="15"
                 max="180"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Meeting Title
+              </label>
+              <input
+                type="text"
+                value={config.meetingTitle || ""}
+                onChange={(e) =>
+                  handleConfigChange({ meetingTitle: e.target.value })
+                }
+                className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                placeholder="e.g., Technical Interview - {Candidate Name}"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                This title will be used as the default for scheduling
+                interviews. Use {"{Candidate Name}"} as a placeholder.
+              </p>
             </div>
           </div>
         )}

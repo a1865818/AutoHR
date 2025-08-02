@@ -60,6 +60,22 @@ export interface Candidate {
   rejectedAt?: string;
   isSendRejectEmail?: boolean;
   currentRoundId?: string; // Keep for backward compatibility
+  
+  // Meeting information
+  meetingScheduled?: boolean;
+  meetLink?: string;
+  meetingData?: {
+    meetLink?: string;
+    eventId?: string;
+    calendarEventId?: string;
+    applicationId?: string;
+    summary?: string;
+    startTime: string;
+    endTime: string;
+    timezone: string;
+    attendees?: string[];
+    status: string;
+  };
 }
 export interface SaveNoteRequest {
   notes: string;

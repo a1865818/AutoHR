@@ -23,6 +23,7 @@ import {
   Mail,
   Send,
 } from "lucide-react";
+import { VideoInterviewSchedulingModal } from "@/components/interview_pipeline/VideoInterviewSchedulingModal";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { jobService } from "@/services/jobService";
@@ -30,6 +31,7 @@ import { interviewService } from "@/services/interviewService";
 import { candidateService } from "@/services/candidateService";
 import { rejectedCandidatesService } from "@/services/rejectedCandidatesService";
 import { assessmentService } from "@/services/assessmentService";
+import { roundConfigurationAPI } from "@/services/roundConfigurationApi";
 import { ApiJob, ApiCompany } from "@/interfaces/api";
 import {
   InterviewTemplate,
@@ -44,7 +46,7 @@ import {
   DroppableColumn,
   BulkActions,
 } from "@/components/interview_pipeline/DragDropPipeline";
-import { RoundSpecificActions } from "@/components/interview_pipeline/RoundSpecificActions";
+
 import { BulkNotificationModal } from "@/components/interview_pipeline/BulkNotificationModal";
 
 interface JobWithTemplate extends Omit<ApiJob, "interviewTemplate"> {
@@ -120,6 +122,15 @@ export default function JobPipelinePage() {
   >([]);
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [isAssigningTemplate, setIsAssigningTemplate] = useState(false);
+
+  // Video Interview Scheduling Modal States
+  const [showSchedulingModal, setShowSchedulingModal] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(
+    null
+  );
+  const [selectedRound, setSelectedRound] = useState<InterviewRound | null>(
+    null
+  );
 
   const [noApplicationsFound, setNoApplicationsFound] = useState(false);
 
@@ -213,6 +224,56 @@ export default function JobPipelinePage() {
       }
 
       setJob(jobWithTemplate);
+
+      // Load round configurations for meeting data
+      if (jobWithTemplate.interviewTemplate?.rounds) {
+        try {
+          console.log("🔄 Loading round configurations...");
+          const roundConfigurations = await Promise.all(
+            jobWithTemplate.interviewTemplate.rounds.map(async (round) => {
+              try {
+                const config = await roundConfigurationAPI.getConfiguration(
+                  jobId,
+                  round.id
+                );
+                return {
+                  roundId: round.id,
+                  config: config.success ? config.data : null,
+                };
+              } catch (error) {
+                console.warn(
+                  `Failed to load configuration for round ${round.id}:`,
+                  error
+                );
+                return { roundId: round.id, config: null };
+              }
+            })
+          );
+
+          // Update rounds with configuration data
+          jobWithTemplate.interviewTemplate.rounds =
+            jobWithTemplate.interviewTemplate.rounds.map((round) => {
+              const roundConfig = roundConfigurations.find(
+                (rc) => rc.roundId === round.id
+              );
+              if (roundConfig?.config) {
+                return {
+                  ...round,
+                  meetingScheduled: roundConfig.config.meetingScheduled,
+                  meetingData: roundConfig.config.meetingData,
+                  configurationData: (roundConfig.config as any)
+                    .configurationData,
+                };
+              }
+              return round;
+            });
+
+          setJob(jobWithTemplate);
+          console.log("✅ Round configurations loaded with meeting data");
+        } catch (error) {
+          console.warn("Failed to load round configurations:", error);
+        }
+      }
 
       // Load company data
       if (jobData.companyId) {
@@ -355,6 +416,77 @@ export default function JobPipelinePage() {
             }
           }
 
+          // Check meeting status for video interview rounds
+          let meetingScheduled = false;
+          let meetLink: string | undefined;
+          let meetingData: any = undefined;
+
+          if (jobWithTemplate.interviewTemplate?.rounds && currentRoundId) {
+            const currentRound = jobWithTemplate.interviewTemplate.rounds.find(
+              (r) => r.id === currentRoundId
+            );
+
+            if (currentRound && currentRound.type === "video_interview") {
+              try {
+                console.log(
+                  `🔍 Checking meeting status for candidate ${candidate.name}:`,
+                  {
+                    applicationId: candidate.applicationId,
+                    roundId: currentRoundId,
+                    jobId: jobId,
+                  }
+                );
+
+                const meetingStatus =
+                  await roundConfigurationAPI.checkMeetingStatus(
+                    jobId,
+                    currentRoundId,
+                    candidate.applicationId
+                  );
+
+                if (meetingStatus.success && meetingStatus.data.hasMeeting) {
+                  meetingScheduled = true;
+                  meetLink = meetingStatus.data.meetLink;
+
+                  // Get full meeting details if meeting exists
+                  try {
+                    const meetingDetails =
+                      await roundConfigurationAPI.getMeetingDetails(
+                        jobId,
+                        currentRoundId,
+                        candidate.applicationId
+                      );
+                    if (meetingDetails.success) {
+                      meetingData = meetingDetails.data;
+                    }
+                  } catch (error) {
+                    console.warn(
+                      `Failed to get meeting details for candidate ${candidate.name}:`,
+                      error
+                    );
+                  }
+
+                  console.log(
+                    `✅ Meeting found for candidate ${candidate.name}:`,
+                    {
+                      meetLink,
+                      meetingData,
+                    }
+                  );
+                } else {
+                  console.log(
+                    `❌ No meeting found for candidate ${candidate.name}`
+                  );
+                }
+              } catch (error) {
+                console.warn(
+                  `Failed to check meeting status for candidate ${candidate.name}:`,
+                  error
+                );
+              }
+            }
+          }
+
           return {
             ...candidate,
             currentRoundId,
@@ -364,6 +496,9 @@ export default function JobPipelinePage() {
             ),
             hasSubmittedAssessment,
             isAssessmentGraded,
+            meetingScheduled,
+            meetLink,
+            meetingData,
           };
         })
       );
@@ -1426,7 +1561,53 @@ export default function JobPipelinePage() {
     console.log(
       `Scheduling interview for candidate ${candidateId} in round ${roundId}`
     );
-    // TODO: Implement interview scheduling
+
+    if (!candidateId) {
+      console.error("Candidate ID is undefined");
+      return;
+    }
+
+    // Find the candidate - try multiple ID fields
+    const candidate = candidates.find(
+      (c) =>
+        c.id === candidateId ||
+        c.applicationId === candidateId ||
+        (c as any).Id === candidateId ||
+        (c as any).ApplicationId === candidateId
+    );
+
+    if (!candidate) {
+      console.error("Candidate not found:", candidateId);
+      console.log(
+        "Available candidates:",
+        candidates.map((c) => ({
+          id: c.id,
+          applicationId: c.applicationId,
+          name: c.name,
+        }))
+      );
+      return;
+    }
+
+    // Find the round
+    const round = job?.interviewTemplate?.rounds.find((r) => r.id === roundId);
+    if (!round) {
+      console.error("Round not found:", roundId);
+      console.log(
+        "Available rounds:",
+        job?.interviewTemplate?.rounds.map((r) => ({
+          id: r.id,
+          name: r.name,
+          type: r.type,
+        }))
+      );
+      return;
+    }
+
+    // Set the selected candidate and round for the modal
+    setSelectedCandidate(candidate);
+    setSelectedRound(round);
+    setShowSchedulingModal(true);
   };
 
   const handleCompleteRound = (
@@ -2066,7 +2247,10 @@ export default function JobPipelinePage() {
                             }
                           }}
                           onSchedule={(candidateId) =>
-                            handleScheduleInterview(candidateId, column.id)
+                            handleScheduleInterview(
+                              candidateId,
+                              column.round?.id || column.id
+                            )
                           }
                           onReject={handleRejectCandidate}
                           onRejectWithEmail={handleRejectCandidateWithEmail}
@@ -2101,21 +2285,6 @@ export default function JobPipelinePage() {
                       </div>
                     );
                   })
-                )}
-                {/* Render RoundSpecificActions once per column, after all candidates, only if there are candidates */}
-                {column.round && column.candidates.length > 0 && (
-                  <RoundSpecificActions
-                    round={column.round}
-                    jobId={jobId}
-                    isLastRound={isLastRound(column.round.id)}
-                    onSchedule={handleScheduleInterview}
-                    onComplete={handleCompleteRound}
-                    onAddNotes={handleAddNotes}
-                    onHire={
-                      column.id === "offered" ? handleHireCandidate : undefined
-                    }
-                    onReject={handleRejectCandidate}
-                  />
                 )}
               </div>
             </DroppableColumn>
@@ -2321,6 +2490,46 @@ export default function JobPipelinePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Video Interview Scheduling Modal */}
+      {showSchedulingModal && selectedCandidate && selectedRound && (
+        <VideoInterviewSchedulingModal
+          isOpen={showSchedulingModal}
+          onClose={() => {
+            setShowSchedulingModal(false);
+            setSelectedCandidate(null);
+            setSelectedRound(null);
+          }}
+          candidate={{
+            id: selectedCandidate.id,
+            name: selectedCandidate.name,
+            email: selectedCandidate.email,
+          }}
+          round={{
+            id: selectedRound.id,
+            name: selectedRound.name,
+            type: selectedRound.type,
+            duration: selectedRound.duration,
+          }}
+          jobId={jobId}
+          roundId={selectedRound.id}
+          onScheduleSuccess={(meetingData) => {
+            console.log("Meeting scheduled successfully:", meetingData);
+
+            // Refresh the job pipeline to get updated round configurations
+            loadJobPipeline();
+
+            // Close the modal
+            setShowSchedulingModal(false);
+            setSelectedCandidate(null);
+            setSelectedRound(null);
+
+            // Show success notification
+            // You can implement a toast notification here
+            console.log("✅ Meeting scheduled and pipeline refreshed");
+          }}
+        />
       )}
     </div>
   );

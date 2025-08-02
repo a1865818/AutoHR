@@ -8,11 +8,26 @@ using Swashbuckle.AspNetCore.Annotations;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Microsoft.Extensions.Logging;
 
 // Load environment variables from .env file
 Env.Load();
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add logging services
+builder.Services.AddLogging(builder =>
+{
+    builder.AddConsole();
+    builder.AddDebug();
+});
+
+// Add specific logger factory
+builder.Services.AddSingleton<ILoggerFactory, LoggerFactory>();
+
+// Add ILogger service explicitly
+builder.Services.AddScoped<ILogger>(provider =>
+    provider.GetRequiredService<ILoggerFactory>().CreateLogger("Default"));
 
 // Configure JWT settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
@@ -68,6 +83,9 @@ builder.Services.AddScoped<IJobViewTrackingService, JobViewTrackingService>();
 // Register Gmail service
 builder.Services.AddScoped<IGmailService, ai_hr.Services.GmailApiService>();
 
+// Register Google Calendar service
+builder.Services.AddScoped<IGoogleCalendarService, GoogleCalendarService>();
+
 
 //Enable session support for user tracking
 builder.Services.AddDistributedMemoryCache();
@@ -78,6 +96,9 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
     //options.Cookie.SameSite = SameSiteMode.Lax;
 });
+
+// Add HttpContextAccessor for session support
+builder.Services.AddHttpContextAccessor();
 
 
 builder.Services.AddEndpointsApiExplorer();
@@ -172,7 +193,8 @@ app.UseRouting();
 // Add authentication and authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseSession();
+// Temporarily disable session to debug logging issue
+// app.UseSession();
 
 
 // Map endpoints by resource type

@@ -1,11 +1,13 @@
 using ai_hr.Models;
 using ai_hr.Contracts.Interview;
+using Microsoft.AspNetCore.Mvc;
 using Supabase;
 using System.Security.Claims;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using System.Collections;
 using Newtonsoft.Json.Linq;
+using ai_hr.Services;
 
 namespace ai_hr.Endpoints;
 
@@ -17,7 +19,7 @@ public static class RoundConfigurationEndpoints
 
         // GET /api/jobs/{jobId}/rounds/{roundId}/configuration
         group.MapGet("/jobs/{jobId:guid}/rounds/{roundId:guid}/configuration",
-            (Guid jobId, Guid roundId, Supabase.Client client, ClaimsPrincipal user, ILogger<Program> logger) =>
+            (Guid jobId, Guid roundId, Supabase.Client client, ClaimsPrincipal user, [FromServices] ILogger logger) =>
                 GetRoundConfiguration(jobId, roundId, client, user, logger))
             .WithName("GetRoundConfiguration")
             .WithSummary("Get configuration for a specific round in a job")
@@ -64,6 +66,75 @@ public static class RoundConfigurationEndpoints
             .WithName("CloneConfiguration")
             .WithSummary("Clone configuration from another job/round")
             .RequireAuthorization();
+
+        // POST /api/jobs/{jobId}/rounds/{roundId}/configuration/generate-meet-link
+        group.MapPost("/jobs/{jobId:guid}/rounds/{roundId:guid}/configuration/generate-meet-link", GenerateMeetLink)
+            .WithName("GenerateMeetLink")
+            .WithSummary("Generate Google Meet link for video interview")
+            .RequireAuthorization();
+
+        // GET /api/google-calendar/auth-url
+        group.MapGet("/google-calendar/auth-url",
+            ([FromQuery] string redirectUri, Supabase.Client client, ClaimsPrincipal user, IGoogleCalendarService googleCalendarService, [FromServices] ILogger logger) =>
+                GetGoogleCalendarAuthUrl(client, user, googleCalendarService, logger, redirectUri))
+            .WithName("GetGoogleCalendarAuthUrl")
+            .WithSummary("Get Google Calendar authorization URL")
+            .RequireAuthorization();
+
+        // POST /api/google-calendar/callback
+        group.MapPost("/google-calendar/callback",
+            ([FromBody] GoogleCalendarCallbackRequest request, Supabase.Client client, IGoogleCalendarService googleCalendarService, [FromServices] ILogger logger) =>
+                HandleGoogleCalendarCallback(client, googleCalendarService, logger, request.Code, request.State, request.RedirectUri))
+            .WithName("HandleGoogleCalendarCallback")
+            .WithSummary("Handle Google Calendar OAuth callback");
+
+        // GET /api/google-calendar/is-authorized
+        group.MapGet("/google-calendar/is-authorized",
+            (Supabase.Client client, ClaimsPrincipal user, IGoogleCalendarService googleCalendarService, [FromServices] ILogger logger) =>
+                CheckGoogleCalendarAuthorization(client, user, googleCalendarService, logger))
+            .WithName("CheckGoogleCalendarAuthorization")
+            .WithSummary("Check if user is authorized for Google Calendar")
+            .RequireAuthorization();
+
+        // POST /api/google-calendar/revoke
+        group.MapPost("/google-calendar/revoke",
+            (Supabase.Client client, ClaimsPrincipal user, IGoogleCalendarService googleCalendarService, [FromServices] ILogger logger) =>
+                RevokeGoogleCalendarAuthorization(client, user, googleCalendarService, logger))
+            .WithName("RevokeGoogleCalendarAuthorization")
+            .WithSummary("Revoke Google Calendar authorization")
+            .RequireAuthorization();
+
+        // POST /api/google-calendar/create-event
+        group.MapPost("/google-calendar/create-event",
+            ([FromBody] CreateEventRequest request, Supabase.Client client, ClaimsPrincipal user, IGoogleCalendarService googleCalendarService, [FromServices] ILogger logger) =>
+                CreateGoogleCalendarEvent(client, user, googleCalendarService, logger, request))
+            .WithName("CreateGoogleCalendarEvent")
+            .WithSummary("Create a Google Calendar event with meeting details")
+            .RequireAuthorization();
+
+        // PUT /api/google-calendar/update-event
+        group.MapPut("/google-calendar/update-event",
+            ([FromBody] UpdateEventRequest request, Supabase.Client client, ClaimsPrincipal user, IGoogleCalendarService googleCalendarService, [FromServices] ILogger logger) =>
+                UpdateGoogleCalendarEvent(client, user, googleCalendarService, logger, request))
+            .WithName("UpdateGoogleCalendarEvent")
+            .WithSummary("Update an existing Google Calendar event")
+            .RequireAuthorization();
+
+        // GET /api/jobs/{jobId}/rounds/{roundId}/candidates/{applicationId}/meeting-status
+        group.MapGet("/jobs/{jobId:guid}/rounds/{roundId:guid}/candidates/{applicationId:guid}/meeting-status",
+            (Guid jobId, Guid roundId, Guid applicationId, Supabase.Client client, ClaimsPrincipal user, [FromServices] ILogger logger) =>
+                GetCandidateMeetingStatus(jobId, roundId, applicationId, client, user, logger))
+            .WithName("GetCandidateMeetingStatus")
+            .WithSummary("Check if a candidate has a scheduled meeting for a specific round")
+            .RequireAuthorization();
+
+        // GET /api/jobs/{jobId}/rounds/{roundId}/candidates/{applicationId}/meeting-details
+        group.MapGet("/jobs/{jobId:guid}/rounds/{roundId:guid}/candidates/{applicationId:guid}/meeting-details",
+            (Guid jobId, Guid roundId, Guid applicationId, Supabase.Client client, ClaimsPrincipal user, [FromServices] ILogger logger) =>
+                GetCandidateMeetingDetails(jobId, roundId, applicationId, client, user, logger))
+            .WithName("GetCandidateMeetingDetails")
+            .WithSummary("Get detailed meeting information for a specific candidate and round")
+            .RequireAuthorization();
     }
 
     private static async Task<IResult> GetRoundConfiguration(
@@ -71,7 +142,7 @@ public static class RoundConfigurationEndpoints
         Guid roundId,
         Supabase.Client client,
         ClaimsPrincipal user,
-        ILogger<Program> logger)
+        [FromServices] ILogger logger)
     {
         try
         {
@@ -117,6 +188,16 @@ public static class RoundConfigurationEndpoints
                 .Order(x => x.OrderIndex, Supabase.Postgrest.Constants.Ordering.Ascending)
                 .Get();
 
+            // Get Google Calendar event information if available
+            GoogleCalendarEvent? calendarEvent = null;
+            if (config.GoogleCalendarEventId.HasValue)
+            {
+                var calendarEventResponse = await client.From<GoogleCalendarEvent>()
+                    .Where(e => e.Id == config.GoogleCalendarEventId.Value)
+                    .Get();
+                calendarEvent = calendarEventResponse.Models.FirstOrDefault();
+            }
+
             // Log the configuration data before processing
             logger.LogInformation("Retrieved configuration ID: {Id} for job: {JobId}, round: {RoundId}",
                 config.Id, jobId, roundId);
@@ -142,7 +223,7 @@ public static class RoundConfigurationEndpoints
                 }
             }
 
-            var response = MapToResponseDto(config, questionsResponse.Models, criteriaResponse.Models);
+            var response = MapToResponseDto(config, questionsResponse.Models, criteriaResponse.Models, calendarEvent);
 
             // Log the final response data
             logger.LogInformation("Final response ConfigurationData type: {Type}",
@@ -162,7 +243,7 @@ public static class RoundConfigurationEndpoints
         RoundConfigurationRequest request,
         Supabase.Client client,
         ClaimsPrincipal user,
-        ILogger<Program> logger)
+        [FromServices] ILogger logger)
     {
         try
         {
@@ -589,7 +670,7 @@ public static class RoundConfigurationEndpoints
         object defaultConfig = roundType switch
         {
             "phone_screening" => new { duration = 30, recordCall = false, requirePhone = true },
-            "video_interview" => new { duration = 45, platform = "zoom", recordMeeting = true },
+            "video_interview" => new { duration = 45, platform = "meet", recordMeeting = true },
             "technical_assessment" => new { duration = 90, gradingSystem = new { passingScore = 70 } },
             "coding_challenge" => new { duration = 120, maxSubmissions = 3 },
             "final_interview" => new { duration = 60, executiveInvolvement = true },
@@ -606,9 +687,10 @@ public static class RoundConfigurationEndpoints
     private static RoundConfigurationResponse MapToResponseDto(
         RoundConfiguration config,
         List<RoundQuestion> questions,
-        List<RoundScoringCriteria> criteria)
+        List<RoundScoringCriteria> criteria,
+        GoogleCalendarEvent? calendarEvent = null)
     {
-        return new RoundConfigurationResponse
+        var response = new RoundConfigurationResponse
         {
             Id = config.Id,
             JobId = config.JobId,
@@ -627,6 +709,47 @@ public static class RoundConfigurationEndpoints
             Questions = questions.Select(MapQuestionToDto).ToList(),
             ScoringCriteria = criteria.Select(MapCriteriaToDto).ToList()
         };
+
+        // Add meeting information if available
+        if (calendarEvent != null)
+        {
+            response.MeetingScheduled = true;
+            response.MeetingData = new MeetingData
+            {
+                MeetLink = calendarEvent.MeetLink,
+                EventId = calendarEvent.EventId,
+                CalendarEventId = calendarEvent.Id,
+                ApplicationId = calendarEvent.ApplicationId,
+                Summary = calendarEvent.Summary,
+                StartTime = calendarEvent.StartTime,
+                EndTime = calendarEvent.EndTime,
+                Timezone = calendarEvent.Timezone,
+                Attendees = calendarEvent.Attendees,
+                Status = calendarEvent.Status
+            };
+        }
+        else if (config.ConfigurationData != null &&
+                 config.ConfigurationData.TryGetValue("meetingScheduled", out var meetingScheduled) &&
+                 meetingScheduled is bool isScheduled && isScheduled)
+        {
+            // Fallback to configuration data if calendar event not found
+            response.MeetingScheduled = true;
+            response.MeetingData = new MeetingData
+            {
+                MeetLink = config.ConfigurationData.TryGetValue("meetLink", out var meetLink) ? meetLink?.ToString() : null,
+                EventId = config.ConfigurationData.TryGetValue("eventId", out var eventId) ? eventId?.ToString() : null,
+                CalendarEventId = config.GoogleCalendarEventId,
+                ApplicationId = config.ConfigurationData.TryGetValue("applicationId", out var applicationId) && applicationId is Guid aId ? aId : null,
+                Summary = config.ConfigurationData.TryGetValue("meetingTitle", out var title) ? title?.ToString() : null,
+                StartTime = config.ConfigurationData.TryGetValue("scheduledAt", out var scheduledAt) && scheduledAt is DateTime startTime ? startTime : DateTime.UtcNow,
+                EndTime = config.ConfigurationData.TryGetValue("scheduledAt", out var endTime) && endTime is DateTime end ? end : DateTime.UtcNow,
+                Timezone = "UTC",
+                Attendees = config.ConfigurationData.TryGetValue("attendeeEmail", out var attendee) && attendee is string email ? new string[] { email } : null,
+                Status = "confirmed"
+            };
+        }
+
+        return response;
     }
 
     private static QuestionDto MapQuestionToDto(RoundQuestion question)
@@ -812,7 +935,7 @@ public static class RoundConfigurationEndpoints
         Guid roundId,
         Supabase.Client client,
         ClaimsPrincipal user,
-        ILogger<Program> logger)
+        [FromServices] ILogger logger)
     {
         try
         {
@@ -872,6 +995,855 @@ public static class RoundConfigurationEndpoints
             return Results.Problem($"Error retrieving raw configuration data: {ex.Message}");
         }
     }
+
+    private static async Task<IResult> GenerateMeetLink(
+        Guid jobId,
+        Guid roundId,
+        Supabase.Client client,
+        ClaimsPrincipal user,
+        IGoogleCalendarService googleCalendarService,
+        [FromServices] ILogger logger)
+    {
+        try
+        {
+            var userId = GetUserId(user);
+            if (userId == null) return Results.Unauthorized();
+
+            var companyId = await GetUserCompanyId(client, userId.Value);
+            if (companyId == null) return Results.Unauthorized();
+
+            // Verify job belongs to user's company
+            if (!await VerifyJobAccess(client, jobId, companyId.Value))
+                return Results.StatusCode(403);
+
+            // Get round configuration
+            var configResponse = await client.From<RoundConfiguration>()
+                .Where(rc => rc.JobId == jobId && rc.RoundId == roundId)
+                .Get();
+
+            var config = configResponse.Models.FirstOrDefault();
+            if (config == null) return Results.NotFound("Configuration not found");
+
+            // Debug: Log the configuration data
+            logger.LogInformation("GenerateMeetLink - Configuration data: {ConfigData}",
+                config.ConfigurationData != null ? string.Join(", ", config.ConfigurationData.Select(kv => $"{kv.Key}={kv.Value}")) : "null");
+
+            // Check if this is a video interview configuration with "meet" platform
+            if (config.ConfigurationData == null)
+            {
+                logger.LogWarning("GenerateMeetLink - Configuration data is null");
+                return Results.BadRequest("Configuration data is missing. Please save the video interview configuration first before generating a Meet link.");
+            }
+
+            if (!config.ConfigurationData.TryGetValue("platform", out var platformObj))
+            {
+                logger.LogWarning("GenerateMeetLink - Platform not found in configuration data");
+                return Results.BadRequest("Platform not configured. Please save the video interview configuration first, then set the platform to 'Google Meet' and save again before generating a Meet link.");
+            }
+
+            var platform = platformObj?.ToString()?.ToLower();
+            logger.LogInformation("GenerateMeetLink - Platform value: {Platform}", platform);
+
+            // Track if migration occurred for the response message
+            var migrationOccurred = false;
+
+            // Handle migration from "zoom" to "meet" for existing configurations
+            if (platform == "zoom")
+            {
+                logger.LogInformation("GenerateMeetLink - Migrating platform from 'zoom' to 'meet' for existing configuration");
+
+                // Update the configuration to use "meet" platform
+                config.ConfigurationData["platform"] = "meet";
+                config.UpdatedAt = DateTime.UtcNow;
+                config.LastModifiedBy = userId.Value;
+
+                // Save the updated configuration
+                var migrationResponse = await client.From<RoundConfiguration>().Update(config);
+                var migratedConfig = migrationResponse.Models.FirstOrDefault();
+
+                if (migratedConfig != null)
+                {
+                    logger.LogInformation("GenerateMeetLink - Successfully migrated platform to 'meet' and saved configuration");
+                }
+                else
+                {
+                    logger.LogWarning("GenerateMeetLink - Failed to save migrated configuration, but continuing with 'meet' platform");
+                }
+
+                platform = "meet";
+                migrationOccurred = true;
+                logger.LogInformation("GenerateMeetLink - Successfully migrated platform to 'meet'");
+            }
+
+            // Check if the platform supports Google Meet link generation
+            var supportedPlatforms = new[] { "meet", "google meet", "google-meet" };
+            if (!supportedPlatforms.Contains(platform))
+            {
+                logger.LogWarning("GenerateMeetLink - Platform '{Platform}' does not support Google Meet link generation", platform);
+                return Results.BadRequest($"This configuration is not set to use Google Meet. Current platform: '{platform}'. Supported platforms for Meet link generation: Google Meet. Please go to the video interview configuration and change the platform to 'Google Meet', then save the configuration before generating a Meet link.");
+            }
+
+            // Get user email for impersonation
+            var userResponse = await client.From<HiringUserProfile>()
+                .Where(u => u.Id == userId.Value)
+                .Get();
+
+            var hiringUser = userResponse.Models.FirstOrDefault();
+            if (hiringUser == null) return Results.NotFound("User not found");
+
+            // Get job details for event title
+            var jobResponse = await client.From<Job>()
+                .Where(j => j.Id == jobId)
+                .Get();
+
+            var job = jobResponse.Models.FirstOrDefault();
+            if (job == null) return Results.NotFound("Job not found");
+
+            // Get round details for event title
+            var roundResponse = await client.From<InterviewRound>()
+                .Where(r => r.Id == roundId)
+                .Get();
+
+            var round = roundResponse.Models.FirstOrDefault();
+            if (round == null) return Results.NotFound("Round not found");
+
+            // Get scheduling information from configuration
+            DateTime startTime = DateTime.UtcNow.AddDays(1); // Default to tomorrow
+            DateTime endTime = startTime.AddMinutes(config.Duration);
+            string timezone = "UTC";
+            string[]? attendees = null;
+
+            // Extract scheduling details from configuration
+            if (config.ConfigurationData.TryGetValue("schedule", out var scheduleObj) &&
+                scheduleObj is Dictionary<string, object> scheduleData)
+            {
+                // Try to get timezone
+                if (scheduleData.TryGetValue("timezone", out var tzObj))
+                {
+                    timezone = tzObj?.ToString() ?? "UTC";
+                }
+
+                // Try to get time slots
+                if (scheduleData.TryGetValue("timeSlots", out var slotsObj) &&
+                    slotsObj is List<object> slots && slots.Count > 0)
+                {
+                    // Use first time slot for the event
+                    if (slots[0] is Dictionary<string, object> firstSlot)
+                    {
+                        if (firstSlot.TryGetValue("startTime", out var startObj))
+                        {
+                            // For simplicity, we'll use tomorrow at the specified time
+                            var timeStr = startObj?.ToString();
+                            if (!string.IsNullOrEmpty(timeStr))
+                            {
+                                if (TimeSpan.TryParse(timeStr, out var time))
+                                {
+                                    startTime = DateTime.Today.AddDays(1).Add(time);
+                                    endTime = startTime.AddMinutes(config.Duration);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Generate event title
+            var eventTitle = $"{job.Title} - {round.Name} Interview";
+
+            // Check if user is authorized for Google Calendar
+            var isAuthorized = await googleCalendarService.IsUserAuthorizedAsync(userId.Value.ToString());
+            if (!isAuthorized)
+            {
+                logger.LogWarning("GenerateMeetLink - User {UserId} is not authorized for Google Calendar", userId.Value);
+                return Results.BadRequest("User is not authorized for Google Calendar access. Please authorize Google Calendar first.");
+            }
+
+            logger.LogInformation("GenerateMeetLink - Creating Google Calendar event for user {UserId}", userId.Value);
+
+            // Create Google Calendar event with Meet link
+            var googleEvent = await googleCalendarService.CreateMeetEventAsync(
+                eventTitle,
+                $"Google Meet interview for {job.Title} - {round.Name}",
+                startTime,
+                endTime,
+                timezone,
+                attendees,
+                userId.Value.ToString());
+
+            // Save the Google Calendar event reference in the round configuration
+            config.GoogleCalendarEventId = googleEvent.Id;
+            config.UpdatedAt = DateTime.UtcNow;
+            config.LastModifiedBy = userId.Value;
+
+            var updateResponse = await client.From<RoundConfiguration>().Update(config);
+            var updatedConfig = updateResponse.Models.FirstOrDefault()!;
+
+            logger.LogInformation("GenerateMeetLink - Successfully created Google Calendar event with Meet link: {MeetLink}", googleEvent.MeetLink);
+
+            // Return the Meet link
+            return Results.Ok(new
+            {
+                success = true,
+                data = new
+                {
+                    meetLink = googleEvent.MeetLink,
+                    eventId = googleEvent.EventId,
+                    calendarEventId = googleEvent.Id
+                },
+                message = migrationOccurred
+                    ? "Google Meet link generated successfully. Your platform configuration was automatically migrated from Zoom to Google Meet."
+                    : "Google Meet link generated successfully"
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error generating Google Meet link");
+            return Results.Problem($"Error generating Google Meet link: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Gets the Google Calendar authorization URL for the current user
+    /// </summary>
+    public static async Task<IResult> GetGoogleCalendarAuthUrl(
+        Supabase.Client client,
+        ClaimsPrincipal user,
+        IGoogleCalendarService googleCalendarService,
+        [FromServices] ILogger logger,
+        string redirectUri)
+    {
+        try
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var authUrl = await googleCalendarService.GetAuthorizationUrlAsync(userId, redirectUri);
+
+            return Results.Ok(new
+            {
+                success = true,
+                data = new
+                {
+                    authorizationUrl = authUrl
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error getting Google Calendar authorization URL");
+            return Results.Problem($"Error getting authorization URL: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Handles the Google Calendar OAuth callback
+    /// </summary>
+    public static async Task<IResult> HandleGoogleCalendarCallback(
+        Supabase.Client client,
+        IGoogleCalendarService googleCalendarService,
+        [FromServices] ILogger logger,
+        string code,
+        string state,
+        string redirectUri)
+    {
+        try
+        {
+            logger.LogInformation("Google Calendar callback received - Code: {CodeLength}, State: {State}",
+                code?.Length ?? 0, state);
+
+            if (string.IsNullOrEmpty(state))
+            {
+                logger.LogWarning("No state parameter provided");
+                return Results.BadRequest("Invalid state parameter");
+            }
+
+            // The state parameter should contain the user ID
+            var userId = state;
+            logger.LogInformation("Processing Google Calendar callback for user: {UserId}", userId);
+
+            var success = await googleCalendarService.HandleAuthCallbackAsync(userId, code, redirectUri);
+
+            if (success)
+            {
+                logger.LogInformation("Google Calendar authorization successful for user: {UserId}", userId);
+                return Results.Ok(new
+                {
+                    success = true,
+                    message = "Google Calendar authorization successful"
+                });
+            }
+            else
+            {
+                logger.LogWarning("Google Calendar authorization failed for user: {UserId}", userId);
+                return Results.BadRequest(new
+                {
+                    success = false,
+                    message = "Failed to authorize Google Calendar access"
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error handling Google Calendar callback");
+            return Results.Problem($"Error handling callback: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Checks if the current user is authorized for Google Calendar access
+    /// </summary>
+    public static async Task<IResult> CheckGoogleCalendarAuthorization(
+        Supabase.Client client,
+        ClaimsPrincipal user,
+        IGoogleCalendarService googleCalendarService,
+        [FromServices] ILogger logger)
+    {
+        try
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            var isAuthorized = await googleCalendarService.IsUserAuthorizedAsync(userId);
+
+            return Results.Ok(new
+            {
+                success = true,
+                data = new
+                {
+                    isAuthorized = isAuthorized
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error checking Google Calendar authorization");
+            return Results.Problem($"Error checking authorization: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Revokes Google Calendar authorization for the current user
+    /// </summary>
+    public static async Task<IResult> RevokeGoogleCalendarAuthorization(
+        Supabase.Client client,
+        ClaimsPrincipal user,
+        IGoogleCalendarService googleCalendarService,
+        [FromServices] ILogger logger)
+    {
+        try
+        {
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            await googleCalendarService.RevokeAuthorizationAsync(userId);
+
+            return Results.Ok(new
+            {
+                success = true,
+                message = "Google Calendar authorization revoked successfully"
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error revoking Google Calendar authorization");
+            return Results.Problem($"Error revoking authorization: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Creates a new Google Calendar event with meeting details.
+    /// </summary>
+    public static async Task<IResult> CreateGoogleCalendarEvent(
+        Supabase.Client client,
+        ClaimsPrincipal user,
+        IGoogleCalendarService googleCalendarService,
+        [FromServices] ILogger logger,
+        CreateEventRequest request)
+    {
+        try
+        {
+            var userId = GetUserId(user);
+            if (userId == null) return Results.Unauthorized();
+
+            var companyId = await GetUserCompanyId(client, userId.Value);
+            if (companyId == null) return Results.Unauthorized();
+
+            // Verify job belongs to user's company
+            if (!await VerifyJobAccess(client, request.JobId, companyId.Value))
+                return Results.StatusCode(403);
+
+            // Get round configuration
+            var configResponse = await client.From<RoundConfiguration>()
+                .Where(rc => rc.JobId == request.JobId && rc.RoundId == request.RoundId)
+                .Get();
+
+            var config = configResponse.Models.FirstOrDefault();
+            if (config == null) return Results.NotFound("Round configuration not found");
+
+            // Check if user is authorized for Google Calendar
+            var isAuthorized = await googleCalendarService.IsUserAuthorizedAsync(userId.Value.ToString());
+            if (!isAuthorized)
+            {
+                logger.LogWarning("CreateGoogleCalendarEvent - User {UserId} is not authorized for Google Calendar", userId.Value);
+                return Results.BadRequest("User is not authorized for Google Calendar access. Please authorize Google Calendar first.");
+            }
+
+            // Generate event title
+            var jobResponse = await client.From<Job>()
+                .Where(j => j.Id == request.JobId)
+                .Get();
+            var job = jobResponse.Models.FirstOrDefault();
+            if (job == null) return Results.NotFound("Job not found");
+
+            var roundResponse = await client.From<InterviewRound>()
+                .Where(r => r.Id == request.RoundId)
+                .Get();
+            var round = roundResponse.Models.FirstOrDefault();
+            if (round == null) return Results.NotFound("Round not found");
+
+            var eventTitle = $"{job.Title} - {round.Name} Interview";
+
+            // Get scheduling information from request
+            DateTime startTime = DateTime.UtcNow.AddDays(1); // Default fallback
+            DateTime endTime = startTime.AddMinutes(config.Duration);
+            string timezone = "UTC";
+
+            // Parse the date and time from the request
+            if (!string.IsNullOrEmpty(request.Date) && !string.IsNullOrEmpty(request.Time))
+            {
+                try
+                {
+                    // Parse the date (YYYY-MM-DD format)
+                    if (DateTime.TryParse(request.Date, out var parsedDate))
+                    {
+                        // Parse the time (HH:MM format)
+                        if (TimeSpan.TryParse(request.Time, out var parsedTime))
+                        {
+                            // Combine date and time
+                            startTime = parsedDate.Add(parsedTime);
+
+                            // Use the duration from the request, or fall back to config duration
+                            var meetingDuration = request.Duration > 0 ? request.Duration : config.Duration;
+                            endTime = startTime.AddMinutes(meetingDuration);
+
+                            logger.LogInformation("CreateGoogleCalendarEvent - Parsed meeting time: {StartTime} to {EndTime} (duration: {Duration} minutes)",
+                                startTime, endTime, meetingDuration);
+                        }
+                        else
+                        {
+                            logger.LogWarning("CreateGoogleCalendarEvent - Failed to parse time: {Time}", request.Time);
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("CreateGoogleCalendarEvent - Failed to parse date: {Date}", request.Date);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "CreateGoogleCalendarEvent - Error parsing date/time: Date={Date}, Time={Time}", request.Date, request.Time);
+                }
+            }
+            else
+            {
+                logger.LogWarning("CreateGoogleCalendarEvent - Missing date or time in request: Date={Date}, Time={Time}", request.Date, request.Time);
+            }
+
+            // Use the title from the request, or generate a default one
+            var finalEventTitle = !string.IsNullOrEmpty(request.Title) ? request.Title : eventTitle;
+
+            // Prepare attendees list
+            string[]? attendees = null;
+            if (!string.IsNullOrEmpty(request.AttendeeEmail))
+            {
+                attendees = new string[] { request.AttendeeEmail };
+                logger.LogInformation("CreateGoogleCalendarEvent - Adding attendee: {AttendeeEmail}", request.AttendeeEmail);
+            }
+
+            // Create Google Calendar event with Meet link
+            var googleEvent = await googleCalendarService.CreateMeetEventAsync(
+                finalEventTitle,
+                $"Google Meet interview for {job.Title} - {round.Name}",
+                startTime,
+                endTime,
+                timezone,
+                attendees,
+                userId.Value.ToString());
+
+            // Create GoogleCalendarEvent record in database
+            var calendarEventRecord = new GoogleCalendarEvent
+            {
+                RoundConfigurationId = config.Id,
+                ApplicationId = request.ApplicationId,
+                EventId = googleEvent.EventId,
+                Summary = finalEventTitle,
+                Description = $"Google Meet interview for {job.Title} - {round.Name}",
+                StartTime = startTime,
+                EndTime = endTime,
+                Timezone = timezone,
+                MeetLink = googleEvent.MeetLink,
+                ConferenceId = googleEvent.ConferenceId,
+                EntryPoints = googleEvent.EntryPoints,
+                Attendees = attendees,
+                Status = "confirmed",
+                CreatedBy = userId.Value,
+                LastModifiedBy = userId.Value
+            };
+
+            var calendarEventResponse = await client.From<GoogleCalendarEvent>().Insert(calendarEventRecord);
+            var savedCalendarEvent = calendarEventResponse.Models.FirstOrDefault();
+
+            if (savedCalendarEvent == null)
+            {
+                logger.LogError("CreateGoogleCalendarEvent - Failed to save GoogleCalendarEvent record to database");
+                return Results.Problem("Failed to save meeting record to database");
+            }
+
+            // Update round configuration with meeting information
+            config.GoogleCalendarEventId = savedCalendarEvent.Id;
+            config.UpdatedAt = DateTime.UtcNow;
+            config.LastModifiedBy = userId.Value;
+
+            // Update configuration data to include meeting information
+            var configData = config.ConfigurationData ?? new Dictionary<string, object>();
+            configData["meetingScheduled"] = true;
+            configData["meetingTitle"] = finalEventTitle;
+            configData["meetingDate"] = request.Date;
+            configData["meetingTime"] = request.Time;
+            configData["meetingDuration"] = request.Duration > 0 ? request.Duration : config.Duration;
+            configData["meetLink"] = googleEvent.MeetLink;
+            configData["eventId"] = googleEvent.EventId;
+            configData["calendarEventId"] = savedCalendarEvent.Id;
+            configData["applicationId"] = request.ApplicationId;
+            configData["scheduledAt"] = DateTime.UtcNow;
+
+            config.ConfigurationData = configData;
+
+            var updateResponse = await client.From<RoundConfiguration>().Update(config);
+            var updatedConfig = updateResponse.Models.FirstOrDefault()!;
+
+            logger.LogInformation("CreateGoogleCalendarEvent - Successfully created Google Calendar event with Meet link: {MeetLink}", googleEvent.MeetLink);
+
+            return Results.Ok(new
+            {
+                success = true,
+                data = new
+                {
+                    meetLink = googleEvent.MeetLink,
+                    eventId = googleEvent.EventId,
+                    calendarEventId = savedCalendarEvent.Id,
+                    meetingTitle = finalEventTitle,
+                    meetingDate = request.Date,
+                    meetingTime = request.Time,
+                    meetingDuration = request.Duration > 0 ? request.Duration : config.Duration,
+                    startTime = startTime,
+                    endTime = endTime,
+                    timezone = timezone,
+                    attendeeEmail = request.AttendeeEmail,
+                    applicationId = request.ApplicationId,
+                    scheduledAt = DateTime.UtcNow
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error creating Google Calendar event");
+            return Results.Problem($"Error creating Google Calendar event: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Updates an existing Google Calendar event.
+    /// </summary>
+    public static async Task<IResult> UpdateGoogleCalendarEvent(
+        Supabase.Client client,
+        ClaimsPrincipal user,
+        IGoogleCalendarService googleCalendarService,
+        [FromServices] ILogger logger,
+        UpdateEventRequest request)
+    {
+        try
+        {
+            var userId = GetUserId(user);
+            if (userId == null) return Results.Unauthorized();
+
+            var companyId = await GetUserCompanyId(client, userId.Value);
+            if (companyId == null) return Results.Unauthorized();
+
+            // Verify job belongs to user's company
+            if (!await VerifyJobAccess(client, request.JobId, companyId.Value))
+                return Results.StatusCode(403);
+
+            // Get round configuration
+            var configResponse = await client.From<RoundConfiguration>()
+                .Where(rc => rc.JobId == request.JobId && rc.RoundId == request.RoundId)
+                .Get();
+
+            var config = configResponse.Models.FirstOrDefault();
+            if (config == null) return Results.NotFound("Round configuration not found");
+
+            // Check if user is authorized for Google Calendar
+            var isAuthorized = await googleCalendarService.IsUserAuthorizedAsync(userId.Value.ToString());
+            if (!isAuthorized)
+            {
+                logger.LogWarning("UpdateGoogleCalendarEvent - User {UserId} is not authorized for Google Calendar", userId.Value);
+                return Results.BadRequest("User is not authorized for Google Calendar access. Please authorize Google Calendar first.");
+            }
+
+            // Get the existing Google Calendar event ID
+            var existingEventId = config.GoogleCalendarEventId?.ToString();
+            if (string.IsNullOrEmpty(existingEventId))
+            {
+                logger.LogWarning("UpdateGoogleCalendarEvent - No existing Google Calendar event ID found for configuration ID: {ConfigId}", config.Id);
+                return Results.BadRequest("No existing Google Calendar event found for this configuration. Please create a new one first.");
+            }
+
+            // Get scheduling information from request
+            DateTime startTime = DateTime.UtcNow.AddDays(1); // Default fallback
+            DateTime endTime = startTime.AddMinutes(config.Duration);
+            string timezone = "UTC";
+
+            // Parse the date and time from the request
+            if (!string.IsNullOrEmpty(request.Date) && !string.IsNullOrEmpty(request.Time))
+            {
+                try
+                {
+                    // Parse the date (YYYY-MM-DD format)
+                    if (DateTime.TryParse(request.Date, out var parsedDate))
+                    {
+                        // Parse the time (HH:MM format)
+                        if (TimeSpan.TryParse(request.Time, out var parsedTime))
+                        {
+                            // Combine date and time
+                            startTime = parsedDate.Add(parsedTime);
+
+                            // Use the duration from the request, or fall back to config duration
+                            var meetingDuration = request.Duration > 0 ? request.Duration : config.Duration;
+                            endTime = startTime.AddMinutes(meetingDuration);
+
+                            logger.LogInformation("UpdateGoogleCalendarEvent - Parsed meeting time: {StartTime} to {EndTime} (duration: {Duration} minutes)",
+                                startTime, endTime, meetingDuration);
+                        }
+                        else
+                        {
+                            logger.LogWarning("UpdateGoogleCalendarEvent - Failed to parse time: {Time}", request.Time);
+                        }
+                    }
+                    else
+                    {
+                        logger.LogWarning("UpdateGoogleCalendarEvent - Failed to parse date: {Date}", request.Date);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "UpdateGoogleCalendarEvent - Error parsing date/time: Date={Date}, Time={Time}", request.Date, request.Time);
+                }
+            }
+            else
+            {
+                logger.LogWarning("UpdateGoogleCalendarEvent - Missing date or time in request: Date={Date}, Time={Time}", request.Date, request.Time);
+            }
+
+            // Use the title from the request, or generate a default one
+            var eventTitle = !string.IsNullOrEmpty(request.Title) ? request.Title : $"Updated meeting for {request.JobId}";
+
+            // Prepare attendees list
+            string[]? attendees = null;
+            if (!string.IsNullOrEmpty(request.AttendeeEmail))
+            {
+                attendees = new string[] { request.AttendeeEmail };
+                logger.LogInformation("UpdateGoogleCalendarEvent - Adding attendee: {AttendeeEmail}", request.AttendeeEmail);
+            }
+
+            // Update Google Calendar event with Meet link
+            var googleEvent = await googleCalendarService.UpdateMeetEventAsync(
+                existingEventId,
+                "primary", // Use primary calendar
+                eventTitle,
+                request.Description,
+                startTime,
+                endTime,
+                timezone,
+                attendees,
+                userId.Value.ToString());
+
+            // Save the Google Calendar event reference in the round configuration
+            config.GoogleCalendarEventId = googleEvent.Id;
+            config.UpdatedAt = DateTime.UtcNow;
+            config.LastModifiedBy = userId.Value;
+
+            var updateResponse = await client.From<RoundConfiguration>().Update(config);
+            var updatedConfig = updateResponse.Models.FirstOrDefault()!;
+
+            logger.LogInformation("UpdateGoogleCalendarEvent - Successfully updated Google Calendar event with Meet link: {MeetLink}", googleEvent.MeetLink);
+
+            return Results.Ok(new
+            {
+                success = true,
+                data = new
+                {
+                    meetLink = googleEvent.MeetLink,
+                    eventId = googleEvent.EventId,
+                    calendarEventId = googleEvent.Id
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error updating Google Calendar event");
+            return Results.Problem($"Error updating Google Calendar event: {ex.Message}");
+        }
+    }
+
+    private static async Task<IResult> GetCandidateMeetingStatus(
+        Guid jobId,
+        Guid roundId,
+        Guid applicationId,
+        Supabase.Client client,
+        ClaimsPrincipal user,
+        [FromServices] ILogger logger)
+    {
+        try
+        {
+            var userId = GetUserId(user);
+            if (userId == null) return Results.Unauthorized();
+
+            var companyId = await GetUserCompanyId(client, userId.Value);
+            if (companyId == null) return Results.Unauthorized();
+
+            // Verify job belongs to user's company
+            if (!await VerifyJobAccess(client, jobId, companyId.Value))
+                return Results.StatusCode(403);
+
+            // Get the Google Calendar event for the candidate
+            try
+            {
+                var calendarEventResponse = await client.From<GoogleCalendarEvent>()
+                    .Where(e => e.ApplicationId == applicationId)
+                    .Get();
+
+                var calendarEvent = calendarEventResponse.Models.FirstOrDefault();
+
+                if (calendarEvent == null)
+                {
+                    return Results.Ok(new { success = true, data = new { hasMeeting = false } });
+                }
+
+                // Check if the event is in the past
+                if (calendarEvent.StartTime < DateTime.UtcNow)
+                {
+                    return Results.Ok(new { success = true, data = new { hasMeeting = false } });
+                }
+
+                return Results.Ok(new
+                {
+                    success = true,
+                    data = new
+                    {
+                        hasMeeting = true,
+                        meetLink = calendarEvent.MeetLink,
+                        startTime = calendarEvent.StartTime,
+                        endTime = calendarEvent.EndTime,
+                        summary = calendarEvent.Summary
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error getting candidate meeting status");
+                return Results.Problem($"Error getting candidate meeting status: {ex.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error getting candidate meeting status");
+            return Results.Problem($"Error getting candidate meeting status: {ex.Message}");
+        }
+    }
+
+    private static async Task<IResult> GetCandidateMeetingDetails(
+        Guid jobId,
+        Guid roundId,
+        Guid applicationId,
+        Supabase.Client client,
+        ClaimsPrincipal user,
+        [FromServices] ILogger logger)
+    {
+        try
+        {
+            var userId = GetUserId(user);
+            if (userId == null) return Results.Unauthorized();
+
+            var companyId = await GetUserCompanyId(client, userId.Value);
+            if (companyId == null) return Results.Unauthorized();
+
+            // Verify job belongs to user's company
+            if (!await VerifyJobAccess(client, jobId, companyId.Value))
+                return Results.StatusCode(403);
+
+            // Get the Google Calendar event for the candidate
+            try
+            {
+                var calendarEventResponse = await client.From<GoogleCalendarEvent>()
+                    .Where(e => e.ApplicationId == applicationId)
+                    .Get();
+
+                var calendarEvent = calendarEventResponse.Models.FirstOrDefault();
+
+                if (calendarEvent == null)
+                {
+                    return Results.NotFound("Meeting details not found for this application.");
+                }
+
+                // Create a DTO to avoid JSON serialization issues with Supabase attributes
+                var meetingDetailsDto = new
+                {
+                    id = calendarEvent.Id,
+                    roundConfigurationId = calendarEvent.RoundConfigurationId,
+                    applicationId = calendarEvent.ApplicationId,
+                    eventId = calendarEvent.EventId ?? string.Empty,
+                    calendarId = calendarEvent.CalendarId ?? "primary",
+                    summary = calendarEvent.Summary ?? string.Empty,
+                    description = calendarEvent.Description,
+                    startTime = calendarEvent.StartTime,
+                    endTime = calendarEvent.EndTime,
+                    timezone = calendarEvent.Timezone ?? "UTC",
+                    meetLink = calendarEvent.MeetLink,
+                    conferenceId = calendarEvent.ConferenceId,
+                    entryPoints = calendarEvent.EntryPoints != null ?
+                        calendarEvent.EntryPoints.ToDictionary(kvp => kvp.Key, kvp => kvp.Value) :
+                        null,
+                    attendees = calendarEvent.Attendees,
+                    status = calendarEvent.Status ?? "pending",
+                    createdAt = calendarEvent.CreatedAt,
+                    updatedAt = calendarEvent.UpdatedAt,
+                    createdBy = calendarEvent.CreatedBy,
+                    lastModifiedBy = calendarEvent.LastModifiedBy
+                };
+
+                return Results.Ok(new { success = true, data = meetingDetailsDto });
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error getting candidate meeting details");
+                return Results.Problem($"Error getting candidate meeting details: {ex.Message}");
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error getting candidate meeting details");
+            return Results.Problem($"Error getting candidate meeting details: {ex.Message}");
+        }
+    }
 }
 
 // Extension method for string title case
@@ -882,4 +1854,38 @@ public static class StringExtensions
         if (string.IsNullOrEmpty(input)) return input;
         return char.ToUpper(input[0]) + input.Substring(1).ToLower();
     }
+}
+
+public class GoogleCalendarCallbackRequest
+{
+    public string Code { get; set; } = string.Empty;
+    public string State { get; set; } = string.Empty;
+    public string RedirectUri { get; set; } = string.Empty;
+}
+
+public class CreateEventRequest
+{
+    public Guid JobId { get; set; }
+    public Guid RoundId { get; set; }
+    public Guid? ApplicationId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Date { get; set; } = string.Empty;
+    public string Time { get; set; } = string.Empty;
+    public int Duration { get; set; }
+    public string? MeetLink { get; set; }
+    public string? AttendeeEmail { get; set; }
+}
+
+public class UpdateEventRequest
+{
+    public Guid JobId { get; set; }
+    public Guid RoundId { get; set; }
+    public string EventId { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Date { get; set; } = string.Empty;
+    public string Time { get; set; } = string.Empty;
+    public int Duration { get; set; }
+    public string? MeetLink { get; set; }
+    public string? AttendeeEmail { get; set; }
 }

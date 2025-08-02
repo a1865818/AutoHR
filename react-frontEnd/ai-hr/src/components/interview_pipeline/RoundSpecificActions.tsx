@@ -241,6 +241,15 @@ function PhoneScreeningActions({ round, candidate, onSchedule }: any) {
 
 // Video Interview Component
 function VideoInterviewActions({ round, candidate, onSchedule }: any) {
+  // Check if meeting is scheduled
+  const isMeetingScheduled =
+    round.meetingScheduled ||
+    (round.configurationData && round.configurationData.meetingScheduled);
+
+  const meetingData =
+    round.meetingData ||
+    (round.configurationData && round.configurationData.meetingData);
+
   return (
     <div className="space-y-3">
       <div className="flex items-center space-x-2 text-sm">
@@ -249,18 +258,35 @@ function VideoInterviewActions({ round, candidate, onSchedule }: any) {
       </div>
 
       <div className="space-y-2">
-        <button
-          onClick={() => onSchedule?.(candidate?.id, round.id)}
-          className="w-full text-xs bg-green-50 text-green-700 hover:bg-green-100 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1"
-        >
-          <Video className="h-3 w-3" />
-          <span>Schedule Meeting</span>
-        </button>
+        {!isMeetingScheduled ? (
+          <button
+            onClick={() => onSchedule?.(candidate?.id, round.id)}
+            className="w-full text-xs bg-green-50 text-green-700 hover:bg-green-100 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1"
+          >
+            <Video className="h-3 w-3" />
+            <span>Schedule Interview</span>
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <button
+              className="w-full text-xs bg-green-100 text-green-800 px-3 py-2 rounded-md flex items-center justify-center space-x-1"
+              disabled
+            >
+              <CheckCircle className="h-3 w-3" />
+              <span>Scheduled</span>
+            </button>
 
-        <button className="w-full text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1">
-          <ExternalLink className="h-3 w-3" />
-          <span>Join Meeting</span>
-        </button>
+            {meetingData?.meetLink && (
+              <button
+                onClick={() => window.open(meetingData.meetLink, "_blank")}
+                className="w-full text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1"
+              >
+                <ExternalLink className="h-3 w-3" />
+                <span>Join Meeting</span>
+              </button>
+            )}
+          </div>
+        )}
 
         <button className="w-full text-xs bg-purple-50 text-purple-700 hover:bg-purple-100 px-3 py-2 rounded-md transition-colors flex items-center justify-center space-x-1">
           <PlayCircle className="h-3 w-3" />
@@ -270,13 +296,29 @@ function VideoInterviewActions({ round, candidate, onSchedule }: any) {
 
       <div className="text-xs text-gray-500">
         Duration: {round.duration} min • Video platform ready
+        {isMeetingScheduled && meetingData && (
+          <div className="mt-1">
+            <div>Meeting: {meetingData.summary || "Scheduled"}</div>
+            <div>
+              Date: {new Date(meetingData.startTime).toLocaleDateString()}
+            </div>
+            <div>
+              Time: {new Date(meetingData.startTime).toLocaleTimeString()}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
 // Technical Assessment Component
-function TechnicalAssessmentActions({ round, candidate, jobId, onComplete }: any) {
+function TechnicalAssessmentActions({
+  round,
+  candidate,
+  jobId,
+  onComplete,
+}: any) {
   const [testScore, setTestScore] = useState(0);
   const router = useRouter();
 

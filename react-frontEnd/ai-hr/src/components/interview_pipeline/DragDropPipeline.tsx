@@ -251,7 +251,8 @@ export function DragDropCandidateCard({
         </div>
 
         {/* Assessment Submission Status - Only show for technical rounds */}
-        {(roundType === "technical_assessment" || roundType === "coding_challenge") && (
+        {(roundType === "technical_assessment" ||
+          roundType === "coding_challenge") && (
           <div className="flex items-center justify-between text-xs">
             <span className="text-gray-500">Submission</span>
             <div
@@ -265,7 +266,11 @@ export function DragDropCandidateCard({
             >
               <FileText className="h-3 w-3" />
               <span className="font-medium">
-                {isAssessmentGraded ? "Graded" : hasSubmittedAssessment ? "Submitted" : "Pending"}
+                {isAssessmentGraded
+                  ? "Graded"
+                  : hasSubmittedAssessment
+                  ? "Submitted"
+                  : "Pending"}
               </span>
             </div>
           </div>
@@ -314,12 +319,75 @@ export function DragDropCandidateCard({
         >
           View Profile
         </button>
-        <button
-          onClick={() => onSchedule?.(candidate.id)}
-          className="flex-1 text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-2 py-1.5 rounded transition-colors"
-        >
-          Schedule
-        </button>
+        {candidate.meetingScheduled && candidate.meetLink ? (
+          <button
+            onClick={() => {
+              // Open Google Meet link in new tab
+              window.open(candidate.meetLink, "_blank");
+            }}
+            className="flex-1 text-xs bg-blue-500 text-white hover:bg-blue-600 px-2 py-1.5 rounded transition-colors"
+            title={`Join interview: ${
+              candidate.meetingData?.summary || "Video Interview"
+            }`}
+          >
+            Interview
+          </button>
+        ) : (
+          <button
+            onClick={() => {
+              // Try multiple possible field names to handle case sensitivity and different naming conventions
+              const candidateId =
+                candidate.id ||
+                candidate.applicationId ||
+                (candidate as any).Id ||
+                (candidate as any).ApplicationId ||
+                (candidate as any).application_id ||
+                (candidate as any).candidate_id;
+
+              console.log("Schedule button clicked for candidate:", {
+                candidateId: candidate.id,
+                applicationId: candidate.applicationId,
+                fallbackId: candidateId,
+                candidateName: candidate.name,
+                candidate: candidate,
+                candidateKeys: Object.keys(candidate),
+                candidateIdType: typeof candidate.id,
+                applicationIdType: typeof candidate.applicationId,
+                hasId: "id" in candidate,
+                hasApplicationId: "applicationId" in candidate,
+                candidateIdValue: candidate.id,
+                applicationIdValue: candidate.applicationId,
+                // Check for alternative field names
+                hasIdAlt: "Id" in candidate,
+                hasApplicationIdAlt: "ApplicationId" in candidate,
+                idAltValue: (candidate as any).Id,
+                applicationIdAltValue: (candidate as any).ApplicationId,
+              });
+              if (candidateId) {
+                onSchedule?.(candidateId);
+              } else {
+                console.error(
+                  "Cannot schedule interview: no valid ID found in candidate object",
+                  {
+                    candidate,
+                    availableKeys: Object.keys(candidate),
+                    idValues: {
+                      id: candidate.id,
+                      applicationId: candidate.applicationId,
+                      Id: (candidate as any).Id,
+                      ApplicationId: (candidate as any).ApplicationId,
+                      application_id: (candidate as any).application_id,
+                      candidate_id: (candidate as any).candidate_id,
+                    },
+                  }
+                );
+              }
+            }}
+            className="flex-1 text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-2 py-1.5 rounded transition-colors"
+          >
+            Schedule
+          </button>
+        )}
         {/* {hasSubmittedAssessment && roundId && (
           <button
             onClick={() => router.push(`/interview-pipeline/${candidate.jobId}/submissions/${candidate.candidateUserId}?roundId=${roundId}`)}
@@ -331,9 +399,13 @@ export function DragDropCandidateCard({
       </div>
 
       <div className="flex items-center space-x-1 mt-2">
-  {hasSubmittedAssessment && roundId && (
+        {hasSubmittedAssessment && roundId && (
           <button
-            onClick={() => router.push(`/interview-pipeline/${candidate.jobId}/submissions/${candidate.candidateUserId}?roundId=${roundId}`)}
+            onClick={() =>
+              router.push(
+                `/interview-pipeline/${candidate.jobId}/submissions/${candidate.candidateUserId}?roundId=${roundId}`
+              )
+            }
             className="flex-1 text-xs bg-gray-50 text-indigo-700 hover:bg-indigo-100 px-2 py-1.5 rounded transition-colors"
           >
             View Submission
@@ -369,13 +441,80 @@ export function DragDropCandidateCard({
 
             {/* Action Buttons */}
             <div className="flex space-x-1">
-              <button
-                onClick={() => onSchedule?.(candidate.id)}
-                className="flex-1 flex items-center justify-center space-x-1 text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
-              >
-                <Calendar className="h-3 w-3" />
-                <span>Schedule</span>
-              </button>
+              {candidate.meetingScheduled && candidate.meetLink ? (
+                <button
+                  onClick={() => {
+                    // Open Google Meet link in new tab
+                    window.open(candidate.meetLink, "_blank");
+                  }}
+                  className="flex-1 flex items-center justify-center space-x-1 text-xs bg-blue-500 text-white hover:bg-blue-600 px-2 py-1 rounded transition-colors"
+                  title={`Join interview: ${
+                    candidate.meetingData?.summary || "Video Interview"
+                  }`}
+                >
+                  <Calendar className="h-3 w-3" />
+                  <span>Interview</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    // Try multiple possible field names to handle case sensitivity and different naming conventions
+                    const candidateId =
+                      candidate.id ||
+                      candidate.applicationId ||
+                      (candidate as any).Id ||
+                      (candidate as any).ApplicationId ||
+                      (candidate as any).application_id ||
+                      (candidate as any).candidate_id;
+
+                    console.log(
+                      "Quick actions Schedule button clicked for candidate:",
+                      {
+                        candidateId: candidate.id,
+                        applicationId: candidate.applicationId,
+                        fallbackId: candidateId,
+                        candidateName: candidate.name,
+                        candidate: candidate,
+                        candidateKeys: Object.keys(candidate),
+                        candidateIdType: typeof candidate.id,
+                        applicationIdType: typeof candidate.applicationId,
+                        hasId: "id" in candidate,
+                        hasApplicationId: "applicationId" in candidate,
+                        candidateIdValue: candidate.id,
+                        applicationIdValue: candidate.applicationId,
+                        // Check for alternative field names
+                        hasIdAlt: "Id" in candidate,
+                        hasApplicationIdAlt: "ApplicationId" in candidate,
+                        idAltValue: (candidate as any).Id,
+                        applicationIdAltValue: (candidate as any).ApplicationId,
+                      }
+                    );
+                    if (candidateId) {
+                      onSchedule?.(candidateId);
+                    } else {
+                      console.error(
+                        "Cannot schedule interview: no valid ID found in candidate object",
+                        {
+                          candidate,
+                          availableKeys: Object.keys(candidate),
+                          idValues: {
+                            id: candidate.id,
+                            applicationId: candidate.applicationId,
+                            Id: (candidate as any).Id,
+                            ApplicationId: (candidate as any).ApplicationId,
+                            application_id: (candidate as any).application_id,
+                            candidate_id: (candidate as any).candidate_id,
+                          },
+                        }
+                      );
+                    }
+                  }}
+                  className="flex-1 flex items-center justify-center space-x-1 text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
+                >
+                  <Calendar className="h-3 w-3" />
+                  <span>Schedule</span>
+                </button>
+              )}
 
               <button
                 onClick={() => setShowNoteModal(true)}
@@ -386,37 +525,43 @@ export function DragDropCandidateCard({
               </button>
 
               {/* Assessment Marking Button - Only show for technical rounds */}
-              {(roundType === "technical_assessment" || roundType === "coding_challenge") && onMarkAssessment && (
-                <button
-                  onClick={() => hasSubmittedAssessment && onMarkAssessment?.(candidate.candidateUserId, roundId || "")}
-                  disabled={!hasSubmittedAssessment}
-                  className={`flex-1 flex items-center justify-center space-x-1 text-xs px-2 py-1 rounded transition-colors ${
-                    hasSubmittedAssessment
-                      ? isAssessmentGraded
-                        ? "bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer"
-                        : "bg-purple-50 text-purple-700 hover:bg-purple-100 cursor-pointer"
-                      : "bg-gray-50 text-gray-400 cursor-not-allowed"
-                  }`}
-                  title={
-                    hasSubmittedAssessment
-                      ? isAssessmentGraded
-                        ? "Review assessment grade"
-                        : "Mark submitted assessment"
-                      : "Waiting for candidate to submit assessment"
-                  }
-                >
-                  <FileText className="h-3 w-3" />
-                  <span>
-                    {hasSubmittedAssessment
-                      ? isAssessmentGraded
-                        ? "Review Grade"
-                        : "Mark Assessment"
-                      : "Awaiting Submission"}
-                  </span>
-                </button>
-              )}
-
-
+              {(roundType === "technical_assessment" ||
+                roundType === "coding_challenge") &&
+                onMarkAssessment && (
+                  <button
+                    onClick={() =>
+                      hasSubmittedAssessment &&
+                      onMarkAssessment?.(
+                        candidate.candidateUserId,
+                        roundId || ""
+                      )
+                    }
+                    disabled={!hasSubmittedAssessment}
+                    className={`flex-1 flex items-center justify-center space-x-1 text-xs px-2 py-1 rounded transition-colors ${
+                      hasSubmittedAssessment
+                        ? isAssessmentGraded
+                          ? "bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer"
+                          : "bg-purple-50 text-purple-700 hover:bg-purple-100 cursor-pointer"
+                        : "bg-gray-50 text-gray-400 cursor-not-allowed"
+                    }`}
+                    title={
+                      hasSubmittedAssessment
+                        ? isAssessmentGraded
+                          ? "Review assessment grade"
+                          : "Mark submitted assessment"
+                        : "Waiting for candidate to submit assessment"
+                    }
+                  >
+                    <FileText className="h-3 w-3" />
+                    <span>
+                      {hasSubmittedAssessment
+                        ? isAssessmentGraded
+                          ? "Review Grade"
+                          : "Mark Assessment"
+                        : "Awaiting Submission"}
+                    </span>
+                  </button>
+                )}
             </div>
 
             {/* Offer, Hire, Reject Buttons */}

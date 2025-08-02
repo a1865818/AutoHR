@@ -7,6 +7,20 @@ import {
 } from "@/components/interview_pipeline/rounds/shared/TimeSlotPicker";
 import { cleanJsonObject } from "@/utils/jsonUtils";
 
+// Meeting data interface
+export interface MeetingData {
+  meetLink?: string;
+  eventId?: string;
+  calendarEventId?: string;
+  applicationId?: string;
+  summary?: string;
+  startTime: string;
+  endTime: string;
+  timezone: string;
+  attendees?: string[];
+  status: string;
+}
+
 // Base configuration interface
 export interface BaseRoundConfiguration {
   id: string;
@@ -21,6 +35,10 @@ export interface BaseRoundConfiguration {
   updatedAt: string;
   createdBy: string;
   lastModifiedBy: string;
+  
+  // Meeting information
+  meetingScheduled?: boolean;
+  meetingData?: MeetingData;
 }
 
 // Phone Screening Configuration
@@ -651,6 +669,127 @@ export class RoundConfigurationAPI {
     }
   }
 
+  // Generate Google Meet link
+  async generateMeetLink(
+    jobId: string,
+    roundId: string
+  ): Promise<ConfigurationResponse<{ meetLink: string; eventId: string; calendarEventId: string }>> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration/generate-meet-link`,
+        {
+          method: "POST",
+          headers: this.getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error generating Google Meet link:", error);
+      throw error;
+    }
+  }
+
+  // Schedule a meeting
+  async scheduleMeeting(
+    jobId: string,
+    roundId: string,
+    title: string,
+    date: string,
+    time: string,
+    duration: number,
+    attendeeEmail?: string,
+    applicationId?: string
+  ): Promise<ConfigurationResponse<{
+    meetLink: string;
+    eventId: string;
+    calendarEventId: string;
+    meetingTitle: string;
+    meetingDate: string;
+    meetingTime: string;
+    meetingDuration: number;
+    startTime: string;
+    endTime: string;
+    timezone: string;
+    applicationId?: string;
+    scheduledAt: string;
+  }>> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/google-calendar/create-event`,
+        {
+          method: "POST",
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({
+            jobId,
+            roundId,
+            applicationId,
+            title,
+            date,
+            time,
+            duration,
+            attendeeEmail,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error scheduling meeting:", error);
+      throw error;
+    }
+  }
+
+  // Update a meeting
+  async updateMeeting(
+    jobId: string,
+    roundId: string,
+    eventId: string,
+    title: string,
+    date: string,
+    time: string,
+    duration: number,
+    attendeeEmail?: string
+  ): Promise<ConfigurationResponse<{ meetLink: string; eventId: string; calendarEventId: string }>> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/google-calendar/update-event`,
+        {
+          method: "PUT",
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({
+            jobId,
+            roundId,
+            eventId,
+            title,
+            description: `Updated meeting: ${title}`,
+            date,
+            time,
+            duration,
+            attendeeEmail,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error("Error updating meeting:", error);
+      throw error;
+    }
+  }
+
   // Import configuration
   async importConfiguration(
     jobId: string,
@@ -687,6 +826,72 @@ export class RoundConfigurationAPI {
       return await response.json();
     } catch (error) {
       console.error("Error importing configuration:", error);
+      throw error;
+    }
+  }
+
+  async checkMeetingStatus(
+    jobId: string,
+    roundId: string,
+    applicationId: string
+  ): Promise<{
+    success: boolean;
+    data: {
+      hasMeeting: boolean;
+      meetLink?: string;
+      startTime?: string;
+      endTime?: string;
+      summary?: string;
+    };
+  }> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/candidates/${applicationId}/meeting-status`,
+        {
+          method: "GET",
+          headers: this.getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to check meeting status: ${error}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error checking meeting status:", error);
+      throw error;
+    }
+  }
+
+  async getMeetingDetails(
+    jobId: string,
+    roundId: string,
+    applicationId: string
+  ): Promise<{
+    success: boolean;
+    data: MeetingData;
+  }> {
+    try {
+      const response = await fetch(
+        `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/candidates/${applicationId}/meeting-details`,
+        {
+          method: "GET",
+          headers: this.getAuthHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to get meeting details: ${error}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error getting meeting details:", error);
       throw error;
     }
   }
