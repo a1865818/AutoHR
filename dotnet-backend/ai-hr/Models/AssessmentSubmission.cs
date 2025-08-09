@@ -24,6 +24,9 @@ namespace ai_hr.Models
         [Column("pdf_url")]
         public string PdfUrl { get; set; } = string.Empty;
 
+        [Column("github_url")]
+        public string? GithubUrl { get; set; }
+
         [Column("status")]
         public string Status { get; set; } = "submitted"; // "submitted", "graded", "pending"
 
@@ -45,6 +48,8 @@ namespace ai_hr.Models
             UpdatedAt = DateTime.UtcNow;
             Status = "submitted";
             SubmissionData = new Dictionary<string, object>();
+            PdfUrl = string.Empty;
+            GithubUrl = null;
         }
     }
-} 
+}

@@ -149,12 +149,21 @@ public static class RoundConfigurationEndpoints
             var userId = GetUserId(user);
             if (userId == null) return Results.Unauthorized();
 
+            // Check if user is a hiring user (has company access)
             var companyId = await GetUserCompanyId(client, userId.Value);
-            if (companyId == null) return Results.Unauthorized();
 
-            // Verify job belongs to user's company
-            if (!await VerifyJobAccess(client, jobId, companyId.Value))
-                return Results.StatusCode(403);
+            if (companyId != null)
+            {
+                // Hiring user - verify job belongs to user's company
+                if (!await VerifyJobAccess(client, jobId, companyId.Value))
+                    return Results.StatusCode(403);
+            }
+            else
+            {
+                // Applicant user - verify they have applied to this job
+                if (!await VerifyApplicantJobAccess(client, jobId, userId.Value))
+                    return Results.StatusCode(403);
+            }
 
             // Get round configuration
             var configResponse = await client.From<RoundConfiguration>()
@@ -635,6 +644,16 @@ public static class RoundConfigurationEndpoints
         var jobResponse = await client.From<Job>().Where(j => j.Id == jobId).Get();
         var job = jobResponse.Models.FirstOrDefault();
         return job?.CompanyId == companyId;
+    }
+
+    private static async Task<bool> VerifyApplicantJobAccess(Supabase.Client client, Guid jobId, Guid userId)
+    {
+        // Check if the applicant has applied to this job
+        var applicationResponse = await client.From<ApplicationDetail>()
+            .Where(ad => ad.JobId == jobId && ad.CandidateUserId == userId)
+            .Get();
+
+        return applicationResponse.Models.Any();
     }
 
     private static async Task<RoundConfiguration> CreateDefaultRoundConfiguration(

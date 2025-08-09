@@ -8,7 +8,8 @@ export interface AssessmentSubmission {
   roundId: string;
   jobId: string;
   submittedAt: string;
-  pdfUrl: string;
+  pdfUrl?: string | null;
+  githubUrl?: string | null;
   status: "submitted" | "graded" | "pending";
   submissionData?: Record<string, unknown>;
 }
@@ -480,8 +481,9 @@ class AssessmentService {
     candidateId: string,
     roundId: string,
     jobId: string,
-    pdfUrl: string,
-    submissionData: Record<string, unknown>
+    pdfUrl: string | null,
+    submissionData: Record<string, unknown>,
+    githubUrl?: string | null
   ): Promise<AssessmentSubmission> {
     if (!this.isAuthenticated()) {
       throw new Error(
@@ -498,6 +500,9 @@ class AssessmentService {
         JobId: jobId,
         jobId: jobId,
         PdfUrl: pdfUrl,
+        pdfUrl: pdfUrl,
+        GithubUrl: githubUrl ?? null,
+        githubUrl: githubUrl ?? null,
         SubmissionData: submissionData,
         submissionData: submissionData,
       };
@@ -517,7 +522,7 @@ class AssessmentService {
   async getSubmission(
     candidateId: string,
     roundId: string
-  ): Promise<AssessmentSubmission & { grade?: AssessmentGrade }> {
+  ): Promise<(AssessmentSubmission & { grade?: AssessmentGrade }) | null> {
     if (!this.isAuthenticated()) {
       throw new Error("Authentication required to view submission");
     }
@@ -536,7 +541,7 @@ class AssessmentService {
       let grade = null;
       try {
         grade = await this.fetchApi(
-          `/assessments/submissions/${submission.id}/grade`
+          `/assessments/grades/${submission.id}`
         );
       } catch (gradeError) {
         console.log("No grade found for this submission:", gradeError);
@@ -548,6 +553,13 @@ class AssessmentService {
       };
     } catch (error) {
       console.error("❌ Failed to fetch submission:", error);
+      
+      // Check if it's a 404 error (no submission found)
+      if (error instanceof Error && error.message.includes("404")) {
+        console.log("📭 No submission found for this candidate and round");
+        return null; // Return null to indicate no submission
+      }
+      
       throw error;
     }
   }

@@ -595,6 +595,71 @@ export default function JobPipelinePage() {
     return Math.round((currentStageIndex / (totalStages - 1)) * 100);
   };
 
+  // Re-check assessment submission and grading flags for a specific candidate and round
+  const refreshCandidateAssessmentFlags = async (
+    candidateUserId: string | undefined,
+    roundId: string | undefined
+  ) => {
+    try {
+      if (!candidateUserId || !roundId) return;
+      // Determine if the target round is of assessment type
+      const round = job?.interviewTemplate?.rounds?.find(
+        (r) => r.id === roundId
+      );
+      const isAssessmentRound =
+        round &&
+        (round.type === "technical_assessment" ||
+          round.type === "coding_challenge");
+
+      if (!isAssessmentRound) {
+        // Clear flags for non-assessment rounds
+        setCandidates((prev) =>
+          prev.map((c) =>
+            c.candidateUserId === candidateUserId
+              ? {
+                  ...c,
+                  hasSubmittedAssessment: false,
+                  isAssessmentGraded: false,
+                }
+              : c
+          )
+        );
+        return;
+      }
+
+      const [submitted, graded] = await Promise.all([
+        assessmentService.hasSubmittedAssessment(candidateUserId, roundId),
+        assessmentService.isSubmissionGraded(candidateUserId, roundId),
+      ]);
+
+      setCandidates((prev) =>
+        prev.map((c) =>
+          c.candidateUserId === candidateUserId
+            ? {
+                ...c,
+                hasSubmittedAssessment: submitted,
+                isAssessmentGraded: graded,
+              }
+            : c
+        )
+      );
+    } catch (e) {
+      console.warn("Failed to refresh assessment flags", {
+        candidateUserId,
+        roundId,
+        error: e,
+      });
+      // On error, pessimistically clear flags for the new round to avoid stale UI
+      setCandidates((prev) =>
+        prev.map((c) =>
+          c.candidateUserId === candidateUserId
+            ? { ...c, hasSubmittedAssessment: false, isAssessmentGraded: false }
+            : c
+        )
+      );
+    }
+  };
+
   const organizeIntoColumns = () => {
     const newColumns: PipelineColumn[] = [];
 
@@ -721,7 +786,7 @@ export default function JobPipelinePage() {
       case "coding_challenge":
         return "border-orange-400 bg-orange-50";
       case "final_interview":
-        return "border-yellow-400 bg-yellow-50";
+        return "border-gray-400 bg-white";
       case "culture_fit":
         return "border-red-400 bg-red-50";
       default:
@@ -940,6 +1005,9 @@ export default function JobPipelinePage() {
                 currentRoundId: finalCurrentRoundId,
                 status: finalStatus,
                 stage: finalStage,
+                // Reset assessment flags when moving; they'll be re-evaluated below
+                hasSubmittedAssessment: false,
+                isAssessmentGraded: false,
               }
             : c
         )
@@ -947,6 +1015,12 @@ export default function JobPipelinePage() {
 
       console.log(
         `✅ Successfully completed candidate move for ${candidate.name}`
+      );
+
+      // Re-evaluate assessment flags for the new round asynchronously
+      await refreshCandidateAssessmentFlags(
+        candidate.candidateUserId,
+        finalCurrentRoundId
       );
 
       // Handle pending notifications if requested
@@ -1413,6 +1487,9 @@ export default function JobPipelinePage() {
                 currentRoundId: finalCurrentRoundId,
                 status: finalStatus,
                 stage: finalStage,
+                // Reset assessment flags when moving; they'll be re-evaluated below
+                hasSubmittedAssessment: false,
+                isAssessmentGraded: false,
               }
             : c
         )
@@ -1423,6 +1500,12 @@ export default function JobPipelinePage() {
         candidate.applicationId,
         finalStatus,
         finalStage,
+        finalCurrentRoundId
+      );
+
+      // Re-evaluate assessment flags for the new round asynchronously
+      await refreshCandidateAssessmentFlags(
+        candidate.candidateUserId,
         finalCurrentRoundId
       );
 
@@ -1639,15 +1722,19 @@ export default function JobPipelinePage() {
       console.error("❌ Cannot navigate to assessment: invalid jobId", jobId);
       return;
     }
+
+    // Determine round type to route appropriately
+    const round = job?.interviewTemplate?.rounds?.find((r) => r.id === roundId);
+    const targetUrl = `/interview-pipeline/${jobId}/rounds/${roundId}/technical-assessment/assessment/${candidateUserId}`;
+
     console.log("🔍 Navigating to assessment marking with:", {
       jobId,
       roundId,
       candidateUserId,
-      url: `/interview-pipeline/${jobId}/rounds/${roundId}/assessment/${candidateUserId}`,
+      isCodingChallenge: round?.type === "coding_challenge",
+      url: targetUrl,
     });
-    router.push(
-      `/interview-pipeline/${jobId}/rounds/${roundId}/assessment/${candidateUserId}`
-    );
+    router.push(targetUrl);
   };
 
   const handleHireCandidate = async (candidateId: string) => {
@@ -2133,7 +2220,7 @@ export default function JobPipelinePage() {
               {/* Column Header */}
               <div className="p-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center space-x-2 min-w-0">
                     {column.round ? (
                       <div className="w-6 h-6 flex items-center justify-center">
                         {React.createElement(
@@ -2151,25 +2238,17 @@ export default function JobPipelinePage() {
                     {column.round ? (
                       <Link
                         href={`/interview-pipeline/${jobId}/rounds/${column.round.id}`}
-                        className="font-semibold text-gray-900 hover:text-indigo-600 transition-colors cursor-pointer"
+                        className="font-semibold text-gray-900 hover:text-indigo-600 transition-colors cursor-pointer block truncate"
                       >
                         {column.title}
                       </Link>
                     ) : (
-                      <h3 className="font-semibold text-gray-900">
+                      <h3 className="font-semibold text-gray-900 truncate">
                         {column.title}
                       </h3>
                     )}
                   </div>
                   <div className="flex items-center space-x-2">
-                    {column.round && (
-                      <Link
-                        href={`/interview-pipeline/${jobId}/rounds/${column.round.id}`}
-                        className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-                      >
-                        Configure
-                      </Link>
-                    )}
                     <span className="bg-gray-100 text-gray-600 text-xs font-medium px-2 py-1 rounded-full">
                       {column.candidates.length}
                     </span>
@@ -2277,6 +2356,9 @@ export default function JobPipelinePage() {
                             )
                           }
                           roundType={column.round?.type}
+                          roundConfigurationData={
+                            (column.round as any)?.configurationData
+                          }
                           hasSubmittedAssessment={
                             candidate.hasSubmittedAssessment
                           }

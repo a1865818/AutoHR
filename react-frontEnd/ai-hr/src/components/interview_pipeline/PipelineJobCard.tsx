@@ -100,7 +100,12 @@ export function PipelineJobCard({
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {job.title}
+              <Link
+                href={`/interview-pipeline/${job.id}`}
+                className="hover:text-indigo-600 hover:underline"
+              >
+                {job.title}
+              </Link>
             </h3>
             <div className="flex items-center space-x-4 text-sm text-gray-600">
               {job.department && (

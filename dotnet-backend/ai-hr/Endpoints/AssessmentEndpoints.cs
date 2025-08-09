@@ -207,9 +207,9 @@ namespace ai_hr.Endpoints
                         .Get();
 
                     var candidateUser = candidateUserResponse.Models
-                        .FirstOrDefault(u => 
+                        .FirstOrDefault(u =>
                             string.Equals(
-                                u.Id.Replace("-", "").ToLowerInvariant(), 
+                                u.Id.Replace("-", "").ToLowerInvariant(),
                                 candidateId.ToString().Replace("-", "").ToLowerInvariant()
                             )
                         );
@@ -276,7 +276,7 @@ namespace ai_hr.Endpoints
                     .Get();
 
                 var submissions = new List<AssessmentSubmissionResponse>();
-                
+
                 foreach (var s in response.Models)
                 {
                     // Convert bucket path to signed URL for browser access
@@ -298,7 +298,7 @@ namespace ai_hr.Endpoints
                             Console.WriteLine($"⚠️ Failed to generate signed URL for PDF: {urlEx.Message}");
                         }
                     }
-                    
+
                     submissions.Add(new AssessmentSubmissionResponse
                     {
                         Id = s.Id,
@@ -336,7 +336,7 @@ namespace ai_hr.Endpoints
                     .Get();
 
                 var submissions = new List<AssessmentSubmissionResponse>();
-                
+
                 foreach (var s in response.Models)
                 {
                     // Convert bucket path to signed URL for browser access
@@ -358,7 +358,7 @@ namespace ai_hr.Endpoints
                             Console.WriteLine($"⚠️ Failed to generate signed URL for PDF: {urlEx.Message}");
                         }
                     }
-                    
+
                     submissions.Add(new AssessmentSubmissionResponse
                     {
                         Id = s.Id,
@@ -517,7 +517,7 @@ namespace ai_hr.Endpoints
             try
             {
                 Console.WriteLine($"🔍 Looking for assessment grade for submission: {submissionId}");
-                
+
                 var response = await client
                     .From<AssessmentGrade>()
                     .Where(x => x.SubmissionId == submissionId)
@@ -825,7 +825,7 @@ namespace ai_hr.Endpoints
             try
             {
                 Console.WriteLine($"🔍 Processing question scores of type: {questionScores.GetType().Name}");
-                
+
                 // First, convert the raw data using the same pattern as RoundConfiguration
                 var processedData = ConvertFromJsonElement(questionScores);
                 Console.WriteLine($"🔍 Processed data type: {processedData?.GetType().Name}");
@@ -851,7 +851,7 @@ namespace ai_hr.Endpoints
                 if (processedData is List<object> list)
                 {
                     Console.WriteLine($"🔍 Converting list with {list.Count} items");
-                    
+
                     foreach (var item in list)
                     {
                         if (item is Dictionary<string, object> dict)
@@ -893,7 +893,7 @@ namespace ai_hr.Endpoints
 
                 if (dict.TryGetValue("questionId", out var questionId))
                     score.QuestionId = questionId?.ToString() ?? "";
-                
+
                 if (dict.TryGetValue("score", out var scoreValue) && scoreValue != null)
                 {
                     if (decimal.TryParse(scoreValue.ToString(), out var parsedScore))

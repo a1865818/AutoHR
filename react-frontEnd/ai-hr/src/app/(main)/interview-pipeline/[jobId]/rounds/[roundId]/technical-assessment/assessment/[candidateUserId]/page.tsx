@@ -13,24 +13,42 @@ import {
   RotateCcw,
   CheckCircle,
 } from "lucide-react";
-import { assessmentService, AssessmentSubmission, QuestionScore } from "@/services/assessmentService";
+import {
+  assessmentService,
+  AssessmentSubmission,
+  QuestionScore,
+} from "@/services/assessmentService";
 import { Question } from "@/components/interview_pipeline/rounds/shared/QuestionBuilder";
+import { candidateService } from "@/services/candidateService";
 
-
-
-export default function AssessmentMarkingPage() {
+export default function TechnicalAssessmentMarkingPage() {
   const params = useParams();
   const router = useRouter();
-  const { jobId, roundId, candidateId } = params;
+  const { jobId, roundId, candidateUserId } = params as unknown as {
+    jobId: string;
+    roundId: string;
+    candidateUserId: string;
+  };
 
   // Early validation - redirect if any required param is invalid
   useEffect(() => {
-    if (!jobId || jobId === "undefined" || !roundId || roundId === "undefined" || !candidateId || candidateId === "undefined") {
-      console.error("❌ Invalid URL parameters detected:", { jobId, roundId, candidateId });
+    if (
+      !jobId ||
+      jobId === "undefined" ||
+      !roundId ||
+      roundId === "undefined" ||
+      !candidateUserId ||
+      candidateUserId === "undefined"
+    ) {
+      console.error("❌ Invalid URL parameters detected:", {
+        jobId,
+        roundId,
+        candidateUserId,
+      });
       router.push("/interview-pipeline");
       return;
     }
-  }, [jobId, roundId, candidateId, router]);
+  }, [jobId, roundId, candidateUserId, router]);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -38,9 +56,12 @@ export default function AssessmentMarkingPage() {
   const [questionScores, setQuestionScores] = useState<QuestionScore[]>([]);
   const [overallNotes, setOverallNotes] = useState("");
   const [pdfZoom, setPdfZoom] = useState(1);
-  const [submission, setSubmission] = useState<AssessmentSubmission | null>(null);
+  const [submission, setSubmission] = useState<AssessmentSubmission | null>(
+    null
+  );
   const [hasSubmitted, setHasSubmitted] = useState<boolean>(false);
-  const [submissionCheckLoading, setSubmissionCheckLoading] = useState<boolean>(true);
+  const [submissionCheckLoading, setSubmissionCheckLoading] =
+    useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isReviewMode, setIsReviewMode] = useState<boolean>(false); // true = review existing grade, false = grade new submission
@@ -48,6 +69,7 @@ export default function AssessmentMarkingPage() {
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [deleting, setDeleting] = useState<boolean>(false);
   const [gradeId, setGradeId] = useState<string | null>(null);
+  const [candidateName, setCandidateName] = useState<string | null>(null);
 
   useEffect(() => {
     loadAssessmentData();
@@ -76,7 +98,7 @@ export default function AssessmentMarkingPage() {
       // Check if candidate has submitted an assessment
       console.log("🔍 Checking if candidate has submitted assessment...");
       const candidateSubmitted = await assessmentService.hasSubmittedAssessment(
-        candidateId as string,
+        candidateUserId as string,
         roundId as string
       );
 
@@ -84,38 +106,68 @@ export default function AssessmentMarkingPage() {
 
       if (candidateSubmitted) {
         // Load the actual submission
-        const existingSubmission = await assessmentService.getAssessmentSubmission(
-          candidateId as string,
-          roundId as string
-        );
+        const existingSubmission =
+          await assessmentService.getAssessmentSubmission(
+            candidateUserId as string,
+            roundId as string
+          );
 
         if (existingSubmission) {
           setSubmission(existingSubmission);
           console.log("✅ Found candidate submission:", existingSubmission);
 
+          const fromSubmission = (existingSubmission as any)?.candidate?.name;
+          if (fromSubmission) setCandidateName(fromSubmission);
+
           // Only try to load existing grade if submission is already graded
           if (existingSubmission.status === "graded") {
             try {
-              console.log("🔍 Submission is marked as graded, loading existing grade...");
-              const existingGrade = await assessmentService.getAssessmentGrade(existingSubmission.id);
+              console.log(
+                "🔍 Submission is marked as graded, loading existing grade..."
+              );
+              const existingGrade = await assessmentService.getAssessmentGrade(
+                existingSubmission.id
+              );
               if (existingGrade) {
                 console.log("📊 Found existing grade:", existingGrade);
                 setQuestionScores(existingGrade.questionScores);
                 setOverallNotes(existingGrade.overallNotes);
                 setGradeId(existingGrade.id);
                 setIsReviewMode(true); // Set to review mode when existing grade is loaded
-                console.log("🔍 Switched to review mode - form will be read-only");
+                console.log(
+                  "🔍 Switched to review mode - form will be read-only"
+                );
               }
             } catch (error) {
-              console.warn("Failed to load existing grade despite 'graded' status:", error);
+              console.warn(
+                "Failed to load existing grade despite 'graded' status:",
+                error
+              );
             }
           } else {
-            console.log(`📝 Submission status is '${existingSubmission.status}' - no existing grade to load`);
+            console.log(
+              `📝 Submission status is '${existingSubmission.status}' - no existing grade to load`
+            );
           }
         }
       } else {
         console.log("⚠️ Candidate has not submitted assessment yet");
         setSubmission(null);
+      }
+
+      if (!candidateName) {
+        try {
+          const jobCandidates = await candidateService.getCandidatesForJob(
+            jobId as string
+          );
+          const found = (jobCandidates || []).find(
+            (c: any) =>
+              c.candidateUserId === candidateUserId ||
+              c.id === candidateUserId ||
+              c.candidateId === candidateUserId
+          );
+          if (found?.name) setCandidateName(found.name);
+        } catch {}
       }
     } catch (error) {
       console.error("Error loading assessment data:", error);
@@ -138,16 +190,18 @@ export default function AssessmentMarkingPage() {
 
   const handleQuestionNotesChange = (questionId: string, notes: string) => {
     setQuestionScores((prev) =>
-      prev.map((qs) =>
-        qs.questionId === questionId ? { ...qs, notes } : qs
-      )
+      prev.map((qs) => (qs.questionId === questionId ? { ...qs, notes } : qs))
     );
   };
 
   const calculateTotalScore = () => {
     const total = questionScores.reduce((sum, qs) => sum + qs.score, 0);
     const maxTotal = questionScores.reduce((sum, qs) => sum + qs.maxScore, 0);
-    return { total, maxTotal, percentage: maxTotal > 0 ? (total / maxTotal) * 100 : 0 };
+    return {
+      total,
+      maxTotal,
+      percentage: maxTotal > 0 ? (total / maxTotal) * 100 : 0,
+    };
   };
 
   const handleResetScores = () => {
@@ -156,7 +210,7 @@ export default function AssessmentMarkingPage() {
       console.warn("⚠️ Cannot reset scores in review mode");
       return;
     }
-    
+
     const initialScores: QuestionScore[] = questions.map((question) => ({
       questionId: question.id,
       score: 0,
@@ -199,7 +253,7 @@ export default function AssessmentMarkingPage() {
 
       // Reload submission data to get updated status
       const updatedSubmission = await assessmentService.getAssessmentSubmission(
-        candidateId as string,
+        candidateUserId as string,
         roundId as string
       );
       if (updatedSubmission) {
@@ -240,7 +294,9 @@ export default function AssessmentMarkingPage() {
     try {
       await assessmentService.deleteAssessmentGrade(gradeId);
       setShowDeleteModal(false);
-      setSuccessMessage("Grade deleted successfully. You can now re-grade this submission.");
+      setSuccessMessage(
+        "Grade deleted successfully. You can now re-grade this submission."
+      );
       setIsReviewMode(false);
       setIsRegrading(false);
       setGradeId(null);
@@ -252,7 +308,6 @@ export default function AssessmentMarkingPage() {
       setDeleting(false);
     }
   };
-
 
   const getScoreColor = (percentage: number) => {
     if (percentage >= 80) return "text-green-600";
@@ -272,7 +327,9 @@ export default function AssessmentMarkingPage() {
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto"></div>
           <p className="mt-2 text-gray-600">
-            {submissionCheckLoading ? "Checking submission status..." : "Loading assessment..."}
+            {submissionCheckLoading
+              ? "Checking submission status..."
+              : "Loading assessment..."}
           </p>
         </div>
       </div>
@@ -318,7 +375,10 @@ export default function AssessmentMarkingPage() {
                   Assessment Marking
                 </h1>
                 <p className="text-sm text-gray-500">
-                  Round: Technical Assessment • Candidate: {candidateId}
+                  Round: Technical Assessment
+                </p>
+                <p className="text-sm text-gray-500">
+                  Candidate: {candidateName || String(candidateUserId)}
                 </p>
               </div>
             </div>
@@ -335,11 +395,13 @@ export default function AssessmentMarkingPage() {
               No Submission Yet
             </h2>
             <p className="text-gray-600 mb-4">
-              This candidate has not submitted their assessment yet. You can mark the assessment once they submit their response.
+              This candidate has not submitted their assessment yet. You can
+              mark the assessment once they submit their response.
             </p>
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
               <p className="text-sm text-blue-800">
-                <strong>Note:</strong> Candidates must complete and submit their assessment before you can evaluate and grade their responses.
+                <strong>Note:</strong> Candidates must complete and submit their
+                assessment before you can evaluate and grade their responses.
               </p>
             </div>
             <button
@@ -381,21 +443,34 @@ export default function AssessmentMarkingPage() {
             </button>
             <div className="h-6 w-px bg-gray-300" />
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">
-                {isReviewMode ? "Assessment Review" : "Assessment Marking"}
+              <h1 className="text-xl font-semibold text-gray-900 flex items-center space-x-2">
+                <span>
+                  {isReviewMode ? "Assessment Review" : "Assessment Marking"}
+                </span>
+                {isReviewMode && (
+                  <span className="text-xs text-blue-700 bg-blue-100 rounded-full px-2 py-0.5">
+                    Read-only
+                  </span>
+                )}
               </h1>
               <p className="text-sm text-gray-500">
-                Round: Technical Assessment • Candidate: {candidateId}
-                {isReviewMode && <span className="ml-2 text-blue-600 font-medium">• Read-only view</span>}
+                Round: Technical Assessment
+              </p>
+              <p className="text-sm text-gray-500">
+                Candidate: {candidateName || String(candidateUserId)}
               </p>
             </div>
           </div>
 
           <div className="flex items-center space-x-3">
-            <div className={`px-3 py-1 rounded-full text-sm font-medium ${getScoreBackground(percentage)} ${getScoreColor(percentage)}`}>
+            <div
+              className={`px-3 py-1 rounded-full text-sm font-medium ${getScoreBackground(
+                percentage
+              )} ${getScoreColor(percentage)}`}
+            >
               {percentage.toFixed(1)}% ({total}/{maxTotal})
             </div>
-            
+
             {isReviewMode ? (
               // Review Mode - Read-only view
               <div className="flex items-center space-x-2">
@@ -404,19 +479,18 @@ export default function AssessmentMarkingPage() {
                 </div>
                 <button
                   onClick={handleRegrade}
-                  className="flex items-center space-x-2 px-3 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors"
+                  className="flex items-center space-x-2 px-3 py-1.5 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 transition-colors text-sm whitespace-nowrap"
                 >
                   <RotateCcw className="h-4 w-4" />
-                  <span>Re-grade</span>
+                  <span>Re-Grade</span>
                 </button>
                 <button
                   onClick={() => setShowDeleteModal(true)}
-                  className="flex items-center space-x-2 px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors"
+                  className="flex items-center space-x-2 px-3 py-1.5 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors text-sm whitespace-nowrap"
                 >
                   <XCircle className="h-4 w-4" />
-                  <span>Delete Grade</span>
+                  <span>Delete</span>
                 </button>
-             
               </div>
             ) : (
               // Grading Mode - Editable form
@@ -439,7 +513,13 @@ export default function AssessmentMarkingPage() {
                   className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <Save className="h-4 w-4" />
-                  <span>{saving ? "Saving..." : isRegrading ? "Save Re-grade" : "Save Grade"}</span>
+                  <span>
+                    {saving
+                      ? "Saving..."
+                      : isRegrading
+                      ? "Save Re-grade"
+                      : "Save Grade"}
+                  </span>
                 </button>
               </>
             )}
@@ -454,7 +534,9 @@ export default function AssessmentMarkingPage() {
           <div className="flex items-center justify-between p-4 border-b border-gray-200">
             <div className="flex items-center space-x-2">
               <FileText className="h-5 w-5 text-gray-600" />
-              <span className="font-medium text-gray-900">Submission Preview</span>
+              <span className="font-medium text-gray-900">
+                Submission Preview
+              </span>
             </div>
             <div className="flex items-center space-x-2">
               <button
@@ -488,7 +570,7 @@ export default function AssessmentMarkingPage() {
               }}
             >
               <iframe
-                src={submission?.pdfUrl}
+                src={submission?.pdfUrl ?? undefined}
                 className="w-full h-[800px] border-0"
                 title="Assessment Submission"
               />
@@ -503,10 +585,9 @@ export default function AssessmentMarkingPage() {
               {isReviewMode ? "Assessment Review" : "Assessment Marking"}
             </h2>
             <p className="text-sm text-gray-600">
-              {isReviewMode 
+              {isReviewMode
                 ? "Review the graded assessment and scoring for this candidate"
-                : "Review and grade the candidate's responses to each question"
-              }
+                : "Review and grade the candidate's responses to each question"}
             </p>
           </div>
 
@@ -516,7 +597,7 @@ export default function AssessmentMarkingPage() {
               const questionScore = questionScores.find(
                 (qs) => qs.questionId === question.id
               );
-              
+
               return (
                 <div
                   key={question.id}
@@ -560,8 +641,8 @@ export default function AssessmentMarkingPage() {
                         }
                         readOnly={isReviewMode}
                         className={`w-20 px-2 py-1 border rounded text-center ${
-                          isReviewMode 
-                            ? "border-gray-200 bg-gray-50 text-gray-700 cursor-not-allowed" 
+                          isReviewMode
+                            ? "border-gray-200 bg-gray-50 text-gray-700 cursor-not-allowed"
                             : "border-gray-300 bg-white hover:border-gray-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
                         }`}
                       />
@@ -573,7 +654,11 @@ export default function AssessmentMarkingPage() {
                           <div
                             className="bg-indigo-600 h-2 rounded-full transition-all"
                             style={{
-                              width: `${((questionScore?.score || 0) / (questionScore?.maxScore || 10)) * 100}%`,
+                              width: `${
+                                ((questionScore?.score || 0) /
+                                  (questionScore?.maxScore || 10)) *
+                                100
+                              }%`,
                             }}
                           />
                         </div>
@@ -590,7 +675,11 @@ export default function AssessmentMarkingPage() {
                         onChange={(e) =>
                           handleQuestionNotesChange(question.id, e.target.value)
                         }
-                        placeholder={isReviewMode ? "Notes from grading..." : "Add feedback or notes for this question..."}
+                        placeholder={
+                          isReviewMode
+                            ? "Notes from grading..."
+                            : "Add feedback or notes for this question..."
+                        }
                         readOnly={isReviewMode}
                         className={`w-full px-3 py-2 border rounded-md resize-none ${
                           isReviewMode
@@ -613,7 +702,11 @@ export default function AssessmentMarkingPage() {
               <textarea
                 value={overallNotes}
                 onChange={(e) => setOverallNotes(e.target.value)}
-                placeholder={isReviewMode ? "Overall notes from grading..." : "Add overall feedback, strengths, areas for improvement..."}
+                placeholder={
+                  isReviewMode
+                    ? "Overall notes from grading..."
+                    : "Add overall feedback, strengths, areas for improvement..."
+                }
                 readOnly={isReviewMode}
                 className={`w-full px-3 py-2 border rounded-md resize-none ${
                   isReviewMode
@@ -638,7 +731,11 @@ export default function AssessmentMarkingPage() {
                 </div>
                 <div>
                   <p className="text-sm text-indigo-700">Percentage</p>
-                  <p className={`text-2xl font-bold ${getScoreColor(percentage)}`}>
+                  <p
+                    className={`text-2xl font-bold ${getScoreColor(
+                      percentage
+                    )}`}
+                  >
                     {percentage.toFixed(1)}%
                   </p>
                 </div>
@@ -660,8 +757,14 @@ export default function AssessmentMarkingPage() {
       {showDeleteModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm bg-white/40">
           <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-2 text-gray-900">Delete Grade?</h3>
-            <p className="text-gray-700 mb-4">Are you sure you want to delete this grade? This action cannot be undone. The candidate&apos;s submission will return to the &apos;Submitted&apos; state and you can re-grade it.</p>
+            <h3 className="text-lg font-semibold mb-2 text-gray-900">
+              Delete Grade?
+            </h3>
+            <p className="text-gray-700 mb-4">
+              Are you sure you want to delete this grade? This action cannot be
+              undone. The candidate&apos;s submission will return to the
+              &apos;Submitted&apos; state and you can re-grade it.
+            </p>
             <div className="flex justify-end space-x-3">
               <button
                 onClick={() => setShowDeleteModal(false)}
@@ -683,4 +786,4 @@ export default function AssessmentMarkingPage() {
       )}
     </div>
   );
-} 
+}

@@ -20,10 +20,12 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { TechnicalAssessmentUpload } from "./TechnicalAssessmentUpload";
+import { CodingChallengeSubmission } from "./CodingChallengeSubmission";
 import { InterviewPipelineTimeline } from "./InterviewPipelineTimeline";
+import { InterviewRound as ApiInterviewRound } from "@/interfaces/api";
 import { InterviewRound } from "@/interfaces/interview";
 import { storageBucketService } from "@/services/storageBucketService";
 
@@ -52,13 +54,71 @@ export function ApplicationSuccessPage({
     uploadedAt: string;
   } | null>(null);
   const [currentRoundId, setCurrentRoundId] = useState<string | null>(null);
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
+
+  // Helper function to convert API InterviewRound to component InterviewRound
+  const mapApiRoundToComponentRound = (
+    apiRound: ApiInterviewRound
+  ): InterviewRound => {
+    return {
+      id: apiRound.id,
+      name: apiRound.name,
+      type: apiRound.type as any, // Cast to InterviewType
+      duration: apiRound.estimatedDuration || 30,
+      roundOrder: apiRound.roundOrder,
+      requirements: [], // API doesn't provide this
+      interviewers: [], // API doesn't provide this
+      isOptional: !apiRound.isRequired,
+      passingCriteria: 70, // Default value
+      description: apiRound.description,
+    };
+  };
+
+  // Function to refresh application data
+  const refreshApplicationData = useCallback(async () => {
+    console.log("🔄 Refreshing application data...");
+    setLastRefreshTime(new Date());
+
+    // Store previous status for comparison
+    const previousStatus = applicationStatus?.status;
+    const previousStage = applicationStatus?.stage;
+
+    await loadApplicationData();
+
+    // Check if status changed and show notification
+    if (
+      applicationStatus &&
+      (previousStatus !== applicationStatus.status ||
+        previousStage !== applicationStatus.stage)
+    ) {
+      console.log("✅ Application status updated:", {
+        previousStatus,
+        newStatus: applicationStatus.status,
+        previousStage,
+        newStage: applicationStatus.stage,
+      });
+    }
+  }, [applicationStatus]);
 
   useEffect(() => {
     loadApplicationData();
   }, [applicationId, jobId]);
 
+  // Auto-refresh every 30 seconds to keep timeline updated
+  useEffect(() => {
+    if (!applicationId) return;
+
+    const interval = setInterval(() => {
+      refreshApplicationData();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
+  }, [applicationId, refreshApplicationData]);
+
   const loadApplicationData = async () => {
     try {
+      // Keep a local reference to the freshest status fetched in this call
+      let latestStatus: ApplicationDetailResponse | null = applicationStatus;
       // If we have applicationId, try to load the application details
       if (applicationId) {
         try {
@@ -66,6 +126,7 @@ export function ApplicationSuccessPage({
             applicationId
           );
           setApplicationStatus(appStatus);
+          latestStatus = appStatus;
         } catch (error) {
           console.warn("Could not load application status:", error);
           // Continue without application status - maybe it's a newly created application
@@ -87,15 +148,44 @@ export function ApplicationSuccessPage({
             const sortedRounds = template.rounds.sort(
               (a, b) => a.roundOrder - b.roundOrder
             );
-            setInterviewRounds(sortedRounds);
+            const mappedRounds = sortedRounds.map(mapApiRoundToComponentRound);
+            setInterviewRounds(mappedRounds);
 
-            // Set current round ID for technical assessment (first technical round)
-            const technicalRound = sortedRounds.find(
-              (round) => round.type === "technical_assessment"
-            );
-            if (technicalRound) {
-              technicalRoundId = technicalRound.id;
-              setCurrentRoundId(technicalRound.id);
+            // Set current round ID based on the LATEST fetched application stage
+            let currentRound = null;
+
+            // If we have application status (latest for this load), try to find the current round based on stage
+            if (latestStatus?.stage) {
+              const stageLower = latestStatus.stage.toLowerCase();
+              if (
+                stageLower.includes("technical") ||
+                stageLower.includes("assessment")
+              ) {
+                currentRound = sortedRounds.find(
+                  (round) => round.type === "technical_assessment"
+                );
+              } else if (
+                stageLower.includes("coding") ||
+                stageLower.includes("challenge")
+              ) {
+                currentRound = sortedRounds.find(
+                  (round) => round.type === "coding_challenge"
+                );
+              }
+            }
+
+            // If no specific round found, find the first technical or coding round
+            if (!currentRound) {
+              currentRound = sortedRounds.find(
+                (round) =>
+                  round.type === "technical_assessment" ||
+                  round.type === "coding_challenge"
+              );
+            }
+
+            if (currentRound) {
+              technicalRoundId = currentRound.id;
+              setCurrentRoundId(currentRound.id);
             }
           }
         } catch (error) {
@@ -131,6 +221,41 @@ export function ApplicationSuccessPage({
       setIsLoading(false);
     }
   };
+
+  // Keep currentRoundId in sync when status or rounds change (e.g., after reloads)
+  useEffect(() => {
+    if (!interviewRounds || interviewRounds.length === 0) return;
+
+    let resolvedCurrentRound: InterviewRound | undefined;
+    const stageLower = applicationStatus?.stage?.toLowerCase() || "";
+
+    if (stageLower) {
+      if (stageLower.includes("coding") || stageLower.includes("challenge")) {
+        resolvedCurrentRound = interviewRounds.find(
+          (r) => r.type === "coding_challenge"
+        );
+      } else if (
+        stageLower.includes("technical") ||
+        stageLower.includes("assessment")
+      ) {
+        resolvedCurrentRound = interviewRounds.find(
+          (r) => r.type === "technical_assessment"
+        );
+      }
+    }
+
+    if (!resolvedCurrentRound) {
+      // Fallback: first technical/coding round if stage is not informative
+      resolvedCurrentRound = interviewRounds.find(
+        (r) =>
+          r.type === "technical_assessment" || r.type === "coding_challenge"
+      );
+    }
+
+    if (resolvedCurrentRound && resolvedCurrentRound.id !== currentRoundId) {
+      setCurrentRoundId(resolvedCurrentRound.id);
+    }
+  }, [applicationStatus?.stage, interviewRounds]);
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -402,60 +527,129 @@ export function ApplicationSuccessPage({
             </div>
 
             {/* Application Timeline */}
-            <InterviewPipelineTimeline
-              rounds={interviewRounds}
-              currentStage={applicationStatus?.stage}
-              applicationStatus={displayStatus}
-              appliedDate={submittedDate}
-              statusChangedAt={applicationStatus?.statusChangedAt}
-            />
+            <div className="bg-white rounded-lg border p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Application Timeline
+                </h2>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500">
+                    Last updated: {lastRefreshTime.toLocaleTimeString()}
+                  </span>
+                  <button
+                    onClick={refreshApplicationData}
+                    disabled={isLoading}
+                    className="flex items-center px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-md hover:bg-blue-200 transition-colors disabled:opacity-50"
+                  >
+                    <svg
+                      className={`h-4 w-4 mr-1 ${
+                        isLoading ? "animate-spin" : ""
+                      }`}
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                    Refresh
+                  </button>
+                </div>
+              </div>
+              <InterviewPipelineTimeline
+                rounds={interviewRounds}
+                currentStage={applicationStatus?.stage}
+                applicationStatus={displayStatus}
+                appliedDate={submittedDate}
+                statusChangedAt={applicationStatus?.statusChangedAt}
+              />
+            </div>
 
             {/* Technical Assessment Upload */}
-            {interviewRounds.some(
-              (round) =>
-                round.type === "technical_assessment" ||
-                round.type === "coding_challenge"
-            ) &&
+            {currentRoundId &&
               user?.id &&
-              currentRoundId && (
-                <>
-                  <TechnicalAssessmentUpload
-                    candidateId={user.id}
-                    roundId={currentRoundId}
-                    jobId={jobId}
-                    existingAssessment={technicalAssessment || undefined}
-                    onUploadSuccess={async (fileUrl, fileName) => {
-                      // Refetch the latest assessment from backend after upload
-                      try {
-                        const assessment =
-                          await applicationService.getTechnicalAssessment(
-                            user.id,
-                            currentRoundId
-                          );
-                        if (assessment) {
-                          setTechnicalAssessment(assessment);
-                        } else {
+              (() => {
+                const currentRound = interviewRounds.find(
+                  (round) => round.id === currentRoundId
+                );
+                if (currentRound?.type === "technical_assessment") {
+                  return (
+                    <TechnicalAssessmentUpload
+                      candidateId={user.id}
+                      roundId={currentRoundId}
+                      jobId={jobId}
+                      existingAssessment={technicalAssessment || undefined}
+                      onUploadSuccess={async (fileUrl, fileName) => {
+                        // Refetch the latest assessment from backend after upload
+                        try {
+                          const assessment =
+                            await applicationService.getTechnicalAssessment(
+                              user.id,
+                              currentRoundId
+                            );
+                          if (assessment) {
+                            setTechnicalAssessment(assessment);
+                          } else {
+                            setTechnicalAssessment({
+                              url: fileUrl,
+                              fileName,
+                              uploadedAt: new Date().toISOString(),
+                            });
+                          }
+                        } catch (err) {
+                          // fallback to local
                           setTechnicalAssessment({
                             url: fileUrl,
                             fileName,
                             uploadedAt: new Date().toISOString(),
                           });
                         }
-                      } catch (err) {
-                        // fallback to local
-                        setTechnicalAssessment({
-                          url: fileUrl,
-                          fileName,
-                          uploadedAt: new Date().toISOString(),
-                        });
-                      }
-                    }}
-                    onUploadError={(error) => {
-                      console.error("Assessment upload failed:", error);
-                    }}
-                  />
-                </>
-              )}
+                      }}
+                      onUploadError={(error) => {
+                        console.error("Assessment upload failed:", error);
+                      }}
+                    />
+                  );
+                }
+                return null;
+              })()}
+
+            {/* Coding Challenge Submission */}
+            {currentRoundId &&
+              user?.id &&
+              (() => {
+                const currentRound = interviewRounds.find(
+                  (round) => round.id === currentRoundId
+                );
+                if (currentRound?.type === "coding_challenge") {
+                  return (
+                    <CodingChallengeSubmission
+                      candidateId={user.id}
+                      roundId={currentRoundId}
+                      jobId={jobId}
+                      onSubmissionSuccess={(submissionData) => {
+                        console.log(
+                          "Coding challenge submitted successfully:",
+                          submissionData
+                        );
+                        // You can add additional success handling here
+                      }}
+                      onSubmissionError={(error) => {
+                        console.error(
+                          "Coding challenge submission failed:",
+                          error
+                        );
+                        // You can add additional error handling here
+                      }}
+                    />
+                  );
+                }
+                return null;
+              })()}
           </div>
 
           {/* Sidebar */}
@@ -572,18 +766,7 @@ export function ApplicationSuccessPage({
           </div>
         </div>
 
-        {/* Footer Message */}
-        <div className="mt-8 text-center">
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-blue-900 mb-2">
-              Thank You!
-            </h3>
-            <p className="text-blue-800">
-              We appreciate your interest in joining our team. We will be in
-              touch soon with updates about your application.
-            </p>
-          </div>
-        </div>
+        {/* Footer Message removed as requested */}
       </div>
     </div>
   );

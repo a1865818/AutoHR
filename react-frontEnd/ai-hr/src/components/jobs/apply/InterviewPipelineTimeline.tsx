@@ -132,8 +132,26 @@ export function InterviewPipelineTimeline({
       };
     }
 
-    // Always show "Under Review" as current/in progress
+    // Always show "Under Review" as completed if applicant is in any interview round or further
     if (stageType === "review") {
+      // If the currentStage is any interview round, mark as completed
+      const interviewStages = [
+        "Phone Screening",
+        "Video Interview",
+        "Technical Assessment",
+        "Coding Challenge",
+        "Culture Fit",
+        "Final Interview",
+      ];
+      if (interviewStages.includes(currentStage || "")) {
+        return {
+          status: "completed" as const,
+          date: statusChangedAt || "Completed",
+          title: getStageTitle(stageType),
+          description: getStageDescription(stageType),
+        };
+      }
+      // Otherwise, show as current
       return {
         status: "current" as const,
         date: statusChangedAt || "In progress",
@@ -274,12 +292,41 @@ export function InterviewPipelineTimeline({
       status: getStageStatus("review", 1),
     },
     // Interview rounds - only show if available
-    ...rounds.map((round, index) => ({
-      id: round.id,
-      type: "round" as const,
-      round,
-      status: getStageStatus("interview", 2 + index),
-    })),
+    ...rounds.map((round, index) => {
+      const roundStage = getRoundStage(round.type);
+      const isCurrentStage = currentStage === roundStage;
+      const isCompleted = isStageCompleted(roundStage, currentStage);
+
+      let status: "completed" | "current" | "pending";
+      if (isCompleted) {
+        status = "completed";
+      } else if (isCurrentStage) {
+        status = "current";
+      } else {
+        status = "pending";
+      }
+
+      return {
+        id: round.id,
+        type: "round" as const,
+        round,
+        status: {
+          status,
+          date: isCurrentStage
+            ? statusChangedAt || "In progress"
+            : isCompleted
+            ? // Prefer the last status change time; fallback to application applied date
+              statusChangedAt || appliedDate
+            : "Pending",
+          title: roundStage,
+          description: isCurrentStage
+            ? `You're currently in the ${roundStage} stage`
+            : isCompleted
+            ? `You've completed the ${roundStage} stage`
+            : `The ${roundStage} stage is upcoming`,
+        },
+      };
+    }),
     // Offer stage REMOVED
     // ...(rounds.length > 0 || applicationStage === "offer"
     //   ? [
@@ -462,34 +509,7 @@ export function InterviewPipelineTimeline({
                     </div>
                   </div>
 
-                  {/* Round-specific details */}
-                  {item.type === "round" && (
-                    <div className="ml-11 mt-2 p-3 bg-gray-50 rounded-lg min-w-[260px] md:min-w-[340px]">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-600">Duration:</span>
-                          <span className="ml-2 font-medium">
-                            {item.round.duration} minutes
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Type:</span>
-                          <span
-                            className={`ml-2 font-medium capitalize whitespace-nowrap`}
-                          >
-                            {item.round.type.replace("_", " ")}
-                          </span>
-                        </div>
-                        {item.round.isOptional && (
-                          <div className="col-span-2">
-                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                              Optional Round
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
+                  {/* Round-specific details removed as requested */}
                 </div>
               </div>
             </div>

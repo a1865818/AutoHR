@@ -483,7 +483,12 @@ export default function RoundConfigurationPage() {
       case "technical_assessment":
         return <TechnicalAssessmentConfig {...commonProps} />;
       case "coding_challenge":
-        return <CodingChallengeConfig {...commonProps} />;
+        return (
+          <CodingChallengeConfig
+            {...commonProps}
+            configuration={configuration}
+          />
+        );
 
       case "final_interview":
         return <FinalInterviewConfig {...commonProps} />;

@@ -9,7 +9,8 @@ namespace ai_hr.Contracts
         public Guid RoundId { get; set; }
         public Guid JobId { get; set; }
         public DateTime SubmittedAt { get; set; }
-        public string PdfUrl { get; set; } = string.Empty;
+        public string? PdfUrl { get; set; }
+        public string? GithubUrl { get; set; }
         public string Status { get; set; } = string.Empty;
         public object? SubmissionData { get; set; }
         public DateTime CreatedAt { get; set; }
@@ -108,8 +109,9 @@ namespace ai_hr.Contracts
         [Required]
         public Guid JobId { get; set; }
 
-        [Required]
-        public string PdfUrl { get; set; } = string.Empty;
+        public string? PdfUrl { get; set; }
+
+        public string? GithubUrl { get; set; }
 
         public object? SubmissionData { get; set; }
     }
@@ -117,7 +119,8 @@ namespace ai_hr.Contracts
     public class AssessmentSubmissionUpdateRequest
     {
         public string? PdfUrl { get; set; }
+        public string? GithubUrl { get; set; }
         public string? Status { get; set; }
         public object? SubmissionData { get; set; }
     }
-} 
+}

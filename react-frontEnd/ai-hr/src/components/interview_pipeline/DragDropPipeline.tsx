@@ -47,6 +47,7 @@ interface DragDropCandidateCardProps {
   jobTitle?: string;
   companyName?: string;
   roundType?: string;
+  roundConfigurationData?: any;
   hasSubmittedAssessment?: boolean;
   isAssessmentGraded?: boolean;
 }
@@ -68,6 +69,7 @@ export function DragDropCandidateCard({
   jobTitle = "Position",
   companyName = "Company",
   roundType,
+  roundConfigurationData,
   hasSubmittedAssessment = false,
   isAssessmentGraded = false,
 }: DragDropCandidateCardProps) {
@@ -135,6 +137,19 @@ export function DragDropCandidateCard({
     if (score >= 60) return "text-yellow-600 bg-yellow-50";
     return "text-red-600 bg-red-50";
   };
+
+  const isAssessmentRound =
+    roundType === "technical_assessment" || roundType === "coding_challenge";
+  const isOnlineMode = (() => {
+    const conf = roundConfigurationData as any;
+    const mode = conf?.mode ?? conf?.Mode;
+    return isAssessmentRound && mode === "online";
+  })();
+  const externalTestLink = (() => {
+    const conf = roundConfigurationData as any;
+    const platform = conf?.externalPlatform ?? conf?.ExternalPlatform;
+    return platform?.testLink ?? platform?.TestLink ?? "";
+  })();
 
   const handleAddNote = () => {
     if (note.trim()) {
@@ -319,7 +334,9 @@ export function DragDropCandidateCard({
         >
           View Profile
         </button>
-        {candidate.meetingScheduled && candidate.meetLink ? (
+        {roundType === "video_interview" &&
+        candidate.meetingScheduled &&
+        candidate.meetLink ? (
           <button
             onClick={() => {
               // Open Google Meet link in new tab
@@ -332,10 +349,9 @@ export function DragDropCandidateCard({
           >
             Interview
           </button>
-        ) : (
+        ) : roundType === "video_interview" ? (
           <button
             onClick={() => {
-              // Try multiple possible field names to handle case sensitivity and different naming conventions
               const candidateId =
                 candidate.id ||
                 candidate.applicationId ||
@@ -343,75 +359,55 @@ export function DragDropCandidateCard({
                 (candidate as any).ApplicationId ||
                 (candidate as any).application_id ||
                 (candidate as any).candidate_id;
-
-              console.log("Schedule button clicked for candidate:", {
-                candidateId: candidate.id,
-                applicationId: candidate.applicationId,
-                fallbackId: candidateId,
-                candidateName: candidate.name,
-                candidate: candidate,
-                candidateKeys: Object.keys(candidate),
-                candidateIdType: typeof candidate.id,
-                applicationIdType: typeof candidate.applicationId,
-                hasId: "id" in candidate,
-                hasApplicationId: "applicationId" in candidate,
-                candidateIdValue: candidate.id,
-                applicationIdValue: candidate.applicationId,
-                // Check for alternative field names
-                hasIdAlt: "Id" in candidate,
-                hasApplicationIdAlt: "ApplicationId" in candidate,
-                idAltValue: (candidate as any).Id,
-                applicationIdAltValue: (candidate as any).ApplicationId,
-              });
               if (candidateId) {
                 onSchedule?.(candidateId);
               } else {
-                console.error(
-                  "Cannot schedule interview: no valid ID found in candidate object",
-                  {
-                    candidate,
-                    availableKeys: Object.keys(candidate),
-                    idValues: {
-                      id: candidate.id,
-                      applicationId: candidate.applicationId,
-                      Id: (candidate as any).Id,
-                      ApplicationId: (candidate as any).ApplicationId,
-                      application_id: (candidate as any).application_id,
-                      candidate_id: (candidate as any).candidate_id,
-                    },
-                  }
-                );
+                console.error("Cannot schedule interview: no valid ID found", {
+                  candidate,
+                });
               }
             }}
             className="flex-1 text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-2 py-1.5 rounded transition-colors"
           >
             Schedule
           </button>
+        ) : isAssessmentRound ? (
+          !hasSubmittedAssessment ? (
+            <button
+              disabled
+              className="flex-1 text-xs bg-gray-50 text-gray-400 px-2 py-1.5 rounded"
+              title="Waiting for candidate to submit"
+            >
+              Awaiting Submission
+            </button>
+          ) : (
+            onMarkAssessment && (
+              <button
+                onClick={() =>
+                  onMarkAssessment?.(candidate.candidateUserId, roundId || "")
+                }
+                className={`flex-1 text-xs px-2 py-1.5 rounded transition-colors ${
+                  isAssessmentGraded
+                    ? "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    : "bg-purple-50 text-purple-700 hover:bg-purple-100"
+                }`}
+                title={
+                  isAssessmentGraded
+                    ? "Review assessment grade"
+                    : "Mark submitted assignment"
+                }
+              >
+                {isAssessmentGraded ? "Review Grade" : "Mark Assignment"}
+              </button>
+            )
+          )
+        ) : (
+          <span className="flex-1" />
         )}
-        {/* {hasSubmittedAssessment && roundId && (
-          <button
-            onClick={() => router.push(`/interview-pipeline/${candidate.jobId}/submissions/${candidate.candidateUserId}?roundId=${roundId}`)}
-            className="flex-1 text-xs bg-gray-50 text-indigo-700 hover:bg-indigo-100 px-2 py-1.5 rounded transition-colors"
-          >
-            View Submission
-          </button>
-        )} */}
+        {/* Legacy button block removed; routing handled above based on roundType */}
       </div>
 
-      <div className="flex items-center space-x-1 mt-2">
-        {hasSubmittedAssessment && roundId && (
-          <button
-            onClick={() =>
-              router.push(
-                `/interview-pipeline/${candidate.jobId}/submissions/${candidate.candidateUserId}?roundId=${roundId}`
-              )
-            }
-            className="flex-1 text-xs bg-gray-50 text-indigo-700 hover:bg-indigo-100 px-2 py-1.5 rounded transition-colors"
-          >
-            View Submission
-          </button>
-        )}
-      </div>
+      {/* Removed bottom View Submission row to avoid duplicates */}
 
       {/* Quick Actions (shown on hover) */}
       {showQuickActions && (
@@ -524,44 +520,7 @@ export function DragDropCandidateCard({
                 <span>Add Note</span>
               </button>
 
-              {/* Assessment Marking Button - Only show for technical rounds */}
-              {(roundType === "technical_assessment" ||
-                roundType === "coding_challenge") &&
-                onMarkAssessment && (
-                  <button
-                    onClick={() =>
-                      hasSubmittedAssessment &&
-                      onMarkAssessment?.(
-                        candidate.candidateUserId,
-                        roundId || ""
-                      )
-                    }
-                    disabled={!hasSubmittedAssessment}
-                    className={`flex-1 flex items-center justify-center space-x-1 text-xs px-2 py-1 rounded transition-colors ${
-                      hasSubmittedAssessment
-                        ? isAssessmentGraded
-                          ? "bg-blue-50 text-blue-700 hover:bg-blue-100 cursor-pointer"
-                          : "bg-purple-50 text-purple-700 hover:bg-purple-100 cursor-pointer"
-                        : "bg-gray-50 text-gray-400 cursor-not-allowed"
-                    }`}
-                    title={
-                      hasSubmittedAssessment
-                        ? isAssessmentGraded
-                          ? "Review assessment grade"
-                          : "Mark submitted assessment"
-                        : "Waiting for candidate to submit assessment"
-                    }
-                  >
-                    <FileText className="h-3 w-3" />
-                    <span>
-                      {hasSubmittedAssessment
-                        ? isAssessmentGraded
-                          ? "Review Grade"
-                          : "Mark Assessment"
-                        : "Awaiting Submission"}
-                    </span>
-                  </button>
-                )}
+              {/* Removed assessment marking button from hover */}
             </div>
 
             {/* Offer, Hire, Reject Buttons */}

@@ -12,6 +12,11 @@ import {
   FileText,
   Link as LinkIcon,
   Loader2,
+  Github,
+  Monitor,
+  Globe,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { useRoundConfiguration } from "@/hooks/useRoundConfiguration";
 import { cleanJsonObject } from "@/utils/jsonUtils";
@@ -24,154 +29,121 @@ interface ExternalPlatformConfig {
   additionalInstructions?: string;
 }
 
+interface OfflineChallengeConfig {
+  projectDescription: string;
+  requirements: string[];
+  deliverables: string[];
+  evaluationCriteria: string;
+  allowedTechnologies?: string[];
+  submissionInstructions: string;
+}
+
 interface CodingChallengeConfiguration {
   name: string;
-  externalPlatform: ExternalPlatformConfig;
+  mode: "online" | "offline";
+  externalPlatform?: ExternalPlatformConfig;
+  offlineChallenge?: OfflineChallengeConfig;
   deadline: number; // hours from assignment
   allowLateSubmission: boolean;
   lateSubmissionPenalty: number; // percentage
   passingScore: number; // percentage
   instructions: string;
-  evaluationCriteria: string;
+  evaluationCriteria: string[];
 }
 
 interface CodingChallengeConfigProps {
   jobId: string;
   roundId: string;
+  configuration?: Partial<CodingChallengeConfiguration>;
   onConfigurationChange: (newConfig: CodingChallengeConfiguration) => void;
 }
 
 export function CodingChallengeConfig({
   jobId,
   roundId,
+  configuration: parentConfiguration,
   onConfigurationChange,
 }: CodingChallengeConfigProps) {
   const {
     config: savedConfig,
     loading,
     error,
-    saveConfiguration,
   } = useRoundConfiguration(jobId, roundId);
-  const [config, setConfig] = useState<CodingChallengeConfiguration>({
+
+  // Default configuration
+  const defaultConfig: CodingChallengeConfiguration = {
     name: "Coding Challenge",
+    mode: "online",
     externalPlatform: {
       platform: "hackerrank",
       testLink: "",
       testId: "",
       additionalInstructions: "",
     },
+    offlineChallenge: {
+      projectDescription: "",
+      requirements: [""],
+      deliverables: [""],
+      evaluationCriteria:
+        "Your submission will be evaluated based on:\n1. Code quality and architecture\n2. Functionality and correctness\n3. Documentation and testing\n4. Git commit history and project structure",
+      allowedTechnologies: [""],
+      submissionInstructions:
+        "Submit your completed project by providing the GitHub repository URL. Ensure your repository is public or provide access instructions.",
+    },
     deadline: 48,
     allowLateSubmission: true,
     lateSubmissionPenalty: 10,
     passingScore: 70,
     instructions:
-      "Complete the coding challenge by clicking the link. You will be redirected to an external platform where the challenge will be hosted. Please ensure you complete the challenge within the specified deadline.",
-    evaluationCriteria:
-      "Your submission will be evaluated based on:\n1. Correctness of solution\n2. Code efficiency and performance\n3. Code quality and readability",
+      "Complete the coding challenge within the specified deadline.",
+    evaluationCriteria: [
+      "Correctness of solution",
+      "Code efficiency and performance",
+      "Code quality and readability",
+    ],
+  };
+
+  // Use parent configuration if available, otherwise use saved config or default
+  const config =
+    parentConfiguration || savedConfig?.configurationData || defaultConfig;
+
+  const [expandedSections, setExpandedSections] = useState({
+    mode: true,
+    platform: true,
+    offline: true,
+    deadline: true,
+    scoring: true,
+    instructions: true,
   });
-  const [saving, setSaving] = useState(false);
 
   // Load configuration from the backend when available
   useEffect(() => {
-    if (savedConfig) {
+    if (savedConfig && !parentConfiguration) {
       console.log("Received saved config:", savedConfig);
 
-      // First set the top-level properties
-      const baseConfig = {
-        ...config,
-        name: savedConfig.name || config.name,
-      };
-
-      // Then merge in configuration data if available
       if (
         savedConfig.configurationData &&
         typeof savedConfig.configurationData === "object"
       ) {
         console.log("Found configuration data:", savedConfig.configurationData);
-
-        // Clean the configuration data using our utility function
         const cleanConfigData = cleanJsonObject(savedConfig.configurationData);
         console.log("Cleaned configuration data:", cleanConfigData);
 
-        // Create a clean merged config
         const mergedConfig = {
-          ...baseConfig,
+          ...defaultConfig,
           ...cleanConfigData,
         };
 
         console.log("Setting merged config:", mergedConfig);
-        setConfig(mergedConfig);
+        onConfigurationChange(mergedConfig);
       } else {
         console.warn(
           "No configuration data found in saved config, using defaults"
         );
-        setConfig(baseConfig);
+        onConfigurationChange(defaultConfig);
       }
     }
-  }, [savedConfig]);
-
-  const [expandedSections, setExpandedSections] = useState({
-    platform: true,
-    settings: true,
-    instructions: true,
-  });
-
-  const handleConfigChange = (
-    updates: Partial<CodingChallengeConfiguration>
-  ) => {
-    const newConfig = { ...config, ...updates };
-    setConfig(newConfig);
-    onConfigurationChange(newConfig);
-  };
-
-  const handleSaveConfiguration = async () => {
-    setSaving(true);
-
-    // Create a clean configuration data object with only the properties we need
-    const configDataToSave = {
-      externalPlatform: config.externalPlatform,
-      deadline: config.deadline,
-      allowLateSubmission: config.allowLateSubmission,
-      lateSubmissionPenalty: config.lateSubmissionPenalty,
-      passingScore: config.passingScore,
-      instructions: config.instructions,
-      evaluationCriteria: config.evaluationCriteria,
-    };
-
-    // Clean the configuration data using our utility function
-    const cleanConfigData = cleanJsonObject(configDataToSave);
-
-    // Create the request object to send to the backend
-    const configToSave = {
-      name: config.name,
-      description:
-        savedConfig?.description || "Configuration for coding challenge round",
-      duration: 120, // Default duration for coding challenges
-      status: savedConfig?.status || "draft",
-      configurationData: cleanConfigData,
-    };
-
-    console.log("Final configuration to save:", configToSave);
-
-    try {
-      const result = await saveConfiguration(configToSave);
-      if (result) {
-        console.log("Configuration saved successfully");
-      } else {
-        console.error("Failed to save configuration");
-      }
-    } catch (error) {
-      console.error("Error saving configuration:", error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const updatePlatformConfig = (updates: Partial<ExternalPlatformConfig>) => {
-    handleConfigChange({
-      externalPlatform: { ...config.externalPlatform, ...updates },
-    });
-  };
+  }, [savedConfig, parentConfiguration, onConfigurationChange]);
 
   const toggleSection = (section: keyof typeof expandedSections) => {
     setExpandedSections((prev) => ({
@@ -180,425 +152,728 @@ export function CodingChallengeConfig({
     }));
   };
 
-  // Loading and error states
+  const updateConfig = (updates: Partial<CodingChallengeConfiguration>) => {
+    const newConfig = { ...config, ...updates };
+    onConfigurationChange(newConfig);
+  };
+
+  // Helper functions for offline challenge arrays
+  const addRequirement = () => {
+    if (config.offlineChallenge) {
+      updateConfig({
+        offlineChallenge: {
+          ...config.offlineChallenge,
+          requirements: [...config.offlineChallenge.requirements, ""],
+        },
+      });
+    }
+  };
+
+  const updateRequirement = (index: number, value: string) => {
+    if (config.offlineChallenge) {
+      const newRequirements = [...config.offlineChallenge.requirements];
+      newRequirements[index] = value;
+      updateConfig({
+        offlineChallenge: {
+          ...config.offlineChallenge,
+          requirements: newRequirements,
+        },
+      });
+    }
+  };
+
+  const removeRequirement = (index: number) => {
+    if (config.offlineChallenge) {
+      updateConfig({
+        offlineChallenge: {
+          ...config.offlineChallenge,
+          requirements: config.offlineChallenge.requirements.filter(
+            (_: string, i: number) => i !== index
+          ),
+        },
+      });
+    }
+  };
+
+  const addDeliverable = () => {
+    if (config.offlineChallenge) {
+      updateConfig({
+        offlineChallenge: {
+          ...config.offlineChallenge,
+          deliverables: [...config.offlineChallenge.deliverables, ""],
+        },
+      });
+    }
+  };
+
+  const updateDeliverable = (index: number, value: string) => {
+    if (config.offlineChallenge) {
+      const newDeliverables = [...config.offlineChallenge.deliverables];
+      newDeliverables[index] = value;
+      updateConfig({
+        offlineChallenge: {
+          ...config.offlineChallenge,
+          deliverables: newDeliverables,
+        },
+      });
+    }
+  };
+
+  const removeDeliverable = (index: number) => {
+    if (config.offlineChallenge) {
+      updateConfig({
+        offlineChallenge: {
+          ...config.offlineChallenge,
+          deliverables: config.offlineChallenge.deliverables.filter(
+            (_: string, i: number) => i !== index
+          ),
+        },
+      });
+    }
+  };
+
+  const addTechnology = () => {
+    if (config.offlineChallenge) {
+      updateConfig({
+        offlineChallenge: {
+          ...config.offlineChallenge,
+          allowedTechnologies: [
+            ...(config.offlineChallenge.allowedTechnologies || []),
+            "",
+          ],
+        },
+      });
+    }
+  };
+
+  const updateTechnology = (index: number, value: string) => {
+    if (
+      config.offlineChallenge &&
+      config.offlineChallenge.allowedTechnologies
+    ) {
+      const newTechnologies = [...config.offlineChallenge.allowedTechnologies];
+      newTechnologies[index] = value;
+      updateConfig({
+        offlineChallenge: {
+          ...config.offlineChallenge,
+          allowedTechnologies: newTechnologies,
+        },
+      });
+    }
+  };
+
+  const removeTechnology = (index: number) => {
+    if (
+      config.offlineChallenge &&
+      config.offlineChallenge.allowedTechnologies
+    ) {
+      updateConfig({
+        offlineChallenge: {
+          ...config.offlineChallenge,
+          allowedTechnologies:
+            config.offlineChallenge.allowedTechnologies.filter(
+              (_: string, i: number) => i !== index
+            ),
+        },
+      });
+    }
+  };
+
+  // Evaluation criteria list helpers
+  const ensureEvalList = (): string[] => {
+    const ec: any = (config as any).evaluationCriteria;
+    if (Array.isArray(ec)) return ec as string[];
+    if (typeof ec === "string") {
+      return ec
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    return [];
+  };
+
+  const addCriteria = () => {
+    const list = ensureEvalList();
+    updateConfig({ evaluationCriteria: [...list, ""] } as any);
+  };
+
+  const addCriteriaAfter = (index: number) => {
+    const list = ensureEvalList();
+    const next = [...list.slice(0, index + 1), "", ...list.slice(index + 1)];
+    updateConfig({ evaluationCriteria: next } as any);
+  };
+
+  const updateCriteria = (index: number, value: string) => {
+    const list = ensureEvalList();
+    const next = [...list];
+    next[index] = value;
+    updateConfig({ evaluationCriteria: next } as any);
+  };
+
+  const removeCriteria = (index: number) => {
+    const list = ensureEvalList();
+    updateConfig({
+      evaluationCriteria: list.filter((_, i) => i !== index),
+    } as any);
+  };
+
   if (loading) {
     return (
-      <div className="flex justify-center items-center p-8">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
-        <span className="ml-2">Loading configuration...</span>
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-        <p className="font-medium">Error loading configuration</p>
-        <p className="text-sm">{error}</p>
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="flex items-center">
+          <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
+          <p className="text-red-800">Failed to load configuration: {error}</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-8">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800">
-          Coding Challenge Configuration
-        </h2>
-      </div>
-
-      {/* Round Instructions */}
-      <RoundInstructions roundType="coding_challenge" />
-
-      {/* Configuration Name */}
-      <div className="mb-4">
-        <label
-          htmlFor="configName"
-          className="block text-sm font-medium text-gray-700 mb-1"
+    <div className="space-y-6">
+      {/* Mode Selection */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <button
+          onClick={() => toggleSection("mode")}
+          className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
         >
-          Configuration Name
-        </label>
-        <input
-          type="text"
-          id="configName"
-          value={config.name}
-          onChange={(e) => handleConfigChange({ name: e.target.value })}
-          className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-          placeholder="Enter configuration name"
-        />
-        <p className="mt-1 text-xs text-gray-500">
-          Give your coding challenge configuration a descriptive name
-        </p>
-      </div>
-
-      {/* External Platform Configuration */}
-      <div className="border border-gray-200 rounded-lg">
-        <div
-          className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
-          onClick={() => toggleSection("platform")}
-        >
-          <div className="flex items-center space-x-3">
-            <Code className="h-5 w-5 text-blue-600" />
+          <div className="flex items-center">
+            <Monitor className="h-5 w-5 text-gray-600 mr-3" />
             <h3 className="text-lg font-semibold text-gray-900">
-              External Platform Integration
+              Challenge Mode
             </h3>
           </div>
-          {expandedSections.platform ? (
-            <ChevronUp className="h-5 w-5" />
+          {expandedSections.mode ? (
+            <ChevronUp className="h-5 w-5 text-gray-400" />
           ) : (
-            <ChevronDown className="h-5 w-5" />
+            <ChevronDown className="h-5 w-5 text-gray-400" />
           )}
-        </div>
+        </button>
 
-        {expandedSections.platform && (
-          <div className="p-4 border-t border-gray-200 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Platform
-              </label>
-              <select
-                value={config.externalPlatform.platform}
-                onChange={(e) =>
-                  updatePlatformConfig({
-                    platform: e.target
-                      .value as ExternalPlatformConfig["platform"],
-                  })
-                }
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+        {expandedSections.mode && (
+          <div className="px-6 pb-6 space-y-4">
+            <div className="flex space-x-4">
+              <button
+                onClick={() => updateConfig({ mode: "online" })}
+                className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+                  config.mode === "online"
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
               >
-                <option value="hackerrank">HackerRank</option>
-                <option value="codility">Codility</option>
-                <option value="leetcode">LeetCode</option>
-                <option value="custom">Custom Platform</option>
-              </select>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Test ID (optional)
-                </label>
-                <input
-                  type="text"
-                  value={config.externalPlatform.testId || ""}
-                  onChange={(e) =>
-                    updatePlatformConfig({ testId: e.target.value })
-                  }
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder={`Enter ${config.externalPlatform.platform} Test ID`}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Test Link
-                </label>
-                <div className="flex">
-                  <input
-                    type="text"
-                    value={config.externalPlatform.testLink || ""}
-                    onChange={(e) =>
-                      updatePlatformConfig({ testLink: e.target.value })
-                    }
-                    className="flex-grow p-2 border border-gray-300 rounded-l-md focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder={`Enter ${config.externalPlatform.platform} Test Link`}
-                  />
-                  {config.externalPlatform.testLink && (
-                    <a
-                      href={config.externalPlatform.testLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 bg-blue-500 text-white rounded-r-md hover:bg-blue-600"
-                    >
-                      <ExternalLink className="h-5 w-5" />
-                    </a>
-                  )}
+                <Globe className="h-5 w-5 mx-auto mb-2" />
+                <div className="font-medium">Online Challenge</div>
+                <div className="text-sm mt-1 opacity-75">
+                  External platform (HackerRank, Codility, etc.)
                 </div>
-                <p className="mt-1 text-xs text-gray-500">
-                  This link will be sent to candidates
-                </p>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Additional Platform Instructions (optional)
-              </label>
-              <textarea
-                value={config.externalPlatform.additionalInstructions || ""}
-                onChange={(e) =>
-                  updatePlatformConfig({
-                    additionalInstructions: e.target.value,
-                  })
-                }
-                className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                rows={3}
-                placeholder="Enter any additional instructions specific to the platform..."
-              />
-            </div>
-
-            <div className="bg-blue-50 p-4 rounded-md">
-              <div className="flex items-start">
-                <LinkIcon className="h-5 w-5 text-blue-500 mt-0.5 mr-2" />
-                <div>
-                  <h4 className="text-sm font-medium text-blue-800">
-                    Integration Guide
-                  </h4>
-                  <p className="mt-1 text-sm text-blue-600">
-                    {config.externalPlatform.platform === "hackerrank" && (
-                      <>
-                        To integrate with HackerRank, create a test in your
-                        HackerRank for Work account, then copy the test link and
-                        optionally the test ID. The test link will be sent to
-                        candidates.
-                      </>
-                    )}
-                    {config.externalPlatform.platform === "codility" && (
-                      <>
-                        To integrate with Codility, create an assessment in your
-                        Codility account, then copy the public link. The link
-                        will be sent to candidates.
-                      </>
-                    )}
-                    {config.externalPlatform.platform === "leetcode" && (
-                      <>
-                        To integrate with LeetCode, create a contest or problem
-                        set, then copy the link. The link will be sent to
-                        candidates.
-                      </>
-                    )}
-                    {config.externalPlatform.platform === "custom" && (
-                      <>
-                        For a custom platform, enter the direct link to the
-                        coding challenge. This link will be sent to candidates.
-                      </>
-                    )}
-                  </p>
+              </button>
+              <button
+                onClick={() => updateConfig({ mode: "offline" })}
+                className={`flex-1 py-3 px-4 rounded-lg border-2 transition-all ${
+                  config.mode === "offline"
+                    ? "border-blue-500 bg-blue-50 text-blue-700"
+                    : "border-gray-200 hover:border-gray-300"
+                }`}
+              >
+                <Github className="h-5 w-5 mx-auto mb-2" />
+                <div className="font-medium">Offline Challenge</div>
+                <div className="text-sm mt-1 opacity-75">
+                  Take-home project with GitHub submission
                 </div>
-              </div>
+              </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Challenge Settings */}
-      <div className="border border-gray-200 rounded-lg">
-        <div
-          className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
-          onClick={() => toggleSection("settings")}
-        >
-          <div className="flex items-center space-x-3">
-            <Clock className="h-5 w-5 text-orange-600" />
-            <h3 className="text-lg font-semibold text-gray-900">
-              Challenge Settings
-            </h3>
-          </div>
-          {expandedSections.settings ? (
-            <ChevronUp className="h-5 w-5" />
-          ) : (
-            <ChevronDown className="h-5 w-5" />
+      {/* Online Platform Configuration */}
+      {config.mode === "online" && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <button
+            onClick={() => toggleSection("platform")}
+            className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center">
+              <ExternalLink className="h-5 w-5 text-gray-600 mr-3" />
+              <h3 className="text-lg font-semibold text-gray-900">
+                External Platform Configuration
+              </h3>
+            </div>
+            {expandedSections.platform ? (
+              <ChevronUp className="h-5 w-5 text-gray-400" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-gray-400" />
+            )}
+          </button>
+
+          {expandedSections.platform && (
+            <div className="px-6 pb-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Platform
+                </label>
+                <select
+                  value={config.externalPlatform?.platform || "hackerrank"}
+                  onChange={(e) =>
+                    updateConfig({
+                      externalPlatform: {
+                        ...config.externalPlatform,
+                        platform: e.target.value as any,
+                      } as ExternalPlatformConfig,
+                    })
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="hackerrank">HackerRank</option>
+                  <option value="codility">Codility</option>
+                  <option value="leetcode">LeetCode</option>
+                  <option value="custom">Custom Platform</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Test Link
+                </label>
+                <input
+                  type="url"
+                  value={config.externalPlatform?.testLink || ""}
+                  onChange={(e) =>
+                    updateConfig({
+                      externalPlatform: {
+                        ...config.externalPlatform,
+                        testLink: e.target.value,
+                      } as ExternalPlatformConfig,
+                    })
+                  }
+                  placeholder="https://www.hackerrank.com/test/..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Test ID (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={config.externalPlatform?.testId || ""}
+                  onChange={(e) =>
+                    updateConfig({
+                      externalPlatform: {
+                        ...config.externalPlatform,
+                        testId: e.target.value,
+                      } as ExternalPlatformConfig,
+                    })
+                  }
+                  placeholder="Enter test ID if applicable"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Additional Instructions
+                </label>
+                <textarea
+                  value={config.externalPlatform?.additionalInstructions || ""}
+                  onChange={(e) =>
+                    updateConfig({
+                      externalPlatform: {
+                        ...config.externalPlatform,
+                        additionalInstructions: e.target.value,
+                      } as ExternalPlatformConfig,
+                    })
+                  }
+                  rows={3}
+                  placeholder="Any additional instructions for candidates..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
           )}
         </div>
+      )}
 
-        {expandedSections.settings && (
-          <div className="p-4 border-t border-gray-200 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Offline Challenge Configuration */}
+      {config.mode === "offline" && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <button
+            onClick={() => toggleSection("offline")}
+            className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center">
+              <Github className="h-5 w-5 text-gray-600 mr-3" />
+              <h3 className="text-lg font-semibold text-gray-900">
+                Take-Home Project Configuration
+              </h3>
+            </div>
+            {expandedSections.offline ? (
+              <ChevronUp className="h-5 w-5 text-gray-400" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-gray-400" />
+            )}
+          </button>
+
+          {expandedSections.offline && (
+            <div className="px-6 pb-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Deadline (hours)
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Project Description
                 </label>
-                <input
-                  type="number"
-                  value={config.deadline}
-                  onChange={(e) => {
-                    // Allow the field to be cleared for typing
-                    if (e.target.value === "") {
-                      handleConfigChange({ deadline: 1 });
-                    } else {
-                      const value = parseInt(e.target.value);
-                      // Handle NaN and enforce min/max
-                      if (!isNaN(value)) {
-                        const validValue = Math.max(1, Math.min(168, value));
-                        handleConfigChange({ deadline: validValue });
-                      }
-                    }
-                  }}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                  min="1"
-                  max="168"
+                <textarea
+                  value={config.offlineChallenge?.projectDescription || ""}
+                  onChange={(e) =>
+                    updateConfig({
+                      offlineChallenge: {
+                        ...config.offlineChallenge!,
+                        projectDescription: e.target.value,
+                      },
+                    })
+                  }
+                  rows={4}
+                  placeholder="Describe the project that candidates need to build..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Passing Score (%)
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Requirements
                 </label>
-                <input
-                  type="number"
-                  value={config.passingScore}
-                  onChange={(e) => {
-                    // Allow the field to be cleared for typing
-                    if (e.target.value === "") {
-                      handleConfigChange({ passingScore: 0 });
-                    } else {
-                      const value = parseInt(e.target.value);
-                      // Handle NaN and enforce min/max
-                      if (!isNaN(value)) {
-                        const validValue = Math.max(0, Math.min(100, value));
-                        handleConfigChange({ passingScore: validValue });
-                      }
-                    }
-                  }}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                  min="0"
-                  max="100"
-                />
+                <div className="space-y-2">
+                  {config.offlineChallenge?.requirements.map(
+                    (req: string, index: number) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={req}
+                          onChange={(e) =>
+                            updateRequirement(index, e.target.value)
+                          }
+                          placeholder="Enter requirement..."
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                          onClick={() => removeRequirement(index)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-md"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )
+                  )}
+                  <button
+                    onClick={addRequirement}
+                    className="flex items-center text-blue-600 hover:text-blue-700"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Requirement
+                  </button>
+                </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Late Penalty (%)
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Deliverables
+                </label>
+                <div className="space-y-2">
+                  {config.offlineChallenge?.deliverables.map(
+                    (del: string, index: number) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={del}
+                          onChange={(e) =>
+                            updateDeliverable(index, e.target.value)
+                          }
+                          placeholder="Enter deliverable..."
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                          onClick={() => removeDeliverable(index)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-md"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )
+                  )}
+                  <button
+                    onClick={addDeliverable}
+                    className="flex items-center text-blue-600 hover:text-blue-700"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Deliverable
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Allowed Technologies (Optional)
+                </label>
+                <div className="space-y-2">
+                  {config.offlineChallenge?.allowedTechnologies?.map(
+                    (tech: string, index: number) => (
+                      <div key={index} className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={tech}
+                          onChange={(e) =>
+                            updateTechnology(index, e.target.value)
+                          }
+                          placeholder="e.g., React, Node.js, Python..."
+                          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                        <button
+                          onClick={() => removeTechnology(index)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-md"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    )
+                  )}
+                  <button
+                    onClick={addTechnology}
+                    className="flex items-center text-blue-600 hover:text-blue-700"
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Technology
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Submission Instructions
+                </label>
+                <textarea
+                  value={config.offlineChallenge?.submissionInstructions || ""}
+                  onChange={(e) =>
+                    updateConfig({
+                      offlineChallenge: {
+                        ...config.offlineChallenge!,
+                        submissionInstructions: e.target.value,
+                      },
+                    })
+                  }
+                  rows={3}
+                  placeholder="Instructions for how candidates should submit their project..."
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Removed duplicate Evaluation Criteria (now managed in Scoring section) */}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Deadline Configuration */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <button
+          onClick={() => toggleSection("deadline")}
+          className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        >
+          <div className="flex items-center">
+            <Clock className="h-5 w-5 text-gray-600 mr-3" />
+            <h3 className="text-lg font-semibold text-gray-900">
+              Deadline & Submission Settings
+            </h3>
+          </div>
+          {expandedSections.deadline ? (
+            <ChevronUp className="h-5 w-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="h-5 w-5 text-gray-400" />
+          )}
+        </button>
+
+        {expandedSections.deadline && (
+          <div className="px-6 pb-6 space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Deadline (hours from assignment)
+              </label>
+              <input
+                type="number"
+                value={config.deadline}
+                onChange={(e) =>
+                  updateConfig({ deadline: parseInt(e.target.value) || 48 })
+                }
+                min="1"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                Candidates will have {config.deadline} hours to complete the
+                challenge
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-sm font-medium text-gray-700">
+                  Allow Late Submission
+                </label>
+                <p className="text-sm text-gray-500">
+                  Accept submissions after the deadline with penalty
+                </p>
+              </div>
+              <button
+                onClick={() =>
+                  updateConfig({
+                    allowLateSubmission: !config.allowLateSubmission,
+                  })
+                }
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  config.allowLateSubmission ? "bg-blue-600" : "bg-gray-200"
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    config.allowLateSubmission
+                      ? "translate-x-6"
+                      : "translate-x-1"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {config.allowLateSubmission && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Late Submission Penalty (%)
                 </label>
                 <input
                   type="number"
                   value={config.lateSubmissionPenalty}
-                  onChange={(e) => {
-                    // Allow the field to be cleared for typing
-                    if (e.target.value === "") {
-                      handleConfigChange({ lateSubmissionPenalty: 0 });
-                    } else {
-                      const value = parseInt(e.target.value);
-                      // Handle NaN and enforce min/max
-                      if (!isNaN(value)) {
-                        const validValue = Math.max(0, Math.min(100, value));
-                        handleConfigChange({
-                          lateSubmissionPenalty: validValue,
-                        });
-                      }
-                    }
-                  }}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                  min="0"
-                  max="100"
-                  disabled={!config.allowLateSubmission}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <label className="flex items-center">
-                <input
-                  type="checkbox"
-                  checked={config.allowLateSubmission}
                   onChange={(e) =>
-                    handleConfigChange({
-                      allowLateSubmission: e.target.checked,
+                    updateConfig({
+                      lateSubmissionPenalty: parseInt(e.target.value) || 0,
                     })
                   }
-                  className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  min="0"
+                  max="100"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <span className="ml-2 text-sm text-gray-700">
-                  Allow late submissions
-                </span>
-              </label>
-            </div>
+              </div>
+            )}
           </div>
         )}
       </div>
 
-      {/* Instructions */}
-      <div className="border border-gray-200 rounded-lg">
-        <div
-          className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50"
-          onClick={() => toggleSection("instructions")}
+      {/* Scoring Configuration */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <button
+          onClick={() => toggleSection("scoring")}
+          className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
         >
-          <div className="flex items-center space-x-3">
-            <FileText className="h-5 w-5 text-purple-600" />
-            <h3 className="text-lg font-semibold text-gray-900">
-              Instructions & Evaluation
-            </h3>
+          <div className="flex items-center">
+            <CheckCircle className="h-5 w-5 text-gray-600 mr-3" />
+            <h3 className="text-lg font-semibold text-gray-900">Scoring</h3>
           </div>
-          {expandedSections.instructions ? (
-            <ChevronUp className="h-5 w-5" />
+          {expandedSections.scoring ? (
+            <ChevronUp className="h-5 w-5 text-gray-400" />
           ) : (
-            <ChevronDown className="h-5 w-5" />
+            <ChevronDown className="h-5 w-5 text-gray-400" />
           )}
-        </div>
+        </button>
 
-        {expandedSections.instructions && (
-          <div className="p-4 border-t border-gray-200 space-y-4">
+        {expandedSections.scoring && (
+          <div className="px-6 pb-6 space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Challenge Instructions
+                Passing Score (%)
               </label>
-              <textarea
-                value={config.instructions}
+              <input
+                type="number"
+                value={config.passingScore}
                 onChange={(e) =>
-                  handleConfigChange({ instructions: e.target.value })
+                  updateConfig({ passingScore: parseInt(e.target.value) || 70 })
                 }
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                rows={4}
-                placeholder="Instructions for candidates..."
+                min="0"
+                max="100"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+              <p className="mt-1 text-sm text-gray-500">
+                Candidates must score at least {config.passingScore}% to pass
+              </p>
             </div>
 
+            {/* Evaluation Criteria - list */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Evaluation Criteria
               </label>
-              <textarea
-                value={config.evaluationCriteria}
-                onChange={(e) =>
-                  handleConfigChange({ evaluationCriteria: e.target.value })
-                }
-                className="w-full p-3 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                rows={4}
-                placeholder="Describe how submissions will be evaluated..."
-              />
+              <div className="space-y-2">
+                {ensureEvalList().map((crit: string, index: number) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <span className="text-gray-400 select-none">•</span>
+                    <input
+                      type="text"
+                      value={crit}
+                      onChange={(e) => updateCriteria(index, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          addCriteriaAfter(index);
+                        }
+                        if (e.key === "Backspace" && !crit) {
+                          e.preventDefault();
+                          removeCriteria(index);
+                        }
+                      }}
+                      placeholder="Add a criterion..."
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      onClick={() => removeCriteria(index)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-md"
+                      title="Remove"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  onClick={addCriteria}
+                  className="flex items-center text-blue-600 hover:text-blue-700"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Criterion
+                </button>
+              </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* Summary */}
-      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-        <div className="flex items-start space-x-3">
-          <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
-          <div>
-            <h4 className="text-sm font-medium text-orange-900">
-              Challenge Summary
-            </h4>
-            <div className="mt-2 text-sm text-orange-700 space-y-1">
-              <p>
-                • Platform:{" "}
-                {config.externalPlatform.platform.charAt(0).toUpperCase() +
-                  config.externalPlatform.platform.slice(1)}
-              </p>
-              {config.externalPlatform.testId && (
-                <p>• Test ID: {config.externalPlatform.testId}</p>
-              )}
-              <p>
-                • {config.deadline} hour deadline
-                {config.allowLateSubmission
-                  ? ` (late submissions allowed with ${config.lateSubmissionPenalty}% penalty)`
-                  : " (no late submissions)"}
-              </p>
-              <p>• Passing score: {config.passingScore}%</p>
-              <p>
-                •{" "}
-                {config.externalPlatform.testLink ? (
-                  <span className="text-blue-700">
-                    Test link available{" "}
-                    <CheckCircle className="h-4 w-4 inline ml-1" />
-                  </span>
-                ) : (
-                  <span className="text-red-700">No test link provided</span>
-                )}
-              </p>
-            </div>
-          </div>
+      {/* Custom Instructions Section */}
+      <div className="border border-gray-200 rounded-lg">
+        <div className="p-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Coding Challenge Instructions
+          </label>
+          <textarea
+            value={config.instructions}
+            onChange={(e) => updateConfig({ instructions: e.target.value })}
+            className="w-full p-3 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+            rows={3}
+            placeholder="Instructions for the coding challenge..."
+          />
         </div>
       </div>
+
+      {/* Round Instructions */}
+      <RoundInstructions roundType="coding_challenge" />
     </div>
   );
 }

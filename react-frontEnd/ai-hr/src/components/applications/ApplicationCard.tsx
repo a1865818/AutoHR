@@ -19,7 +19,6 @@ import {
   Mail,
 } from "lucide-react";
 import Link from "next/link";
-import { ApplicationTimeline } from "./ApplicationTimeline";
 
 interface ApplicationCardProps {
   application: ApplicationWithJobDetails;
@@ -231,16 +230,7 @@ export default function ApplicationCard({
           )}
         </div>
 
-        {/* Compact Timeline */}
-        <div className="mb-4">
-          <ApplicationTimeline
-            status={application.status || ""}
-            stage={application.stage}
-            appliedAt={application.appliedAt}
-            statusChangedAt={application.statusChangedAt}
-            showDetails={false}
-          />
-        </div>
+        {/* Compact Timeline removed per requirements */}
 
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -275,16 +265,7 @@ export default function ApplicationCard({
         {/* Expandable Details */}
         {showDetails && (
           <div className="mt-6 pt-6 border-t border-gray-200 w-full">
-            {/* Application Timeline */}
-            <div className="mb-6">
-              <ApplicationTimeline
-                status={application.status || ""}
-                stage={application.stage}
-                appliedAt={application.appliedAt}
-                statusChangedAt={application.statusChangedAt}
-                showDetails={true}
-              />
-            </div>
+            {/* Application Timeline removed per requirements */}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full">
               {/* Application Details */}
@@ -437,53 +418,7 @@ export default function ApplicationCard({
               </div>
             )}
 
-            {/* Cover Letter */}
-            {application.coverLetterText && (
-              <div className="mt-6 pt-6 border-t border-gray-200 w-full">
-                <h4 className="font-semibold text-gray-900 mb-3">
-                  Cover Letter
-                </h4>
-                {/* Detect and pretty-print metadata if present */}
-                {(() => {
-                  // Use a non-greedy match for metadata block (without 's' flag for compatibility)
-                  const metaMatch = application.coverLetterText.match(
-                    /\[APPLICATION_METADATA\]([\s\S]*?)\[\/APPLICATION_METADATA\]/
-                  );
-                  if (metaMatch) {
-                    let metaObj = null;
-                    try {
-                      metaObj = JSON.parse(metaMatch[1]);
-                    } catch {
-                      // ignore JSON parse error
-                    }
-                    return (
-                      <div className="mb-4">
-                        <div className="text-xs text-gray-500 mb-1">
-                          Application Metadata
-                        </div>
-                        <pre className="bg-gray-100 rounded p-4 text-xs text-gray-800 overflow-x-auto max-h-60 whitespace-pre-wrap">
-                          {metaObj
-                            ? JSON.stringify(metaObj, null, 2)
-                            : metaMatch[1]}
-                        </pre>
-                      </div>
-                    );
-                  }
-                  // Otherwise, render as normal paragraphs
-                  return (
-                    <div className="bg-gray-50 rounded-lg p-4 text-sm text-gray-700 max-h-40 overflow-y-auto w-full break-words">
-                      {application.coverLetterText
-                        .split("\n")
-                        .map((paragraph, index) => (
-                          <p key={index} className="mb-2 last:mb-0 break-words">
-                            {paragraph}
-                          </p>
-                        ))}
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
+            {/* Cover Letter removed per requirements */}
           </div>
         )}
       </div>
