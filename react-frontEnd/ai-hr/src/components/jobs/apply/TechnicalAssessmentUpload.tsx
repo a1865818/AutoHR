@@ -149,9 +149,9 @@ export function TechnicalAssessmentUpload({
   const handleDownload = async () => {
     if (existingAssessment?.url) {
       // Use the same logic as in ApplicationSuccessPage to extract bucket and file name
-      let bucket = "technical-assessments"; // fallback default
-      let url = existingAssessment.url;
-      let file = url.split("/").pop() || "";
+      const bucket = "technical-assessments"; // fallback default
+      const url = existingAssessment.url;
+      const file = url.split("/").pop() || "";
       console.log("file:", file);
 
       try {
@@ -214,9 +214,9 @@ export function TechnicalAssessmentUpload({
               <button
                 onClick={async () => {
                   if (existingAssessment?.url) {
-                    let bucket = "technical-assessments";
-                    let url = existingAssessment.url;
-                    let file = url.split("/").pop() || "";
+                    const bucket = "technical-assessments";
+                    const url = existingAssessment.url;
+                    const file = url.split("/").pop() || "";
                     try {
                       const res = await storageBucketService.getFileUrl(
                         bucket,

@@ -194,7 +194,7 @@ export default function JobPipelinePage() {
         (jobData as any).InterviewTemplate
       );
 
-      let jobWithTemplate: JobWithTemplate = {
+      const jobWithTemplate: JobWithTemplate = {
         ...jobData,
         interviewTemplate: undefined,
       };
@@ -290,8 +290,8 @@ export default function JobPipelinePage() {
       }
 
       // Load candidates for this job
-      var candidatesData = await candidateService.getCandidatesForJob(jobId);
-      var applicationDetails = [];
+      const candidatesData = await candidateService.getCandidatesForJob(jobId);
+      let applicationDetails = [];
       try {
         applicationDetails = await candidateService.getApplicationDetailByJob(
           jobId
@@ -381,31 +381,29 @@ export default function JobPipelinePage() {
                   roundType: currentRound.type,
                 });
 
-                hasSubmittedAssessment =
-                  await assessmentService.hasSubmittedAssessment(
+                // Fetch submission once and derive flags from status
+                const submission =
+                  await assessmentService.getAssessmentSubmission(
                     candidate.candidateUserId,
                     currentRoundId
                   );
+                hasSubmittedAssessment =
+                  !!submission &&
+                  (submission.status === "submitted" ||
+                    submission.status === "graded");
+                isAssessmentGraded =
+                  !!submission && submission.status === "graded";
                 console.log(
-                  `📝 Candidate ${candidate.name} submission status:`,
+                  `📝 Candidate ${candidate.name} submission and grading:`,
                   {
+                    submissionStatus: submission?.status,
                     hasSubmitted: hasSubmittedAssessment,
+                    isGraded: isAssessmentGraded,
                     applicationId: candidate.id,
                     candidateUserId: candidate.candidateUserId,
                     roundId: currentRoundId,
                   }
                 );
-
-                isAssessmentGraded = await assessmentService.isSubmissionGraded(
-                  candidate.candidateUserId,
-                  currentRoundId
-                );
-                console.log(`📝 Candidate ${candidate.name} grading status:`, {
-                  isGraded: isAssessmentGraded,
-                  applicationId: candidate.id,
-                  candidateUserId: candidate.candidateUserId,
-                  roundId: currentRoundId,
-                });
               } catch (error) {
                 console.warn(
                   `Failed to check submission status for candidate ${candidate.id}:`,
@@ -1725,16 +1723,91 @@ export default function JobPipelinePage() {
 
     // Determine round type to route appropriately
     const round = job?.interviewTemplate?.rounds?.find((r) => r.id === roundId);
-    const targetUrl = `/interview-pipeline/${jobId}/rounds/${roundId}/technical-assessment/assessment/${candidateUserId}`;
+    let targetUrl = `/interview-pipeline/${jobId}/rounds/${roundId}/technical-assessment/assessment/${candidateUserId}`;
+    if (round?.type === "coding_challenge") {
+      targetUrl = `/interview-pipeline/${jobId}/rounds/${roundId}/coding-challenge/assessment/${candidateUserId}`;
+    } else if (round?.type === "video_interview") {
+      targetUrl = `/interview-pipeline/${jobId}/rounds/${roundId}/video-interview/assessment/${candidateUserId}`;
+    }
 
     console.log("🔍 Navigating to assessment marking with:", {
       jobId,
       roundId,
       candidateUserId,
-      isCodingChallenge: round?.type === "coding_challenge",
+      roundType: round?.type,
       url: targetUrl,
     });
     router.push(targetUrl);
+  };
+
+  const handleMarkPhoneScreening = (
+    candidateUserId: string,
+    roundId: string
+  ) => {
+    if (!jobId || jobId === "undefined") {
+      console.error(
+        "❌ Cannot navigate to phone screening marking: invalid jobId",
+        jobId
+      );
+      return;
+    }
+    const targetUrl = `/interview-pipeline/${jobId}/rounds/${roundId}/phone-screening/assessment/${candidateUserId}`;
+    console.log("🔍 Navigating to phone screening assessment with:", {
+      jobId,
+      roundId,
+      candidateUserId,
+      url: targetUrl,
+    });
+    router.push(targetUrl);
+  };
+
+  // Bulk create (or ensure) assessment submissions for all candidates in a video interview round
+  const handleCreateVideoInterviewSubmissions = async (roundId: string) => {
+    try {
+      if (!jobId || !roundId) return;
+      const round = job?.interviewTemplate?.rounds?.find(
+        (r) => r.id === roundId
+      );
+      if (!round || round.type !== "video_interview") return;
+
+      const candidatesInRound = candidates.filter(
+        (c) => c.currentRoundId === roundId
+      );
+
+      // Create submissions in parallel, but ignore errors per-candidate
+      await Promise.all(
+        candidatesInRound.map(async (c) => {
+          try {
+            const existing = await assessmentService.getAssessmentSubmission(
+              c.candidateUserId as string,
+              roundId
+            );
+            if (!existing) {
+              await assessmentService.createSubmission(
+                c.candidateUserId as string,
+                roundId,
+                jobId as string,
+                null,
+                { source: "video_interview_bulk_init" }
+              );
+            }
+          } catch (err) {
+            // swallow per-candidate errors to continue others
+            console.warn(
+              "Bulk submission create failed for candidate",
+              c.id,
+              err
+            );
+          }
+        })
+      );
+
+      console.log(
+        `✅ Ensured submissions for ${candidatesInRound.length} candidate(s) in video interview round ${roundId}`
+      );
+    } catch (e) {
+      console.error("Failed bulk create video interview submissions", e);
+    }
   };
 
   const handleHireCandidate = async (candidateId: string) => {
@@ -2354,6 +2427,9 @@ export default function JobPipelinePage() {
                               candidate.candidateUserId,
                               roundId
                             )
+                          }
+                          onMarkPhoneScreen={(candidateUserId, roundId) =>
+                            handleMarkPhoneScreening(candidateUserId, roundId)
                           }
                           roundType={column.round?.type}
                           roundConfigurationData={

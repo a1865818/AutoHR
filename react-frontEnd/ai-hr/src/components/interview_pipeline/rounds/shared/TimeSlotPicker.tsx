@@ -116,7 +116,7 @@ export function TimeSlotPicker({
   const generateTimeOptions = () => {
     const times = [];
     for (let hour = 0; hour < 24; hour++) {
-      for (let minute of [0, 15, 30, 45]) {
+      for (const minute of [0, 15, 30, 45]) {
         const timeString = `${hour.toString().padStart(2, "0")}:${minute
           .toString()
           .padStart(2, "0")}`;
@@ -635,7 +635,7 @@ function TimeSlotEditor({
   const generateTimeOptions = () => {
     const times = [];
     for (let hour = 0; hour < 24; hour++) {
-      for (let minute of [0, 15, 30, 45]) {
+      for (const minute of [0, 15, 30, 45]) {
         const timeString = `${hour.toString().padStart(2, "0")}:${minute
           .toString()
           .padStart(2, "0")}`;

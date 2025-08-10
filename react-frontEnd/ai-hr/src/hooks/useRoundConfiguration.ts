@@ -64,7 +64,7 @@ export function useRoundConfiguration(jobId: string, roundId: string) {
       console.log("Original configuration data to save:", configData);
       
       // Ensure the configuration data is properly structured
-      let dataToSave = { ...configData };
+      const dataToSave = { ...configData };
 
       // Store original questions separately before cleaning to ensure they're not lost
       const originalQuestions = dataToSave.configurationData?.questions || [];

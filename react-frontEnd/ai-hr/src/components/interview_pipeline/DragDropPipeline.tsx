@@ -44,6 +44,7 @@ interface DragDropCandidateCardProps {
   onViewProfile?: (candidateId: string) => void;
   onAddNote?: (candidateId: string, note: string) => void;
   onMarkAssessment?: (candidateId: string, roundId: string) => void;
+  onMarkPhoneScreen?: (candidateUserId: string, roundId: string) => void;
   jobTitle?: string;
   companyName?: string;
   roundType?: string;
@@ -66,6 +67,7 @@ export function DragDropCandidateCard({
   onViewProfile,
   onAddNote,
   onMarkAssessment,
+  onMarkPhoneScreen,
   jobTitle = "Position",
   companyName = "Company",
   roundType,
@@ -327,13 +329,24 @@ export function DragDropCandidateCard({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex items-center space-x-1">
+      <div className="flex items-center space-x-2">
         <button
           onClick={() => onViewProfile?.(candidate.id)}
-          className="flex-1 text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-2 py-1.5 rounded transition-colors"
+          className="w-1/2 text-xs bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-2 rounded-md transition-colors text-center"
         >
           View Profile
         </button>
+        {roundType === "phone_screening" && onMarkPhoneScreen ? (
+          <button
+            onClick={() =>
+              onMarkPhoneScreen?.(candidate.candidateUserId, roundId || "")
+            }
+            className="w-1/2 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-2 rounded-md transition-colors text-center"
+            title="Assess phone screening performance"
+          >
+            Assessment
+          </button>
+        ) : null}
         {roundType === "video_interview" &&
         candidate.meetingScheduled &&
         candidate.meetLink ? (
@@ -375,7 +388,7 @@ export function DragDropCandidateCard({
           !hasSubmittedAssessment ? (
             <button
               disabled
-              className="flex-1 text-xs bg-gray-50 text-gray-400 px-2 py-1.5 rounded"
+              className="flex-1 text-xs bg-gray-50 text-gray-400 px-2 py-1.5 rounded whitespace-nowrap"
               title="Waiting for candidate to submit"
             >
               Awaiting Submission
@@ -437,7 +450,23 @@ export function DragDropCandidateCard({
 
             {/* Action Buttons */}
             <div className="flex space-x-1">
-              {candidate.meetingScheduled && candidate.meetLink ? (
+              {roundType === "video_interview" ? (
+                onMarkAssessment && (
+                  <button
+                    onClick={() =>
+                      onMarkAssessment?.(
+                        candidate.candidateUserId,
+                        roundId || ""
+                      )
+                    }
+                    className="flex-1 flex items-center justify-center space-x-1 text-xs bg-purple-500 text-white hover:bg-purple-700 px-2 py-1 rounded transition-colors"
+                    title="Mark the video interview"
+                  >
+                    <CheckCircle className="h-3 w-3" />
+                    <span>Marking</span>
+                  </button>
+                )
+              ) : candidate.meetingScheduled && candidate.meetLink ? (
                 <button
                   onClick={() => {
                     // Open Google Meet link in new tab
@@ -451,66 +480,7 @@ export function DragDropCandidateCard({
                   <Calendar className="h-3 w-3" />
                   <span>Interview</span>
                 </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    // Try multiple possible field names to handle case sensitivity and different naming conventions
-                    const candidateId =
-                      candidate.id ||
-                      candidate.applicationId ||
-                      (candidate as any).Id ||
-                      (candidate as any).ApplicationId ||
-                      (candidate as any).application_id ||
-                      (candidate as any).candidate_id;
-
-                    console.log(
-                      "Quick actions Schedule button clicked for candidate:",
-                      {
-                        candidateId: candidate.id,
-                        applicationId: candidate.applicationId,
-                        fallbackId: candidateId,
-                        candidateName: candidate.name,
-                        candidate: candidate,
-                        candidateKeys: Object.keys(candidate),
-                        candidateIdType: typeof candidate.id,
-                        applicationIdType: typeof candidate.applicationId,
-                        hasId: "id" in candidate,
-                        hasApplicationId: "applicationId" in candidate,
-                        candidateIdValue: candidate.id,
-                        applicationIdValue: candidate.applicationId,
-                        // Check for alternative field names
-                        hasIdAlt: "Id" in candidate,
-                        hasApplicationIdAlt: "ApplicationId" in candidate,
-                        idAltValue: (candidate as any).Id,
-                        applicationIdAltValue: (candidate as any).ApplicationId,
-                      }
-                    );
-                    if (candidateId) {
-                      onSchedule?.(candidateId);
-                    } else {
-                      console.error(
-                        "Cannot schedule interview: no valid ID found in candidate object",
-                        {
-                          candidate,
-                          availableKeys: Object.keys(candidate),
-                          idValues: {
-                            id: candidate.id,
-                            applicationId: candidate.applicationId,
-                            Id: (candidate as any).Id,
-                            ApplicationId: (candidate as any).ApplicationId,
-                            application_id: (candidate as any).application_id,
-                            candidate_id: (candidate as any).candidate_id,
-                          },
-                        }
-                      );
-                    }
-                  }}
-                  className="flex-1 flex items-center justify-center space-x-1 text-xs bg-gray-50 text-gray-700 hover:bg-gray-100 px-2 py-1 rounded transition-colors"
-                >
-                  <Calendar className="h-3 w-3" />
-                  <span>Schedule</span>
-                </button>
-              )}
+              ) : null}
 
               <button
                 onClick={() => setShowNoteModal(true)}
