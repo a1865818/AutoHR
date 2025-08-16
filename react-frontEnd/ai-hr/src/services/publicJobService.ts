@@ -35,18 +35,34 @@ class PublicJobService {
   }
 
   // Get all public jobs (no authentication required)
-  async getPublicJobs(filters?: {
-    status?: string;
-    companyId?: string;
-    location?: string;
-    employmentType?: string;
-    experience?: string;
-  }): Promise<ApiJob[]> {
+  async getPublicJobs(
+    filters?: {
+      status?: string;
+      companyId?: string;
+      location?: string;
+      employmentType?: string;
+      experience?: string;
+    },
+    page?: number,
+    pageSize?: number
+  ): Promise<{
+    jobs: ApiJob[];
+    pagination: {
+      currentPage: number;
+      pageSize: number;
+      totalCount: number;
+      totalPages: number;
+      hasNextPage: boolean;
+      hasPreviousPage: boolean;
+    };
+  }> {
     try {
       console.log("🌍 FRONTEND: Fetching public jobs...");
       const params = new URLSearchParams();
       if (filters?.status) params.append("status", filters.status);
       if (filters?.companyId) params.append("companyId", filters.companyId);
+      if (page) params.append("page", page.toString());
+      if (pageSize) params.append("pageSize", pageSize.toString());
 
       const response = await fetch(
         `${API_BASE_URL}/public/jobs${
@@ -65,9 +81,9 @@ class PublicJobService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const jobs = await response.json();
-      console.log(`✅ FRONTEND: Fetched ${jobs.length} public jobs`);
-      return jobs;
+      const data = await response.json();
+      console.log(`✅ FRONTEND: Fetched ${data.jobs?.length || 0} public jobs`);
+      return data;
     } catch (error) {
       console.error("❌ FRONTEND: Error fetching public jobs:", error);
       throw new Error("Failed to fetch public jobs");

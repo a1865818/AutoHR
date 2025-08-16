@@ -49,7 +49,9 @@ export function PublicJobBoard() {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const jobsPerPage = 4;
+  const [jobsPerPage] = useState(8); // Show 8 jobs per page
+  const [totalJobs, setTotalJobs] = useState(0); // Total jobs from backend
+  const [totalPages, setTotalPages] = useState(1); // Total pages from backend
 
   const [activeFilters, setActiveFilters] = useState<Filters>({
     type: [],
@@ -91,7 +93,7 @@ export function PublicJobBoard() {
 
   useEffect(() => {
     loadPublicJobs();
-  }, []);
+  }, [currentPage, jobsPerPage]);
 
   // Load jobs when company filter changes
   useEffect(() => {
@@ -110,11 +112,19 @@ export function PublicJobBoard() {
         companyId ? `for company: ${companyId}` : "all"
       );
 
-      // Load jobs from public API with optional company filter
-      const jobs = await publicJobService.getPublicJobs(
-        companyId ? { companyId } : undefined
+      // Load jobs from public API with optional company filter and pagination
+      const response = await publicJobService.getPublicJobs(
+        companyId ? { companyId } : undefined,
+        currentPage,
+        jobsPerPage
       );
+
+      const jobs = response.jobs;
       setAllJobs(jobs);
+
+      // Update pagination state from backend response
+      setTotalJobs(response.pagination.totalCount);
+      setTotalPages(response.pagination.totalPages);
 
       // Load company data for each unique company
       const uniqueCompanyIds = [...new Set(jobs.map((job) => job.companyId))];
@@ -300,12 +310,8 @@ export function PublicJobBoard() {
     selectedCompanyId,
   ]);
 
-  // Calculate pagination
-  const totalJobs = filteredAndSortedJobs.length;
-  const totalPages = Math.ceil(totalJobs / jobsPerPage);
-  const startIndex = (currentPage - 1) * jobsPerPage;
-  const endIndex = startIndex + jobsPerPage;
-  const paginatedJobs = filteredAndSortedJobs.slice(startIndex, endIndex);
+  // Use the filtered and sorted jobs directly (backend already handles pagination)
+  const paginatedJobs = filteredAndSortedJobs;
 
   const updateFilter = (category: keyof Filters, value: string) => {
     setActiveFilters((prev) => ({

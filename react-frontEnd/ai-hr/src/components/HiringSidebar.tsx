@@ -34,7 +34,7 @@ export function HiringSidebar() {
   }, []);
 
   const navigation = [
-    { name: "Dashboard", href: "/", icon: Home },
+    { name: "Dashboard", href: "/dashboard", icon: Home },
     { name: "Candidates", href: "/candidates", icon: Users },
     {
       name: "Interview Pipeline",
@@ -108,7 +108,7 @@ export function HiringSidebar() {
               } ${isCollapsed ? "px-4" : "px-4"}`}
             >
               <Link
-                href="/"
+                href="/dashboard"
                 prefetch={false}
                 className="flex items-center"
                 title={

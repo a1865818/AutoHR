@@ -209,7 +209,9 @@ export function ApplicantJobsPage() {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [jobsPerPage] = useState(4);
+  const [jobsPerPage] = useState(8); // Show 8 jobs per page
+  const [totalJobs, setTotalJobs] = useState(0); // Total jobs from backend
+  const [totalPages, setTotalPages] = useState(1); // Total pages from backend
 
   const { user, isLoading: authLoading } = useAuth();
 
@@ -221,7 +223,7 @@ export function ApplicantJobsPage() {
     }
 
     loadJobs();
-  }, [authLoading]);
+  }, [authLoading, currentPage, jobsPerPage]);
 
   const loadJobs = async () => {
     console.log("🌍 Loading jobs for applicants...");
@@ -229,8 +231,19 @@ export function ApplicantJobsPage() {
     setError(null);
 
     try {
-      const activeJobs = await jobService.getPublicJobs("Active");
+      // Use paginated API instead of loading all jobs
+      const response = await jobService.getPublicJobs(
+        "Active",
+        undefined,
+        currentPage,
+        jobsPerPage
+      );
+      const activeJobs = response.jobs;
       console.log("✅ Loaded jobs:", activeJobs?.length || 0);
+
+      // Update pagination state from backend response
+      setTotalJobs(response.pagination.totalCount);
+      setTotalPages(response.pagination.totalPages);
 
       if (activeJobs && activeJobs.length > 0) {
         // Completely sanitize all .NET objects
@@ -502,12 +515,8 @@ export function ApplicantJobsPage() {
     return sorted;
   }, [allJobs, companies, searchQuery, sortBy, activeFilters]);
 
-  // Calculate pagination
-  const totalJobs = filteredAndSortedJobs.length;
-  const totalPages = Math.ceil(totalJobs / jobsPerPage);
-  const startIndex = (currentPage - 1) * jobsPerPage;
-  const endIndex = startIndex + jobsPerPage;
-  const paginatedJobs = filteredAndSortedJobs.slice(startIndex, endIndex);
+  // Use the filtered and sorted jobs directly (backend already handles pagination)
+  const paginatedJobs = filteredAndSortedJobs;
 
   // Reset to first page when search query changes
   useEffect(() => {
@@ -586,8 +595,9 @@ export function ApplicantJobsPage() {
               <p className="text-gray-600 mt-1">
                 {totalJobs > 0 && (
                   <>
-                    Showing {startIndex + 1}-{Math.min(endIndex, totalJobs)} of{" "}
-                    {totalJobs} job{totalJobs !== 1 ? "s" : ""} available
+                    Showing {paginatedJobs.length > 0 ? 1 : 0}-
+                    {paginatedJobs.length} of {totalJobs} job
+                    {totalJobs !== 1 ? "s" : ""} available
                   </>
                 )}
                 {totalJobs === 0 && "No jobs available"}

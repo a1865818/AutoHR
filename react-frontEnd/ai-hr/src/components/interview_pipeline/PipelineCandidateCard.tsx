@@ -16,6 +16,8 @@ import { Candidate } from "@/interfaces";
 interface PipelineCandidate extends Candidate {
   currentRoundId?: string;
   roundProgress?: number;
+  currentAssessmentScore?: number;
+  isCurrentScoreHRGraded?: boolean;
 }
 
 interface PipelineCandidateCardProps {
@@ -132,14 +134,28 @@ export function PipelineCandidateCard({
         {/* Assessment Score */}
         <div className="flex items-center justify-between text-xs">
           <span className="text-gray-500">Assessment Score</span>
-          <div
-            className={`flex items-center space-x-1 px-2 py-1 rounded ${getAssessmentColor(
-              candidate.assessment
-            )}`}
-          >
-            <Star className="h-3 w-3" />
-            <span className="font-medium">{candidate.assessment}/100</span>
-          </div>
+          {typeof candidate.currentAssessmentScore === "number" ? (
+            <div
+              className={`flex items-center space-x-1 px-2 py-1 rounded ${getAssessmentColor(
+                candidate.currentAssessmentScore
+              )}`}
+              title={
+                candidate.isCurrentScoreHRGraded
+                  ? "HR-graded"
+                  : "Auto-generated"
+              }
+            >
+              <Star className="h-3 w-3" />
+              <span className="font-medium">
+                {candidate.currentAssessmentScore}/100
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-1 px-2 py-1 rounded text-orange-600 bg-orange-50">
+              <Star className="h-3 w-3" />
+              <span className="font-medium">Pending</span>
+            </div>
+          )}
         </div>
 
         {/* Applied Date */}

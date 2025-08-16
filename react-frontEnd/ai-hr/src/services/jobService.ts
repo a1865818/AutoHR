@@ -239,7 +239,17 @@ class JobService {
     }
   }
 
-  async getAllJobs(status?: string, companyId?: string): Promise<ApiJob[]> {
+  async getAllJobs(status?: string, companyId?: string, page?: number, pageSize?: number): Promise<{
+    jobs: ApiJob[];
+    pagination: {
+      currentPage: number;
+      pageSize: number;
+      totalCount: number;
+      totalPages: number;
+      hasNextPage: boolean;
+      hasPreviousPage: boolean;
+    };
+  }> {
     if (!this.isAuthenticated()) {
       throw new Error("Authentication required to view jobs");
     }
@@ -261,16 +271,53 @@ class JobService {
       console.warn("⚠️ No company ID provided - this may return all jobs");
     }
 
+    // Add pagination parameters
+    if (page && page > 0) {
+      params.append("page", page.toString());
+      console.log("📊 Requesting page:", page);
+    }
+
+    if (pageSize && pageSize > 0) {
+      params.append("pageSize", pageSize.toString());
+      console.log("📊 Page size:", pageSize);
+    }
+
     const queryString = params.toString();
     const endpoint = `/jobs${queryString ? `?${queryString}` : ""}`;
 
     console.log("📊 Final API endpoint:", endpoint);
 
-    const jobs = await this.fetchApi(endpoint);
-    console.log("📊 Received jobs from API:", jobs?.length || 0);
+    const response = await this.fetchApi(endpoint);
+    console.log("📊 Received response from API:", response);
 
-    // ✅ MINIMAL PROCESSING - Don't convert statuses, let the frontend handle it
-    return jobs || [];
+    // Handle both old format (array) and new format (paginated object)
+    if (Array.isArray(response)) {
+      // Legacy format - return as single page
+      return {
+        jobs: response || [],
+        pagination: {
+          currentPage: 1,
+          pageSize: response?.length || 0,
+          totalCount: response?.length || 0,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false
+        }
+      };
+    } else {
+      // New paginated format
+      return {
+        jobs: response?.jobs || [],
+        pagination: response?.pagination || {
+          currentPage: 1,
+          pageSize: 10,
+          totalCount: 0,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false
+        }
+      };
+    }
   }
 
   getCurrentUser() {
@@ -388,7 +435,18 @@ class JobService {
     if (!this.isAuthenticated()) {
       throw new Error("Authentication required to view company jobs");
     }
-    return this.fetchApi(`/jobs/company/${companyId}`);
+    
+    const response = await this.getAllJobs(undefined, companyId, 1, 100);
+    return response.jobs;
+  }
+
+  async getCompanyJobs(companyId: string): Promise<ApiJob[]> {
+    if (!this.isAuthenticated()) {
+      throw new Error("Authentication required to view company jobs");
+    }
+    
+    const response = await this.getAllJobs(undefined, companyId, 1, 100);
+    return response.jobs;
   }
 
   // Company-related methods
@@ -546,11 +604,28 @@ class JobService {
   }
 
   // Public methods for applicant job browsing (no auth required)
-  async getPublicJobs(status?: string, companyId?: string): Promise<ApiJob[]> {
+  async getPublicJobs(
+    status?: string, 
+    companyId?: string, 
+    page?: number, 
+    pageSize?: number
+  ): Promise<{
+    jobs: ApiJob[];
+    pagination: {
+      currentPage: number;
+      pageSize: number;
+      totalCount: number;
+      totalPages: number;
+      hasNextPage: boolean;
+      hasPreviousPage: boolean;
+    };
+  }> {
     // Build query parameters for public endpoint
     const params = new URLSearchParams();
     if (status && status.trim()) params.append("status", status);
     if (companyId && companyId.trim()) params.append("companyId", companyId);
+    if (page) params.append("page", page.toString());
+    if (pageSize) params.append("pageSize", pageSize.toString());
 
     const queryString = params.toString();
     const endpoint = `/public/jobs${queryString ? `?${queryString}` : ""}`;
@@ -582,9 +657,9 @@ class JobService {
         );
       }
 
-      const jobs = await response.json();
-      console.log("✅ Public jobs fetched successfully:", jobs.length);
-      return jobs;
+      const data = await response.json();
+      console.log("✅ Public jobs fetched successfully:", data.jobs?.length || 0);
+      return data;
     } catch (error: unknown) {
       console.error("❌ Failed to fetch public jobs:", error);
       throw error instanceof Error

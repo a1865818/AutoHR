@@ -3,37 +3,33 @@
 import React, { useState, useEffect } from "react";
 import {
   Search,
-  Filter,
-  Users,
   Calendar,
-  Clock,
-  MapPin,
-  Building,
   GitBranch,
-  ArrowRight,
   Loader2,
   Briefcase,
-  Phone,
-  Video,
-  Code,
-  MessageSquare,
-  Crown,
-  Heart,
   XCircle,
   CheckCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { jobService } from "@/services/jobService";
 import { interviewService } from "@/services/interviewService";
-import { candidateService } from "@/services/candidateService";
 import { useAuth } from "@/contexts/AuthContext";
 import { ApiJob } from "@/interfaces/api";
-import {
-  InterviewTemplate,
-  InterviewRound,
-  InterviewType,
-} from "@/interfaces/interview";
-import { PipelineJobCard } from "@/components/interview_pipeline/PipelineJobCard";
+import { InterviewTemplate } from "@/interfaces/interview";
+import { Pagination } from "@/components/ui/Pagination";
+import dynamic from "next/dynamic";
+const PipelineJobCard = dynamic(
+  () =>
+    import("@/components/interview_pipeline/PipelineJobCard").then(
+      (m) => m.PipelineJobCard
+    ),
+  {
+    loading: () => (
+      <div className="h-40 bg-white border border-gray-200 rounded-lg animate-pulse" />
+    ),
+    ssr: false,
+  }
+);
 
 interface JobWithTemplate extends Omit<ApiJob, "interviewTemplate"> {
   interviewTemplate?: InterviewTemplate;
@@ -48,6 +44,12 @@ export default function InterviewPipelinePage() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [jobsPerPage] = useState(8); // Show 8 jobs per page (4 per row on large screens)
+  const [totalJobs, setTotalJobs] = useState(0); // Total jobs from backend
+  const [totalPages, setTotalPages] = useState(1); // Total pages from backend
+
   // Template management state
   const [availableTemplates, setAvailableTemplates] = useState<
     InterviewTemplate[]
@@ -61,11 +63,11 @@ export default function InterviewPipelinePage() {
   useEffect(() => {
     // Wait for authentication to be loaded before trying to load data
     if (!authLoading) {
-    loadJobsWithTemplates();
+      loadJobsWithTemplates();
     }
-  }, [authLoading]);
+  }, [authLoading, currentPage]); // Reload when page changes
 
-  // Filter jobs based on search
+  // Filter jobs based on search and reset pagination
   useEffect(() => {
     if (searchQuery.trim() === "") {
       setFilteredJobs(jobs);
@@ -80,7 +82,11 @@ export default function InterviewPipelinePage() {
       );
       setFilteredJobs(filtered);
     }
-  }, [jobs, searchQuery]);
+    // Reset to first page when search changes
+    if (searchQuery.trim() !== "" && currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  }, [jobs, searchQuery, currentPage]);
 
   const loadJobsWithTemplates = async () => {
     try {
@@ -90,35 +96,47 @@ export default function InterviewPipelinePage() {
       // Get current user's company ID
       const authData = jobService.getCurrentUser();
       console.log("👤 Interview pipeline - Current user auth data:", authData);
-      
+
       let userCompanyId = authData.companyId;
 
       if (!userCompanyId) {
         // Try to get from storage
-        const currentUserStr = localStorage.getItem("currentUser") || sessionStorage.getItem("currentUser");
+        const currentUserStr =
+          localStorage.getItem("currentUser") ||
+          sessionStorage.getItem("currentUser");
         if (currentUserStr) {
           try {
             const currentUser = JSON.parse(currentUserStr);
             userCompanyId = currentUser.companyId;
-            console.log("🏢 Interview pipeline - Company ID from storage:", userCompanyId);
+            console.log(
+              "🏢 Interview pipeline - Company ID from storage:",
+              userCompanyId
+            );
           } catch (error) {
             console.warn("Failed to parse currentUser from storage:", error);
           }
         }
-        
+
         // Also try to get from cookies
         if (!userCompanyId) {
-          const cookies = document.cookie.split(';');
+          const cookies = document.cookie.split(";");
           for (let i = 0; i < cookies.length; i++) {
             let cookie = cookies[i];
-            while (cookie.charAt(0) === ' ') {
+            while (cookie.charAt(0) === " ") {
               cookie = cookie.substring(1, cookie.length);
             }
-            if (cookie.indexOf('userData=') === 0) {
+            if (cookie.indexOf("userData=") === 0) {
               try {
-                const userData = JSON.parse(decodeURIComponent(cookie.substring('userData='.length, cookie.length)));
+                const userData = JSON.parse(
+                  decodeURIComponent(
+                    cookie.substring("userData=".length, cookie.length)
+                  )
+                );
                 userCompanyId = userData.companyId;
-                console.log("🏢 Interview pipeline - Company ID from cookies:", userCompanyId);
+                console.log(
+                  "🏢 Interview pipeline - Company ID from cookies:",
+                  userCompanyId
+                );
               } catch (error) {
                 console.warn("Failed to parse userData from cookie:", error);
               }
@@ -126,63 +144,46 @@ export default function InterviewPipelinePage() {
           }
         }
       } else {
-        console.log("🏢 Interview pipeline - Company ID from jobService:", userCompanyId);
+        console.log(
+          "🏢 Interview pipeline - Company ID from jobService:",
+          userCompanyId
+        );
       }
 
       if (!userCompanyId) {
         throw new Error("No company associated with your account");
       }
 
-      // Load active jobs for the company
-      const activeJobs = await jobService.getAllJobs("Active", userCompanyId);
+      // Load active jobs for the company with pagination
+      const response = await jobService.getAllJobs(
+        "Active",
+        userCompanyId,
+        currentPage,
+        jobsPerPage
+      );
 
-      if (!activeJobs || activeJobs.length === 0) {
+      if (!response.jobs || response.jobs.length === 0) {
         setJobs([]);
+        setTotalJobs(0);
+        setTotalPages(1);
         return;
       }
 
-      // Load interview templates and candidate counts for each job
-      const jobsWithTemplates = await Promise.all(
-        activeJobs.map(async (job) => {
-          const jobWithTemplate: JobWithTemplate = {
-            ...job,
-            interviewTemplate: undefined,
-          };
-
-          // Load interview template if job has one
-          if (job.interviewTemplateId) {
-            try {
-              const template = await interviewService.getInterviewTemplate(
-                job.interviewTemplateId
-              );
-              const rounds = await interviewService.getInterviewRounds(
-                job.interviewTemplateId
-              );
-              jobWithTemplate.interviewTemplate = {
-                ...template,
-                rounds: rounds,
-              };
-            } catch (error) {
-              console.warn(`Failed to load template for job ${job.id}:`, error);
-            }
-          }
-
-          // Load candidate count for the job
-          try {
-            const candidates = await candidateService.getCandidatesForJob(
-              job.id
-            );
-            jobWithTemplate.candidateCount = candidates?.length || 0;
-          } catch (error) {
-            console.warn(`Failed to load candidates for job ${job.id}:`, error);
-            jobWithTemplate.candidateCount = 0;
-          }
-
-          return jobWithTemplate;
+      // Fast path: just set jobs; defer loading templates and candidate counts per card lazily
+      const jobsWithMinimalData: JobWithTemplate[] = response.jobs.map(
+        (job) => ({
+          ...job,
+          interviewTemplate: undefined,
+          candidateCount: undefined,
         })
       );
 
-      setJobs(jobsWithTemplates);
+      setJobs(jobsWithMinimalData);
+      setFilteredJobs(jobsWithMinimalData); // Initially, filtered jobs are the same as loaded jobs
+
+      // Update pagination state from backend response
+      setTotalJobs(response.pagination.totalCount);
+      setTotalPages(response.pagination.totalPages);
     } catch (error) {
       console.error("Error loading jobs with templates:", error);
       setError(error instanceof Error ? error.message : "Failed to load jobs");
@@ -232,6 +233,12 @@ export default function InterviewPipelinePage() {
     }
   };
 
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of the jobs section
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -278,8 +285,8 @@ export default function InterviewPipelinePage() {
           <div className="flex items-center space-x-4">
             <div className="bg-white px-4 py-2 rounded-lg border border-gray-200">
               <span className="text-sm font-medium text-gray-600">
-                {filteredJobs.length} Active Job
-                {filteredJobs.length !== 1 ? "s" : ""}
+                {totalJobs} Active Job
+                {totalJobs !== 1 ? "s" : ""}
               </span>
             </div>
           </div>
@@ -322,15 +329,29 @@ export default function InterviewPipelinePage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {filteredJobs.map((job) => (
-            <PipelineJobCard
-              key={job.id}
-              job={job}
-              onChangeTemplate={handleOpenTemplateSelector}
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {filteredJobs.map((job) => (
+              <PipelineJobCard
+                key={job.id}
+                job={job}
+                onChangeTemplate={handleOpenTemplateSelector}
+              />
+            ))}
+          </div>
+
+          {/* Pagination */}
+          <div className="mt-8">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+              totalItems={totalJobs}
+              itemsPerPage={jobsPerPage}
+              showInfo={true}
             />
-          ))}
-        </div>
+          </div>
+        </>
       )}
 
       {/* Template Selector Modal */}

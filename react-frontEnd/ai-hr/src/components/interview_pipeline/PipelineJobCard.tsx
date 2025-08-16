@@ -1,4 +1,6 @@
-import React from "react";
+"use client";
+
+import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowRight,
   Building,
@@ -14,6 +16,9 @@ import {
   Heart,
 } from "lucide-react";
 import Link from "next/link";
+import { interviewService } from "@/services/interviewService";
+import { candidateService } from "@/services/candidateService";
+import { Loader2 } from "lucide-react";
 import { ApiJob } from "@/interfaces/api";
 import { InterviewTemplate } from "@/interfaces/interview";
 
@@ -31,6 +36,84 @@ export function PipelineJobCard({
   job,
   onChangeTemplate,
 }: PipelineJobCardProps) {
+  const [isInView, setIsInView] = useState(false);
+  const [template, setTemplate] = useState<InterviewTemplate | undefined>(
+    job.interviewTemplate
+  );
+  const [candidateCount, setCandidateCount] = useState<number | undefined>(
+    job.candidateCount
+  );
+  const [isLoadingLazy, setIsLoadingLazy] = useState(false);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
+  // Observe when card enters viewport to trigger lazy data fetch
+  useEffect(() => {
+    if (!cardRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setIsInView(true);
+          }
+        });
+      },
+      { rootMargin: "200px 0px", threshold: 0.01 }
+    );
+    observer.observe(cardRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  // Lazy load template and candidate count once in view
+  useEffect(() => {
+    let aborted = false;
+    const run = async () => {
+      if (!isInView || isLoadingLazy) return;
+      setIsLoadingLazy(true);
+      try {
+        // Fetch interview template if missing but job has template id
+        if (!template && (job as any).interviewTemplateId) {
+          try {
+            const tmpl = await interviewService.getInterviewTemplate(
+              (job as any).interviewTemplateId as string
+            );
+            const rounds = await interviewService.getInterviewRounds(
+              (job as any).interviewTemplateId as string
+            );
+            if (!aborted) setTemplate({ ...tmpl, rounds });
+          } catch (e) {
+            // ignore
+          }
+        }
+        // Fetch candidate count if missing
+        if (candidateCount === undefined) {
+          try {
+            console.log("🔍 Fetching candidate count for job:", job.id);
+            console.log("🔍 Job object:", job);
+            console.log("🔍 Job ID type:", typeof job.id);
+            const candidates = await candidateService.getCandidatesForJob(
+              job.id
+            );
+            console.log(
+              "✅ Candidates fetched:",
+              candidates?.length || 0,
+              "for job:",
+              job.id
+            );
+            if (!aborted) setCandidateCount(candidates?.length || 0);
+          } catch (e) {
+            console.error("❌ Error fetching candidates for job:", job.id, e);
+            if (!aborted) setCandidateCount(0);
+          }
+        }
+      } finally {
+        if (!aborted) setIsLoadingLazy(false);
+      }
+    };
+    run();
+    return () => {
+      aborted = true;
+    };
+  }, [isInView]);
   const formatDate = (dateValue: any): string => {
     if (!dateValue) return "Recently";
 
@@ -94,7 +177,10 @@ export function PipelineJobCard({
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-200">
+    <div
+      ref={cardRef}
+      className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-shadow duration-200"
+    >
       <div className="p-6">
         {/* Job Header */}
         <div className="flex items-start justify-between mb-4">
@@ -120,26 +206,39 @@ export function PipelineJobCard({
               </div>
               <div className="flex items-center">
                 <Users className="h-4 w-4 mr-1" />
-                {job.candidateCount || 0} candidates
+                {candidateCount === undefined ? (
+                  <span className="inline-flex items-center text-gray-400">
+                    <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                    Loading...
+                  </span>
+                ) : (
+                  <>{candidateCount} candidates</>
+                )}
               </div>
             </div>
           </div>
         </div>
 
         {/* Interview Template Info */}
-        {job.interviewTemplate ? (
+        {template ? (
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3 gap-3">
               <h4 className="text-sm font-medium text-gray-700 truncate flex-1 min-w-0">
-                {job.interviewTemplate.name} {/* Interview Process:  */}
+                {template.name}
               </h4>
               <div className="flex items-center space-x-3 flex-shrink-0">
                 <span className="text-xs text-gray-500 whitespace-nowrap">
-                  {job.interviewTemplate.rounds?.length || 0} rounds
+                  {template.rounds?.length || 0} rounds
                 </span>
                 {onChangeTemplate && (
                   <button
-                    onClick={() => onChangeTemplate(job)}
+                    onClick={() =>
+                      onChangeTemplate({
+                        ...job,
+                        interviewTemplate: template,
+                        candidateCount,
+                      })
+                    }
                     className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline whitespace-nowrap"
                   >
                     Change Template
@@ -150,7 +249,7 @@ export function PipelineJobCard({
 
             {/* Interview Rounds Flow */}
             <div className="flex items-center space-x-2 overflow-x-auto pb-2">
-              {job.interviewTemplate.rounds?.map((round, index) => {
+              {template.rounds?.map((round, index) => {
                 const IconComponent = getInterviewTypeIcon(round.type);
                 const colorClass = getInterviewTypeColor(round.type);
 
@@ -169,8 +268,7 @@ export function PipelineJobCard({
                         </span>
                       </div>
                     </div>
-                    {index <
-                      (job.interviewTemplate?.rounds?.length || 0) - 1 && (
+                    {index < (template?.rounds?.length || 0) - 1 && (
                       <ArrowRight className="h-4 w-4 text-gray-400 flex-shrink-0" />
                     )}
                   </React.Fragment>
@@ -189,7 +287,13 @@ export function PipelineJobCard({
               </div>
               {onChangeTemplate && (
                 <button
-                  onClick={() => onChangeTemplate(job)}
+                  onClick={() =>
+                    onChangeTemplate({
+                      ...job,
+                      interviewTemplate: template,
+                      candidateCount,
+                    })
+                  }
                   className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline font-medium whitespace-nowrap flex-shrink-0"
                 >
                   Assign Template

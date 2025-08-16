@@ -180,16 +180,24 @@ class CandidateService {
     }
 
     try {
+      console.log("🔍 Making API call to:", `${this.baseUrl}/candidates/job/${jobId}`);
+      console.log("🔍 Auth data:", { token: token ? "present" : "missing", userCategory, companyId });
+      
       const response = await fetch(`${this.baseUrl}/candidates/job/${jobId}`, {
         method: "GET",
         headers: this.getHeaders(),
       });
 
+      console.log("🔍 Response status:", response.status);
+      console.log("🔍 Response ok:", response.ok);
+
       if (!response.ok) {
         if (response.status === 404) {
+          console.log("🔍 404 - No candidates found");
           return [];
         }
         const error = await response.text();
+        console.error("🔍 API Error:", error);
         throw new Error(`Failed to fetch job candidates: ${error}`);
       }
 
@@ -203,6 +211,60 @@ class CandidateService {
       return candidates;
     } catch (error) {
       console.error("❌ Failed to fetch job candidates:", error);
+      throw error;
+    }
+  }
+
+  // Get candidates for a specific job with pagination
+  async getCandidatesForJobPaged(
+    jobId: string,
+    page: number = 1,
+    pageSize: number = 50
+  ): Promise<{
+    candidates: CandidateWithJobDetails[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const { token, userCategory } = this.getAuthData();
+
+    if (!token) {
+      throw new Error("User not authenticated");
+    }
+
+    if (userCategory === "ApplicationUser") {
+      throw new Error("Access denied - only hiring users can view candidates");
+    }
+
+    try {
+      const url = new URL(
+        `${this.baseUrl}/candidates/job/${jobId}/paged`
+      );
+      url.searchParams.set("page", String(page));
+      url.searchParams.set("pageSize", String(pageSize));
+
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: this.getHeaders(),
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return { candidates: [], totalCount: 0, page, pageSize };
+        }
+        const error = await response.text();
+        throw new Error(`Failed to fetch job candidates (paged): ${error}`);
+      }
+
+      const data = await response.json();
+      return {
+        candidates: data.candidates || [],
+        totalCount: data.totalCount || 0,
+        page: data.page || page,
+        pageSize: data.pageSize || pageSize,
+      };
+    } catch (error) {
+      console.error("❌ Failed to fetch job candidates (paged):", error);
       throw error;
     }
   }

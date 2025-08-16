@@ -31,12 +31,13 @@ export function useJobs(): UseJobsReturn {
     setError(null);
 
     try {
-      // Load all jobs
-      const jobsData = await jobService.getAllJobs();
-      setJobs(jobsData);
+      // Load all jobs using the new paginated API
+      // For this hook, we'll load jobs in batches of 100
+      const response = await jobService.getAllJobs(undefined, undefined, 1, 100);
+      setJobs(response.jobs);
 
       // Load companies for all jobs
-      const companyIds = [...new Set(jobsData.map((job) => job.companyId))];
+      const companyIds = [...new Set(response.jobs.map((job) => job.companyId))];
       const companiesMap = new Map<string, ApiCompany>();
 
       await Promise.all(

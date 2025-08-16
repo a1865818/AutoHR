@@ -11,7 +11,7 @@ export default function CreateJobPage() {
       {/* Header */}
       <div className="mb-8">
         <Link
-          href="/"
+          href="/dashboard"
           className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4"
         >
           <ArrowLeft className="mr-2 h-4 w-4" />

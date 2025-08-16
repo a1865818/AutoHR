@@ -321,6 +321,43 @@ class ApplicationService {
     return response.json();
   }
 
+  // Get user's applications with pagination
+  async getUserApplicationsPaged(page: number = 1, pageSize: number = 10): Promise<{
+    applications: ApplicationDetailResponse[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const { token, userId } = this.getAuthData();
+
+    if (!token || !userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const response = await fetch(
+      `${this.baseUrl}/applicationdetails/candidate/${userId}/paged?page=${page}&pageSize=${pageSize}`,
+      {
+        method: "GET",
+        headers: this.getHeaders(),
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 404) {
+        return {
+          applications: [],
+          totalCount: 0,
+          page,
+          pageSize
+        };
+      }
+      const error = await response.text();
+      throw new Error(`Failed to get applications: ${error}`);
+    }
+
+    return response.json();
+  }
+
   // Get user's applications with job details
   async getUserApplicationsWithJobDetails(): Promise<
     ApplicationWithJobDetails[]
@@ -407,6 +444,104 @@ class ApplicationService {
         (result) =>
           (result as PromiseFulfilledResult<ApplicationWithJobDetails>).value
       );
+  }
+
+  // Get user's applications with job details (paginated)
+  async getUserApplicationsWithJobDetailsPaged(page: number = 1, pageSize: number = 10): Promise<{
+    applications: ApplicationWithJobDetails[];
+    totalCount: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const pagedData = await this.getUserApplicationsPaged(page, pageSize);
+
+    // Fetch job details for each application
+    const applicationsWithJobs = await Promise.allSettled(
+      pagedData.applications.map(async (app) => {
+        try {
+          const job = await jobService.getJobById(app.jobId);
+
+          // Extract location string from locations object
+          let locationString = "Unknown Location";
+          if (job.locations) {
+            if (typeof job.locations === "string") {
+              locationString = job.locations;
+            } else if (typeof job.locations === "object") {
+              // Extract first location or fallback
+              const locationValues = Object.values(job.locations);
+              locationString =
+                locationValues.length > 0
+                  ? String(locationValues[0])
+                  : "Unknown Location";
+            }
+          }
+
+          // We'll need to fetch company details separately
+          let companyName = "Unknown Company";
+          try {
+            const company = await jobService.getCompanyById(job.companyId);
+            companyName = company.name;
+          } catch (error) {
+            console.warn(
+              `Failed to fetch company details for company ${job.companyId}:`,
+              error
+            );
+          }
+
+          return {
+            ...app,
+            job: {
+              title: job.title,
+              company: companyName,
+              location: locationString,
+              employmentType: job.employmentType,
+              status: job.status,
+              department: job.department || "Not specified",
+              salary:
+                job.salaryMin || job.salaryMax
+                  ? {
+                      min: job.salaryMin || 0,
+                      max: job.salaryMax || 0,
+                      currency: job.salaryCurrency || "USD",
+                      period: "per year",
+                    }
+                  : undefined,
+            },
+          };
+        } catch (error) {
+          console.warn(
+            `Failed to fetch job details for job ${app.jobId}:`,
+            error
+          );
+          return {
+            ...app,
+            job: {
+              title: "Unknown Position",
+              company: "Unknown Company",
+              location: "Unknown Location",
+              employmentType: "Unknown",
+              status: "unknown",
+              department: "Not specified",
+            },
+          };
+        }
+      })
+    );
+
+    // Filter out rejected promises and return successful ones
+    const applications = applicationsWithJobs
+      .filter((result) => result.status === "fulfilled")
+      .map(
+        (result) =>
+          (result as PromiseFulfilledResult<ApplicationWithJobDetails>).value
+      );
+
+    return {
+      applications,
+      totalCount: pagedData.totalCount,
+      page: pagedData.page,
+      pageSize: pagedData.pageSize
+    };
   }
 
   // Check if user has already applied to a job

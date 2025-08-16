@@ -23,13 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { JobCard } from "./JobCard";
 
 type SortOption = "newest" | "oldest" | "applicants" | "salary";
-type ViewMode =
-  | "All"
-  | "Active"
-  | "Paused"
-  | "Closed"
-  | "Draft"
-  | "Expired";
+type ViewMode = "All" | "Active" | "Paused" | "Closed" | "Draft" | "Expired";
 
 interface Filters {
   status: string[];
@@ -111,13 +105,7 @@ const mapStatusToJobFormat = (
   }
 
   // Since jobService already converted to frontend format, just validate and return
-  const validStatuses = [
-    "Active",
-    "Draft",
-    "Paused",
-    "Closed",
-    "Expired",
-  ];
+  const validStatuses = ["Active", "Draft", "Paused", "Closed", "Expired"];
   const titleCaseStatus =
     status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
 
@@ -177,7 +165,9 @@ export function JobsPage() {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [jobsPerPage] = useState(6);
+  const [jobsPerPage] = useState(8); // Show 8 jobs per page (4 per row on large screens)
+  const [totalJobs, setTotalJobs] = useState(0); // Total jobs from backend
+  const [totalPages, setTotalPages] = useState(1); // Total pages from backend
 
   const [activeFilters, setActiveFilters] = useState<Filters>({
     status: [],
@@ -198,12 +188,13 @@ export function JobsPage() {
     }
   }, [searchParams]);
 
+  // Load jobs on component mount and when pagination changes
   useEffect(() => {
     // Wait for authentication to be loaded before trying to load jobs data
     if (!authLoading) {
-    loadAllJobsData();
+      loadAllJobsData();
     }
-  }, [authLoading]);
+  }, [authLoading, currentPage, jobsPerPage]);
 
   const loadAllJobsData = async () => {
     console.log("🔄 Loading jobs data for hiring user's company...");
@@ -239,18 +230,22 @@ export function JobsPage() {
             console.warn("Failed to parse currentUser from storage:", error);
           }
         }
-        
+
         // Also try to get from cookies
         if (!userCompanyId) {
-          const cookies = document.cookie.split(';');
+          const cookies = document.cookie.split(";");
           for (let i = 0; i < cookies.length; i++) {
             let cookie = cookies[i];
-            while (cookie.charAt(0) === ' ') {
+            while (cookie.charAt(0) === " ") {
               cookie = cookie.substring(1, cookie.length);
             }
-            if (cookie.indexOf('userData=') === 0) {
+            if (cookie.indexOf("userData=") === 0) {
               try {
-                const userData = JSON.parse(decodeURIComponent(cookie.substring('userData='.length, cookie.length)));
+                const userData = JSON.parse(
+                  decodeURIComponent(
+                    cookie.substring("userData=".length, cookie.length)
+                  )
+                );
                 userCompanyId = userData.companyId;
                 console.log("🏢 Company ID from cookies:", userCompanyId);
               } catch (error) {
@@ -267,60 +262,51 @@ export function JobsPage() {
         );
       }
 
-      //   // Load ALL jobs for the company (all statuses)
-      //   console.log("📊 Loading all jobs for company:", userCompanyId);
-      //   const allJobsData = await jobService.getAllJobs(undefined, userCompanyId);
-
-      //   console.log("📊 Company-filtered jobs data:", allJobsData);
-      //   console.log("📊 Number of company jobs:", allJobsData?.length || 0);
-
-      //   setAllJobs(allJobsData || []);
-      console.log("🔍 DEBUGGING: Testing individual API calls...");
-
-      try {
-        console.log(
-          "📞 Calling jobService.getAllJobs('Active', userCompanyId)..."
-        );
-        const activeJobs = await jobService.getAllJobs("Active", userCompanyId);
-        console.log("📞 Response for Open jobs:", activeJobs);
-        console.log("📞 Open jobs count:", activeJobs?.length || 0);
-        if (activeJobs && activeJobs.length > 0) {
-          console.log("📞 First Open job status:", activeJobs[0].status);
-          console.log("📞 First Open job title:", activeJobs[0].title);
-        }
-      } catch (error) {
-        console.error("❌ Error fetching Open jobs:", error);
-      }
-
-      try {
-        console.log(
-          "📞 Calling jobService.getAllJobs('Draft', userCompanyId)..."
-        );
-        const draftJobs = await jobService.getAllJobs("Draft", userCompanyId);
-        console.log("📞 Response for Draft jobs:", draftJobs);
-        console.log("📞 Draft jobs count:", draftJobs?.length || 0);
-        if (draftJobs && draftJobs.length > 0) {
-          console.log("📞 First Draft job status:", draftJobs[0].status);
-          console.log("📞 First Draft job title:", draftJobs[0].title);
-        }
-      } catch (error) {
-        console.error("❌ Error fetching Draft jobs:", error);
-      }
-
       // ✅ Continue with the parallel loading approach
       const [
-        activeJobs,
-        draftJobs,
-        pausedJobs,
-        closedJobs,
-        expiredJobs,
+        activeJobsResponse,
+        draftJobsResponse,
+        pausedJobsResponse,
+        closedJobsResponse,
+        expiredJobsResponse,
       ] = await Promise.all([
-        jobService.getAllJobs("Active", userCompanyId),
-        jobService.getAllJobs("Draft", userCompanyId),
-        jobService.getAllJobs("Paused", userCompanyId),
-        jobService.getAllJobs("Closed", userCompanyId),
-        jobService.getAllJobs("Expired", userCompanyId),
+        jobService.getAllJobs(
+          "Active",
+          userCompanyId,
+          currentPage,
+          jobsPerPage
+        ),
+        jobService.getAllJobs("Draft", userCompanyId, currentPage, jobsPerPage),
+        jobService.getAllJobs(
+          "Paused",
+          userCompanyId,
+          currentPage,
+          jobsPerPage
+        ),
+        jobService.getAllJobs(
+          "Closed",
+          userCompanyId,
+          currentPage,
+          jobsPerPage
+        ),
+        jobService.getAllJobs(
+          "Expired",
+          userCompanyId,
+          currentPage,
+          jobsPerPage
+        ),
       ]);
+
+      // Extract jobs from paginated responses
+      const activeJobs = activeJobsResponse.jobs;
+      const draftJobs = draftJobsResponse.jobs;
+      const pausedJobs = pausedJobsResponse.jobs;
+      const closedJobs = closedJobsResponse.jobs;
+      const expiredJobs = expiredJobsResponse.jobs;
+
+      // Update pagination state from backend response (use active jobs as reference)
+      setTotalJobs(activeJobsResponse.pagination.totalCount);
+      setTotalPages(activeJobsResponse.pagination.totalPages);
 
       // ✅ ADD MORE DEBUGGING: Check what we got back
       console.log("🔍 DEBUGGING: Results from parallel calls:");
@@ -423,7 +409,7 @@ export function JobsPage() {
       const company = companies.get(apiJob.companyId);
       const mappedStatus = mapStatusToJobFormat(apiJob.status);
 
-      console.log(`📊 Output status: "${mappedStatus}"`);
+      console.log(`�� Output status: "${mappedStatus}"`);
 
       const transformedJob: Job = {
         id: apiJob.id,
@@ -565,7 +551,7 @@ export function JobsPage() {
 
     // Only count Active jobs for type, experience, and workType filters
     const activeJobs = transformedJobs.filter((job) => job.status === "Active");
-    
+
     activeJobs.forEach((job) => {
       counts.type[job.type] = (counts.type[job.type] || 0) + 1;
 
@@ -581,7 +567,10 @@ export function JobsPage() {
         (counts.workType[job.locationType] || 0) + 1;
     });
 
-    console.log("📊 Filter counts (Active jobs only for type/experience/workType):", counts);
+    console.log(
+      "📊 Filter counts (Active jobs only for type/experience/workType):",
+      counts
+    );
     return counts;
   }, [transformedJobs]);
 
@@ -726,29 +715,8 @@ export function JobsPage() {
     setSelectedJobs([]); // Clear selections when changing view
   }, [viewMode, searchQuery, activeFilters]);
 
-  // Calculate pagination
-  const totalJobs = filteredAndSortedJobs.length;
-  const totalPages = Math.ceil(totalJobs / jobsPerPage);
-  const startIndex = (currentPage - 1) * jobsPerPage;
-  const endIndex = startIndex + jobsPerPage;
-  const paginatedJobs = filteredAndSortedJobs.slice(startIndex, endIndex);
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    setSelectedJobs([]); // Clear selections when changing page
-    document
-      .getElementById("job-list-container")
-      ?.scrollTo({ top: 0, behavior: "smooth" });
-  };
-
-  //   // Bulk selection handlers
-  //   const handleSelectJob = (jobId: string, isSelected: boolean) => {
-  //     if (isSelected) {
-  //       setSelectedJobs((prev) => [...prev, jobId]);
-  //     } else {
-  //       setSelectedJobs((prev) => prev.filter((id) => id !== jobId));
-  //     }
-  //   };
+  // Use the filtered and sorted jobs directly (backend already handles pagination)
+  const paginatedJobs = filteredAndSortedJobs;
 
   const handleSelectAll = () => {
     if (isSelectAllMode) {
@@ -795,6 +763,16 @@ export function JobsPage() {
   const handleJobUpdated = useCallback(() => {
     loadAllJobsData();
   }, []);
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    // Scroll to top of job list
+    document.querySelector(".flex-1.overflow-y-auto")?.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
 
   // Tab configuration - all properly capitalized
   const tabs = [
@@ -1081,8 +1059,8 @@ export function JobsPage() {
             <div className="border-t bg-white px-6 py-4">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-700">
-                  Showing {startIndex + 1} to {Math.min(endIndex, totalJobs)} of{" "}
-                  {totalJobs} jobs
+                  Showing {paginatedJobs.length > 0 ? 1 : 0} to{" "}
+                  {paginatedJobs.length} of {totalJobs} jobs
                   {selectedJobs.length > 0 && (
                     <span className="ml-2 text-blue-600 font-medium">
                       ({selectedJobs.length} selected)

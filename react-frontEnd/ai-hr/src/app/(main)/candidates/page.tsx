@@ -2,6 +2,7 @@
 
 import { withHiringAuth } from "@/components/auth/WithHiringAuth";
 import { JobGrid } from "@/components/candidates/JobGrid";
+import { Pagination } from "@/components/ui/Pagination";
 import { useHiringAuth } from "@/hooks/useHiringAuth";
 import { Job } from "@/interfaces";
 import { jobService } from "@/services/jobService";
@@ -112,7 +113,13 @@ function CandidatesPage() {
   const [error, setError] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string>("your company");
 
-  // Load jobs on component mount
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [jobsPerPage] = useState(8); // Show 8 jobs per page (4 per row on large screens)
+  const [totalJobs, setTotalJobs] = useState(0); // Total jobs from backend
+  const [totalPages, setTotalPages] = useState(1); // Total pages from backend
+
+  // Load jobs on component mount and when pagination changes
   useEffect(() => {
     const loadJobs = async () => {
       if (!companyId) {
@@ -137,10 +144,16 @@ function CandidatesPage() {
 
       setLoading(true);
       try {
-        // Use getAllJobs with "Active" status and companyId to filter for active jobs only
-        const jobsData = await jobService.getAllJobs("Active", companyId);
-        if (jobsData && Array.isArray(jobsData)) {
-          const convertedJobs = jobsData.map((apiJob: any) => {
+        // Use getAllJobs with pagination
+        const response = await jobService.getAllJobs(
+          "Active",
+          companyId,
+          currentPage,
+          jobsPerPage
+        );
+
+        if (response.jobs && Array.isArray(response.jobs)) {
+          const convertedJobs = response.jobs.map((apiJob: any) => {
             // Ensure the API job has the correct field names for conversion
             const normalizedApiJob = {
               ...apiJob,
@@ -154,8 +167,14 @@ function CandidatesPage() {
             return convertedJob;
           });
           setJobs(convertedJobs);
+
+          // Update pagination state from backend response
+          setTotalJobs(response.pagination.totalCount);
+          setTotalPages(response.pagination.totalPages);
         } else {
           setJobs([]);
+          setTotalJobs(0);
+          setTotalPages(1);
         }
       } catch (err) {
         console.error("Error loading jobs:", err);
@@ -166,7 +185,12 @@ function CandidatesPage() {
     };
 
     loadJobs();
-  }, [companyId, isAuthorized, authLoading]);
+  }, [companyId, isAuthorized, authLoading, currentPage, jobsPerPage]);
+
+  // Handle page change
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
 
   // Return early if not authorized
   if (!isAuthorized) {
@@ -208,7 +232,7 @@ function CandidatesPage() {
     );
   }
 
-  // Main render - show job grid
+  // Main render - show job grid with pagination
   return (
     <div className="flex-1 flex flex-col h-full bg-gray-50">
       <div className="px-6 py-4 bg-white border-b">
@@ -221,7 +245,13 @@ function CandidatesPage() {
               Select a job to view and manage its candidates
             </p>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-4">
+            <div className="bg-white px-4 py-2 rounded-lg border border-gray-200">
+              <span className="text-sm font-medium text-gray-600">
+                {totalJobs} Active Job
+                {totalJobs !== 1 ? "s" : ""}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -233,8 +263,21 @@ function CandidatesPage() {
           onCreateJob={() => (window.location.href = "/create-job")}
         />
       ) : (
-        <div className="flex-1 p-6 overflow-y-auto">
-          <JobGrid jobs={jobs} showStats={true} />
+        <div className="flex-1 flex flex-col">
+          <div className="flex-1 p-6 overflow-y-auto">
+            <JobGrid jobs={jobs} showStats={true} />
+          </div>
+
+          {/* Pagination Controls */}
+          <div className="px-6 py-3 border-t border-gray-200 bg-white">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+              totalItems={totalJobs}
+              itemsPerPage={jobsPerPage}
+            />
+          </div>
         </div>
       )}
     </div>

@@ -123,7 +123,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         if (user.userCategory === "ApplicationUser") {
           router.push("/applicant");
         } else {
-          router.push("/");
+          router.push("/dashboard");
         }
       }
     }

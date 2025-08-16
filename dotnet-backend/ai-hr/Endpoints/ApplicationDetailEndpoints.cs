@@ -32,6 +32,12 @@ public static class ApplicationDetailEndpoints
             .WithSummary("Get applications by candidate")
             .WithDescription("Retrieves all applications submitted by a specific candidate");
 
+        app.MapGet("/applicationdetails/candidate/{candidateUserId}/paged", GetApplicationDetailsByCandidatePaged)
+            .WithTags("Application Details")
+            .WithName("GetApplicationDetailsByCandidatePaged")
+            .WithSummary("Get applications by candidate (paged)")
+            .WithDescription("Retrieves applications submitted by a specific candidate with pagination support");
+
         app.MapPut("/applicationdetails/{id}", UpdateApplicationDetail)
             .WithTags("Application Details")
             .WithName("UpdateApplicationDetail")
@@ -255,6 +261,73 @@ public static class ApplicationDetailEndpoints
         catch (Exception ex)
         {
             Console.WriteLine($"Error retrieving application details by candidate: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+    private static async Task<IResult> GetApplicationDetailsByCandidatePaged(Guid candidateUserId, int? page, int? pageSize, Supabase.Client client)
+    {
+        try
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 10;
+
+            // Load all applications for count and paging
+            var response = await client.From<ApplicationDetail>()
+                .Where(ad => ad.CandidateUserId == candidateUserId)
+                .Get();
+
+            var allApplications = response.Models ?? new List<ApplicationDetail>();
+            var total = allApplications.Count;
+
+            // Apply paging in-memory (ordered by applied date descending)
+            var pagedApplications = allApplications
+                .OrderByDescending(a => a.AppliedAt)
+                .Skip((page.Value - 1) * pageSize.Value)
+                .Take(pageSize.Value)
+                .ToList();
+
+            if (!pagedApplications.Any())
+            {
+                return Results.Ok(new
+                {
+                    applications = new List<object>(),
+                    totalCount = total,
+                    page = page.Value,
+                    pageSize = pageSize.Value
+                });
+            }
+
+            // Create a list of simple DTOs to avoid serialization issues with attributes
+            var detailDtos = pagedApplications.Select(ad => new
+            {
+                Id = ad.Id,
+                JobId = ad.JobId,
+                CandidateUserId = ad.CandidateUserId,
+                ResumeUrl = ad.ResumeUrl,
+                CoverLetterText = ad.CoverLetterText,
+                ExpectedSalary = ad.ExpectedSalary,
+                AvailabilityDate = ad.AvailabilityDate,
+                Status = ad.Status,
+                Stage = ad.Stage,
+                JobSource = ad.JobSource,
+                OverallAiScore = ad.OverallAiScore,
+                AppliedAt = ad.AppliedAt,
+                StatusChangedAt = ad.StatusChangedAt
+            }).ToList();
+
+            return Results.Ok(new
+            {
+                applications = detailDtos,
+                totalCount = total,
+                page = page.Value,
+                pageSize = pageSize.Value
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error retrieving paged application details by candidate: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }

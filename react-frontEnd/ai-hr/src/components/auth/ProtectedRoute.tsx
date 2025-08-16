@@ -50,13 +50,15 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         if (user.userCategory === "ApplicationUser") {
           router.push("/applicant");
         } else if (user.userCategory === "HiringUserProfile") {
-          router.push("/");
+          router.push("/dashboard");
         }
         return;
       }
     }
 
-    console.log("✅ ProtectedRoute: Authentication and user category check passed");
+    console.log(
+      "✅ ProtectedRoute: Authentication and user category check passed"
+    );
   }, [isAuthenticated, isLoading, router, user, requiredUserCategory]);
 
   if (isLoading) {

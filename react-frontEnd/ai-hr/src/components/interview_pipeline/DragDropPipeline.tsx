@@ -11,6 +11,7 @@ import {
   User,
   Award,
   FileText,
+  GripVertical,
 } from "lucide-react";
 import { Candidate } from "@/interfaces";
 import { HoverRejectModal } from "./HoverRejectModal";
@@ -19,6 +20,10 @@ import { useRouter } from "next/navigation";
 interface PipelineCandidate extends Candidate {
   currentRoundId?: string;
   roundProgress?: number;
+  // New optional assessment fields computed in pipeline page
+  currentAssessmentScore?: number;
+  isCurrentScoreHRGraded?: boolean;
+  assessmentScoreStatus?: string;
 }
 
 interface DragDropCandidateCardProps {
@@ -51,9 +56,10 @@ interface DragDropCandidateCardProps {
   roundConfigurationData?: any;
   hasSubmittedAssessment?: boolean;
   isAssessmentGraded?: boolean;
+  variant?: "cozy" | "compact";
 }
 
-export function DragDropCandidateCard({
+export const DragDropCandidateCard = React.memo(function DragDropCandidateCard({
   candidate,
   roundId,
   canMoveLeft = false,
@@ -74,6 +80,7 @@ export function DragDropCandidateCard({
   roundConfigurationData,
   hasSubmittedAssessment = false,
   isAssessmentGraded = false,
+  variant = "cozy",
 }: DragDropCandidateCardProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [showQuickActions, setShowQuickActions] = useState(false);
@@ -194,6 +201,353 @@ export function DragDropCandidateCard({
     }
   };
 
+  // Compact variant: condensed row with hover/focus flyout
+  if (variant === "compact") {
+    const isAssessmentRoundCompact =
+      roundType === "technical_assessment" || roundType === "coding_challenge";
+
+    return (
+      <div
+        ref={dragRef}
+        draggable
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        className={`group relative bg-white border-2 rounded-lg cursor-move transition-colors duration-200 hover:shadow-md ${
+          isDragging
+            ? "border-indigo-400 shadow-lg opacity-60"
+            : "border-gray-200 hover:border-indigo-300"
+        }`}
+        onMouseEnter={() => setShowQuickActions(true)}
+        onMouseLeave={() => setShowQuickActions(false)}
+        tabIndex={0}
+      >
+        <div className="h-14 px-3 flex items-center gap-2">
+          <div
+            className="text-gray-400 cursor-grab active:cursor-grabbing"
+            aria-hidden
+          >
+            <GripVertical className="h-4 w-4" />
+          </div>
+
+          <div className="w-7 h-7 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center flex-shrink-0">
+            {candidate.photo ? (
+              <img
+                src={candidate.photo}
+                alt={candidate.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <User className="w-4 h-4 text-gray-500" />
+            )}
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div
+              className="text-sm font-medium text-gray-900 truncate"
+              title={candidate.name}
+            >
+              {candidate.name}
+            </div>
+            <div
+              className="hidden xl:block text-xs text-gray-500 truncate"
+              title={candidate.email}
+            >
+              {candidate.email}
+            </div>
+          </div>
+
+          {/* Assessment */}
+          <div className="shrink-0">
+            {typeof candidate.currentAssessmentScore === "number" ? (
+              <div
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded ${getAssessmentColor(
+                  candidate.currentAssessmentScore
+                )}`}
+                title={
+                  candidate.isCurrentScoreHRGraded
+                    ? "HR-graded"
+                    : "Auto-generated"
+                }
+              >
+                <Star className="h-3 w-3" />
+                <span className="text-xs font-medium">
+                  {candidate.currentAssessmentScore}%
+                </span>
+              </div>
+            ) : (
+              <div
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-orange-600 bg-orange-50"
+                title="Pending"
+              >
+                <Star className="h-3 w-3" />
+                <span className="text-xs font-medium">—</span>
+              </div>
+            )}
+          </div>
+
+          {/* Submission status (assessment rounds only) */}
+          {isAssessmentRoundCompact && (
+            <div
+              className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
+                isAssessmentGraded
+                  ? "text-blue-600 bg-blue-50"
+                  : hasSubmittedAssessment
+                  ? "text-green-600 bg-green-50"
+                  : "text-orange-600 bg-orange-50"
+              }`}
+              title={
+                isAssessmentGraded
+                  ? "Graded"
+                  : hasSubmittedAssessment
+                  ? "Submitted"
+                  : "Pending"
+              }
+            >
+              <FileText className="h-3 w-3" />
+              <span className="hidden md:inline">
+                {isAssessmentGraded
+                  ? "Graded"
+                  : hasSubmittedAssessment
+                  ? "Submitted"
+                  : "Pending"}
+              </span>
+            </div>
+          )}
+
+          {/* Inline controls: only movement arrows */}
+          <div className="shrink-0 flex items-center gap-1">
+            {canMoveLeft && (
+              <button
+                onClick={() => onMove?.(candidate.id, "left")}
+                className="p-1 rounded text-gray-600 hover:bg-gray-100"
+                aria-label="Move to previous"
+                title="Previous"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            )}
+            {canMoveRight && (
+              <button
+                onClick={() => onMove?.(candidate.id, "right")}
+                className="p-1 rounded text-gray-600 hover:bg-gray-100"
+                aria-label="Move to next"
+                title="Next"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Hover/focus flyout details */}
+        <div className="pointer-events-none opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition absolute left-0 right-0 top-full mt-2 z-50">
+          <div className="pointer-events-auto bg-white border border-gray-200 rounded-lg shadow-lg p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <div
+                className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                  (candidate.status || "In Progress").toLowerCase() === "hired"
+                    ? "text-green-600 bg-green-50"
+                    : (candidate.status || "In Progress").toLowerCase() ===
+                      "rejected"
+                    ? "text-red-600 bg-red-50"
+                    : "text-blue-600 bg-blue-50"
+                }`}
+              >
+                {candidate.status || "In Progress"}
+              </div>
+              <button
+                onClick={() => onViewProfile?.(candidate.id)}
+                className="text-xs px-2 py-1 bg-indigo-50 text-indigo-700 rounded hover:bg-indigo-100"
+              >
+                View Profile
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+              <div>
+                <div className="text-gray-500">Email</div>
+                <div className="truncate" title={candidate.email}>
+                  {candidate.email}
+                </div>
+              </div>
+              <div>
+                <div className="text-gray-500">Applied</div>
+                <div>{formatDate(candidate.appliedAt)}</div>
+              </div>
+              {candidate.expectedSalary && (
+                <div>
+                  <div className="text-gray-500">Expected Salary</div>
+                  <div>
+                    ${Number(candidate.expectedSalary).toLocaleString()}
+                  </div>
+                </div>
+              )}
+              {typeof candidate.roundProgress === "number" && (
+                <div>
+                  <div className="text-gray-500">Progress</div>
+                  <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                    <div
+                      className="bg-gradient-to-r from-blue-500 to-indigo-600 h-1.5 rounded-full"
+                      style={{ width: `${candidate.roundProgress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 mt-3">
+              {roundType === "video_interview" &&
+                (candidate.meetingScheduled && candidate.meetLink ? (
+                  <button
+                    onClick={() =>
+                      window.open(candidate.meetLink as string, "_blank")
+                    }
+                    className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                  >
+                    Join Interview
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      const candidateId =
+                        candidate.id ||
+                        candidate.applicationId ||
+                        (candidate as any).Id ||
+                        (candidate as any).ApplicationId;
+                      if (candidateId) onSchedule?.(candidateId);
+                    }}
+                    className="text-xs px-2 py-1 bg-gray-50 text-gray-700 rounded hover:bg-gray-100"
+                  >
+                    Schedule Interview
+                  </button>
+                ))}
+              {onMarkPhoneScreen && roundType === "phone_screening" && (
+                <button
+                  onClick={() =>
+                    onMarkPhoneScreen?.(
+                      candidate.candidateUserId,
+                      roundId || ""
+                    )
+                  }
+                  className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded hover:bg-blue-100"
+                >
+                  Assessment
+                </button>
+              )}
+              {(roundType === "technical_assessment" ||
+                roundType === "coding_challenge") &&
+                (!hasSubmittedAssessment ? (
+                  <button
+                    disabled
+                    className="text-xs px-2 py-1 bg-gray-50 text-gray-400 rounded"
+                    title="Waiting for submission"
+                  >
+                    Awaiting Submission
+                  </button>
+                ) : (
+                  onMarkAssessment && (
+                    <button
+                      onClick={() =>
+                        onMarkAssessment?.(
+                          candidate.candidateUserId,
+                          roundId || ""
+                        )
+                      }
+                      className={`text-xs px-2 py-1 rounded ${
+                        isAssessmentGraded
+                          ? "bg-blue-50 text-blue-700 hover:bg-blue-100"
+                          : "bg-purple-50 text-purple-700 hover:bg-purple-100"
+                      }`}
+                    >
+                      {isAssessmentGraded ? "Review Grade" : "Mark Assignment"}
+                    </button>
+                  )
+                ))}
+
+              <button
+                onClick={() => setShowNoteModal(true)}
+                className="text-xs px-2 py-1 bg-gray-50 text-gray-700 rounded hover:bg-gray-100"
+              >
+                Add Note
+              </button>
+
+              {onOffer && (
+                <button
+                  onClick={() => onOffer?.(candidate.id)}
+                  className="text-xs px-2 py-1 bg-yellow-50 text-yellow-700 rounded hover:bg-yellow-100"
+                >
+                  Offer
+                </button>
+              )}
+              {onHire && (
+                <button
+                  onClick={() => onHire?.(candidate.id)}
+                  className="text-xs px-2 py-1 bg-green-50 text-green-700 rounded hover:bg-green-100"
+                >
+                  Hire
+                </button>
+              )}
+              {(onReject || onRejectWithEmail) && (
+                <button
+                  onClick={handleRejectClick}
+                  className="text-xs px-2 py-1 bg-red-50 text-red-700 rounded hover:bg-red-100"
+                >
+                  Reject
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Note & Reject Modals */}
+        {showNoteModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-96 max-w-full mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Add Note for {candidate.name}
+              </h3>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Enter your note..."
+                className="w-full h-32 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+              />
+              <div className="flex justify-end space-x-3 mt-4">
+                <button
+                  onClick={() => setShowNoteModal(false)}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddNote}
+                  className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-md transition-colors"
+                >
+                  Add Note
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <HoverRejectModal
+          isOpen={showRejectModal}
+          onClose={() => setShowRejectModal(false)}
+          candidate={candidate}
+          jobTitle={jobTitle}
+          companyName={companyName}
+          onReject={handleRejectWithEmail}
+        />
+
+        {isDragging && (
+          <div className="absolute inset-0 bg-indigo-100 bg-opacity-50 rounded-lg flex items-center justify-center">
+            <div className="text-indigo-600 font-medium text-sm">Moving...</div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Cozy variant (existing layout)
   return (
     <div
       ref={dragRef}
@@ -257,14 +611,28 @@ export function DragDropCandidateCard({
         {/* Assessment Score */}
         <div className="flex items-center justify-between text-xs">
           <span className="text-gray-500">Assessment</span>
-          <div
-            className={`flex items-center space-x-1 px-2 py-1 rounded ${getAssessmentColor(
-              candidate.assessment
-            )}`}
-          >
-            <Star className="h-3 w-3" />
-            <span className="font-medium">{candidate.assessment}/100</span>
-          </div>
+          {typeof candidate.currentAssessmentScore === "number" ? (
+            <div
+              className={`flex items-center space-x-1 px-2 py-1 rounded ${getAssessmentColor(
+                candidate.currentAssessmentScore
+              )}`}
+              title={
+                candidate.isCurrentScoreHRGraded
+                  ? "HR-graded"
+                  : "Auto-generated"
+              }
+            >
+              <Star className="h-3 w-3" />
+              <span className="font-medium">
+                {candidate.currentAssessmentScore}/100
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-1 px-2 py-1 rounded text-orange-600 bg-orange-50">
+              <Star className="h-3 w-3" />
+              <span className="font-medium">Pending</span>
+            </div>
+          )}
         </div>
 
         {/* Assessment Submission Status - Only show for technical rounds */}
@@ -578,7 +946,7 @@ export function DragDropCandidateCard({
       )}
     </div>
   );
-}
+});
 
 // Droppable Column Component
 interface DroppableColumnProps {

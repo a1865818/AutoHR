@@ -155,12 +155,6 @@ public static class JobEndpoints
             .WithSummary("Delete job")
             .WithDescription("Permanently removes a job posting from the system");
 
-        app.MapGet("/jobs/company/{companyId}", GetJobsByCompany)
-            .WithTags("Jobs")
-            .WithName("GetJobsByCompany")
-            .WithSummary("Get jobs by company")
-            .WithDescription("Retrieves all job postings for a specific company");
-
         // Public endpoints for applicant users
         app.MapGet("/public/jobs", GetPublicJobs)
             .WithTags("Public Jobs")
@@ -572,12 +566,22 @@ public static class JobEndpoints
     }
     private static async Task<IResult> GetJobsByStatus(
            string status,
+           int? page,
+           int? pageSize,
            Supabase.Client client,
            ClaimsPrincipal user)
     {
         try
         {
-            Console.WriteLine($"🔍 GetJobsByStatus called - Status: '{status}'");
+            Console.WriteLine($"🔍 GetJobsByStatus called - Status: '{status}', Page: {page}, PageSize: {pageSize}");
+
+            // Set default pagination values
+            var currentPage = page ?? 1;
+            var itemsPerPage = pageSize ?? 10;
+
+            if (currentPage < 1) currentPage = 1;
+            if (itemsPerPage < 1) itemsPerPage = 10;
+            if (itemsPerPage > 100) itemsPerPage = 100; // Limit max page size
 
             var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
@@ -611,9 +615,22 @@ public static class JobEndpoints
                 Console.WriteLine($"📊 After status filter: {jobs.Count} jobs with status '{status}'");
             }
 
+            // Calculate total count before pagination
+            var totalCount = jobs.Count;
+            var totalPages = (int)Math.Ceiling((double)totalCount / itemsPerPage);
+
+            Console.WriteLine($"✅ Final filtered jobs count: {totalCount}, Total pages: {totalPages}");
+
+            // Apply pagination
+            var startIndex = (currentPage - 1) * itemsPerPage;
+            var endIndex = Math.Min(startIndex + itemsPerPage, totalCount);
+            var pagedJobs = jobs.Skip(startIndex).Take(itemsPerPage).ToList();
+
+            Console.WriteLine($"📄 Page {currentPage}: Showing jobs {startIndex + 1}-{endIndex} of {totalCount}");
+
             // Create DTOs with real-time applicant counts
             var jobDtos = new List<object>();
-            foreach (var job in jobs ?? new List<Job>())
+            foreach (var job in pagedJobs)
             {
                 // Calculate actual applicant count in real-time
                 var actualApplicantCount = await CalculateApplicantCount(job.Id, client);
@@ -650,13 +667,26 @@ public static class JobEndpoints
                 });
             }
 
-            Console.WriteLine($"✅ Returning {jobDtos.Count} jobs");
+            Console.WriteLine($"✅ Returning {jobDtos.Count} jobs for page {currentPage}");
 
             // Debug: Log status distribution
             var statusGroups = jobDtos.GroupBy(j => ((dynamic)j).Status).ToDictionary(g => g.Key, g => g.Count());
             Console.WriteLine($"📊 Status distribution: {string.Join(", ", statusGroups.Select(kvp => $"{kvp.Key}: {kvp.Value}"))}");
 
-            return Results.Ok(jobDtos);
+            // Return paginated response
+            return Results.Ok(new
+            {
+                jobs = jobDtos,
+                pagination = new
+                {
+                    currentPage = currentPage,
+                    pageSize = itemsPerPage,
+                    totalCount = totalCount,
+                    totalPages = totalPages,
+                    hasNextPage = currentPage < totalPages,
+                    hasPreviousPage = currentPage > 1
+                }
+            });
         }
         catch (Exception ex)
         {
@@ -1065,11 +1095,19 @@ public static class JobEndpoints
         }
 
     }
-    private static async Task<IResult> GetJobs(string? status, Guid? companyId, Supabase.Client client)
+    private static async Task<IResult> GetJobs(string? status, Guid? companyId, int? page, int? pageSize, Supabase.Client client)
     {
         try
         {
-            Console.WriteLine($"🔍 GetJobs called - Status: {status}, CompanyId: {companyId}");
+            Console.WriteLine($"🔍 GetJobs called - Status: {status}, CompanyId: {companyId}, Page: {page}, PageSize: {pageSize}");
+
+            // Set default pagination values
+            var currentPage = page ?? 1;
+            var itemsPerPage = pageSize ?? 10;
+
+            if (currentPage < 1) currentPage = 1;
+            if (itemsPerPage < 1) itemsPerPage = 10;
+            if (itemsPerPage > 100) itemsPerPage = 100; // Limit max page size
 
             // Start with a base query
             var query = client.From<Job>();
@@ -1098,11 +1136,22 @@ public static class JobEndpoints
                 Console.WriteLine($"📊 No filters - showing only Active jobs: {jobs.Count} jobs");
             }
 
-            Console.WriteLine($"✅ Final filtered jobs count: {jobs?.Count ?? 0}");
+            // Calculate total count before pagination
+            var totalCount = jobs?.Count ?? 0;
+            var totalPages = (int)Math.Ceiling((double)totalCount / itemsPerPage);
+
+            Console.WriteLine($"✅ Final filtered jobs count: {totalCount}, Total pages: {totalPages}");
+
+            // Apply pagination
+            var startIndex = (currentPage - 1) * itemsPerPage;
+            var endIndex = Math.Min(startIndex + itemsPerPage, totalCount);
+            var pagedJobs = jobs?.Skip(startIndex).Take(itemsPerPage).ToList() ?? new List<Job>();
+
+            Console.WriteLine($"📄 Page {currentPage}: Showing jobs {startIndex + 1}-{endIndex} of {totalCount}");
 
             // Create DTOs with real-time applicant counts
             var jobDtos = new List<object>();
-            foreach (var job in jobs ?? new List<Job>())
+            foreach (var job in pagedJobs)
             {
                 // Calculate actual applicant count in real-time
                 var actualApplicantCount = await CalculateApplicantCount(job.Id, client);
@@ -1139,7 +1188,7 @@ public static class JobEndpoints
                 });
             }
 
-            Console.WriteLine($"🔄 Converted {jobDtos.Count} jobs");
+            Console.WriteLine($"🔄 Converted {jobDtos.Count} jobs for page {currentPage}");
 
             // Debug: Log first few jobs with their statuses
             foreach (var job in jobDtos.Take(3))
@@ -1148,7 +1197,20 @@ public static class JobEndpoints
                 Console.WriteLine($"📋 Job: {jobObj.Title} - Status: {jobObj.Status}");
             }
 
-            return Results.Ok(jobDtos);
+            // Return paginated response
+            return Results.Ok(new
+            {
+                jobs = jobDtos,
+                pagination = new
+                {
+                    currentPage = currentPage,
+                    pageSize = itemsPerPage,
+                    totalCount = totalCount,
+                    totalPages = totalPages,
+                    hasNextPage = currentPage < totalPages,
+                    hasPreviousPage = currentPage > 1
+                }
+            });
         }
         catch (Exception ex)
         {
@@ -1234,63 +1296,19 @@ public static class JobEndpoints
         }
     }
 
-    private static async Task<IResult> GetJobsByCompany(Guid companyId, Supabase.Client client)
-    {
-        try
-        {
-            // Get all jobs first
-            var response = await client.From<Job>().Get();
-            var allJobs = response.Models;
-
-            // Filter by company ID
-            var jobs = allJobs.Where(j => j.CompanyId == companyId).ToList();
-
-            if (jobs == null || !jobs.Any())
-            {
-                return Results.NotFound(new { message = $"No jobs found for company ID: {companyId}" });
-            }
-
-            // Create DTOs with real-time applicant counts
-            var jobDtos = new List<object>();
-            foreach (var job in jobs ?? new List<Job>())
-            {
-                // Calculate actual applicant count in real-time
-                var actualApplicantCount = await CalculateApplicantCount(job.Id, client);
-
-                jobDtos.Add(new
-                {
-                    Id = job.Id,
-                    Title = job.Title,
-                    Description = job.Description,
-                    Department = job.Department,
-                    EmploymentType = job.EmploymentType,
-                    LocationType = job.LocationType,
-                    SalaryMin = job.SalaryMin,
-                    SalaryMax = job.SalaryMax,
-                    SalaryCurrency = job.SalaryCurrency,
-                    Status = job.Status,
-                    ApplicantCount = actualApplicantCount, // Use real-time count
-                    PostedDate = job.PostedDate,
-                    InterviewTemplateId = job.InterviewTemplateId,
-                });
-            }
-
-            return Results.Ok(jobDtos);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error retrieving jobs for company: {ex.Message}");
-            Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
-        }
-    }
-
-    // Public endpoints for applicants
-    private static async Task<IResult> GetPublicJobs(string? status, Guid? companyId, Supabase.Client client)
+    private static async Task<IResult> GetPublicJobs(string? status, Guid? companyId, int? page, int? pageSize, Supabase.Client client)
     {
         try
         {
             Console.WriteLine("🌍 Public jobs endpoint called - no authentication required");
+
+            // Set default pagination values
+            var currentPage = page ?? 1;
+            var itemsPerPage = pageSize ?? 10;
+
+            if (currentPage < 1) currentPage = 1;
+            if (itemsPerPage < 1) itemsPerPage = 10;
+            if (itemsPerPage > 100) itemsPerPage = 100; // Limit max page size
 
             // Start with a base query
             var query = client.From<Job>();
@@ -1300,17 +1318,30 @@ public static class JobEndpoints
             // For public endpoint, only show "Active" jobs (active for applicants)
             jobs = jobs.Where(j => j.Status.Equals("Active", StringComparison.OrdinalIgnoreCase)).ToList();
 
-
-            // if (companyId.HasValue)
-            // {
-            //     jobs = jobs.Where(j => j.CompanyId == companyId.Value).ToList();
-            // }
+            // Apply company filter if specified
+            if (companyId.HasValue)
+            {
+                jobs = jobs.Where(j => j.CompanyId == companyId.Value).ToList();
+            }
 
             Console.WriteLine($"🌍 Found {jobs.Count} public jobs");
 
+            // Calculate total count before pagination
+            var totalCount = jobs.Count;
+            var totalPages = (int)Math.Ceiling((double)totalCount / itemsPerPage);
+
+            Console.WriteLine($"✅ Final filtered jobs count: {totalCount}, Total pages: {totalPages}");
+
+            // Apply pagination
+            var startIndex = (currentPage - 1) * itemsPerPage;
+            var endIndex = Math.Min(startIndex + itemsPerPage, totalCount);
+            var pagedJobs = jobs.Skip(startIndex).Take(itemsPerPage).ToList();
+
+            Console.WriteLine($"📄 Page {currentPage}: Showing jobs {startIndex + 1}-{endIndex} of {totalCount}");
+
             // Create DTOs with real-time applicant counts
             var jobDtos = new List<object>();
-            foreach (var job in jobs ?? new List<Job>())
+            foreach (var job in pagedJobs)
             {
                 // Calculate actual applicant count in real-time
                 var actualApplicantCount = await CalculateApplicantCount(job.Id, client);
@@ -1346,7 +1377,20 @@ public static class JobEndpoints
                 });
             }
 
-            return Results.Ok(jobDtos);
+            // Return paginated response
+            return Results.Ok(new
+            {
+                jobs = jobDtos,
+                pagination = new
+                {
+                    currentPage = currentPage,
+                    pageSize = itemsPerPage,
+                    totalCount = totalCount,
+                    totalPages = totalPages,
+                    hasNextPage = currentPage < totalPages,
+                    hasPreviousPage = currentPage > 1
+                }
+            });
         }
         catch (Exception ex)
         {

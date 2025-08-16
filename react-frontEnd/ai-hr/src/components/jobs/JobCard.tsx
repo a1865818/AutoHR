@@ -47,10 +47,7 @@ export function JobCard({
           const candidates = await candidateService.getCandidatesForJob(job.id);
           setActualApplicantCount(candidates.length);
         } catch (error) {
-          console.error(
-            `Failed to fetch applicant count for job ${job.id}:`,
-            error
-          );
+          console.error("Failed to fetch applicant count:", error);
           // Fallback to the count from job data
           setActualApplicantCount(safeRenderNumber(job.applicants));
         }

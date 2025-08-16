@@ -36,6 +36,7 @@ export default function MyApplicationsPage() {
   const [applications, setApplications] = useState<ApplicationWithJobDetails[]>(
     []
   );
+  const [totalApplicationsCount, setTotalApplicationsCount] = useState(0);
 
   // Filter and search states
   const [searchQuery, setSearchQuery] = useState("");
@@ -54,7 +55,7 @@ export default function MyApplicationsPage() {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [applicationsPerPage] = useState(4);
+  const [applicationsPerPage] = useState(5);
 
   // Load applications data
   useEffect(() => {
@@ -67,7 +68,7 @@ export default function MyApplicationsPage() {
     if (isAuthenticated && user) {
       loadApplications();
     }
-  }, [isAuthenticated, user, authLoading]);
+  }, [isAuthenticated, user, authLoading, currentPage]);
 
   const loadApplications = async () => {
     try {
@@ -75,8 +76,12 @@ export default function MyApplicationsPage() {
       setError(null);
 
       const applicationsData =
-        await applicationService.getUserApplicationsWithJobDetails();
-      setApplications(applicationsData);
+        await applicationService.getUserApplicationsWithJobDetailsPaged(
+          currentPage,
+          applicationsPerPage
+        );
+      setApplications(applicationsData.applications);
+      setTotalApplicationsCount(applicationsData.totalCount);
     } catch (err) {
       console.error("Failed to load applications:", err);
       setError(
@@ -87,113 +92,17 @@ export default function MyApplicationsPage() {
     }
   };
 
-  // Filter and sort applications
-  const filteredAndSortedApplications = useMemo(() => {
-    let filtered = applications;
-
-    // Apply text search
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (app) =>
-          app.job?.title.toLowerCase().includes(query) ||
-          app.job?.company.toLowerCase().includes(query) ||
-          app.job?.location.toLowerCase().includes(query)
-      );
-    }
-
-    // Apply status filters
-    if (selectedFilters.status.length > 0) {
-      filtered = filtered.filter((app) =>
-        selectedFilters.status.includes(app.status || "")
-      );
-    }
-
-    // Apply stage filters
-    if (selectedFilters.stage.length > 0) {
-      filtered = filtered.filter((app) =>
-        selectedFilters.stage.includes(app.stage || "")
-      );
-    }
-
-    // Apply company filters
-    if (selectedFilters.company.length > 0) {
-      filtered = filtered.filter((app) =>
-        selectedFilters.company.includes(app.job?.company || "")
-      );
-    }
-
-    // Apply date range filters
-    if (selectedFilters.dateRange.start || selectedFilters.dateRange.end) {
-      filtered = filtered.filter((app) => {
-        const appDate = new Date(app.appliedAt);
-        if (
-          selectedFilters.dateRange.start &&
-          appDate < new Date(selectedFilters.dateRange.start)
-        ) {
-          return false;
-        }
-        if (
-          selectedFilters.dateRange.end &&
-          appDate > new Date(selectedFilters.dateRange.end)
-        ) {
-          return false;
-        }
-        return true;
-      });
-    }
-
-    // Sort applications
-    filtered.sort((a, b) => {
-      let comparison = 0;
-
-      switch (sortBy) {
-        case "newest":
-        case "oldest":
-          comparison =
-            new Date(a.appliedAt).getTime() - new Date(b.appliedAt).getTime();
-          if (sortBy === "newest") comparison = -comparison;
-          break;
-        case "company":
-          comparison = (a.job?.company || "").localeCompare(
-            b.job?.company || ""
-          );
-          break;
-        case "jobTitle":
-          comparison = (a.job?.title || "").localeCompare(b.job?.title || "");
-          break;
-        case "status":
-          comparison = (a.status || "").localeCompare(b.status || "");
-          break;
-        default:
-          comparison = 0;
-      }
-
-      return sortOrder === "desc" ? -comparison : comparison;
-    });
-
-    return filtered;
-  }, [applications, searchQuery, selectedFilters, sortBy, sortOrder]);
+  // For now, we'll use the applications directly from the server
+  // TODO: Implement server-side filtering and sorting
+  const displayApplications = applications;
 
   // Calculate pagination
-  const totalApplications = filteredAndSortedApplications.length;
-  const totalPages = Math.ceil(totalApplications / applicationsPerPage);
+  const totalPages = Math.ceil(totalApplicationsCount / applicationsPerPage);
   const startIndex = (currentPage - 1) * applicationsPerPage;
   const endIndex = startIndex + applicationsPerPage;
-  const paginatedApplications = filteredAndSortedApplications.slice(
-    startIndex,
-    endIndex
-  );
 
-  // Reset to first page when search query changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery]);
-
-  // Reset to first page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [selectedFilters]);
+  // TODO: Implement server-side filtering and sorting
+  // For now, we'll keep the filter UI but it won't work until we implement server-side filtering
 
   // Get unique values for filter options
   const filterOptions = useMemo(() => {
@@ -325,11 +234,13 @@ export default function MyApplicationsPage() {
             {/* Sort Options - Dropdown for mobile/tablet, button group for desktop */}
             {/* Mobile/Tablet Dropdown */}
             <div className="w-full md:hidden">
-              <label htmlFor="sortBy" className="sr-only">Sort by</label>
+              <label htmlFor="sortBy" className="sr-only">
+                Sort by
+              </label>
               <select
                 id="sortBy"
                 value={sortBy}
-                onChange={e => toggleSort(e.target.value as SortOption)}
+                onChange={(e) => toggleSort(e.target.value as SortOption)}
                 className="w-full mt-2 md:mt-0 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="newest">Date</option>
@@ -406,7 +317,7 @@ export default function MyApplicationsPage() {
             Try Again
           </button>
         </div>
-      ) : filteredAndSortedApplications.length === 0 ? (
+      ) : displayApplications.length === 0 ? (
         <div className="text-center py-12">
           {applications.length === 0 ? (
             <>
@@ -415,8 +326,8 @@ export default function MyApplicationsPage() {
                 No Applications Yet
               </h3>
               <p className="text-gray-600 mb-6">
-                You haven&apos;t applied to any jobs yet. Start browsing and applying
-                to positions that interest you.
+                You haven&apos;t applied to any jobs yet. Start browsing and
+                applying to positions that interest you.
               </p>
               <Link
                 href="/applicant/jobs"
@@ -448,17 +359,18 @@ export default function MyApplicationsPage() {
         <div className="space-y-4">
           {/* Results count */}
           <div className="text-sm text-gray-600">
-            {totalApplications > 0 && (
+            {totalApplicationsCount > 0 && (
               <>
-                Showing {startIndex + 1}-{Math.min(endIndex, totalApplications)}{" "}
-                of {totalApplications} applications
+                Showing {startIndex + 1}-
+                {Math.min(endIndex, totalApplicationsCount)} of{" "}
+                {totalApplicationsCount} applications
               </>
             )}
           </div>
 
           {/* Applications Grid */}
           <div className="grid gap-6">
-            {paginatedApplications.map((application) => (
+            {displayApplications.map((application) => (
               <ApplicationCard
                 key={application.id}
                 application={application}
@@ -474,7 +386,7 @@ export default function MyApplicationsPage() {
                 currentPage={currentPage}
                 totalPages={totalPages}
                 onPageChange={handlePageChange}
-                totalItems={totalApplications}
+                totalItems={totalApplicationsCount}
                 itemsPerPage={applicationsPerPage}
                 showInfo={false}
               />

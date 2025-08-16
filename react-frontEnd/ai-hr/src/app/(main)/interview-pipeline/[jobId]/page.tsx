@@ -9,7 +9,6 @@ import {
   Building,
   GitBranch,
   Plus,
-  Search,
   Phone,
   Video,
   Code,
@@ -46,6 +45,7 @@ import {
   DroppableColumn,
   BulkActions,
 } from "@/components/interview_pipeline/DragDropPipeline";
+import { VirtualizedCandidatesList } from "@/components/interview_pipeline/VirtualizedCandidatesList";
 
 import { BulkNotificationModal } from "@/components/interview_pipeline/BulkNotificationModal";
 
@@ -58,6 +58,26 @@ interface PipelineCandidate extends Candidate {
   roundProgress?: number;
   hasSubmittedAssessment?: boolean;
   isAssessmentGraded?: boolean;
+  meetingScheduled?: boolean;
+  meetLink?: string;
+  meetingData?: any;
+
+  // Assessment scores by round
+  roundAssessmentScores?: {
+    [roundId: string]: {
+      score: number;
+      isHRGraded: boolean;
+      gradedAt?: string;
+      status: "not_attempted" | "submitted" | "graded" | "auto_generated";
+      maxScore: number;
+      percentage: number;
+    };
+  };
+
+  // Current display score based on round and stage
+  currentAssessmentScore?: number;
+  isCurrentScoreHRGraded?: boolean;
+  assessmentScoreStatus?: string;
 }
 
 interface PipelineColumn {
@@ -109,12 +129,20 @@ export default function JobPipelinePage() {
   const [job, setJob] = useState<JobWithTemplate | null>(null);
   const [company, setCompany] = useState<ApiCompany | null>(null);
   const [candidates, setCandidates] = useState<PipelineCandidate[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalCandidates, setTotalCandidates] = useState(0);
   const [columns, setColumns] = useState<PipelineColumn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCandidates, setSelectedCandidates] = useState<string[]>([]);
   const [dragEnabled, setDragEnabled] = useState(true);
+  const [cardDensity, setCardDensity] = useState<"cozy" | "compact">(() => {
+    if (typeof window === "undefined") return "compact";
+    const saved = window.localStorage.getItem("pipelineDensity");
+    return saved === "cozy" || saved === "compact" ? (saved as any) : "compact";
+  });
 
   // Template management states
   const [availableTemplates, setAvailableTemplates] = useState<
@@ -165,7 +193,13 @@ export default function JobPipelinePage() {
     if (jobId) {
       loadJobPipeline();
     }
-  }, [jobId]);
+  }, [jobId, page, pageSize]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("pipelineDensity", cardDensity);
+    }
+  }, [cardDensity]);
 
   // Update columns when candidates change
   useEffect(() => {
@@ -289,8 +323,14 @@ export default function JobPipelinePage() {
         }
       }
 
-      // Load candidates for this job
-      const candidatesData = await candidateService.getCandidatesForJob(jobId);
+      // Load candidates for this job (paged)
+      const paged = await candidateService.getCandidatesForJobPaged(
+        jobId,
+        page,
+        pageSize
+      );
+      const candidatesData = paged.candidates;
+      setTotalCandidates(paged.totalCount || candidatesData.length);
       let applicationDetails = [];
       try {
         applicationDetails = await candidateService.getApplicationDetailByJob(
@@ -485,6 +525,87 @@ export default function JobPipelinePage() {
             }
           }
 
+          // Determine assessment score for display based on current round
+          let roundAssessmentScores: Record<
+            string,
+            {
+              score: number;
+              isHRGraded: boolean;
+              gradedAt?: string;
+              status:
+                | "not_attempted"
+                | "submitted"
+                | "graded"
+                | "auto_generated";
+              maxScore: number;
+              percentage: number;
+            }
+          > = {};
+
+          let currentAssessmentScore: number | undefined = undefined;
+          let isCurrentScoreHRGraded: boolean | undefined = undefined;
+          let assessmentScoreStatus: string | undefined = undefined;
+
+          try {
+            // Applied stage keeps auto-generated score
+            if (candidate.stage === "Applied") {
+              currentAssessmentScore = candidate.assessment;
+              isCurrentScoreHRGraded = false;
+              assessmentScoreStatus = "auto_generated";
+            } else if (
+              currentRoundId &&
+              currentRoundId !== "offered" &&
+              currentRoundId !== "hired" &&
+              currentRoundId !== "rejected"
+            ) {
+              // Only attempt fetching a submission if we already know there is a submission
+              if (hasSubmittedAssessment) {
+                const submissionWithGrade =
+                  await assessmentService.getSubmission(
+                    candidate.candidateUserId as string,
+                    currentRoundId
+                  );
+
+                if (submissionWithGrade && (submissionWithGrade as any).grade) {
+                  const grade: any = (submissionWithGrade as any).grade;
+                  const pct = Math.round(
+                    Number(
+                      grade.percentage ??
+                        (Number(grade.totalScore) /
+                          Math.max(1, Number(grade.maxScore))) *
+                          100
+                    )
+                  );
+                  currentAssessmentScore = isNaN(pct) ? undefined : pct;
+                  isCurrentScoreHRGraded = true;
+                  assessmentScoreStatus = "graded";
+
+                  roundAssessmentScores[currentRoundId] = {
+                    score: Number(grade.totalScore ?? 0),
+                    isHRGraded: true,
+                    gradedAt: grade.gradedAt,
+                    status: "graded",
+                    maxScore: Number(grade.maxScore ?? 100),
+                    percentage: Number(grade.percentage ?? 0),
+                  };
+                } else {
+                  // No grade yet; mark status based on submission flags we computed above
+                  assessmentScoreStatus = hasSubmittedAssessment
+                    ? "submitted"
+                    : "not_attempted";
+                }
+              } else {
+                assessmentScoreStatus = "not_attempted";
+              }
+            }
+          } catch (scoreErr) {
+            console.warn(
+              "Failed to load assessment score for candidate",
+              candidate.id,
+              scoreErr
+            );
+          }
+
           return {
             ...candidate,
             currentRoundId,
@@ -497,6 +618,10 @@ export default function JobPipelinePage() {
             meetingScheduled,
             meetLink,
             meetingData,
+            roundAssessmentScores,
+            currentAssessmentScore,
+            isCurrentScoreHRGraded,
+            assessmentScoreStatus,
           };
         })
       );
@@ -600,6 +725,7 @@ export default function JobPipelinePage() {
   ) => {
     try {
       if (!candidateUserId || !roundId) return;
+
       // Determine if the target round is of assessment type
       const round = job?.interviewTemplate?.rounds?.find(
         (r) => r.id === roundId
@@ -608,6 +734,13 @@ export default function JobPipelinePage() {
         round &&
         (round.type === "technical_assessment" ||
           round.type === "coding_challenge");
+
+      // Prepare computed fields
+      let hasSubmittedAssessment = false;
+      let isAssessmentGraded = false;
+      let currentAssessmentScore: number | undefined = undefined;
+      let isCurrentScoreHRGraded = false;
+      let assessmentScoreStatus: string | undefined = undefined;
 
       if (!isAssessmentRound) {
         // Clear flags for non-assessment rounds
@@ -618,6 +751,12 @@ export default function JobPipelinePage() {
                   ...c,
                   hasSubmittedAssessment: false,
                   isAssessmentGraded: false,
+                  currentAssessmentScore:
+                    c.stage === "Applied" ? c.assessment : undefined,
+                  isCurrentScoreHRGraded:
+                    c.stage === "Applied" ? false : undefined,
+                  assessmentScoreStatus:
+                    c.stage === "Applied" ? "auto_generated" : undefined,
                 }
               : c
           )
@@ -625,21 +764,91 @@ export default function JobPipelinePage() {
         return;
       }
 
-      const [submitted, graded] = await Promise.all([
-        assessmentService.hasSubmittedAssessment(candidateUserId, roundId),
-        assessmentService.isSubmissionGraded(candidateUserId, roundId),
-      ]);
+      // First, check if a submission exists; avoid fetching submission when it doesn't
+      try {
+        hasSubmittedAssessment = await assessmentService.hasSubmittedAssessment(
+          candidateUserId,
+          roundId
+        );
+      } catch {
+        hasSubmittedAssessment = false;
+      }
+
+      if (!hasSubmittedAssessment) {
+        assessmentScoreStatus = "not_attempted";
+      } else {
+        // Submission exists → try retrieving submission+grade safely
+        let submissionWithGrade: any = null;
+        try {
+          submissionWithGrade = await assessmentService.getSubmission(
+            candidateUserId,
+            roundId
+          );
+        } catch {
+          submissionWithGrade = null;
+        }
+
+        if (submissionWithGrade && submissionWithGrade.grade) {
+          const grade: any = submissionWithGrade.grade;
+          const pct = Math.round(
+            Number(
+              grade.percentage ??
+                (Number(grade.totalScore) /
+                  Math.max(1, Number(grade.maxScore))) *
+                  100
+            )
+          );
+          currentAssessmentScore = isNaN(pct) ? undefined : pct;
+          isCurrentScoreHRGraded = true;
+          isAssessmentGraded = true;
+          assessmentScoreStatus = "graded";
+        } else {
+          assessmentScoreStatus = "submitted";
+        }
+      }
 
       setCandidates((prev) =>
-        prev.map((c) =>
-          c.candidateUserId === candidateUserId
-            ? {
-                ...c,
-                hasSubmittedAssessment: submitted,
-                isAssessmentGraded: graded,
-              }
-            : c
-        )
+        prev.map((c) => {
+          if (c.candidateUserId !== candidateUserId) return c;
+
+          // If no HR grade and candidate is in Applied stage, show auto-generated
+          let finalScore = currentAssessmentScore;
+          let finalIsHR = isCurrentScoreHRGraded;
+          let finalStatus = assessmentScoreStatus;
+          if (
+            (finalScore === undefined || finalScore === null) &&
+            c.stage === "Applied"
+          ) {
+            finalScore = c.assessment;
+            finalIsHR = false;
+            finalStatus = "auto_generated";
+          }
+
+          // Merge or initialize roundAssessmentScores
+          const updatedRoundScores = { ...(c.roundAssessmentScores || {}) };
+          if (isAssessmentGraded) {
+            // We don't have the full grade object here anymore; preserve existing
+            const grade: any = undefined;
+            updatedRoundScores[roundId] = {
+              score: Number((grade as any)?.totalScore ?? 0),
+              isHRGraded: true,
+              gradedAt: (grade as any)?.gradedAt,
+              status: "graded",
+              maxScore: Number((grade as any)?.maxScore ?? 100),
+              percentage: Number((grade as any)?.percentage ?? 0),
+            };
+          }
+
+          return {
+            ...c,
+            hasSubmittedAssessment,
+            isAssessmentGraded,
+            currentAssessmentScore: finalScore,
+            isCurrentScoreHRGraded: finalIsHR,
+            assessmentScoreStatus: finalStatus,
+            roundAssessmentScores: updatedRoundScores,
+          } as typeof c;
+        })
       );
     } catch (e) {
       console.warn("Failed to refresh assessment flags", {
@@ -651,7 +860,17 @@ export default function JobPipelinePage() {
       setCandidates((prev) =>
         prev.map((c) =>
           c.candidateUserId === candidateUserId
-            ? { ...c, hasSubmittedAssessment: false, isAssessmentGraded: false }
+            ? {
+                ...c,
+                hasSubmittedAssessment: false,
+                isAssessmentGraded: false,
+                currentAssessmentScore:
+                  c.stage === "Applied" ? c.assessment : undefined,
+                isCurrentScoreHRGraded:
+                  c.stage === "Applied" ? false : undefined,
+                assessmentScoreStatus:
+                  c.stage === "Applied" ? "auto_generated" : undefined,
+              }
             : c
         )
       );
@@ -2134,7 +2353,7 @@ export default function JobPipelinePage() {
                 <GitBranch className="h-6 w-6 mr-2 text-indigo-600" />
                 {job.title}
               </h1>
-              <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1">
+              <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1 whitespace-nowrap">
                 {job.department && (
                   <div className="flex items-center">
                     <Building className="h-4 w-4 mr-1" />
@@ -2147,8 +2366,7 @@ export default function JobPipelinePage() {
                 </div>
                 <div className="flex items-center">
                   <Users className="h-4 w-4 mr-1" />
-                  {candidates.length} candidate
-                  {candidates.length !== 1 ? "s" : ""}
+                  {totalCandidates} total · Page {page}
                 </div>
                 {job.interviewTemplate && (
                   <div className="flex items-center">
@@ -2156,23 +2374,23 @@ export default function JobPipelinePage() {
                     {job.interviewTemplate.name}
                   </div>
                 )}
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm text-gray-600">Density</label>
+                  <select
+                    value={cardDensity}
+                    onChange={(e) => setCardDensity(e.target.value as any)}
+                    className="text-sm border border-gray-300 rounded-md px-2 py-1"
+                  >
+                    <option value="cozy">Cozy</option>
+                    <option value="compact">Compact</option>
+                  </select>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Search */}
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search candidates..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              />
-            </div>
-          </div>
+          {/* Right space reserved (no duplicate search) */}
+          <div className="flex items-center" />
         </div>
       </div>
 
@@ -2234,6 +2452,43 @@ export default function JobPipelinePage() {
       )}
 
       {/* Round-Based Pending Notifications */}
+      {/* Pagination Controls */}
+      <div className="px-6 py-3 border-t border-gray-200 bg-white flex items-center justify-between">
+        <div className="text-sm text-gray-600">
+          Showing {(page - 1) * pageSize + 1}–
+          {Math.min(page * pageSize, totalCandidates)} of {totalCandidates}
+        </div>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className="px-3 py-1.5 border rounded disabled:opacity-50"
+            disabled={page <= 1 || isLoading}
+          >
+            Previous
+          </button>
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPage(1);
+              setPageSize(parseInt(e.target.value, 10));
+            }}
+            className="px-2 py-1.5 border rounded"
+          >
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+            <option value={100}>100</option>
+          </select>
+          <button
+            onClick={() =>
+              setPage((p) => (p * pageSize < totalCandidates ? p + 1 : p))
+            }
+            className="px-3 py-1.5 border rounded disabled:opacity-50"
+            disabled={page * pageSize >= totalCandidates || isLoading}
+          >
+            Next
+          </button>
+        </div>
+      </div>
       {Object.entries(getGroupedNotifications()).length > 0 && (
         <div className="mx-6 mb-4 space-y-3">
           {Object.entries(getGroupedNotifications()).map(
@@ -2349,6 +2604,104 @@ export default function JobPipelinePage() {
                     <User className="h-8 w-8 mx-auto mb-2" />
                     <p className="text-sm">No candidates</p>
                   </div>
+                ) : cardDensity === "compact" ? (
+                  <VirtualizedCandidatesList
+                    candidates={column.candidates}
+                    rowHeight={56}
+                    overscanCount={10}
+                    renderCard={(candidate: PipelineCandidate) => {
+                      const canMoveLeft =
+                        column.id !== "new" &&
+                        column.id !== "rejected" &&
+                        column.id !== "hired" &&
+                        dragEnabled;
+
+                      const canMoveRight =
+                        column.id !== "hired" &&
+                        column.id !== "rejected" &&
+                        column.id !== "offered" &&
+                        dragEnabled;
+
+                      const showHireButton = column.id === "offered";
+                      const showOfferButton =
+                        isLastRound(column.id) &&
+                        column.id !== "offered" &&
+                        column.id !== "hired" &&
+                        column.id !== "rejected" &&
+                        column.id !== "new";
+
+                      return (
+                        <DragDropCandidateCard
+                          key={candidate.id}
+                          candidate={candidate}
+                          roundId={column.id}
+                          canMoveLeft={canMoveLeft}
+                          canMoveRight={canMoveRight}
+                          onMove={(candidateId, direction) => {
+                            const currentColumnIndex = columns.findIndex(
+                              (c) => c.id === column.id
+                            );
+                            const targetColumnIndex =
+                              direction === "left"
+                                ? currentColumnIndex - 1
+                                : currentColumnIndex + 1;
+                            if (
+                              targetColumnIndex >= 0 &&
+                              targetColumnIndex < columns.length
+                            ) {
+                              handleCandidateMove(
+                                candidateId,
+                                column.id,
+                                columns[targetColumnIndex].id
+                              );
+                            }
+                          }}
+                          onSchedule={(candidateId) =>
+                            handleScheduleInterview(
+                              candidateId,
+                              column.round?.id || column.id
+                            )
+                          }
+                          onReject={handleRejectCandidate}
+                          onRejectWithEmail={handleRejectCandidateWithEmail}
+                          jobTitle={job?.title || "Position"}
+                          companyName={company?.name || "Company"}
+                          onHire={
+                            showHireButton ? handleHireCandidate : undefined
+                          }
+                          onOffer={
+                            showOfferButton ? handleOfferCandidate : undefined
+                          }
+                          onViewProfile={(candidateId) =>
+                            console.log(
+                              `Viewing profile for candidate ${candidateId}`
+                            )
+                          }
+                          onAddNote={(candidateId, note) =>
+                            handleAddNotes(candidateId, column.id, note)
+                          }
+                          onMarkAssessment={(candidateId, roundId) =>
+                            handleMarkAssessment(
+                              candidate.candidateUserId,
+                              roundId
+                            )
+                          }
+                          onMarkPhoneScreen={(candidateUserId, roundId) =>
+                            handleMarkPhoneScreening(candidateUserId, roundId)
+                          }
+                          roundType={column.round?.type}
+                          roundConfigurationData={
+                            (column.round as any)?.configurationData
+                          }
+                          hasSubmittedAssessment={
+                            candidate.hasSubmittedAssessment
+                          }
+                          isAssessmentGraded={candidate.isAssessmentGraded}
+                          variant={cardDensity}
+                        />
+                      );
+                    }}
+                  />
                 ) : (
                   column.candidates.map((candidate) => {
                     const canMoveLeft =
@@ -2363,7 +2716,6 @@ export default function JobPipelinePage() {
                       column.id !== "offered" && // Can't move right from offered (must go to hired)
                       dragEnabled;
 
-                    // Determine which special action buttons to show based on the current column
                     const showHireButton = column.id === "offered"; // Only show hire button from offered column
                     const showOfferButton =
                       isLastRound(column.id) && // Only show offer button in last round
@@ -2439,6 +2791,7 @@ export default function JobPipelinePage() {
                             candidate.hasSubmittedAssessment
                           }
                           isAssessmentGraded={candidate.isAssessmentGraded}
+                          variant={cardDensity}
                         />
                       </div>
                     );

@@ -11,11 +11,20 @@ public static class CandidateEndpoints
         app.MapGet("/candidates/company/{companyId}", GetCandidatesByCompany)
             .WithTags("Candidates")
             .WithName("GetCandidatesByCompany")
-            .WithSummary("Get all candidates for a company")
+            .WithSummary("Get candidates for a company")
             .WithDescription("Retrieves all job applicants for positions at the specified company")
             .RequireAuthorization();
 
-        app.MapGet("/candidates/job/{jobId}", GetCandidatesByJob)
+        // Paged variant for interview pipeline – avoids loading all candidates at once
+        app.MapGet("/candidates/job/{jobId:guid}/paged", (Guid jobId, int? page, int? pageSize, Supabase.Client client) =>
+            GetCandidatesByJobPaged(jobId, page ?? 1, pageSize ?? 50, client))
+            .WithTags("Candidates")
+            .WithName("GetCandidatesByJobPaged")
+            .WithSummary("Get candidates for specific job (paged)")
+            .WithDescription("Retrieves candidates for a specific job posting with pagination support")
+            .RequireAuthorization();
+
+        app.MapGet("/candidates/job/{jobId:guid}", GetCandidatesByJob)
             .WithTags("Candidates")
             .WithName("GetCandidatesByJob")
             .WithSummary("Get candidates for specific job")
@@ -36,6 +45,7 @@ public static class CandidateEndpoints
             .WithDescription("Retrieves all rejected candidates for a specific job posting")
             .RequireAuthorization();
 
+        // This should be last to avoid catching other routes
         app.MapGet("/candidates/{candidateId}/details", GetCandidateDetails)
             .WithTags("Candidates")
             .WithName("GetCandidateDetails")
@@ -239,8 +249,14 @@ public static class CandidateEndpoints
 
     private static async Task<IResult> GetCandidatesByJob(Guid jobId, Supabase.Client client)
     {
+        Console.WriteLine($"🚀 GetCandidatesByJob method called with jobId: {jobId}");
+        Console.WriteLine($"🚀 JobId type: {jobId.GetType()}");
+        Console.WriteLine($"🚀 JobId value: {jobId}");
+
         try
         {
+            Console.WriteLine($"🔍 GetCandidatesByJob called for jobId: {jobId}");
+
             // Get the job details first
             var jobResponse = await client.From<Job>()
                 .Where(j => j.Id == jobId)
@@ -249,8 +265,11 @@ public static class CandidateEndpoints
             var job = jobResponse.Models?.FirstOrDefault();
             if (job == null)
             {
+                Console.WriteLine($"❌ Job not found: {jobId}");
                 return Results.NotFound(new { message = $"Job not found: {jobId}" });
             }
+
+            Console.WriteLine($"✅ Job found: {job.Title}");
 
             // Get company information for this job
             var companyResponse = await client.From<Company>()
@@ -260,6 +279,7 @@ public static class CandidateEndpoints
             var company = companyResponse.Models?.FirstOrDefault();
             var companyName = company?.Name ?? "Unknown Company";
 
+            Console.WriteLine($"✅ Company found: {companyName}");
 
             // Get all applications for this job
             var appResponse = await client.From<ApplicationDetail>()
@@ -269,10 +289,11 @@ public static class CandidateEndpoints
             var applications = appResponse.Models;
             if (applications == null || !applications.Any())
             {
+                Console.WriteLine($"📭 No applications found for job: {jobId}");
                 return Results.Ok(new List<object>());
             }
 
-            Console.WriteLine($"Found {applications.Count} applications for job");
+            Console.WriteLine($"✅ Found {applications.Count} applications for job {jobId}");
 
             // ✅ FIX: Use the same approach as GetCandidatesByCompany
             // Get ALL ApplicationUsers at once (more efficient)
@@ -368,6 +389,124 @@ public static class CandidateEndpoints
         catch (Exception ex)
         {
             Console.WriteLine($"Error fetching candidates for job: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+    // New: Paged candidates by job
+    private static async Task<IResult> GetCandidatesByJobPaged(Guid jobId, int page, int pageSize, Supabase.Client client)
+    {
+        try
+        {
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 50;
+
+            // Get the job
+            var jobResponse = await client.From<Job>()
+                .Where(j => j.Id == jobId)
+                .Get();
+            var job = jobResponse.Models?.FirstOrDefault();
+            if (job == null)
+            {
+                return Results.NotFound(new { message = $"Job not found: {jobId}" });
+            }
+
+            // Company for display fields
+            var companyResponse = await client.From<Company>()
+                .Where(c => c.Id == job.CompanyId)
+                .Get();
+            var company = companyResponse.Models?.FirstOrDefault();
+            var companyName = company?.Name ?? "Unknown Company";
+
+            // Load all applications for count and paging
+            var appResponse = await client.From<ApplicationDetail>()
+                .Where(ad => ad.JobId == jobId)
+                .Get();
+            var allApplications = appResponse.Models ?? new List<ApplicationDetail>();
+            var total = allApplications.Count;
+
+            // Apply paging in-memory (Supabase .NET SDK call above fetched all; if needed, replace with RPC or filter client-side)
+            var pagedApplications = allApplications
+                .OrderByDescending(a => a.AppliedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToList();
+
+            if (!pagedApplications.Any())
+            {
+                return Results.Ok(new
+                {
+                    candidates = new List<object>(),
+                    totalCount = total,
+                    page,
+                    pageSize
+                });
+            }
+
+            // Fetch all users and create lookup
+            var allUsersResponse = await client.From<ApplicationUser>().Get();
+            var allUsers = allUsersResponse.Models ?? new List<ApplicationUser>();
+            var userLookup = allUsers.ToDictionary(u => u.Id, u => u);
+
+            var candidates = pagedApplications.Select(app =>
+            {
+                var userIdStr = app.CandidateUserId.ToString();
+                userLookup.TryGetValue(userIdStr, out var user);
+
+                var name = user != null ? $"{user.FirstName} {user.LastName}" : $"Unknown User ({userIdStr[..8]}...)";
+                var companyInitial = !string.IsNullOrEmpty(companyName) ? companyName.Substring(0, 1).ToUpper() : "C";
+                var assessmentScore = app.OverallAiScore ?? CandidateRankingEndpoints.CalculateInitialRankingScore(app);
+
+                return new
+                {
+                    id = app.Id.ToString(),
+                    applicationId = app.Id.ToString(),
+                    candidateUserId = app.CandidateUserId.ToString(),
+                    jobId = app.JobId.ToString(),
+                    name,
+                    email = user?.Email ?? "No email available",
+                    location = user?.Location,
+                    experiences = user?.Experiences,
+                    photo = user != null
+                        ? $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(name)}&size=32&background=e5e7eb&color=374151&rounded=true"
+                        : "https://ui-avatars.com/api/?name=Unknown&size=32&background=f87171&color=ffffff&rounded=true",
+                    role = job.Title,
+                    company = companyName,
+                    companyLogo = !string.IsNullOrEmpty(company?.LogoUrl)
+                        ? company.LogoUrl
+                        : $"https://ui-avatars.com/api/?name={Uri.EscapeDataString(companyInitial)}&size=24&background=3b82f6&color=ffffff&rounded=true",
+                    assessment = (int)Math.Round(assessmentScore),
+                    stage = app.Stage,
+                    status = app.Status,
+                    appliedAt = app.AppliedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    resumeUrl = app.ResumeUrl,
+                    coverLetterText = app.CoverLetterText,
+                    expectedSalary = app.ExpectedSalary,
+                    availabilityDate = app.AvailabilityDate?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    jobSource = app.JobSource,
+                    overallAiScore = app.OverallAiScore,
+                    jobTitle = job.Title,
+                    jobDepartment = job.Department ?? "",
+                    jobLocationType = job.LocationType ?? "Unknown",
+                    jobEmploymentType = job.EmploymentType ?? "Unknown",
+                    hiringNotes = app.HiringNotes ?? "",
+                    notesCreatedAt = app.NotesCreatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                    notesUpdatedAt = app.NotesUpdatedAt?.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                };
+            }).ToList();
+
+            return Results.Ok(new
+            {
+                candidates,
+                totalCount = total,
+                page,
+                pageSize
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error fetching paged candidates for job: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }

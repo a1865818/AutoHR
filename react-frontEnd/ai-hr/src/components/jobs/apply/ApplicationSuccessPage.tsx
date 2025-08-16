@@ -47,6 +47,7 @@ export function ApplicationSuccessPage({
   const [applicationStatus, setApplicationStatus] =
     useState<ApplicationDetailResponse | null>(null);
   const [jobData, setJobData] = useState<any>(null);
+  const [companyData, setCompanyData] = useState<any>(null);
   const [interviewRounds, setInterviewRounds] = useState<InterviewRound[]>([]);
   const [technicalAssessment, setTechnicalAssessment] = useState<{
     url: string;
@@ -138,6 +139,15 @@ export function ApplicationSuccessPage({
       console.log("job:", job.interviewTemplateId);
       setJobData(job);
 
+      // Load company data
+      try {
+        const company = await jobService.getCompanyById(job.companyId);
+        setCompanyData(company);
+      } catch (error) {
+        console.warn("Could not load company details:", error);
+        setCompanyData(null);
+      }
+
       // Load interview template and rounds if available
       let technicalRoundId = null;
       if (job.interviewTemplateId) {
@@ -228,8 +238,10 @@ export function ApplicationSuccessPage({
 
     let resolvedCurrentRound: InterviewRound | undefined;
     const stageLower = applicationStatus?.stage?.toLowerCase() || "";
+    const status = applicationStatus?.status || "";
 
-    if (stageLower) {
+    // Only set currentRoundId if the application status is "In Progress"
+    if (status === "In Progress" && stageLower) {
       if (stageLower.includes("coding") || stageLower.includes("challenge")) {
         resolvedCurrentRound = interviewRounds.find(
           (r) => r.type === "coding_challenge"
@@ -244,18 +256,14 @@ export function ApplicationSuccessPage({
       }
     }
 
-    if (!resolvedCurrentRound) {
-      // Fallback: first technical/coding round if stage is not informative
-      resolvedCurrentRound = interviewRounds.find(
-        (r) =>
-          r.type === "technical_assessment" || r.type === "coding_challenge"
-      );
-    }
-
+    // Only update currentRoundId if we found a valid round and it's different
     if (resolvedCurrentRound && resolvedCurrentRound.id !== currentRoundId) {
       setCurrentRoundId(resolvedCurrentRound.id);
+    } else if (!resolvedCurrentRound && currentRoundId) {
+      // Clear currentRoundId if no valid round found
+      setCurrentRoundId(null);
     }
-  }, [applicationStatus?.stage, interviewRounds]);
+  }, [applicationStatus?.stage, applicationStatus?.status, interviewRounds]);
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -572,6 +580,7 @@ export function ApplicationSuccessPage({
             {/* Technical Assessment Upload */}
             {currentRoundId &&
               user?.id &&
+              applicationStatus?.status === "In Progress" &&
               (() => {
                 const currentRound = interviewRounds.find(
                   (round) => round.id === currentRoundId
@@ -621,6 +630,7 @@ export function ApplicationSuccessPage({
             {/* Coding Challenge Submission */}
             {currentRoundId &&
               user?.id &&
+              applicationStatus?.status === "In Progress" &&
               (() => {
                 const currentRound = interviewRounds.find(
                   (round) => round.id === currentRoundId
@@ -668,7 +678,9 @@ export function ApplicationSuccessPage({
                         {jobData.title}
                       </p>
                       <p className="text-sm text-gray-600">
-                        Company ID: {jobData.companyId}
+                        {companyData
+                          ? companyData.name
+                          : `Company ID: ${jobData.companyId}`}
                       </p>
                     </div>
                   </div>
