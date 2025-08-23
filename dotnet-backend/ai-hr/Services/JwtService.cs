@@ -142,5 +142,39 @@ namespace ai_hr.Services
             var principal = ValidateToken(token);
             return principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         }
+
+        public bool ValidateRefreshToken(string refreshToken, DateTime? expiry)
+        {
+            if (string.IsNullOrWhiteSpace(refreshToken))
+            {
+                return false;
+            }
+
+            if (IsTokenExpired(expiry))
+            {
+                return false;
+            }
+
+            // Additional validation: Check if refresh token has proper format (base64)
+            try
+            {
+                var tokenBytes = Convert.FromBase64String(refreshToken);
+                return tokenBytes.Length == 64; // Should be 64 bytes as generated
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        public bool IsTokenExpired(DateTime? expiry)
+        {
+            if (!expiry.HasValue)
+            {
+                return true; // No expiry date means invalid/expired
+            }
+
+            return expiry.Value <= DateTime.UtcNow;
+        }
     }
 }

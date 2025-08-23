@@ -138,6 +138,17 @@ builder.Services.AddScoped<ITokenRevocationService, TokenRevocationService>();
 builder.Services.AddScoped<IAdvancedAuthenticationService, AdvancedAuthenticationService>();
 builder.Services.AddScoped<ISecureExternalApiService, SecureExternalApiService>();
 
+// Register Refresh Token Cleanup Service
+// Register the service interface with a separate implementation for manual operations
+builder.Services.AddScoped<IRefreshTokenCleanupService>(provider =>
+    new RefreshTokenCleanupService(
+        provider.GetRequiredService<IServiceScopeFactory>(),
+        provider.GetRequiredService<ILogger<RefreshTokenCleanupService>>(),
+        provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<JwtSettings>>()));
+
+// Register as background service for automatic cleanup
+builder.Services.AddHostedService<RefreshTokenCleanupService>();
+
 // Register Gmail service
 builder.Services.AddScoped<IGmailService, ai_hr.Services.GmailApiService>();
 
@@ -270,16 +281,30 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
 // Security headers are now handled by SecurityHeadersMiddleware
 
 // Use CORS after security headers
 app.UseCors("AllowNextJs");
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "AI HR Platform API v1");
+        c.RoutePrefix = "swagger";
+    });
+}
+else
+{
+    // Enable Swagger in production for this API (remove this if not needed in production)
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "AI HR Platform API v1");
+        c.RoutePrefix = "swagger";
+    });
+}
 
 // Add HTTPS redirection in the correct position (early in the pipeline)
 // Only enable HTTPS redirection if both HTTP and HTTPS ports are configured

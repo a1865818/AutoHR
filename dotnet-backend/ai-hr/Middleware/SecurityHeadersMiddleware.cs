@@ -14,7 +14,7 @@ namespace ai_hr.Middleware
         public async Task InvokeAsync(HttpContext context)
         {
             // Add security headers to all responses
-            AddSecurityHeaders(context.Response);
+            AddSecurityHeaders(context.Response, context);
 
             await _next(context);
 
@@ -22,7 +22,7 @@ namespace ai_hr.Middleware
             LogSecurityInfo(context);
         }
 
-        private void AddSecurityHeaders(HttpResponse response)
+        private void AddSecurityHeaders(HttpResponse response, HttpContext context)
         {
             // Prevent MIME type sniffing
             response.Headers.Append("X-Content-Type-Options", "nosniff");
@@ -36,8 +36,27 @@ namespace ai_hr.Middleware
             // Control referrer information
             response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
 
-            // Content Security Policy - restrictive but functional for API
-            var csp = "default-src 'self'; " +
+            // Content Security Policy - allow Swagger UI in development
+            var isSwaggerPath = context.Request.Path.StartsWithSegments("/swagger");
+            
+            string csp;
+            if (isSwaggerPath)
+            {
+                // Relaxed CSP for Swagger UI
+                csp = "default-src 'self'; " +
+                     "script-src 'self' 'unsafe-inline' 'unsafe-eval'; " +
+                     "style-src 'self' 'unsafe-inline'; " +
+                     "img-src 'self' data: https:; " +
+                     "font-src 'self'; " +
+                     "connect-src 'self'; " +
+                     "frame-ancestors 'none'; " +
+                     "base-uri 'self'; " +
+                     "form-action 'self'";
+            }
+            else
+            {
+                // Restrictive CSP for API endpoints
+                csp = "default-src 'self'; " +
                      "script-src 'self'; " +
                      "style-src 'self' 'unsafe-inline'; " +
                      "img-src 'self' data: https:; " +
@@ -46,11 +65,12 @@ namespace ai_hr.Middleware
                      "frame-ancestors 'none'; " +
                      "base-uri 'self'; " +
                      "form-action 'self'";
+            }
             
             response.Headers.Append("Content-Security-Policy", csp);
 
             // Strict Transport Security (HSTS) - only in production with HTTPS
-            if (IsProductionAndHttps(response.HttpContext))
+            if (IsProductionAndHttps(context))
             {
                 response.Headers.Append("Strict-Transport-Security", "max-age=31536000; includeSubDomains; preload");
             }

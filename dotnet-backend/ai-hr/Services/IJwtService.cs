@@ -10,5 +10,7 @@ namespace ai_hr.Services
         string GenerateRefreshToken();
         ClaimsPrincipal? ValidateToken(string token);
         string? GetUserIdFromToken(string token);
+        bool ValidateRefreshToken(string refreshToken, DateTime? expiry);
+        bool IsTokenExpired(DateTime? expiry);
     }
 }
