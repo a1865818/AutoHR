@@ -24,6 +24,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { TechnicalAssessmentUpload } from "./TechnicalAssessmentUpload";
 import { CodingChallengeSubmission } from "./CodingChallengeSubmission";
+import { CultureFitAssessment } from "@/components/assessment/CultureFitAssessment";
 import { InterviewPipelineTimeline } from "./InterviewPipelineTimeline";
 import { InterviewRound as ApiInterviewRound } from "@/interfaces/api";
 import { InterviewRound } from "@/interfaces/interview";
@@ -54,6 +55,7 @@ export function ApplicationSuccessPage({
     fileName: string;
     uploadedAt: string;
   } | null>(null);
+  const [cultureFitAssessment, setCultureFitAssessment] = useState<any>(null);
   const [currentRoundId, setCurrentRoundId] = useState<string | null>(null);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
 
@@ -181,15 +183,23 @@ export function ApplicationSuccessPage({
                 currentRound = sortedRounds.find(
                   (round) => round.type === "coding_challenge"
                 );
+              } else if (
+                stageLower.includes("culture") ||
+                stageLower.includes("fit")
+              ) {
+                currentRound = sortedRounds.find(
+                  (round) => round.type === "culture_fit"
+                );
               }
             }
 
-            // If no specific round found, find the first technical or coding round
+            // If no specific round found, find the first technical, coding, or culture fit round
             if (!currentRound) {
               currentRound = sortedRounds.find(
                 (round) =>
                   round.type === "technical_assessment" ||
-                  round.type === "coding_challenge"
+                  round.type === "coding_challenge" ||
+                  round.type === "culture_fit"
               );
             }
 
@@ -218,6 +228,83 @@ export function ApplicationSuccessPage({
         } catch (error) {
           console.warn("Could not load technical assessment:", error);
           setTechnicalAssessment(null);
+        }
+      }
+
+      // Load culture fit assessment if application exists and we have round info
+      if (applicationId && technicalRoundId && user?.id) {
+        try {
+          // TODO: Replace with actual API call when backend is ready
+          // For now, create mock data for testing
+          const mockCultureFitAssessment = {
+            id: `culture-fit-${technicalRoundId}`,
+            jobId: jobId,
+            roundId: technicalRoundId,
+            candidateId: user.id,
+            configuration: {
+              name: "Culture Fit Assessment",
+              description: "Assess your alignment with our company values and culture",
+              companyValues: [
+                {
+                  id: "1",
+                  name: "Innovation",
+                  description: "We value creative thinking and new ideas",
+                  weight: 5,
+                  indicators: ["Problem solving", "Creativity", "Adaptability"]
+                },
+                {
+                  id: "2", 
+                  name: "Collaboration",
+                  description: "We work together to achieve common goals",
+                  weight: 4,
+                  indicators: ["Teamwork", "Communication", "Supportiveness"]
+                }
+              ],
+              cultureQuestions: [
+                {
+                  id: "q1",
+                  text: "How do you typically approach solving complex problems?",
+                  trait: "Innovation",
+                  type: "multiple_choice",
+                  weight: 3,
+                  maxScore: 10,
+                  options: [
+                    { id: "a1", text: "I analyze the problem thoroughly first", isCorrect: true, score: 10 },
+                    { id: "a2", text: "I jump in and start experimenting", isCorrect: false, score: 5 },
+                    { id: "a3", text: "I ask others for help immediately", isCorrect: false, score: 3 }
+                  ]
+                }
+              ],
+              culturalScenarios: [
+                {
+                  id: "s1",
+                  title: "Team Conflict Scenario",
+                  scenario: "You notice two team members are having a disagreement that's affecting project progress. How would you handle this situation?",
+                  category: "Collaboration",
+                  expectedResponse: "Demonstrate conflict resolution skills",
+                  evaluationCriteria: ["Communication", "Problem solving", "Teamwork"],
+                  timeLimitMinutes: 5,
+                  wordLimit: { min: 50, max: 200 }
+                }
+              ],
+              duration: 15,
+              assessmentSettings: {
+                timePerQuestionSeconds: 60,
+                shuffleQuestions: true,
+                showExplanations: false
+              },
+              instructions: "This assessment will evaluate your cultural fit through various question types and scenarios.",
+              evaluationCriteria: "We evaluate based on alignment with our core values."
+            },
+            status: "pending",
+            startedAt: undefined,
+            completedAt: undefined
+          };
+          
+          setCultureFitAssessment(mockCultureFitAssessment);
+        } catch (error) {
+          console.warn("Could not load culture fit assessment:", error);
+          setCultureFitAssessment(null);
         }
       }
     } catch (error) {
@@ -252,6 +339,13 @@ export function ApplicationSuccessPage({
       ) {
         resolvedCurrentRound = interviewRounds.find(
           (r) => r.type === "technical_assessment"
+        );
+      } else if (
+        stageLower.includes("culture") ||
+        stageLower.includes("fit")
+      ) {
+        resolvedCurrentRound = interviewRounds.find(
+          (r) => r.type === "culture_fit"
         );
       }
     }
@@ -656,6 +750,54 @@ export function ApplicationSuccessPage({
                         // You can add additional error handling here
                       }}
                     />
+                  );
+                }
+                return null;
+              })()}
+
+            {/* Culture Fit Assessment */}
+            {currentRoundId &&
+              user?.id &&
+              applicationStatus?.status === "In Progress" &&
+              (() => {
+                const currentRound = interviewRounds.find(
+                  (round) => round.id === currentRoundId
+                );
+                if (currentRound?.type === "culture_fit" && cultureFitAssessment) {
+                  return (
+                    <div className="bg-white rounded-lg border p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-semibold text-gray-900">
+                          Culture Fit Assessment
+                        </h2>
+                        <span className="px-2 py-1 bg-purple-100 text-purple-800 text-sm rounded-full">
+                          Required
+                        </span>
+                      </div>
+                      <p className="text-gray-600 mb-4">
+                        Complete this assessment to evaluate your alignment with our company culture and values.
+                      </p>
+                      <CultureFitAssessment
+                        assessment={cultureFitAssessment}
+                        onComplete={async (results) => {
+                          try {
+                            // TODO: Submit results to backend when API is ready
+                            console.log("Culture fit assessment completed:", results);
+                            
+                            // Show success message and refresh application data
+                            const { toast } = await import("@/utils/toast");
+                            toast.success("Culture fit assessment submitted successfully!");
+                            
+                            // Refresh application data to update status
+                            await refreshApplicationData();
+                          } catch (error) {
+                            console.error("Failed to submit culture fit assessment:", error);
+                            const { toast } = await import("@/utils/toast");
+                            toast.error("Failed to submit assessment. Please try again.");
+                          }
+                        }}
+                      />
+                    </div>
                   );
                 }
                 return null;

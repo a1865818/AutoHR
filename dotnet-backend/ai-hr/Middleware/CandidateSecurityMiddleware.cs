@@ -22,6 +22,10 @@ namespace ai_hr.Middleware
             // Apply special security for candidate-accessible endpoints
             if (IsCandidateEndpoint(path))
             {
+                _logger.LogInformation("🔒 Candidate security check for: {Method} {Path}", method, path);
+                _logger.LogInformation("🔒 User authenticated: {IsAuthenticated}", context.User.Identity?.IsAuthenticated);
+                _logger.LogInformation("🔒 User identity name: {IdentityName}", context.User.Identity?.Name);
+                
                 var securityResult = await ValidateCandidateAccess(context, path);
                 if (!securityResult.IsValid)
                 {
@@ -73,16 +77,24 @@ namespace ai_hr.Middleware
             // 3. For authenticated candidate endpoints (/applicant/jobs/), verify user is authenticated
             if (path?.StartsWith("/applicant/", StringComparison.OrdinalIgnoreCase) == true)
             {
+                _logger.LogInformation("🔍 Checking authentication for applicant endpoint: {Path}", path);
+                _logger.LogInformation("🔍 User authenticated: {IsAuthenticated}", context.User.Identity?.IsAuthenticated);
+                _logger.LogInformation("🔍 User identity name: {IdentityName}", context.User.Identity?.Name);
+                
                 if (!context.User.Identity?.IsAuthenticated == true)
                 {
+                    _logger.LogWarning("❌ Authentication failed for applicant endpoint: {Path}", path);
                     return new SecurityValidationResult(false, 401, "Authentication required for candidate endpoint");
                 }
 
                 // Verify the user has appropriate claims (is actually an applicant user)
                 if (!IsValidCandidateUser(context.User))
                 {
+                    _logger.LogWarning("❌ Invalid user type for applicant endpoint: {Path}", path);
                     return new SecurityValidationResult(false, 403, "Invalid user type for candidate endpoint");
                 }
+                
+                _logger.LogInformation("✅ Authentication successful for applicant endpoint: {Path}", path);
             }
 
             // 4. Validate request parameters for potential attacks

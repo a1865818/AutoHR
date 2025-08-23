@@ -15,6 +15,13 @@ import {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5189";
 
+// Log API configuration for debugging
+console.log("🔧 JobService API Configuration:", {
+  API_BASE_URL,
+  NODE_ENV: process.env.NODE_ENV,
+  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL
+});
+
 class JobService {
   private getAuthToken(): string | null {
     // Check cookies first, then localStorage and sessionStorage for token
@@ -59,6 +66,9 @@ class JobService {
     }
 
     try {
+      console.log(`🌐 Making API request to: ${url}`);
+      console.log(`🌐 Headers:`, headers);
+      
       const response = await fetch(url, {
         headers: {
           ...headers,
@@ -163,7 +173,17 @@ class JobService {
         throw error;
       }
 
-      console.error("🚨 Network/Fetch Error:", { url, error });
+      console.error("🚨 Network/Fetch Error:", { 
+        url, 
+        error: error instanceof Error ? error.message : "Unknown error",
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
+      // Provide more specific error messages
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        throw new Error("Cannot connect to server. Please check if the backend is running.");
+      }
+      
       throw new Error(
         `Network error: ${
           error instanceof Error ? error.message : "Unknown error"

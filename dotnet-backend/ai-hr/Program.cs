@@ -242,7 +242,6 @@ var app = builder.Build();
 
 // ✅ Add security middleware first
 app.UseMiddleware<SecurityHeadersMiddleware>();
-app.UseMiddleware<CandidateSecurityMiddleware>();
 
 // ✅ Add rate limiting
 app.UseIpRateLimiting();
@@ -320,6 +319,11 @@ app.UseRouting();
 // Add authentication and authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
+
+// ✅ Add candidate security middleware AFTER authentication
+// Temporarily disabled for debugging
+app.UseMiddleware<CandidateSecurityMiddleware>();
+
 // Temporarily disable session to debug logging issue
 // app.UseSession();
 

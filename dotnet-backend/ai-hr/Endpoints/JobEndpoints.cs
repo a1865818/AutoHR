@@ -222,6 +222,26 @@ public static class JobEndpoints
          .WithDescription("Retrieves job details for logged-in applicant users with proper view tracking and enhanced security")
          .RequireAuthorization(); // Authenticated applicants only with enhanced validation
 
+        // Test endpoint to verify Supabase client is working
+        app.MapGet("/test/jobs", async (Supabase.Client client) =>
+        {
+            try
+            {
+                Console.WriteLine("🧪 Testing Supabase client...");
+                var response = await client.From<Job>().Get();
+                Console.WriteLine($"🧪 Retrieved {response.Models?.Count ?? 0} jobs");
+                return Results.Ok(new { success = true, count = response.Models?.Count ?? 0 });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"🧪 Test failed: {ex.Message}");
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        })
+         .WithTags("Test")
+         .WithName("TestJobs")
+         .WithSummary("Test endpoint to verify Supabase client");
+
     }
 
 
@@ -782,9 +802,31 @@ public static class JobEndpoints
                 return Results.Unauthorized();
             }
 
-            // Get all jobs and filter by ID
-            var response = await client.From<Job>().Get();
-            var job = response.Models.FirstOrDefault(j => j.Id == id);
+            // Get specific job by ID
+            Job? job = null;
+            try
+            {
+                Console.WriteLine($"👤 Attempting to fetch job with ID: {id}");
+                
+                // Use the same pattern as other working endpoints
+                var response = await client.From<Job>().Get();
+                Console.WriteLine($"👤 Retrieved {response.Models?.Count ?? 0} jobs from database");
+                
+                job = response.Models?.FirstOrDefault(j => j.Id == id);
+                Console.WriteLine($"👤 Job found: {job != null}");
+                
+                if (job != null)
+                {
+                    Console.WriteLine($"👤 Job title: {job.Title}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error fetching job from database: {ex.Message}");
+                Console.WriteLine($"❌ Exception type: {ex.GetType().Name}");
+                Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
+                return Results.BadRequest(new { error = "Database error occurred while fetching job details", details = ex.Message });
+            }
 
             if (job == null)
             {
@@ -847,11 +889,18 @@ public static class JobEndpoints
             }
 
             // ✅ Check if the authenticated user has applied to this job
-            var userApplicationResponse = await client.From<ApplicationDetail>()
-                .Where(ad => ad.JobId == id && ad.CandidateUserId == Guid.Parse(userId))
-                .Get();
-
-            var userApplication = userApplicationResponse.Models?.FirstOrDefault();
+            ApplicationDetail? userApplication = null;
+            try
+            {
+                var userApplicationResponse = await client.From<ApplicationDetail>().Get();
+                userApplication = userApplicationResponse.Models?.FirstOrDefault(ad => 
+                    ad.JobId == id && ad.CandidateUserId == Guid.Parse(userId));
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️ Error checking user application: {ex.Message}");
+                // Don't fail the request if application check fails
+            }
 
             // ✅ Get interview template details if user has applied and template exists
             object? interviewTemplate = null;
@@ -859,31 +908,29 @@ public static class JobEndpoints
             {
                 try
                 {
-                    var templateResponse = await client.From<InterviewTemplate>()
-                        .Where(t => t.Id == job.InterviewTemplateId)
-                        .Get();
-
-                    var template = templateResponse.Models.FirstOrDefault();
+                    var templateResponse = await client.From<InterviewTemplate>().Get();
+                    var template = templateResponse.Models?.FirstOrDefault(t => t.Id == job.InterviewTemplateId);
+                    
                     if (template != null)
                     {
                         // Get rounds for this template
-                        var roundsResponse = await client.From<InterviewRound>()
-                            .Where(r => r.TemplateId == template.Id)
-                            .Get();
-
-                        var rounds = roundsResponse.Models
-                            .OrderBy(r => r.RoundOrder)
-                            .Select(r => new
-                            {
-                                Id = r.Id,
-                                Name = r.Name,
-                                Type = r.Type,
-                                Duration = r.Duration,
-                                RoundOrder = r.RoundOrder,
-                                Description = r.Description,
-                                IsOptional = r.IsOptional,
-                                PassingCriteria = r.PassingCriteria
-                            }).ToList();
+                        var roundsResponse = await client.From<InterviewRound>().Get();
+                        var rounds = roundsResponse.Models == null
+                            ? new List<object>()
+                            : roundsResponse.Models
+                                .Where(r => r.TemplateId == template.Id)
+                                .OrderBy(r => r.RoundOrder)
+                                .Select(r => new
+                                {
+                                    Id = r.Id,
+                                    Name = r.Name,
+                                    Type = r.Type,
+                                    Duration = r.Duration,
+                                    RoundOrder = r.RoundOrder,
+                                    Description = r.Description,
+                                    IsOptional = r.IsOptional,
+                                    PassingCriteria = r.PassingCriteria
+                                }).ToList<object>();
 
                         interviewTemplate = new
                         {
