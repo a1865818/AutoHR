@@ -198,18 +198,7 @@ export function ConfigurationLayout({
               <span className="font-medium text-gray-900">{title}</span>
             </div>
 
-            <div className="flex items-center space-x-4 text-sm text-gray-500">
-              <div className="flex items-center space-x-1">
-                <Clock className="w-4 h-4" />
-                <span>{duration} minutes</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <Settings className="w-4 h-4" />
-                <span className="capitalize">
-                  {roundType.replace("_", " ")}
-                </span>
-              </div>
-            </div>
+           
           </div>
 
           {subtitle && (
