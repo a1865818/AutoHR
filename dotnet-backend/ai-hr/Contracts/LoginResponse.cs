@@ -9,5 +9,6 @@ namespace ai_hr.Contracts
         public required string FirstName { get; set; }
         public required string LastName { get; set; }
         public DateTime TokenExpiresAt { get; set; }
+        public bool IsSupabaseAuth { get; set; } = false; // Indicates if this is Supabase Auth or legacy
     }
 }
