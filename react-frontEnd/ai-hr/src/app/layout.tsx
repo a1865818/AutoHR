@@ -4,6 +4,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { GlobalToast } from "@/components/settings/GlobalToast";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -23,6 +24,7 @@ export default function RootLayout({
         <ErrorBoundary>
           <AuthProvider>
             {children}
+            <GlobalToast />
             {/* <ClientOnly>
               <SessionDebug />
             </ClientOnly> */}

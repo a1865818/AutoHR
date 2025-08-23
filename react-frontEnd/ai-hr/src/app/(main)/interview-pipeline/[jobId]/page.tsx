@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Mail,
   Send,
+  Search,
 } from "lucide-react";
 import { VideoInterviewSchedulingModal } from "@/components/interview_pipeline/VideoInterviewSchedulingModal";
 import Link from "next/link";
@@ -2274,7 +2275,11 @@ export default function JobPipelinePage() {
       setShowTemplateSelector(false);
     } catch (error) {
       console.error("Error assigning interview template:", error);
-      alert("Failed to assign interview template. Please try again.");
+      // Use global toast for error
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore - dynamic import to avoid cyclic deps
+      const { toast } = await import("@/utils/toast");
+      toast.error("Failed to assign interview template. Please try again.");
     } finally {
       setIsAssigningTemplate(false);
     }
@@ -2339,58 +2344,84 @@ export default function JobPipelinePage() {
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Link
-              href="/interview-pipeline"
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <ArrowLeft className="h-6 w-6" />
-            </Link>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-                <GitBranch className="h-6 w-6 mr-2 text-indigo-600" />
-                {job.title}
-              </h1>
-              <div className="flex items-center space-x-4 text-sm text-gray-600 mt-1 whitespace-nowrap">
-                {job.department && (
+      <div className="bg-white border-b border-gray-200">
+        <div className="px-6 py-4">
+          {/* Title and job info row */}
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center space-x-6">
+              <Link
+                href="/interview-pipeline"
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <ArrowLeft className="h-6 w-6" />
+              </Link>
+              <div className="flex items-center space-x-6">
+                <h1 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <GitBranch className="h-6 w-6 mr-2 text-indigo-600" />
+                  {job.title}
+                </h1>
+                {/* Job info beside title */}
+                <div className="flex items-center space-x-4 text-sm text-gray-600">
+                  {job.department && (
+                    <div className="flex items-center">
+                      <Building className="h-4 w-4 mr-1" />
+                      {job.department}
+                    </div>
+                  )}
                   <div className="flex items-center">
-                    <Building className="h-4 w-4 mr-1" />
-                    {job.department}
+                    <MapPin className="h-4 w-4 mr-1" />
+                    {job.locationType}
                   </div>
-                )}
-                <div className="flex items-center">
-                  <MapPin className="h-4 w-4 mr-1" />
-                  {job.locationType}
-                </div>
-                <div className="flex items-center">
-                  <Users className="h-4 w-4 mr-1" />
-                  {totalCandidates} total · Page {page}
-                </div>
-                {job.interviewTemplate && (
                   <div className="flex items-center">
-                    <Calendar className="h-4 w-4 mr-1" />
-                    {job.interviewTemplate.name}
+                    <Users className="h-4 w-4 mr-1" />
+                    {totalCandidates} total
                   </div>
-                )}
-                <div className="flex items-center space-x-2">
-                  <label className="text-sm text-gray-600">Density</label>
-                  <select
-                    value={cardDensity}
-                    onChange={(e) => setCardDensity(e.target.value as any)}
-                    className="text-sm border border-gray-300 rounded-md px-2 py-1"
-                  >
-                    <option value="cozy">Cozy</option>
-                    <option value="compact">Compact</option>
-                  </select>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Right space reserved (no duplicate search) */}
-          <div className="flex items-center" />
+          {/* Controls row */}
+          <div className="flex items-center space-x-6">
+            {/* Density Control */}
+            <div className="flex items-center space-x-2">
+              <label className="text-sm text-gray-600 whitespace-nowrap">Density</label>
+              <select
+                value={cardDensity}
+                onChange={(e) => setCardDensity(e.target.value as any)}
+                className="text-sm border border-gray-300 rounded-md px-2 py-1"
+              >
+                <option value="cozy">Cozy</option>
+                <option value="compact">Compact</option>
+              </select>
+            </div>
+
+            {/* Search Control */}
+            <div className="flex items-center space-x-2">
+              <label className="text-sm text-gray-600 whitespace-nowrap">Search</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search candidates..."
+                  aria-label="Search candidates by name or email"
+                  className="text-sm border border-gray-300 rounded-md pl-7 pr-2 py-1 w-48 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            {/* Interview Template Name */}
+            {job.interviewTemplate && (
+              <div className="flex items-center text-sm text-gray-600">
+                <Calendar className="h-4 w-4 mr-1" />
+                <span className="truncate">{job.interviewTemplate.name}</span>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -2461,7 +2492,7 @@ export default function JobPipelinePage() {
         <div className="flex items-center space-x-2">
           <button
             onClick={() => setPage((p) => Math.max(1, p - 1))}
-            className="px-3 py-1.5 border rounded disabled:opacity-50"
+            className="px-2 py-1 text-sm border rounded-md disabled:opacity-50"
             disabled={page <= 1 || isLoading}
           >
             Previous
@@ -2472,7 +2503,7 @@ export default function JobPipelinePage() {
               setPage(1);
               setPageSize(parseInt(e.target.value, 10));
             }}
-            className="px-2 py-1.5 border rounded"
+            className="px-2 py-1 text-sm border rounded-md"
           >
             <option value={25}>25</option>
             <option value={50}>50</option>
@@ -2482,7 +2513,7 @@ export default function JobPipelinePage() {
             onClick={() =>
               setPage((p) => (p * pageSize < totalCandidates ? p + 1 : p))
             }
-            className="px-3 py-1.5 border rounded disabled:opacity-50"
+            className="px-2 py-1 text-sm border rounded-md disabled:opacity-50"
             disabled={page * pageSize >= totalCandidates || isLoading}
           >
             Next

@@ -79,6 +79,15 @@ public static class CompanyEndpoints
             .WithSummary("Get public company by ID")
             .WithDescription("Retrieves complete details of a specific company with their job postings - no authentication required");
 
+        // ✅ Enhanced endpoint for authenticated candidates
+        app.MapGet("/candidate/companies/{id}", async (Guid id, Supabase.Client client, HttpContext context) =>
+            GetCandidateCompanyById(id, client, context))
+            .WithTags("Candidate Companies")
+            .WithName("GetCandidateCompanyById")
+            .WithSummary("Get company details for authenticated candidates")
+            .WithDescription("Retrieves company details for authenticated candidates with enhanced application context")
+            .RequireAuthorization();
+
         // DEBUG: Test endpoint to check database schema
         app.MapGet("/debug/companies/schema", CheckCompanySchema)
             .WithTags("Debug")
@@ -844,6 +853,98 @@ public static class CompanyEndpoints
             Console.WriteLine($"Error checking company schema: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+        }
+    }
+
+    // ✅ Enhanced company endpoint for authenticated candidates
+    private static async Task<IResult> GetCandidateCompanyById(Guid id, Supabase.Client client, HttpContext context)
+    {
+        try
+        {
+            // Get the authenticated user information
+            var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var userCategory = context.User.FindFirst("userCategory")?.Value;
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            // Get all companies and filter by ID
+            var response = await client.From<Company>().Get();
+            var company = response.Models.FirstOrDefault(c => c.Id == id);
+
+            if (company == null)
+            {
+                return Results.NotFound(new { message = $"Company with ID {id} not found" });
+            }
+
+            // ✅ Basic company information (available to all authenticated users)
+            var companyDto = new
+            {
+                Id = company.Id,
+                Name = company.Name,
+                Description = company.Description,
+                Website = company.Website,
+                LogoUrl = company.LogoUrl,
+                Industry = company.Industry,
+                CompanySize = company.CompanySize,
+                Headquarters = company.Headquarters,
+                FoundedYear = company.FoundedYear,
+                IsVerified = company.IsVerified,
+                CreatedAt = company.CreatedAt
+            };
+
+            // ✅ For candidates, add information about their applications to this company
+            if (userCategory == "ApplicationUser")
+            {
+                try
+                {
+                    // Get jobs for this company
+                    var jobsResponse = await client.From<ai_hr.Models.Job>()
+                        .Where(j => j.CompanyId == id)
+                        .Get();
+                    var companyJobIds = jobsResponse.Models.Select(j => j.Id).ToList();
+
+                    // Get candidate's applications to jobs at this company
+                    var applicationsResponse = await client.From<ApplicationDetail>()
+                        .Where(a => a.CandidateUserId == Guid.Parse(userId))
+                        .Get();
+
+                    var applicationsToThisCompany = applicationsResponse.Models
+                        .Where(a => companyJobIds.Contains(a.JobId))
+                        .Select(a => new
+                        {
+                            Id = a.Id,
+                            JobId = a.JobId,
+                            Status = a.Status,
+                            AppliedAt = a.AppliedAt,
+                            CurrentRoundId = a.CurrentRoundId
+                        }).ToList();
+
+                    return Results.Ok(new
+                    {
+                        Company = companyDto,
+                        CandidateApplications = applicationsToThisCompany,
+                        HasAppliedToCompany = applicationsToThisCompany.Any(),
+                        TotalApplicationsToCompany = applicationsToThisCompany.Count
+                    });
+                }
+                catch (Exception appEx)
+                {
+                    Console.WriteLine($"⚠️ Error loading candidate applications: {appEx.Message}");
+                    // Fall back to basic company data
+                }
+            }
+
+            // Return basic company information
+            return Results.Ok(new { Company = companyDto });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error retrieving company details for candidate: {ex.Message}");
+            Console.WriteLine($"Stack trace: {ex.StackTrace}");
+            return Results.Problem("An error occurred while retrieving company details");
         }
     }
 }

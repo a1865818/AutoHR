@@ -33,6 +33,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { LoadingState } from "@/components/ui/LoadingState";
 
 export default function InterviewsPage() {
   const router = useRouter();
@@ -238,31 +239,12 @@ export default function InterviewsPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Interviews</h1>
-          <p className="mt-2 text-gray-600">
-            Design and manage your interview processes
-          </p>
-        </div>
-        <Link
-          href="/interview-templates/create"
-          className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2 shadow-lg"
-        >
-          <Plus className="w-5 h-5" />
-          <span>Create Interview Template</span>
-        </Link>
-      </div>
-
       {/* Loading State */}
       {loading && (
-        <div className="w-full flex flex-col items-center justify-center py-12">
-          <Loader2 className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
-          <h3 className="text-lg font-medium text-gray-900">
-            Loading interview templates...
-          </h3>
-        </div>
+        <LoadingState
+          message="Loading interview templates..."
+          minHeightClass="min-h-screen"
+        />
       )}
 
       {/* Error Message */}
@@ -285,6 +267,23 @@ export default function InterviewsPage() {
       {/* Only render the content when not loading */}
       {!loading && (
         <>
+          {/* Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">Interviews</h1>
+              <p className="mt-2 text-gray-600">
+                Design and manage your interview processes
+              </p>
+            </div>
+            <Link
+              href="/interview-templates/create"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2 shadow-lg"
+            >
+              <Plus className="w-5 h-5" />
+              <span>Create Interview Template</span>
+            </Link>
+          </div>
+
           {/* Stats Overview */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">

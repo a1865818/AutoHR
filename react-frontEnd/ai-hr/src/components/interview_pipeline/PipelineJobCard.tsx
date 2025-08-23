@@ -70,40 +70,42 @@ export function PipelineJobCard({
       if (!isInView || isLoadingLazy) return;
       setIsLoadingLazy(true);
       try {
+        const tasks: Promise<void>[] = [];
+        const templateId = (job as any).interviewTemplateId as
+          | string
+          | undefined;
+
         // Fetch interview template if missing but job has template id
-        if (!template && (job as any).interviewTemplateId) {
-          try {
-            const tmpl = await interviewService.getInterviewTemplate(
-              (job as any).interviewTemplateId as string
-            );
-            const rounds = await interviewService.getInterviewRounds(
-              (job as any).interviewTemplateId as string
-            );
-            if (!aborted) setTemplate({ ...tmpl, rounds });
-          } catch (e) {
-            // ignore
-          }
+        if (!template && templateId) {
+          const templateTask = Promise.all([
+            interviewService.getInterviewTemplate(templateId),
+            interviewService.getInterviewRounds(templateId),
+          ])
+            .then(([tmpl, rounds]) => {
+              if (!aborted) setTemplate({ ...tmpl, rounds });
+            })
+            .catch(() => {
+              // ignore template errors; UI will handle missing template gracefully
+            });
+          tasks.push(templateTask);
         }
+
         // Fetch candidate count if missing
         if (candidateCount === undefined) {
-          try {
-            console.log("🔍 Fetching candidate count for job:", job.id);
-            console.log("🔍 Job object:", job);
-            console.log("🔍 Job ID type:", typeof job.id);
-            const candidates = await candidateService.getCandidatesForJob(
-              job.id
-            );
-            console.log(
-              "✅ Candidates fetched:",
-              candidates?.length || 0,
-              "for job:",
-              job.id
-            );
-            if (!aborted) setCandidateCount(candidates?.length || 0);
-          } catch (e) {
-            console.error("❌ Error fetching candidates for job:", job.id, e);
-            if (!aborted) setCandidateCount(0);
-          }
+          const candidatesTask = candidateService
+            .getCandidatesForJob(job.id)
+            .then((candidates) => {
+              if (!aborted) setCandidateCount(candidates?.length || 0);
+            })
+            .catch((e) => {
+              console.error("❌ Error fetching candidates for job:", job.id, e);
+              if (!aborted) setCandidateCount(0);
+            });
+          tasks.push(candidatesTask);
+        }
+
+        if (tasks.length > 0) {
+          await Promise.allSettled(tasks);
         }
       } finally {
         if (!aborted) setIsLoadingLazy(false);
@@ -277,29 +279,36 @@ export function PipelineJobCard({
             </div>
           </div>
         ) : (
-          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center flex-1 min-w-0">
-                <Clock className="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0" />
-                <span className="text-sm text-yellow-800">
-                  No interview template assigned
-                </span>
+          <div className="mb-6">
+            {/* If job has a templateId and we're still loading lazy data, show a subtle placeholder */}
+            {(job as any).interviewTemplateId && isLoadingLazy ? (
+              <div className="h-9 bg-gray-100 border border-gray-200 rounded-lg animate-pulse" />
+            ) : (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center flex-1 min-w-0">
+                    <Clock className="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0" />
+                    <span className="text-sm text-yellow-800">
+                      No interview template assigned
+                    </span>
+                  </div>
+                  {onChangeTemplate && (
+                    <button
+                      onClick={() =>
+                        onChangeTemplate({
+                          ...job,
+                          interviewTemplate: template,
+                          candidateCount,
+                        })
+                      }
+                      className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline font-medium whitespace-nowrap flex-shrink-0"
+                    >
+                      Assign Template
+                    </button>
+                  )}
+                </div>
               </div>
-              {onChangeTemplate && (
-                <button
-                  onClick={() =>
-                    onChangeTemplate({
-                      ...job,
-                      interviewTemplate: template,
-                      candidateCount,
-                    })
-                  }
-                  className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline font-medium whitespace-nowrap flex-shrink-0"
-                >
-                  Assign Template
-                </button>
-              )}
-            </div>
+            )}
           </div>
         )}
 

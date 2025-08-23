@@ -1,13 +1,4 @@
-import {
-  Bell,
-  Building2,
-  CreditCard,
-  Settings,
-  Shield,
-  Users,
-  Zap,
-  LucideIcon,
-} from "lucide-react";
+import { Building2, CreditCard, Shield, Users, LucideIcon } from "lucide-react";
 
 interface Tab {
   id: string;
@@ -27,10 +18,6 @@ export function SettingsNavigation({
   const tabs: Tab[] = [
     { id: "company", name: "Company", icon: Building2 },
     { id: "users", name: "Team", icon: Users },
-    { id: "recruitment", name: "Recruitment", icon: Settings },
-    { id: "integrations", name: "Integrations", icon: Zap },
-    { id: "notifications", name: "Notifications", icon: Bell },
-    { id: "security", name: "Security", icon: Shield },
     { id: "billing", name: "Billing", icon: CreditCard },
   ];
 

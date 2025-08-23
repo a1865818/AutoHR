@@ -7,6 +7,7 @@ using System.Security.Claims;
 using System.Text.Json;
 using ai_hr.Services;
 using System.Linq;
+using FluentValidation;
 
 namespace ai_hr.Endpoints;
 
@@ -218,8 +219,8 @@ public static class JobEndpoints
          .WithTags("Applicant Jobs")
          .WithName("GetApplicantJobById")
          .WithSummary("Get job details for authenticated applicants")
-         .WithDescription("Retrieves job details for logged-in applicant users with proper view tracking")
-         .RequireAuthorization(); // Authenticated applicants only
+         .WithDescription("Retrieves job details for logged-in applicant users with proper view tracking and enhanced security")
+         .RequireAuthorization(); // Authenticated applicants only with enhanced validation
 
     }
 
@@ -845,6 +846,61 @@ public static class JobEndpoints
                 }
             }
 
+            // ✅ Check if the authenticated user has applied to this job
+            var userApplicationResponse = await client.From<ApplicationDetail>()
+                .Where(ad => ad.JobId == id && ad.CandidateUserId == Guid.Parse(userId))
+                .Get();
+
+            var userApplication = userApplicationResponse.Models?.FirstOrDefault();
+
+            // ✅ Get interview template details if user has applied and template exists
+            object? interviewTemplate = null;
+            if (userApplication != null && job.InterviewTemplateId != null)
+            {
+                try
+                {
+                    var templateResponse = await client.From<InterviewTemplate>()
+                        .Where(t => t.Id == job.InterviewTemplateId)
+                        .Get();
+
+                    var template = templateResponse.Models.FirstOrDefault();
+                    if (template != null)
+                    {
+                        // Get rounds for this template
+                        var roundsResponse = await client.From<InterviewRound>()
+                            .Where(r => r.TemplateId == template.Id)
+                            .Get();
+
+                        var rounds = roundsResponse.Models
+                            .OrderBy(r => r.RoundOrder)
+                            .Select(r => new
+                            {
+                                Id = r.Id,
+                                Name = r.Name,
+                                Type = r.Type,
+                                Duration = r.Duration,
+                                RoundOrder = r.RoundOrder,
+                                Description = r.Description,
+                                IsOptional = r.IsOptional,
+                                PassingCriteria = r.PassingCriteria
+                            }).ToList();
+
+                        interviewTemplate = new
+                        {
+                            Id = template.Id,
+                            Name = template.Name,
+                            Description = template.Description,
+                            Rounds = rounds
+                        };
+                    }
+                }
+                catch (Exception templateEx)
+                {
+                    Console.WriteLine($"⚠️ Error loading interview template: {templateEx.Message}");
+                    // Don't fail the request if template loading fails
+                }
+            }
+
             // Create response DTO
             var jobDto = new
             {
@@ -875,6 +931,11 @@ public static class JobEndpoints
                 PostedDate = job.PostedDate,
                 ClosedDate = job.ClosedDate,
                 InterviewTemplateId = job.InterviewTemplateId,
+                // ✅ Enhanced data for candidates who applied
+                InterviewTemplate = interviewTemplate, // null if user hasn't applied or no template
+                ApplicationStatus = userApplication?.Status,
+                CurrentRoundId = userApplication?.CurrentRoundId,
+                HasApplied = userApplication != null
             };
 
             return Results.Ok(jobDto);
@@ -887,10 +948,22 @@ public static class JobEndpoints
         }
     }
 
-    private static async Task<IResult> CreateJob(CreateJobRequest request, Supabase.Client client)
+    private static async Task<IResult> CreateJob(CreateJobRequest request, IValidator<CreateJobRequest> validator, Supabase.Client client)
     {
         try
         {
+            // Validate the request
+            var validationResult = await validator.ValidateAsync(request);
+            if (!validationResult.IsValid)
+            {
+                Console.WriteLine($"❌ Validation failed for job creation: {string.Join(", ", validationResult.Errors.Select(e => e.ErrorMessage))}");
+                return Results.BadRequest(new 
+                { 
+                    message = "Validation failed", 
+                    errors = validationResult.Errors.Select(e => new { field = e.PropertyName, error = e.ErrorMessage }) 
+                });
+            }
+
             Console.WriteLine($"Creating job with title: {request.Title}");
             Console.WriteLine($"InterviewTemplateId received: {request.InterviewTemplateId}");
 

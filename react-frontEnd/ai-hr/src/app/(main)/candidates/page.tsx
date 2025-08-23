@@ -3,11 +3,12 @@
 import { withHiringAuth } from "@/components/auth/WithHiringAuth";
 import { JobGrid } from "@/components/candidates/JobGrid";
 import { Pagination } from "@/components/ui/Pagination";
+import { LoadingState } from "@/components/ui/LoadingState";
 import { useHiringAuth } from "@/hooks/useHiringAuth";
 import { Job } from "@/interfaces";
 import { jobService } from "@/services/jobService";
-import { Briefcase, FileText, Plus, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Briefcase, FileText, Plus, Users, Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 // Empty State Component
@@ -112,6 +113,8 @@ function CandidatesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [companyName, setCompanyName] = useState<string>("your company");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [allActiveJobs, setAllActiveJobs] = useState<Job[]>([]);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -187,6 +190,54 @@ function CandidatesPage() {
     loadJobs();
   }, [companyId, isAuthorized, authLoading, currentPage, jobsPerPage]);
 
+  // When searching, fetch a larger set of active jobs to search across
+  useEffect(() => {
+    const fetchAllActiveForSearch = async () => {
+      if (!companyId || !isAuthorized || !searchQuery.trim()) return;
+      try {
+        const response = await jobService.getAllJobs(
+          "Active",
+          companyId,
+          1,
+          100
+        );
+        const convertedJobs = (response.jobs || []).map((apiJob: any) => {
+          const normalizedApiJob = {
+            ...apiJob,
+            applicantCount: apiJob.applicantCount || apiJob.ApplicantCount || 0,
+            viewCount: apiJob.viewCount || apiJob.ViewCount || 0,
+          };
+          return jobService.convertApiJobToJob(normalizedApiJob);
+        });
+        setAllActiveJobs(convertedJobs);
+      } catch (e) {
+        // Fail silently; fallback to current page jobs search
+        console.warn("Failed to fetch all active jobs for search", e);
+      }
+    };
+
+    fetchAllActiveForSearch();
+  }, [searchQuery, companyId, isAuthorized]);
+
+  // Compute displayed jobs (search filters across fetched allActiveJobs when available)
+  const displayedJobs = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return jobs;
+    const source = allActiveJobs.length > 0 ? allActiveJobs : jobs;
+    return source.filter((job) => {
+      const title = String(job.title || "").toLowerCase();
+      const dept = String(job.department || "").toLowerCase();
+      const location = String(job.location || "").toLowerCase();
+      const desc = String(job.description || "").toLowerCase();
+      return (
+        title.includes(query) ||
+        dept.includes(query) ||
+        location.includes(query) ||
+        desc.includes(query)
+      );
+    });
+  }, [searchQuery, jobs, allActiveJobs]);
+
   // Handle page change
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -200,12 +251,7 @@ function CandidatesPage() {
   // Handle loading state
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading jobs...</p>
-        </div>
-      </div>
+      <LoadingState message="Loading jobs..." minHeightClass="min-h-screen" />
     );
   }
 
@@ -246,10 +292,27 @@ function CandidatesPage() {
             </p>
           </div>
           <div className="flex items-center space-x-4">
+            {/* Search input */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Search className="h-4 w-4 text-gray-400" />
+              </div>
+              <input
+                type="text"
+                className="block w-64 pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Search jobs..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
             <div className="bg-white px-4 py-2 rounded-lg border border-gray-200">
               <span className="text-sm font-medium text-gray-600">
-                {totalJobs} Active Job
-                {totalJobs !== 1 ? "s" : ""}
+                {searchQuery.trim()
+                  ? `${displayedJobs.length} result${
+                      displayedJobs.length === 1 ? "" : "s"
+                    }`
+                  : `${totalJobs} Active Job${totalJobs !== 1 ? "s" : ""}`}
               </span>
             </div>
           </div>
@@ -265,19 +328,21 @@ function CandidatesPage() {
       ) : (
         <div className="flex-1 flex flex-col">
           <div className="flex-1 p-6 overflow-y-auto">
-            <JobGrid jobs={jobs} showStats={true} />
+            <JobGrid jobs={displayedJobs} showStats={true} />
           </div>
 
           {/* Pagination Controls */}
-          <div className="px-6 py-3 border-t border-gray-200 bg-white">
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              onPageChange={handlePageChange}
-              totalItems={totalJobs}
-              itemsPerPage={jobsPerPage}
-            />
-          </div>
+          {!searchQuery.trim() && (
+            <div className="px-6 py-3 border-t border-gray-200 bg-white">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+                totalItems={totalJobs}
+                itemsPerPage={jobsPerPage}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

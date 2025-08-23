@@ -17,6 +17,7 @@ import {
   JobData,
 } from "@/interfaces/job";
 import { NotificationType, Notification } from "@/interfaces/notifications";
+import { toast } from "@/utils/toast";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5189";
 
@@ -645,33 +646,15 @@ export function validateFormDataForDraft(formData: JobFormData): {
 }
 
 // Notification utilities (moved from utils/notifications.ts)
-// Simple console-based notifications for now
-// TODO: Replace with proper toast notifications
 export const showNotification = (
   type: NotificationType,
   title: string,
   message?: string
 ) => {
-  const emoji = {
-    success: "✅",
-    error: "❌",
-    info: "ℹ️",
-    warning: "⚠️",
-  }[type];
-
-  console.log(`${emoji} ${title}${message ? `: ${message}` : ""}`);
-
-  // For better UX, you could integrate with:
-  // - react-hot-toast
-  // - react-toastify
-  // - Custom modal/toast component
-
-  // Simple browser alert for now (can be removed when proper toast is implemented)
-  if (type === "error") {
-    alert(`Error: ${title}${message ? `\n${message}` : ""}`);
-  } else if (type === "success") {
-    alert(`Success: ${title}${message ? `\n${message}` : ""}`);
-  }
+  const formatted = `${title}${message ? `: ${message}` : ""}`;
+  if (type === "error") toast.error(formatted);
+  else if (type === "success") toast.success(formatted);
+  else console.log(`${type.toUpperCase()}: ${formatted}`);
 };
 
 export const notifications = {

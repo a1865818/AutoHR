@@ -141,7 +141,8 @@ export function JobSpecificEmailModal({
 
   const handleSendEmails = async () => {
     if (!subject.trim() || !body.trim()) {
-      alert("Please fill in both subject and body.");
+      const { toast } = await import("@/utils/toast");
+      toast.error("Please fill in both subject and body.");
       return;
     }
 
@@ -167,14 +168,16 @@ export function JobSpecificEmailModal({
       //   companyName
       // });
 
-      alert(
+      const { toast } = await import("@/utils/toast");
+      toast.success(
         `Successfully sent emails to ${selectedCandidates.length} candidates!`
       );
       onEmailSent();
       onClose();
     } catch (error) {
       console.error("Error sending emails:", error);
-      alert("Failed to send emails. Please try again.");
+      const { toast } = await import("@/utils/toast");
+      toast.error("Failed to send emails. Please try again.");
     } finally {
       setIsSending(false);
     }

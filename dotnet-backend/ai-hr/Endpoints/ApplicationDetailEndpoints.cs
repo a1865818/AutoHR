@@ -14,11 +14,13 @@ public static class ApplicationDetailEndpoints
             .WithSummary("Create new application")
             .WithDescription("Submit a new job application with candidate details and optional documents");
 
-        app.MapGet("/applicationdetails/{id}", GetApplicationDetailById)
+        app.MapGet("/applicationdetails/{id}", (Guid id, Supabase.Client client, HttpContext context) => 
+            GetApplicationDetailById(id, client, context))
             .WithTags("Application Details")
             .WithName("GetApplicationDetailById")
             .WithSummary("Get application by ID")
-            .WithDescription("Retrieves details of a specific job application by its unique identifier");
+            .WithDescription("Retrieves details of a specific job application by its unique identifier")
+            .RequireAuthorization();
 
         app.MapGet("/applicationdetails/job/{jobId}", GetApplicationDetailsByJob)
             .WithTags("Application Details")
@@ -26,11 +28,13 @@ public static class ApplicationDetailEndpoints
             .WithSummary("Get applications by job")
             .WithDescription("Retrieves all applications for a specific job posting");
 
-        app.MapGet("/applicationdetails/candidate/{candidateUserId}", GetApplicationDetailsByCandidate)
+        app.MapGet("/applicationdetails/candidate/{candidateUserId}", (Guid candidateUserId, Supabase.Client client, HttpContext context) =>
+            GetApplicationDetailsByCandidate(candidateUserId, client, context))
             .WithTags("Application Details")
             .WithName("GetApplicationDetailsByCandidate")
             .WithSummary("Get applications by candidate")
-            .WithDescription("Retrieves all applications submitted by a specific candidate");
+            .WithDescription("Retrieves all applications submitted by a specific candidate")
+            .RequireAuthorization();
 
         app.MapGet("/applicationdetails/candidate/{candidateUserId}/paged", GetApplicationDetailsByCandidatePaged)
             .WithTags("Application Details")
@@ -145,16 +149,57 @@ public static class ApplicationDetailEndpoints
         }
     }
 
-    private static async Task<IResult> GetApplicationDetailById(Guid id, Supabase.Client client)
+    private static async Task<IResult> GetApplicationDetailById(Guid id, Supabase.Client client, HttpContext context)
     {
         try
         {
+            // Get the authenticated user information
+            var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var userCategory = context.User.FindFirst("userCategory")?.Value;
+            var companyId = context.User.FindFirst("companyId")?.Value;
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Results.Unauthorized();
+            }
+
             var response = await client.From<ApplicationDetail>().Where(ad => ad.Id == id).Get();
             var applicationDetail = response.Models.FirstOrDefault();
 
             if (applicationDetail is null)
             {
                 return Results.NotFound();
+            }
+
+            // ✅ AUTHORIZATION CHECK: Graduated access based on user type and relationship to data
+            bool hasAccess = false;
+
+            if (userCategory == "ApplicationUser")
+            {
+                // ✅ Candidates can only access their own applications
+                hasAccess = applicationDetail.CandidateUserId.ToString() == userId;
+            }
+            else if (userCategory == "HiringUserProfile")
+            {
+                // ✅ Hiring users can access applications for jobs in their company
+                if (!string.IsNullOrEmpty(companyId))
+                {
+                    // Get the job to check if it belongs to the user's company
+                    var jobResponse = await client.From<ai_hr.Models.Job>()
+                        .Where(j => j.Id == applicationDetail.JobId)
+                        .Get();
+                        
+                    var job = jobResponse.Models.FirstOrDefault();
+                    if (job != null && job.CompanyId.ToString() == companyId)
+                    {
+                        hasAccess = true;
+                    }
+                }
+            }
+
+            if (!hasAccess)
+            {
+                return Results.Forbid(); // ❌ Access denied
             }
 
             // Create a simple anonymous object with just the properties we want to return
@@ -173,7 +218,10 @@ public static class ApplicationDetailEndpoints
                 JobSource = applicationDetail.JobSource,
                 OverallAiScore = applicationDetail.OverallAiScore,
                 AppliedAt = applicationDetail.AppliedAt,
-                StatusChangedAt = applicationDetail.StatusChangedAt
+                StatusChangedAt = applicationDetail.StatusChangedAt,
+                CurrentRoundId = applicationDetail.CurrentRoundId,
+                HiringNotes = applicationDetail.HiringNotes,
+                RejectionReason = applicationDetail.RejectionReason
             };
 
             return Results.Ok(detailDto);
@@ -182,7 +230,7 @@ public static class ApplicationDetailEndpoints
         {
             Console.WriteLine($"Error retrieving application detail: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+            return Results.Problem("An error occurred while retrieving application details");
         }
     }
 
@@ -226,16 +274,62 @@ public static class ApplicationDetailEndpoints
         }
     }
 
-    private static async Task<IResult> GetApplicationDetailsByCandidate(Guid candidateUserId, Supabase.Client client)
+    private static async Task<IResult> GetApplicationDetailsByCandidate(Guid candidateUserId, Supabase.Client client, HttpContext context)
     {
         try
         {
+            // Get the authenticated user information
+            var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var userCategory = context.User.FindFirst("userCategory")?.Value;
+            var companyId = context.User.FindFirst("companyId")?.Value;
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                return Results.Unauthorized();
+            }
+
+            // ✅ AUTHORIZATION CHECK: Only allow access to own applications or hiring managers
+            bool hasAccess = false;
+
+            if (userCategory == "ApplicationUser")
+            {
+                // ✅ Candidates can only access their own applications
+                hasAccess = candidateUserId.ToString() == userId;
+            }
+            else if (userCategory == "HiringUserProfile" && !string.IsNullOrEmpty(companyId))
+            {
+                // ✅ Hiring users can access applications for jobs in their company
+                // This is a more complex check - we need to verify the candidate applied to jobs in this company
+                hasAccess = true; // Will be validated when fetching applications
+            }
+
+            if (!hasAccess)
+            {
+                return Results.Forbid(); // ❌ Access denied
+            }
+
             var response = await client.From<ApplicationDetail>().Where(ad => ad.CandidateUserId == candidateUserId).Get();
             var applicationDetails = response.Models;
 
             if (applicationDetails == null || !applicationDetails.Any())
             {
                 return Results.NotFound(new { message = $"No applications found for candidate ID: {candidateUserId}" });
+            }
+
+            // ✅ For hiring users, filter applications to only show jobs from their company
+            if (userCategory == "HiringUserProfile" && !string.IsNullOrEmpty(companyId))
+            {
+                var companyJobIds = new List<Guid>();
+                
+                // Get all job IDs for this company
+                var jobsResponse = await client.From<ai_hr.Models.Job>()
+                    .Where(j => j.CompanyId == Guid.Parse(companyId))
+                    .Get();
+                    
+                companyJobIds = jobsResponse.Models.Select(j => j.Id).ToList();
+                
+                // Filter applications to only include jobs from this company
+                applicationDetails = applicationDetails.Where(ad => companyJobIds.Contains(ad.JobId)).ToList();
             }
 
             // Create a list of simple DTOs to avoid serialization issues with attributes
@@ -253,7 +347,9 @@ public static class ApplicationDetailEndpoints
                 JobSource = ad.JobSource,
                 OverallAiScore = ad.OverallAiScore,
                 AppliedAt = ad.AppliedAt,
-                StatusChangedAt = ad.StatusChangedAt
+                StatusChangedAt = ad.StatusChangedAt,
+                CurrentRoundId = ad.CurrentRoundId,
+                HiringNotes = ad.HiringNotes
             }).ToList();
 
             return Results.Ok(detailDtos);
@@ -262,7 +358,7 @@ public static class ApplicationDetailEndpoints
         {
             Console.WriteLine($"Error retrieving application details by candidate: {ex.Message}");
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
-            return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
+            return Results.Problem("An error occurred while retrieving application details");
         }
     }
 

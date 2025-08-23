@@ -286,12 +286,12 @@ export default function VideoInterviewAssessmentPage() {
 
       <div className="max-w-5xl mx-auto px-4 py-6">
         <button
-          onClick={() => router.back()}
+          onClick={() => router.push(`/interview-pipeline/${jobId}`)}
           title="Back to Pipeline (Esc)"
           aria-label="Back to Pipeline"
-          className="group mb-4 inline-flex items-center text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 px-3 py-1.5 rounded-md transition-all active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          className="mb-4 inline-flex items-center px-3 py-2 text-sm bg-white border border-gray-300 text-gray-700 rounded-md shadow-sm hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
-          <ArrowLeft className="h-4 w-4 mr-2 transition-transform group-hover:-translate-x-0.5" />
+          <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Pipeline
         </button>
 

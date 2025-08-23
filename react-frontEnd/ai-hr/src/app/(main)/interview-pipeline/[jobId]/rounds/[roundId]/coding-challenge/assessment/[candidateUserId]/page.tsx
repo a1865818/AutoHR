@@ -255,8 +255,9 @@ export default function CodingChallengeAssessmentPage() {
 
       <div className="max-w-5xl mx-auto px-4 py-6">
         <button
-          onClick={() => router.back()}
-          className="mb-4 inline-flex items-center text-sm text-gray-600 hover:text-gray-800"
+          onClick={() => router.push(`/interview-pipeline/${jobId}`)}
+          aria-label="Back to Pipeline"
+          className="mb-4 inline-flex items-center px-3 py-2 text-sm bg-white border border-gray-300 text-gray-700 rounded-md shadow-sm hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
         >
           <ArrowLeft className="h-4 w-4 mr-2" /> Back to Pipeline
         </button>

@@ -3,21 +3,12 @@
 import {
   BillingSettings,
   CompanySettings,
-  IntegrationsSettings,
-  NotificationSettings,
-  RecruitmentSettings,
-  SecuritySettings,
   SettingsLayout,
   SettingsNavigation,
   TeamManagement,
   Toast,
 } from "@/components/settings";
-import {
-  CompanyData,
-  NotificationSetting,
-  RecruitmentConfig,
-  User,
-} from "@/interfaces";
+import { CompanyData, User } from "@/interfaces";
 import { useState, useEffect } from "react";
 import { teamService } from "@/services/teamService";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,8 +18,6 @@ export default function SettingsPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState("company");
   const [isLoading, setIsLoading] = useState(false);
-  const [showApiKey, setShowApiKey] = useState(false);
-
   // Toast state
   const [toast, setToast] = useState<{
     message: string;
@@ -54,67 +43,16 @@ export default function SettingsPage() {
   // Users state
   const [users, setUsers] = useState<User[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(true);
-  const [usersError, setUsersError] = useState<string | null>(null);
-
-  // Recruitment config state
-  const [recruitmentConfig, setRecruitmentConfig] = useState<RecruitmentConfig>(
-    {
-      autoScreening: true,
-      emailConfirmations: true,
-      minimumScore: 70,
-      autoRejectBelow: 30,
-    }
-  );
-
-  // Notifications state
-  const [notifications, setNotifications] = useState<NotificationSetting[]>([
-    {
-      id: "1",
-      title: "New Application Received",
-      description: "Get notified when a candidate applies to your job postings",
-      email: true,
-      push: true,
-    },
-    {
-      id: "2",
-      title: "Interview Scheduled",
-      description: "Alerts when interviews are scheduled or rescheduled",
-      email: true,
-      push: false,
-    },
-    {
-      id: "3",
-      title: "Application Status Updates",
-      description: "Updates when candidate status changes",
-      email: false,
-      push: true,
-    },
-    {
-      id: "4",
-      title: "Job Posting Expiry",
-      description: "Reminder before job postings expire",
-      email: true,
-      push: true,
-    },
-  ]);
-
-  // Security state
-  const [dataRetentionMonths, setDataRetentionMonths] = useState(24);
 
   // Billing state
   const [currentPlan, setCurrentPlan] = useState("professional");
 
-  // Toast helper
+  // Toast helper - replace inline with global
   const showToast = (message: string, type: "success" | "error") => {
-    setToast({
-      message,
-      type,
-      isVisible: true,
+    import("@/utils/toast").then(({ toast }) => {
+      if (type === "success") toast.success(message);
+      else toast.error(message);
     });
-  };
-
-  const hideToast = () => {
-    setToast((prev) => ({ ...prev, isVisible: false }));
   };
 
   // Load company data
@@ -186,30 +124,16 @@ export default function SettingsPage() {
     });
 
     setIsLoadingUsers(true);
-    setUsersError(null);
     try {
       const teamMembers = await teamService.getTeamMembers();
       setUsers(teamMembers);
       console.log("✅ Team data loaded successfully:", teamMembers);
     } catch (error) {
       console.error("❌ Failed to load team data:", error);
-      setUsersError(
-        error instanceof Error ? error.message : "Failed to load team data"
-      );
       showToast("Failed to load team data. Please try again.", "error");
     } finally {
       setIsLoadingUsers(false);
     }
-  };
-
-  // Event handlers
-
-  const handleNotificationToggle = (id: string, type: "email" | "push") => {
-    setNotifications((prev) =>
-      prev.map((notif) =>
-        notif.id === id ? { ...notif, [type]: !notif[type] } : notif
-      )
-    );
   };
 
   // Team management handlers
@@ -345,21 +269,6 @@ export default function SettingsPage() {
     }
   };
 
-  // Integration handlers
-  const handleConfigureEmail = () => {
-    console.log("Configure email integration");
-  };
-
-  const handleConnectCalendar = () => {
-    console.log("Connect calendar");
-  };
-
-  // Security handlers
-  const handleEnable2FA = () => {
-    console.log("Enable 2FA");
-  };
-
-  // Billing handlers
   const handleChangePlan = async (
     planId: string,
     billingCycle: "monthly" | "yearly"
@@ -423,37 +332,6 @@ export default function SettingsPage() {
             }
           />
         );
-      case "recruitment":
-        return (
-          <RecruitmentSettings
-            config={recruitmentConfig}
-            onChange={setRecruitmentConfig}
-          />
-        );
-      case "integrations":
-        return (
-          <IntegrationsSettings
-            showApiKey={showApiKey}
-            onToggleApiKey={() => setShowApiKey(!showApiKey)}
-            onConfigureEmail={handleConfigureEmail}
-            onConnectCalendar={handleConnectCalendar}
-          />
-        );
-      case "notifications":
-        return (
-          <NotificationSettings
-            notifications={notifications}
-            onToggle={handleNotificationToggle}
-          />
-        );
-      case "security":
-        return (
-          <SecuritySettings
-            onEnable2FA={handleEnable2FA}
-            onDataRetentionChange={setDataRetentionMonths}
-            dataRetentionMonths={dataRetentionMonths}
-          />
-        );
       case "billing":
         return (
           <BillingSettings
@@ -498,7 +376,7 @@ export default function SettingsPage() {
         message={toast.message}
         type={toast.type}
         isVisible={toast.isVisible}
-        onClose={hideToast}
+        onClose={() => setToast((prev) => ({ ...prev, isVisible: false }))}
       />
     </>
   );

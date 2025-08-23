@@ -6,7 +6,10 @@ import { useState } from "react";
 
 interface ApplicantSecuritySettingsProps {
   securityData: ApplicationUserData | null;
-  onUpdate: (data: { twoFactorEnabled?: boolean; passwordLastChanged?: string }) => Promise<void>;
+  onUpdate: (data: {
+    twoFactorEnabled?: boolean;
+    passwordLastChanged?: string;
+  }) => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -25,13 +28,18 @@ export function ApplicantSecuritySettings({
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert("New passwords don't match");
+      const { toast } = await import("@/utils/toast");
+      toast.error("New passwords don't match");
       return;
     }
     // Here you would typically call an API to change password
     console.log("Password change requested");
     setShowPasswordForm(false);
-    setPasswordData({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    setPasswordData({
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    });
   };
 
   const handle2FAToggle = async () => {
@@ -57,8 +65,11 @@ export function ApplicantSecuritySettings({
             <div>
               <h3 className="text-sm font-medium text-gray-900">Password</h3>
               <p className="text-sm text-gray-600">
-                Last changed: {securityData?.passwordLastChanged 
-                  ? new Date(securityData.passwordLastChanged).toLocaleDateString() 
+                Last changed:{" "}
+                {securityData?.passwordLastChanged
+                  ? new Date(
+                      securityData.passwordLastChanged
+                    ).toLocaleDateString()
                   : "Never"}
               </p>
             </div>
@@ -72,7 +83,10 @@ export function ApplicantSecuritySettings({
         </div>
 
         {showPasswordForm && (
-          <form onSubmit={handlePasswordChange} className="space-y-4 mt-4 p-4 bg-gray-50 rounded-lg">
+          <form
+            onSubmit={handlePasswordChange}
+            className="space-y-4 mt-4 p-4 bg-gray-50 rounded-lg"
+          >
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Current Password
@@ -80,7 +94,12 @@ export function ApplicantSecuritySettings({
               <input
                 type="password"
                 value={passwordData.currentPassword}
-                onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                onChange={(e) =>
+                  setPasswordData((prev) => ({
+                    ...prev,
+                    currentPassword: e.target.value,
+                  }))
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
                 required
               />
@@ -92,7 +111,12 @@ export function ApplicantSecuritySettings({
               <input
                 type="password"
                 value={passwordData.newPassword}
-                onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                onChange={(e) =>
+                  setPasswordData((prev) => ({
+                    ...prev,
+                    newPassword: e.target.value,
+                  }))
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
                 required
               />
@@ -104,7 +128,12 @@ export function ApplicantSecuritySettings({
               <input
                 type="password"
                 value={passwordData.confirmPassword}
-                onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                onChange={(e) =>
+                  setPasswordData((prev) => ({
+                    ...prev,
+                    confirmPassword: e.target.value,
+                  }))
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
                 required
               />
@@ -135,7 +164,9 @@ export function ApplicantSecuritySettings({
           <div className="flex items-center space-x-3">
             <Smartphone className="h-5 w-5 text-gray-600" />
             <div>
-              <h3 className="text-sm font-medium text-gray-900">Two-Factor Authentication</h3>
+              <h3 className="text-sm font-medium text-gray-900">
+                Two-Factor Authentication
+              </h3>
               <p className="text-sm text-gray-600">
                 Add an extra layer of security to your account
               </p>
@@ -180,4 +211,4 @@ export function ApplicantSecuritySettings({
       </div>
     </div>
   );
-} 
+}

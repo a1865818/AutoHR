@@ -21,6 +21,7 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { JobCard } from "./JobCard";
+import { LoadingState } from "@/components/ui/LoadingState";
 
 type SortOption = "newest" | "oldest" | "applicants" | "salary";
 type ViewMode = "All" | "Active" | "Paused" | "Closed" | "Draft" | "Expired";
@@ -795,16 +796,7 @@ export function JobsPage() {
 
   // Loading state
   if (isLoading) {
-    return (
-      <div className="flex h-screen bg-gray-50">
-        <div className="flex-1 flex items-center justify-center">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
-            <p className="text-gray-600">Loading jobs...</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <LoadingState message="Loading jobs..." minHeightClass="h-screen" />;
   }
 
   // Error state

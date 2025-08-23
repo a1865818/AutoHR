@@ -515,7 +515,8 @@ function CandidatesByJobPageComponent({ jobId }: CandidatesByJobPageProps) {
       setSelectedForRanking([]);
     } catch (error) {
       console.error("❌ Failed to add candidates to ranking:", error);
-      alert("Failed to add candidates to ranking. Please try again.");
+      const { toast } = await import("@/utils/toast");
+      toast.error("Failed to add candidates to ranking. Please try again.");
     }
   };
 
@@ -564,7 +565,8 @@ function CandidatesByJobPageComponent({ jobId }: CandidatesByJobPageProps) {
       console.log("✅ Candidate removed from ranking successfully");
     } catch (error) {
       console.error("❌ Failed to remove candidate from ranking:", error);
-      alert("Failed to remove candidate from ranking. Please try again.");
+      const { toast } = await import("@/utils/toast");
+      toast.error("Failed to remove candidate from ranking. Please try again.");
     }
   };
 
@@ -688,7 +690,8 @@ function CandidatesByJobPageComponent({ jobId }: CandidatesByJobPageProps) {
       console.log(`✅ Candidate ${action}d successfully`);
     } catch (error) {
       console.error(`❌ Failed to ${action} candidate:`, error);
-      alert(`Failed to ${action} candidate. Please try again.`);
+      const { toast } = await import("@/utils/toast");
+      toast.error(`Failed to ${action} candidate. Please try again.`);
     }
   };
 
@@ -730,7 +733,8 @@ function CandidatesByJobPageComponent({ jobId }: CandidatesByJobPageProps) {
       console.log(`✅ Candidate rejected successfully with reason: ${reason}`);
     } catch (error) {
       console.error("❌ Failed to reject candidate:", error);
-      alert("Failed to reject candidate. Please try again.");
+      const { toast } = await import("@/utils/toast");
+      toast.error("Failed to reject candidate. Please try again.");
       throw error;
     }
   };
@@ -775,7 +779,8 @@ function CandidatesByJobPageComponent({ jobId }: CandidatesByJobPageProps) {
       );
     } catch (error) {
       console.error("❌ Failed to save note:", error);
-      alert("Failed to save note. Please try again.");
+      const { toast } = await import("@/utils/toast");
+      toast.error("Failed to save note. Please try again.");
     }
   };
 
@@ -795,7 +800,8 @@ function CandidatesByJobPageComponent({ jobId }: CandidatesByJobPageProps) {
       console.log("✅ Note deleted successfully from database");
     } catch (error) {
       console.error("❌ Failed to delete note:", error);
-      alert("Failed to delete note. Please try again.");
+      const { toast } = await import("@/utils/toast");
+      toast.error("Failed to delete note. Please try again.");
     }
   };
 

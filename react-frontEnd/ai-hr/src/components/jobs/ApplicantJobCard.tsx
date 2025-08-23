@@ -5,7 +5,7 @@ import {
   DollarSign,
   ExternalLink,
   MapPin,
-  Heart,
+  Star,
   Loader2,
 } from "lucide-react";
 import Link from "next/link";
@@ -180,25 +180,11 @@ export function ApplicantJobCard({ job, company }: ApplicantJobCardProps) {
       <div className="flex justify-between items-start mb-4">
         <div className="flex-1">
           <div className="flex items-start justify-between mb-2">
-            <h3 className="text-xl font-semibold text-gray-900 flex-1">
-              {safeRender(job.title) || "Job Title"}
-            </h3>
-            <button
-              onClick={handleSaveToggle}
-              disabled={isToggling}
-              className={`ml-3 p-2 rounded-full transition-all duration-200 ${
-                isSaved
-                  ? "bg-red-50 text-red-600 hover:bg-red-100"
-                  : "bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-red-500"
-              } ${isToggling ? "opacity-50 cursor-not-allowed" : ""}`}
-              title={isSaved ? "Remove from saved jobs" : "Save job"}
-            >
-              {isToggling ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <Heart className={`h-5 w-5 ${isSaved ? "fill-current" : ""}`} />
-              )}
-            </button>
+            <Link href={`/applicant/jobs/${job.id}/apply`}>
+              <h3 className="text-xl font-semibold text-gray-900 flex-1 hover:text-blue-600 transition-colors cursor-pointer">
+                {safeRender(job.title) || "Job Title"}
+              </h3>
+            </Link>
           </div>
           <p className="text-gray-600 mb-3">
             {safeRender(company?.name) || "Company"}
@@ -219,16 +205,44 @@ export function ApplicantJobCard({ job, company }: ApplicantJobCardProps) {
           </div>
         </div>
         <div className="flex flex-col items-end space-y-2">
-          <div className="text-right">
-            <div className="text-lg font-semibold text-green-600">
-              {formatSalary(job)}
+          <div className="flex items-start space-x-2">
+            <div className="text-right">
+              <div className="text-lg font-semibold text-blue-600">
+                {formatSalary(job)}
+              </div>
+              <div className="text-sm text-gray-500">
+                {formatExperience(
+                  safeRender(job.seniorityLevel),
+                  safeRender(job.experienceYearsMin)
+                )}
+              </div>
             </div>
-            <div className="text-sm text-gray-500">
-              {formatExperience(
-                safeRender(job.seniorityLevel),
-                safeRender(job.experienceYearsMin)
+            <button
+              onClick={handleSaveToggle}
+              disabled={isToggling}
+              className={`p-1.5 rounded-lg transition-colors self-start ${
+                isSaved
+                  ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
+                  : "bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-400"
+              } ${
+                isToggling 
+                  ? "opacity-70 cursor-not-allowed" 
+                  : "cursor-pointer"
+              }`}
+              title={isSaved ? "Remove from saved jobs" : "Save job"}
+            >
+              {isToggling ? (
+                <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
+              ) : (
+                <Star 
+                  className={`h-5 w-5 ${
+                    isSaved 
+                      ? "fill-current text-blue-600" 
+                      : "text-gray-400"
+                  }`} 
+                />
               )}
-            </div>
+            </button>
           </div>
         </div>
       </div>
@@ -242,11 +256,11 @@ export function ApplicantJobCard({ job, company }: ApplicantJobCardProps) {
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
             {safeRender(job.employmentType) || "Full-time"}
           </span>
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
             {safeRender(job.locationType) || "On-site"}
           </span>
           {job.department && job.department !== "Not specified" && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
               {safeRender(job.department)}
             </span>
           )}

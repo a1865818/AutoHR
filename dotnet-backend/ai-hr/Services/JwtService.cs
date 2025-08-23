@@ -20,7 +20,15 @@ namespace ai_hr.Services
         public string GenerateAccessToken(ApplicationUser user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.UTF8.GetBytes(_jwtSettings.SecretKey);
+            var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? _jwtSettings.SecretKey;
+            
+            if (string.IsNullOrEmpty(secretKey))
+            {
+                throw new InvalidOperationException("JWT SecretKey not configured. Set JWT_SECRET_KEY environment variable.");
+            }
+            
+            var key = Encoding.UTF8.GetBytes(secretKey);
+            var tokenId = Guid.NewGuid().ToString();
 
             var claims = new List<Claim>
             {
@@ -29,6 +37,8 @@ namespace ai_hr.Services
                 new(ClaimTypes.GivenName, user.FirstName),
                 new(ClaimTypes.Surname, user.LastName),
                 new(ClaimTypes.Role, user.Roles),
+                new(JwtRegisteredClaimNames.Jti, tokenId),
+                new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64),
                 new("isActive", user.IsActive.ToString()),
                 new("userCategory", "ApplicationUser")
             };
@@ -49,7 +59,14 @@ namespace ai_hr.Services
         public string GenerateAccessToken(HiringUserProfile user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.UTF8.GetBytes(_jwtSettings.SecretKey);
+            var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? _jwtSettings.SecretKey;
+            
+            if (string.IsNullOrEmpty(secretKey))
+            {
+                throw new InvalidOperationException("JWT SecretKey not configured. Set JWT_SECRET_KEY environment variable.");
+            }
+            
+            var key = Encoding.UTF8.GetBytes(secretKey);
 
             var claims = new List<Claim>
             {
@@ -90,7 +107,14 @@ namespace ai_hr.Services
             try
             {
                 var tokenHandler = new JwtSecurityTokenHandler();
-                var key = Encoding.UTF8.GetBytes(_jwtSettings.SecretKey);
+                var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? _jwtSettings.SecretKey;
+                
+                if (string.IsNullOrEmpty(secretKey))
+                {
+                    return null;
+                }
+                
+                var key = Encoding.UTF8.GetBytes(secretKey);
 
                 var validationParameters = new TokenValidationParameters
                 {

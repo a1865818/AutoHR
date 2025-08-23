@@ -39,21 +39,8 @@ export function ProfileHeader({ personalInfo }: ProfileHeaderProps) {
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-lg overflow-hidden">
-      {/* Cover Background */}
-      <div className="h-40 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-700 relative">
-        {/* Decorative patterns */}
-        <div className="absolute inset-0 opacity-30">
-          <div className="absolute top-8 left-8 w-20 h-20 border border-white/20 rounded-full"></div>
-          <div className="absolute bottom-8 right-8 w-16 h-16 border border-white/20 rounded-full"></div>
-          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-24 h-24 border border-white/10 rounded-full"></div>
-        </div>
-
-        <div className="absolute bottom-4 right-6">
-          <div className="text-white text-sm font-medium bg-white/20 backdrop-blur-sm rounded-lg px-3 py-1">
-            Last login: 2 hours ago
-          </div>
-        </div>
-      </div>
+      {/* Cover Background (subtle gray gradient) */}
+      <div className="h-40 bg-gradient-to-b from-gray-100 via-gray-200 to-gray-300 border-b border-gray-300" />
 
       {/* Profile Content */}
       <div className="px-8 pb-8">
@@ -73,7 +60,7 @@ export function ProfileHeader({ personalInfo }: ProfileHeaderProps) {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-3xl font-bold">
+                <div className="w-full h-full bg-gray-200 flex items-center justify-center text-gray-700 text-3xl font-bold">
                   {getInitials(personalInfo.firstName, personalInfo.lastName)}
                 </div>
               )}
@@ -95,12 +82,12 @@ export function ProfileHeader({ personalInfo }: ProfileHeaderProps) {
           {/* Name & Title */}
           <div className="mt-6 lg:mt-0 flex-1">
             <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between">
-              <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-100">
+              <div className="bg-white rounded-lg p-4 border border-gray-200">
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">
                   {personalInfo.firstName} {personalInfo.lastName}
                 </h1>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                  <p className="text-xl font-semibold text-blue-600">
+                  <p className="text-xl font-semibold text-gray-800">
                     {personalInfo.jobTitle}
                   </p>
                   <span className="hidden sm:inline text-gray-400">•</span>
@@ -112,9 +99,8 @@ export function ProfileHeader({ personalInfo }: ProfileHeaderProps) {
 
               {/* Status Badge */}
               <div className="mt-4 lg:mt-0">
-                <span className="inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold bg-green-100 text-green-800 border border-green-200">
-                  <div className="w-2.5 h-2.5 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                  Active Employee
+                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                  Active
                 </span>
               </div>
             </div>
@@ -124,7 +110,7 @@ export function ProfileHeader({ personalInfo }: ProfileHeaderProps) {
         {/* Bio */}
         {personalInfo.bio && (
           <div className="mt-8">
-            <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-lg p-6 border border-gray-100">
+            <div className="bg-white rounded-lg p-6 border border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">
                 About
               </h3>
@@ -137,10 +123,10 @@ export function ProfileHeader({ personalInfo }: ProfileHeaderProps) {
 
         {/* Quick Info Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
-          <div className="bg-white rounded-lg p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+          <div className="bg-white rounded-lg p-5 border border-gray-200">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <Mail className="h-5 w-5 text-blue-600" />
+              <div className="p-3 bg-gray-100 rounded-xl">
+                <Mail className="h-5 w-5 text-gray-700" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
@@ -153,10 +139,10 @@ export function ProfileHeader({ personalInfo }: ProfileHeaderProps) {
             </div>
           </div>
 
-          <div className="bg-white rounded-lg p-5 border border-gray-200 shadow-sm hover:shadow-md transition-shadow duration-200">
+          <div className="bg-white rounded-lg p-5 border border-gray-200">
             <div className="flex items-center gap-4">
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <Linkedin className="h-5 w-5 text-blue-600" />
+              <div className="p-3 bg-gray-100 rounded-xl">
+                <Linkedin className="h-5 w-5 text-gray-700" />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
@@ -167,7 +153,7 @@ export function ProfileHeader({ personalInfo }: ProfileHeaderProps) {
                     href={personalInfo.linkedinUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-sm font-medium text-blue-600 hover:text-blue-800 underline flex items-center gap-1 transition-colors"
+                    className="text-sm font-medium text-gray-700 hover:text-gray-900 underline flex items-center gap-1 transition-colors"
                   >
                     View LinkedIn Profile
                     <ExternalLink className="h-3 w-3" />

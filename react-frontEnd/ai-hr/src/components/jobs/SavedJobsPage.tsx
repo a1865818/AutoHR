@@ -8,7 +8,7 @@ import { ApiJob, ApiCompany } from "@/interfaces";
 import { ApplicantJobCard } from "@/components/jobs/ApplicantJobCard";
 import { Pagination } from "@/components/ui/Pagination";
 import {
-  Heart,
+  Star,
   Loader2,
   Search,
   AlertCircle,
@@ -120,14 +120,23 @@ export function SavedJobsPage() {
       setIsLoadingJobs(true);
       setError(null);
 
-      // Fetch all jobs to filter by saved IDs
-      const allJobs = await jobService.getPublicJobs("Active");
+      // Fetch all jobs to filter by saved IDs - getPublicJobs returns {jobs: [], pagination: {}}
+      const allJobsResponse = await jobService.getPublicJobs("Active");
       const allCompanies = await jobService.getAllCompanies();
 
+      // Extract the jobs array from the response object
+      const allJobsArray = allJobsResponse.jobs || [];
+      
+      console.log("🔍 SavedJobsPage - allJobsResponse:", allJobsResponse);
+      console.log("🔍 SavedJobsPage - allJobsArray length:", allJobsArray.length);
+      console.log("🔍 SavedJobsPage - savedJobIds:", savedJobIds);
+
       // Filter jobs to only include saved ones and clean the data
-      const savedJobs = allJobs
+      const savedJobs = allJobsArray
         .filter((job) => savedJobIds.includes(job.id))
         .map((job) => deepCleanNetObjects(job));
+
+      console.log("🔍 SavedJobsPage - savedJobs found:", savedJobs.length);
 
       // Create companies map and clean the company data
       const companiesMap = new Map<string, ApiCompany>();
@@ -366,12 +375,28 @@ export function SavedJobsPage() {
       {/* Header */}
       <div className="mb-8">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Heart className="h-8 w-8 text-red-600" />
+          <div className="flex items-center space-x-4">
+            {/* Clean star icon with soft background */}
+            <div className="relative">
+              <div className="p-3 bg-blue-50 rounded-lg">
+                <Star className="h-7 w-7 text-blue-400 fill-current" />
+              </div>
+              {/* Badge for job count */}
+              {savedJobsCount > 0 && (
+                <div className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs font-medium rounded-full h-5 w-5 flex items-center justify-center">
+                  {savedJobsCount > 99 ? '99+' : savedJobsCount}
+                </div>
+              )}
+            </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Saved Jobs</h1>
+              <div className="flex items-center space-x-2 mb-1">
+                <h1 className="text-3xl font-bold text-gray-900">
+                  Saved Jobs
+                </h1>
+              </div>
               <p className="text-gray-600">
-                {savedJobsCount} job{savedJobsCount !== 1 ? "s" : ""} saved
+                <span className="font-medium text-blue-500">{savedJobsCount}</span>
+                <span> job{savedJobsCount !== 1 ? "s" : ""} saved</span>
               </p>
             </div>
           </div>
@@ -401,17 +426,20 @@ export function SavedJobsPage() {
 
       {savedJobsCount === 0 ? (
         <div className="text-center py-12">
-          <Heart className="mx-auto h-16 w-16 text-gray-300" />
+          <div className="p-4 bg-blue-50 rounded-full w-fit mx-auto">
+            <Star className="h-16 w-16 text-blue-400 fill-current" />
+          </div>
           <h3 className="mt-4 text-lg font-medium text-gray-900">
             No saved jobs yet
           </h3>
           <p className="mt-2 text-gray-500">
-            Start exploring jobs and save the ones you're interested in.
+            Start exploring jobs and save the ones you're interested in by clicking the star icon.
           </p>
           <Link
             href="/applicant/jobs"
-            className="mt-6 inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+            className="mt-6 inline-flex items-center px-6 py-3 text-base font-medium rounded-lg text-white bg-blue-500 hover:bg-blue-600 transition-colors"
           >
+            <Star className="h-5 w-5 mr-2" />
             Browse Jobs
           </Link>
         </div>

@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { FileText, Clock, CheckCircle, XCircle, Eye, Calendar } from "lucide-react";
+import {
+  FileText,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Eye,
+  Calendar,
+} from "lucide-react";
 
 interface Application {
   id: string;
@@ -27,22 +34,25 @@ export function ApplicationsSection({
   applications,
   isLoading = false,
 }: ApplicationsSectionProps) {
-  const [filteredApplications, setFilteredApplications] = useState<Application[]>(applications);
+  const [filteredApplications, setFilteredApplications] =
+    useState<Application[]>(applications);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("appliedAt");
 
   useEffect(() => {
     let filtered = applications;
-    
+
     if (statusFilter !== "all") {
-      filtered = filtered.filter(app => app.status === statusFilter);
+      filtered = filtered.filter((app) => app.status === statusFilter);
     }
-    
+
     // Sort applications
     filtered.sort((a, b) => {
       switch (sortBy) {
         case "appliedAt":
-          return new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime();
+          return (
+            new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime()
+          );
         case "status":
           return a.status.localeCompare(b.status);
         case "company":
@@ -51,7 +61,7 @@ export function ApplicationsSection({
           return 0;
       }
     });
-    
+
     setFilteredApplications(filtered);
   }, [applications, statusFilter, sortBy]);
 
@@ -100,8 +110,10 @@ export function ApplicationsSection({
   const formatTimeAgo = (dateString: string) => {
     const now = new Date();
     const date = new Date(dateString);
-    const diffInDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
-    
+    const diffInDays = Math.floor(
+      (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
     if (diffInDays === 0) return "Today";
     if (diffInDays === 1) return "Yesterday";
     if (diffInDays < 7) return `${diffInDays} days ago`;
@@ -126,11 +138,11 @@ export function ApplicationsSection({
 
   const stats = {
     total: applications.length,
-    applied: applications.filter(app => app.status === "applied").length,
-    inReview: applications.filter(app => app.status === "in_review").length,
-    interview: applications.filter(app => app.status === "interview").length,
-    offer: applications.filter(app => app.status === "offer").length,
-    rejected: applications.filter(app => app.status === "rejected").length,
+    applied: applications.filter((app) => app.status === "applied").length,
+    inReview: applications.filter((app) => app.status === "in_review").length,
+    interview: applications.filter((app) => app.status === "interview").length,
+    offer: applications.filter((app) => app.status === "offer").length,
+    rejected: applications.filter((app) => app.status === "rejected").length,
   };
 
   return (
@@ -151,27 +163,39 @@ export function ApplicationsSection({
         {/* Statistics */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <div className="bg-white p-4 rounded-lg border border-gray-200 text-center">
-            <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
+            <div className="text-2xl font-bold text-gray-900">
+              {stats.total}
+            </div>
             <div className="text-sm text-gray-600">Total</div>
           </div>
           <div className="bg-blue-50 p-4 rounded-lg border border-blue-200 text-center">
-            <div className="text-2xl font-bold text-blue-900">{stats.applied}</div>
+            <div className="text-2xl font-bold text-blue-900">
+              {stats.applied}
+            </div>
             <div className="text-sm text-blue-600">Applied</div>
           </div>
           <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-center">
-            <div className="text-2xl font-bold text-yellow-900">{stats.inReview}</div>
+            <div className="text-2xl font-bold text-yellow-900">
+              {stats.inReview}
+            </div>
             <div className="text-sm text-yellow-600">In Review</div>
           </div>
           <div className="bg-purple-50 p-4 rounded-lg border border-purple-200 text-center">
-            <div className="text-2xl font-bold text-purple-900">{stats.interview}</div>
+            <div className="text-2xl font-bold text-purple-900">
+              {stats.interview}
+            </div>
             <div className="text-sm text-purple-600">Interview</div>
           </div>
           <div className="bg-green-50 p-4 rounded-lg border border-green-200 text-center">
-            <div className="text-2xl font-bold text-green-900">{stats.offer}</div>
+            <div className="text-2xl font-bold text-green-900">
+              {stats.offer}
+            </div>
             <div className="text-sm text-green-600">Offer</div>
           </div>
           <div className="bg-red-50 p-4 rounded-lg border border-red-200 text-center">
-            <div className="text-2xl font-bold text-red-900">{stats.rejected}</div>
+            <div className="text-2xl font-bold text-red-900">
+              {stats.rejected}
+            </div>
             <div className="text-sm text-red-600">Rejected</div>
           </div>
         </div>
@@ -234,19 +258,26 @@ export function ApplicationsSection({
                         )}`}
                       >
                         {getStatusIcon(application.status)}
-                        {application.status.replace("_", " ").charAt(0).toUpperCase() + 
-                         application.status.replace("_", " ").slice(1)}
+                        {application.status
+                          .replace("_", " ")
+                          .charAt(0)
+                          .toUpperCase() +
+                          application.status.replace("_", " ").slice(1)}
                       </span>
                     </div>
-                    <p className="text-gray-600 font-medium mb-1">{application.company}</p>
+                    <p className="text-gray-600 font-medium mb-1">
+                      {application.company}
+                    </p>
                     <p className="text-sm text-gray-500">
-                      Applied {formatDate(application.appliedAt)} • 
-                      Last updated {formatTimeAgo(application.lastUpdated)}
+                      Applied {formatDate(application.appliedAt)} • Last updated{" "}
+                      {formatTimeAgo(application.lastUpdated)}
                     </p>
                   </div>
                   <div className="flex gap-2">
                     <button
-                      onClick={() => window.open(`/jobs/${application.jobId}`, '_blank')}
+                      onClick={() =>
+                        window.open(`/jobs/${application.jobId}`, "_blank")
+                      }
                       className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                       title="View job posting"
                     >
@@ -286,7 +317,9 @@ export function ApplicationsSection({
                   <div className="flex flex-wrap gap-2">
                     {application.resumeUrl && (
                       <button
-                        onClick={() => window.open(application.resumeUrl, '_blank')}
+                        onClick={() =>
+                          window.open(application.resumeUrl, "_blank")
+                        }
                         className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
                       >
                         View Resume
@@ -294,9 +327,15 @@ export function ApplicationsSection({
                     )}
                     {application.coverLetterText && (
                       <button
-                        onClick={() => {
-                          // Show cover letter in a modal or new window
-                          alert(application.coverLetterText);
+                        onClick={async () => {
+                          const { toast } = await import("@/utils/toast");
+                          toast.success("Opening cover letter");
+                          window.open(
+                            `data:text/plain;charset=utf-8,${encodeURIComponent(
+                              application.coverLetterText
+                            )}`,
+                            "_blank"
+                          );
                         }}
                         className="px-3 py-1 text-xs bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition-colors"
                       >
@@ -311,17 +350,18 @@ export function ApplicationsSection({
             <div className="text-center py-12">
               <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {statusFilter === "all" ? "No applications yet" : "No applications with this status"}
+                {statusFilter === "all"
+                  ? "No applications yet"
+                  : "No applications with this status"}
               </h3>
               <p className="text-gray-600 mb-4">
-                {statusFilter === "all" 
+                {statusFilter === "all"
                   ? "Start applying to jobs to track your applications here"
-                  : "Try changing the status filter to see more applications"
-                }
+                  : "Try changing the status filter to see more applications"}
               </p>
               {statusFilter === "all" && (
                 <button
-                  onClick={() => window.location.href = '/applicant/jobs'}
+                  onClick={() => (window.location.href = "/applicant/jobs")}
                   className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                 >
                   Browse Jobs
@@ -333,16 +373,32 @@ export function ApplicationsSection({
 
         {/* Tips Section */}
         <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-200">
-          <h4 className="text-sm font-medium text-indigo-900 mb-2">💡 Application Tips</h4>
+          <h4 className="text-sm font-medium text-indigo-900 mb-2">
+            💡 Application Tips
+          </h4>
           <ul className="text-xs text-indigo-800 space-y-1">
-            <li>• Follow up on applications that have been in review for more than a week</li>
-            <li>• Keep your resume and cover letter updated for each application</li>
-            <li>• Track your application status to stay organized in your job search</li>
-            <li>• Use the AI score to understand how well your profile matches job requirements</li>
-            <li>• Consider reaching out to hiring managers for applications that are in review</li>
+            <li>
+              • Follow up on applications that have been in review for more than
+              a week
+            </li>
+            <li>
+              • Keep your resume and cover letter updated for each application
+            </li>
+            <li>
+              • Track your application status to stay organized in your job
+              search
+            </li>
+            <li>
+              • Use the AI score to understand how well your profile matches job
+              requirements
+            </li>
+            <li>
+              • Consider reaching out to hiring managers for applications that
+              are in review
+            </li>
           </ul>
         </div>
       </div>
     </div>
   );
-} 
+}

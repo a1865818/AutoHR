@@ -29,7 +29,8 @@ export function RejectionReasonModal({
 
     const reason = selectedReason === "Other" ? customReason : selectedReason;
     if (!reason.trim()) {
-      alert("Please select or enter a rejection reason.");
+      const { toast } = await import("@/utils/toast");
+      toast.error("Please select or enter a rejection reason.");
       return;
     }
 
@@ -39,7 +40,8 @@ export function RejectionReasonModal({
       onClose();
     } catch (error) {
       console.error("Failed to reject candidate:", error);
-      alert("Failed to reject candidate. Please try again.");
+      const { toast } = await import("@/utils/toast");
+      toast.error("Failed to reject candidate. Please try again.");
     } finally {
       setSubmitting(false);
     }

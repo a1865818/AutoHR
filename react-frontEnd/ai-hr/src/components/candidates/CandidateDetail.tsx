@@ -117,14 +117,16 @@ export function CandidateDetail({
     }));
   };
 
-  const handleAddSpecialist = () => {
-    alert(
+  const handleAddSpecialist = async () => {
+    const { toast } = await import("@/utils/toast");
+    toast.error(
       "Add specialist functionality would open a modal to select additional interviewers"
     );
   };
 
-  const handleEditInterview = (step: string) => {
-    alert(
+  const handleEditInterview = async (step: string) => {
+    const { toast } = await import("@/utils/toast");
+    toast.error(
       `Edit ${step} functionality would open a modal to modify interview details`
     );
   };
@@ -170,7 +172,8 @@ export function CandidateDetail({
       );
     } catch (error) {
       console.error("Failed to download resume:", error);
-      alert("Failed to download resume. Please try again.");
+      const { toast } = await import("@/utils/toast");
+      toast.error("Failed to download resume. Please try again.");
     }
   };
 

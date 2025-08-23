@@ -167,7 +167,8 @@ export function RejectedCandidatesTab({
   // Handle bulk email
   const handleBulkEmailClick = async () => {
     if (selectedCandidates.length === 0) {
-      alert("Please select candidates to send emails to.");
+      const { toast } = await import("@/utils/toast");
+      toast.error("Please select candidates to send emails to.");
       return;
     }
 

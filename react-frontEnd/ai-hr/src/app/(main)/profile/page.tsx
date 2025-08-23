@@ -8,24 +8,9 @@ import {
   ProfileLayout,
   ProfileHeader,
   PersonalInformation,
-  AccountSecurity,
-  UserPreferences,
-  RolePermissions,
-  ActivityUsage,
-  ConnectedIntegrations,
-  PrivacyData,
   Toast,
 } from "@/components";
-import {
-  UserProfile,
-  PersonalInfo,
-  SecuritySettings,
-  UserPreferences as UserPrefs,
-  RoleInfo,
-  ActivityData,
-  ConnectedIntegration,
-  PrivacySettings,
-} from "@/interfaces";
+import { UserProfile, PersonalInfo } from "@/interfaces";
 import { Loader2, AlertCircle } from "lucide-react";
 
 export default function ProfilePage() {
@@ -280,17 +265,12 @@ export default function ProfilePage() {
     );
   }
 
-  // Toast helper
+  // Toast helper - replace inline with global
   const showToast = (message: string, type: "success" | "error") => {
-    setToast({
-      message,
-      type,
-      isVisible: true,
+    import("@/utils/toast").then(({ toast }) => {
+      if (type === "success") toast.success(message);
+      else toast.error(message);
     });
-  };
-
-  const hideToast = () => {
-    setToast((prev) => ({ ...prev, isVisible: false }));
   };
 
   // Event handlers
@@ -374,175 +354,16 @@ export default function ProfilePage() {
     }
   };
 
-  const handleSecurityUpdate = async (
-    updatedSecurity: Partial<SecuritySettings>
-  ) => {
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      if (userProfile) {
-        setUserProfile((prev) =>
-          prev
-            ? {
-                ...prev,
-                securitySettings: {
-                  ...prev.securitySettings,
-                  ...updatedSecurity,
-                },
-              }
-            : null
-        );
-        showToast("Security settings updated successfully", "success");
-      }
-    } catch (error) {
-      showToast("Failed to update security settings", "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handlePreferencesUpdate = async (updatedPrefs: UserPrefs) => {
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      if (userProfile) {
-        setUserProfile((prev) =>
-          prev
-            ? {
-                ...prev,
-                preferences: updatedPrefs,
-              }
-            : null
-        );
-        showToast("Preferences updated successfully", "success");
-      }
-    } catch (error) {
-      showToast("Failed to update preferences", "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleIntegrationToggle = async (integrationId: string) => {
-    if (!userProfile) return;
-
-    const updatedIntegrations = userProfile.connectedIntegrations.map(
-      (integration) =>
-        integration.id === integrationId
-          ? {
-              ...integration,
-              connected: !integration.connected,
-              connectedAt: !integration.connected ? new Date() : undefined,
-              status: (!integration.connected ? "active" : "inactive") as
-                | "active"
-                | "inactive"
-                | "error",
-            }
-          : integration
-    );
-
-    setUserProfile((prev) =>
-      prev
-        ? {
-            ...prev,
-            connectedIntegrations: updatedIntegrations,
-          }
-        : null
-    );
-
-    showToast(
-      `Integration ${
-        updatedIntegrations.find((i) => i.id === integrationId)?.connected
-          ? "connected"
-          : "disconnected"
-      } successfully`,
-      "success"
-    );
-  };
-
-  const handlePrivacyUpdate = async (updatedPrivacy: PrivacySettings) => {
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      if (userProfile) {
-        setUserProfile((prev) =>
-          prev
-            ? {
-                ...prev,
-                privacySettings: updatedPrivacy,
-              }
-            : null
-        );
-        showToast("Privacy settings updated successfully", "success");
-      }
-    } catch (error) {
-      showToast("Failed to update privacy settings", "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Removed other tab handlers since only Personal Information remains
 
   const renderTabContent = () => {
-    switch (activeTab) {
-      case "personal":
-        return (
-          <PersonalInformation
-            personalInfo={userProfile.personalInfo}
-            onUpdate={handlePersonalInfoUpdate}
-            isLoading={isLoading}
-          />
-        );
-      case "security":
-        return (
-          <AccountSecurity
-            securitySettings={userProfile.securitySettings}
-            onUpdate={handleSecurityUpdate}
-            isLoading={isLoading}
-          />
-        );
-      case "preferences":
-        return (
-          <UserPreferences
-            preferences={userProfile.preferences}
-            onUpdate={handlePreferencesUpdate}
-            isLoading={isLoading}
-          />
-        );
-      case "role":
-        return <RolePermissions roleInfo={userProfile.roleInfo} />;
-      case "activity":
-        return <ActivityUsage activityData={userProfile.activityData} />;
-      case "integrations":
-        return (
-          <ConnectedIntegrations
-            integrations={userProfile.connectedIntegrations}
-            onToggle={handleIntegrationToggle}
-            isLoading={isLoading}
-          />
-        );
-      case "privacy":
-        return (
-          <PrivacyData
-            privacySettings={userProfile.privacySettings}
-            onUpdate={handlePrivacyUpdate}
-            isLoading={isLoading}
-          />
-        );
-      default:
-        return (
-          <PersonalInformation
-            personalInfo={userProfile.personalInfo}
-            onUpdate={handlePersonalInfoUpdate}
-            isLoading={isLoading}
-          />
-        );
-    }
+    return (
+      <PersonalInformation
+        personalInfo={userProfile.personalInfo}
+        onUpdate={handlePersonalInfoUpdate}
+        isLoading={isLoading}
+      />
+    );
   };
 
   return (
@@ -557,12 +378,14 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        isVisible={toast.isVisible}
-        onClose={hideToast}
-      />
+      {toast.isVisible && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          isVisible={toast.isVisible}
+          onClose={() => setToast((prev) => ({ ...prev, isVisible: false }))}
+        />
+      )}
     </>
   );
 }

@@ -17,7 +17,7 @@ import {
   validateFormDataForSubmission,
   validateFormDataForDraft,
 } from "@/services/api";
-import { notifications } from "@/services/api";
+import { toast } from "@/utils/toast";
 
 const steps: JobCreationStep[] = [
   {
@@ -113,10 +113,7 @@ export function CreateJobForm() {
           }
         } catch (error) {
           console.error("Error loading company information:", error);
-          notifications.error(
-            "Error loading company",
-            "Unable to load company information. Please try again."
-          );
+          toast.error("Unable to load company information. Please try again.");
         } finally {
           setIsLoadingCompany(false);
         }
@@ -188,20 +185,14 @@ We offer a dynamic work environment where creativity and innovation are valued, 
   const handleSaveDraftInternal = async (preventRedirect = false) => {
     // Check if user has company information
     if (!user?.companyId || !user?.id) {
-      notifications.error(
-        "Authentication required",
-        "Please ensure you're logged in with proper company access."
-      );
+      toast.error("Please ensure you're logged in with proper company access.");
       return;
     }
 
     // Validate form data for draft (less strict validation)
     const validation = validateFormDataForDraft(formData);
     if (!validation.isValid) {
-      notifications.error(
-        "Cannot save draft",
-        `Please fill in: ${validation.missingFields.join(", ")}`
-      );
+      toast.error(`Please fill in: ${validation.missingFields.join(", ")}`);
       return;
     }
 
@@ -238,15 +229,13 @@ We offer a dynamic work environment where creativity and innovation are valued, 
           }, 200);
         }
       } else {
-        notifications.error(
-          "Failed to save draft",
-          response?.error || "Please try again."
+        toast.error(
+          response?.error || "Failed to save draft. Please try again."
         );
       }
     } catch (error) {
-      notifications.error(
-        "Failed to save draft",
-        "An unexpected error occurred. Please try again."
+      toast.error(
+        "Failed to save draft. An unexpected error occurred. Please try again."
       );
     } finally {
       setIsSaving(false);
@@ -260,10 +249,7 @@ We offer a dynamic work environment where creativity and innovation are valued, 
 
     // Check if user has company information
     if (!user?.companyId || !user?.id) {
-      notifications.error(
-        "Authentication required",
-        "Please ensure you're logged in with proper company access."
-      );
+      toast.error("Please ensure you're logged in with proper company access.");
       setIsPublishing(false);
       return;
     }
@@ -271,10 +257,7 @@ We offer a dynamic work environment where creativity and innovation are valued, 
     // Validate form data for publication (strict validation)
     const validation = validateFormDataForSubmission(formData);
     if (!validation.isValid) {
-      notifications.error(
-        "Cannot publish job",
-        `Please complete: ${validation.missingFields.join(", ")}`
-      );
+      toast.error(`Please complete: ${validation.missingFields.join(", ")}`);
       setIsPublishing(false);
       return;
     }
@@ -336,16 +319,14 @@ We offer a dynamic work environment where creativity and innovation are valued, 
           }
         }, 500); // Slightly longer delay to ensure backend has processed the creation
       } else {
-        notifications.error(
-          "Failed to publish job",
-          response?.error || "Please try again."
+        toast.error(
+          response?.error || "Failed to publish job. Please try again."
         );
         setIsPublishing(false);
       }
     } catch (error) {
-      notifications.error(
-        "Failed to publish job",
-        "An unexpected error occurred. Please try again."
+      toast.error(
+        "Failed to publish job. An unexpected error occurred. Please try again."
       );
       setIsPublishing(false);
     }

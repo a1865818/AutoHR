@@ -18,6 +18,7 @@ import { ApiJob } from "@/interfaces/api";
 import { InterviewTemplate } from "@/interfaces/interview";
 import { Pagination } from "@/components/ui/Pagination";
 import dynamic from "next/dynamic";
+import { LoadingState } from "@/components/ui/LoadingState";
 const PipelineJobCard = dynamic(
   () =>
     import("@/components/interview_pipeline/PipelineJobCard").then(
@@ -227,7 +228,8 @@ export default function InterviewPipelinePage() {
       setSelectedJobForTemplate(null);
     } catch (error) {
       console.error("Error changing interview template:", error);
-      alert("Failed to change interview template. Please try again.");
+      const { toast } = await import("@/utils/toast");
+      toast.error("Failed to change interview template. Please try again.");
     } finally {
       setIsChangingTemplate(false);
     }
@@ -241,12 +243,10 @@ export default function InterviewPipelinePage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-indigo-600" />
-          <p className="text-gray-600">Loading interview pipeline...</p>
-        </div>
-      </div>
+      <LoadingState
+        message="Loading interview pipeline..."
+        minHeightClass="min-h-screen"
+      />
     );
   }
 

@@ -1,12 +1,4 @@
-import {
-  User,
-  Shield,
-  Settings,
-  Users,
-  Activity,
-  Link,
-  Lock,
-} from "lucide-react";
+import { User } from "lucide-react";
 
 interface ProfileNavigationProps {
   activeTab: string;
@@ -23,42 +15,6 @@ export function ProfileNavigation({
       label: "Personal Information",
       icon: User,
       description: "Basic profile details",
-    },
-    {
-      id: "security",
-      label: "Account Security",
-      icon: Shield,
-      description: "Password & 2FA",
-    },
-    {
-      id: "preferences",
-      label: "Preferences",
-      icon: Settings,
-      description: "Notifications & settings",
-    },
-    {
-      id: "role",
-      label: "Role & Permissions",
-      icon: Users,
-      description: "Access & team info",
-    },
-    {
-      id: "activity",
-      label: "Activity & Usage",
-      icon: Activity,
-      description: "Login history & stats",
-    },
-    {
-      id: "integrations",
-      label: "Connected Apps",
-      icon: Link,
-      description: "Third-party integrations",
-    },
-    {
-      id: "privacy",
-      label: "Privacy & Data",
-      icon: Lock,
-      description: "Data settings & export",
     },
   ];
 

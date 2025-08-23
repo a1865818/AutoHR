@@ -841,7 +841,8 @@ export function DownloadTechnicalAssessmentButton({
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Download failed:", error);
-      alert("Failed to download file.");
+      const { toast } = await import("@/utils/toast");
+      toast.error("Failed to download file.");
     } finally {
       setDownloading(false);
     }

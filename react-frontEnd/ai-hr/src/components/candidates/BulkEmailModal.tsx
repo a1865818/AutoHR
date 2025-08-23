@@ -91,7 +91,8 @@ export function BulkEmailModal({
       }, 2000);
     } catch (error) {
       console.error("Failed to send emails:", error);
-      alert("Failed to send emails. Please try again.");
+      const { toast } = await import("@/utils/toast");
+      toast.error("Failed to send emails. Please try again.");
     } finally {
       setSending(false);
     }
