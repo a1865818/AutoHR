@@ -215,8 +215,6 @@ builder.Services.AddScoped<IGmailService, ai_hr.Services.GmailApiService>();
 // Register Google Calendar service
 builder.Services.AddScoped<IGoogleCalendarService, GoogleCalendarService>();
 
-// Register Migration service
-builder.Services.AddScoped<ai_hr.Migration.UserMigrationService>();
 
 // Enable session support for user tracking
 builder.Services.AddDistributedMemoryCache();
@@ -393,8 +391,6 @@ app.MapEmailTemplateEndpoints();
 app.MapGmailAuthEndpoints();
 app.MapAssessmentEndpoints();
 
-// Map migration endpoints (for easy migration via API)
-app.MapMigrationEndpoints();
 
 app.Run();
 
