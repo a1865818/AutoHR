@@ -115,11 +115,25 @@ namespace ai_hr.Middleware
                     method, path, ipAddress);
             }
 
-            // Log potential attacks
-            if (context.Response.StatusCode == 400 || context.Response.StatusCode == 403)
+            // Log potential attacks - but exclude legitimate authorization failures
+            if (context.Response.StatusCode == 400)
             {
-                _logger.LogWarning("Potentially malicious request: {Method} {Path} from {IP} - Status: {StatusCode}",
+                _logger.LogWarning("Bad request: {Method} {Path} from {IP} - Status: {StatusCode}",
                     method, path, ipAddress, context.Response.StatusCode);
+            }
+            else if (context.Response.StatusCode == 403)
+            {
+                // Only log 403 as potentially malicious if it contains suspicious patterns
+                if (ContainsSuspiciousPatterns(userAgent, path.ToString()))
+                {
+                    _logger.LogWarning("Potentially malicious request blocked: {Method} {Path} from {IP} - Status: {StatusCode}",
+                        method, path, ipAddress, context.Response.StatusCode);
+                }
+                else
+                {
+                    _logger.LogInformation("Authorization denied: {Method} {Path} from {IP} - Status: {StatusCode}",
+                        method, path, ipAddress, context.Response.StatusCode);
+                }
             }
         }
 

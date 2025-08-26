@@ -37,7 +37,7 @@ import { LoadingState } from "@/components/ui/LoadingState";
 
 export default function InterviewsPage() {
   const router = useRouter();
-  const { isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState<
     "all" | "default" | "custom"
@@ -64,8 +64,8 @@ export default function InterviewsPage() {
   );
 
   useEffect(() => {
-    // Wait for authentication to be loaded before trying to load data
-    if (!authLoading) {
+    // Wait for authentication to be loaded and user to be authenticated before trying to load data
+    if (!authLoading && user) {
       const loadData = async () => {
         try {
           setLoading(true);
@@ -76,8 +76,13 @@ export default function InterviewsPage() {
             interviewService.getInterviewStats(),
           ]);
 
-          setTemplates(templatesData);
-          setStats(statsData);
+          // Only update state if we received valid data
+          if (templatesData) {
+            setTemplates(templatesData);
+          }
+          if (statsData) {
+            setStats(statsData);
+          }
         } catch (err) {
           console.error("Error loading interview data:", err);
           setError("Failed to load interview data");
@@ -87,8 +92,11 @@ export default function InterviewsPage() {
       };
 
       loadData();
+    } else if (!authLoading && !user) {
+      // User is not authenticated, don't try to load data
+      setLoading(false);
     }
-  }, [authLoading]);
+  }, [authLoading, user]);
 
   const handleCloneTemplate = async (
     templateId: string,
@@ -109,11 +117,12 @@ export default function InterviewsPage() {
     setError(null);
     setShowCloneModal(false);
 
-    try {
-      const clonedTemplate = await interviewService.cloneInterviewTemplate(
-        selectedTemplate.id,
-        cloneName.trim()
-      );
+    const clonedTemplate = await interviewService.cloneInterviewTemplate(
+      selectedTemplate.id,
+      cloneName.trim()
+    );
+    
+    if (clonedTemplate) {
       setTemplates((prev) => [clonedTemplate, ...prev]);
       setStats((prev) => ({
         ...prev,
@@ -122,14 +131,13 @@ export default function InterviewsPage() {
 
       // Navigate to edit page for the cloned template
       router.push(`/interview-templates/edit?id=${clonedTemplate.id}`);
-    } catch (err: any) {
-      console.error("Error cloning template:", err);
-      setError(err.message || "Failed to clone template");
-    } finally {
-      setActionLoading(null);
-      setSelectedTemplate(null);
-      setCloneName("");
+    } else {
+      setError("Failed to clone template");
     }
+    
+    setActionLoading(null);
+    setSelectedTemplate(null);
+    setCloneName("");
   };
 
   const handleDeleteTemplate = async (templateId: string) => {
@@ -147,10 +155,10 @@ export default function InterviewsPage() {
     setActionLoading(templateId);
     setError(null);
 
-    try {
-      const updatedTemplate =
-        await interviewService.setDefaultInterviewTemplate(templateId);
+    const updatedTemplate =
+      await interviewService.setDefaultInterviewTemplate(templateId);
 
+    if (updatedTemplate) {
       // Update the templates list to reflect the change
       setTemplates((prev) =>
         prev.map((t) => ({
@@ -163,12 +171,11 @@ export default function InterviewsPage() {
         `Template "${template.name}" set as default successfully!`
       );
       setTimeout(() => setShowSuccessMessage(null), 4000);
-    } catch (err: any) {
-      console.error("Error setting default template:", err);
-      setError(err.message || "Failed to set default template");
-    } finally {
-      setActionLoading(null);
+    } else {
+      setError("Failed to set default template");
     }
+    
+    setActionLoading(null);
   };
 
   const confirmDeleteTemplate = async () => {
@@ -178,8 +185,9 @@ export default function InterviewsPage() {
     setError(null);
     setShowDeleteModal(false);
 
-    try {
-      await interviewService.deleteInterviewTemplate(selectedTemplate.id);
+    const deleteResult = await interviewService.deleteInterviewTemplate(selectedTemplate.id);
+    
+    if (deleteResult) {
       setTemplates((prev) => prev.filter((t) => t.id !== selectedTemplate.id));
       setStats((prev) => ({
         ...prev,
@@ -190,13 +198,12 @@ export default function InterviewsPage() {
         `Template "${selectedTemplate.name}" deleted successfully!`
       );
       setTimeout(() => setShowSuccessMessage(null), 4000);
-    } catch (err: any) {
-      console.error("Error deleting template:", err);
-      setError(err.message || "Failed to delete template");
-    } finally {
-      setActionLoading(null);
-      setSelectedTemplate(null);
+    } else {
+      setError("Failed to delete template");
     }
+    
+    setActionLoading(null);
+    setSelectedTemplate(null);
   };
 
   const getInterviewTypeIcon = (type: InterviewType) => {

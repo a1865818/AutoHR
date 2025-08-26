@@ -3,6 +3,7 @@ import {
   CandidateWithJobDetails,
   CandidatesResponse,
 } from "@/interfaces/index";
+import { toast } from "@/utils/toast";
 
 class CandidateService {
   private baseUrl: string;
@@ -118,21 +119,22 @@ class CandidateService {
   }
 
   // Get candidates for the hiring user's company
-  async getCandidatesForCompany(): Promise<CandidatesResponse> {
+  async getCandidatesForCompany(): Promise<CandidatesResponse | null> {
     const { token, companyId, userCategory } = this.getAuthData();
 
     if (!token) {
-      throw new Error("User not authenticated - please log in");
+      toast.error("Please log in to continue");
+      return null;
     }
 
     if (!companyId) {
-      throw new Error(
-        "Company ID not found - user may not be associated with a company"
-      );
+      toast.error("Unable to access candidates - company information not found");
+      return null;
     }
 
     if (userCategory === "ApplicationUser") {
-      throw new Error("Access denied - only hiring users can view candidates");
+      toast.error("Access denied - only hiring managers can view candidates");
+      return null;
     }
 
     console.log("📤 Fetching candidates for company:", companyId);
@@ -155,7 +157,8 @@ class CandidateService {
           };
         }
         const error = await response.text();
-        throw new Error(`Failed to fetch candidates: ${error}`);
+        toast.error(`Unable to load candidates: ${error}`);
+        return null;
       }
 
       const data = await response.json();
@@ -163,7 +166,8 @@ class CandidateService {
       return data;
     } catch (error) {
       console.error("❌ Failed to fetch candidates:", error);
-      throw error;
+      toast.error("Failed to load candidates. Please try again.");
+      return null;
     }
   }
 
@@ -172,11 +176,13 @@ class CandidateService {
     const { token, companyId, userCategory } = this.getAuthData();
 
     if (!token) {
-      throw new Error("User not authenticated");
+      toast.error("Please log in to continue");
+      return [];
     }
 
     if (userCategory === "ApplicationUser") {
-      throw new Error("Access denied - only hiring users can view candidates");
+      toast.error("Access denied - only hiring managers can view candidates");
+      return [];
     }
 
     try {
@@ -198,7 +204,8 @@ class CandidateService {
         }
         const error = await response.text();
         console.error("🔍 API Error:", error);
-        throw new Error(`Failed to fetch job candidates: ${error}`);
+        toast.error(`Unable to load job candidates: ${error}`);
+        return [];
       }
 
       const candidates = await response.json();
@@ -211,7 +218,8 @@ class CandidateService {
       return candidates;
     } catch (error) {
       console.error("❌ Failed to fetch job candidates:", error);
-      throw error;
+      toast.error("Failed to load job candidates. Please try again.");
+      return [];
     }
   }
 
@@ -229,11 +237,13 @@ class CandidateService {
     const { token, userCategory } = this.getAuthData();
 
     if (!token) {
-      throw new Error("User not authenticated");
+      toast.error("Please log in to continue");
+      return { candidates: [], totalCount: 0, page, pageSize };
     }
 
     if (userCategory === "ApplicationUser") {
-      throw new Error("Access denied - only hiring users can view candidates");
+      toast.error("Access denied - only hiring managers can view candidates");
+      return { candidates: [], totalCount: 0, page, pageSize };
     }
 
     try {
@@ -253,7 +263,8 @@ class CandidateService {
           return { candidates: [], totalCount: 0, page, pageSize };
         }
         const error = await response.text();
-        throw new Error(`Failed to fetch job candidates (paged): ${error}`);
+        toast.error(`Unable to load candidates: ${error}`);
+        return { candidates: [], totalCount: 0, page, pageSize };
       }
 
       const data = await response.json();
@@ -265,7 +276,8 @@ class CandidateService {
       };
     } catch (error) {
       console.error("❌ Failed to fetch job candidates (paged):", error);
-      throw error;
+      toast.error("Failed to load candidates. Please try again.");
+      return { candidates: [], totalCount: 0, page, pageSize };
     }
   }
 
@@ -275,17 +287,17 @@ class CandidateService {
     status: "In Progress" | "Hired" | "Rejected" | "Offered",
     stage?: import("@/interfaces").CandidateStage,
     currentRoundId?: string
-  ): Promise<any> {
+  ): Promise<any | null> {
     const { token, userCategory } = this.getAuthData();
 
     if (!token) {
-      throw new Error("User not authenticated");
+      toast.error("Please log in to continue");
+      return null;
     }
 
     if (userCategory === "ApplicationUser") {
-      throw new Error(
-        "Access denied - only hiring users can update candidate status"
-      );
+      toast.error("Access denied - only hiring managers can update candidate status");
+      return null;
     }
 
     console.log("📤 Updating candidate status:", {
@@ -328,36 +340,40 @@ class CandidateService {
       if (!response.ok) {
         const error = await response.text();
         console.error("❌ Backend error response:", error);
-        throw new Error(`Failed to update candidate status: ${error}`);
+        toast.error(`Unable to update candidate status: ${error}`);
+        return null;
       }
 
       let responseData = null;
       try {
         responseData = await response.json();
         console.log("✅ Candidate status updated successfully:", responseData);
+        toast.success("Candidate status updated successfully");
       } catch (parseError) {
         console.log(
           "✅ Candidate status updated successfully (no JSON response)"
         );
+        toast.success("Candidate status updated successfully");
       }
 
       return responseData;
     } catch (error) {
       console.error("❌ Failed to update candidate status:", error);
-      throw error;
+      toast.error("Failed to update candidate status. Please try again.");
+      return null;
     }
   }
 
-  async getApplicationDetailByJob(jobId: string): Promise<any> {
+  async getApplicationDetailByJob(jobId: string): Promise<any[]> {
     const { token, userCategory } = this.getAuthData();
     if (!token) {
-      throw new Error("User not authenticated");
+      toast.error("Please log in to continue");
+      return [];
     }
 
     if (userCategory === "ApplicationUser") {
-      throw new Error(
-        "Access denied - only hiring users can view application details"
-      );
+      toast.error("Access denied - only hiring managers can view application details");
+      return [];
     }
 
     try {
@@ -374,7 +390,8 @@ class CandidateService {
       if (error.includes('No applications found for job ID')) {
         return [];
       }
-      throw new Error(`Failed to fetch application details: ${error}`);
+      toast.error(`Unable to load application details: ${error}`);
+      return [];
     }
 
       const data = await response.json();
@@ -382,21 +399,22 @@ class CandidateService {
       return data;
     } catch (error) {
       console.error("❌ Failed to fetch application details:", error);
-      throw error;
+      toast.error("Failed to load application details. Please try again.");
+      return [];
     }
   }
 
   // Get detailed candidate information
-  async getCandidateDetails(candidateId: string): Promise<Candidate> {
+  async getCandidateDetails(candidateId: string): Promise<Candidate | null> {
     const { token, userCategory } = this.getAuthData();
     if (!token) {
-      throw new Error("User not authenticated");
+      toast.error("Please log in to continue");
+      return null;
     }
 
     if (userCategory === "ApplicationUser") {
-      throw new Error(
-        "Access denied - only hiring users can view candidate details"
-      );
+      toast.error("Access denied - only hiring managers can view candidate details");
+      return null;
     }
 
     console.log("📤 Fetching detailed candidate information for:", candidateId);
@@ -412,7 +430,8 @@ class CandidateService {
 
       if (!response.ok) {
         const error = await response.text();
-        throw new Error(`Failed to fetch candidate details: ${error}`);
+        toast.error(`Unable to load candidate details: ${error}`);
+        return null;
       }
 
       const data = await response.json();
@@ -420,7 +439,8 @@ class CandidateService {
       return data;
     } catch (error) {
       console.error("❌ Failed to fetch candidate details:", error);
-      throw error;
+      toast.error("Failed to load candidate details. Please try again.");
+      return null;
     }
   }
 
@@ -431,15 +451,17 @@ class CandidateService {
   ): Promise<{
     notesCreatedAt?: string;
     notesUpdatedAt?: string;
-  }> {
+  } | null> {
     const { token, userCategory } = this.getAuthData();
 
     if (!token) {
-      throw new Error("User not authenticated");
+      toast.error("Please log in to continue");
+      return null;
     }
 
     if (userCategory === "ApplicationUser") {
-      throw new Error("Access denied - only hiring users can save notes");
+      toast.error("Access denied - only hiring managers can save notes");
+      return null;
     }
 
     console.log("📤 Saving candidate note to database:", applicationId);
@@ -460,11 +482,13 @@ class CandidateService {
 
       if (!response.ok) {
         const error = await response.text();
-        throw new Error(`Failed to save note: ${error}`);
+        toast.error(`Unable to save note: ${error}`);
+        return null;
       }
 
       const result = await response.json();
       console.log("✅ Candidate note saved to database successfully:", result);
+      toast.success("Note saved successfully");
 
       // Return the timestamps from the backend response
       return {
@@ -473,20 +497,23 @@ class CandidateService {
       };
     } catch (error) {
       console.error("❌ Failed to save candidate note:", error);
-      throw error;
+      toast.error("Failed to save note. Please try again.");
+      return null;
     }
   }
 
   // Delete candidate note from database
-  async deleteCandidateNote(applicationId: string): Promise<void> {
+  async deleteCandidateNote(applicationId: string): Promise<boolean> {
     const { token, userCategory } = this.getAuthData();
 
     if (!token) {
-      throw new Error("User not authenticated");
+      toast.error("Please log in to continue");
+      return false;
     }
 
     if (userCategory === "ApplicationUser") {
-      throw new Error("Access denied - only hiring users can delete notes");
+      toast.error("Access denied - only hiring managers can delete notes");
+      return false;
     }
 
     console.log("📤 Deleting candidate note from database:", applicationId);
@@ -502,13 +529,17 @@ class CandidateService {
 
       if (!response.ok) {
         const error = await response.text();
-        throw new Error(`Failed to delete note: ${error}`);
+        toast.error(`Unable to delete note: ${error}`);
+        return false;
       }
 
       console.log("✅ Candidate note deleted from database successfully");
+      toast.success("Note deleted successfully");
+      return true;
     } catch (error) {
       console.error("❌ Failed to delete candidate note:", error);
-      throw error;
+      toast.error("Failed to delete note. Please try again.");
+      return false;
     }
   }
 
@@ -538,17 +569,32 @@ class CandidateService {
     const { token, userCategory } = this.getAuthData();
 
     if (!token) {
-      throw new Error("User not authenticated");
+      toast.error("Please log in to continue");
+      return {
+        success: false,
+        data: [],
+        error: "Authentication required"
+      };
     }
 
     if (userCategory === "ApplicationUser") {
-      throw new Error("Access denied - only hiring users can view candidates");
+      toast.error("Access denied - only hiring managers can view candidates");
+      return {
+        success: false,
+        data: [],
+        error: "Access denied"
+      };
     }
 
     const actualCompanyId = companyId || this.getAuthData().companyId;
     
     if (!actualCompanyId) {
-      throw new Error("Company ID is required");
+      toast.error("Unable to access candidates - company information not found");
+      return {
+        success: false,
+        data: [],
+        error: "Company ID required"
+      };
     }
 
     try {
@@ -613,7 +659,12 @@ class CandidateService {
           };
         }
         const error = await response.text();
-        throw new Error(`Failed to fetch candidates: ${error}`);
+        toast.error(`Unable to load candidates: ${error}`);
+        return {
+          success: false,
+          data: [],
+          error: `Failed to fetch candidates: ${error}`
+        };
       }
 
       const responseData = await response.json();
@@ -633,10 +684,12 @@ class CandidateService {
       };
     } catch (error) {
       console.error("❌ Failed to fetch candidates with filters:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      toast.error("Failed to load candidates. Please try again.");
       return {
         success: false,
         data: [],
-        error: error instanceof Error ? error.message : "Unknown error",
+        error: errorMessage,
       };
     }
   }

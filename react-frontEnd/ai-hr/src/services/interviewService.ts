@@ -3,6 +3,7 @@ import {
   InterviewRound,
   InterviewStats,
 } from "@/interfaces/interview";
+import { toast } from "@/utils/toast";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5189";
 
@@ -52,22 +53,35 @@ class InterviewService {
     if (typeof window !== "undefined") {
       // Try to get from cookies first
       const cookies = document.cookie.split(";");
+      let tokenFromCookie = null;
       for (let i = 0; i < cookies.length; i++) {
         let cookie = cookies[i];
         while (cookie.charAt(0) === " ") {
           cookie = cookie.substring(1, cookie.length);
         }
         if (cookie.indexOf("authToken=") === 0) {
-          return decodeURIComponent(
+          tokenFromCookie = decodeURIComponent(
             cookie.substring("authToken=".length, cookie.length)
           );
+          break;
         }
       }
 
       // Fallback to localStorage/sessionStorage
-      return (
-        localStorage.getItem("authToken") || sessionStorage.getItem("authToken")
-      );
+      const tokenFromStorage = localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
+      
+      // Debug token sources (remove in production)
+      console.log("🔍 InterviewService - Token sources:", {
+        fromCookie: !!tokenFromCookie,
+        fromStorage: !!tokenFromStorage,
+        cookieLength: tokenFromCookie?.length || 0,
+        storageLength: tokenFromStorage?.length || 0,
+        cookiePreview: tokenFromCookie ? `${tokenFromCookie.substring(0, 20)}...` : 'none',
+        storagePreview: tokenFromStorage ? `${tokenFromStorage.substring(0, 20)}...` : 'none',
+        allCookies: document.cookie,
+      });
+
+      return tokenFromCookie || tokenFromStorage;
     }
     return null;
   }
@@ -76,7 +90,14 @@ class InterviewService {
     const url = `${API_BASE_URL}${endpoint}`;
     const token = this.getAuthToken();
 
-    console.log("url:", url);
+    // Debug API calls (remove in production)
+    console.log("🔍 InterviewService fetchApi:", {
+      url,
+      hasToken: !!token,
+      tokenLength: token?.length || 0,
+      tokenPreview: token ? `${token.substring(0, 30)}...` : 'none',
+      headers: token ? { Authorization: `Bearer ${token.substring(0, 30)}...` } : 'no auth header'
+    });
 
     const headers: Record<string, string> = {};
 
@@ -111,17 +132,17 @@ class InterviewService {
         }
 
         if (response.status === 401) {
-          console.error("🚫 Unauthorized - Token may be invalid or expired");
           if (typeof window !== "undefined") {
             localStorage.removeItem("authToken");
             sessionStorage.removeItem("authToken");
           }
-          throw new Error("Authentication required. Please log in again.");
+          toast.error("Your session has expired. Please log in again.");
+          return null;
         }
 
-        throw new Error(
-          errorData.error || `HTTP error! status: ${response.status}`
-        );
+        const errorMessage = errorData.error || `Request failed with status ${response.status}`;
+        toast.error(errorMessage);
+        return null;
       }
 
       if (response.status === 204) {
@@ -146,11 +167,8 @@ class InterviewService {
           return JSON.parse(text);
         } catch (parseError: unknown) {
           console.error("❌ JSON Parse Error:", parseError);
-          throw new Error(
-            `Invalid JSON response from server: ${
-              parseError instanceof Error ? parseError.message : "Unknown error"
-            }`
-          );
+          toast.error("Received invalid data from server");
+          return null;
         }
       }
 
@@ -159,29 +177,28 @@ class InterviewService {
         try {
           return JSON.parse(text);
         } catch (parseError: unknown) {
-          throw new Error(
-            `Invalid JSON response: ${
-              parseError instanceof Error ? parseError.message : "Unknown error"
-            }`
-          );
+          toast.error("Failed to process server response");
+          return null;
         }
       }
 
       return text || null;
     } catch (error: unknown) {
+      // Don't log fetch errors twice - they're already handled above
       if (
         error instanceof Error &&
         (error.message.includes("JSON") || error.message.includes("HTTP"))
       ) {
-        throw error;
+        const errorMessage = error.message;
+        toast.error(errorMessage);
+        return null;
       }
 
       console.error("🚨 Network/Fetch Error:", { url, error });
-      throw new Error(
-        `Network error: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
+      toast.error(
+        error instanceof Error ? error.message : "Network connection failed"
       );
+      return null;
     }
   }
 
@@ -192,7 +209,8 @@ class InterviewService {
   // Interview Template Methods
   async getInterviewTemplates(): Promise<InterviewTemplate[]> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view interview templates");
+      toast.error("Please log in to view interview templates");
+      return [];
     }
 
     try {
@@ -200,33 +218,38 @@ class InterviewService {
       return templates || [];
     } catch (error) {
       console.error("❌ Failed to load interview templates:", error);
-      throw error;
+      toast.error("Failed to load interview templates. Please try again.");
+      return [];
     }
   }
 
-  async getInterviewTemplate(id: string): Promise<InterviewTemplate> {
+  async getInterviewTemplate(id: string): Promise<InterviewTemplate | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view interview template");
+      toast.error("Please log in to view interview template");
+      return null;
     }
 
     try {
       const template = await this.fetchApi(`/interviews/templates/${id}`);
       if (!template) {
-        throw new Error("Interview template not found");
+        toast.error("Interview template not found");
+        return null;
       }
       return template;
     } catch (error) {
       console.error("❌ Failed to load interview template:", error);
-      throw error;
+      toast.error("Failed to load interview template. Please try again.");
+      return null;
     }
   }
 
   async getInterviewTemplateApplicant(
     id: string,
     companyId: string
-  ): Promise<InterviewTemplate> {
+  ): Promise<InterviewTemplate | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view interview template");
+      toast.error("Please log in to view interview template");
+      return null;
     }
 
     try {
@@ -234,20 +257,23 @@ class InterviewService {
         `/interviews/templates/${id}/applicant?companyId=${companyId}`
       );
       if (!template) {
-        throw new Error("Interview template not found");
+        toast.error("Interview template not found");
+        return null;
       }
       return template;
     } catch (error) {
       console.error("❌ Failed to load interview template:", error);
-      throw error;
+      toast.error("Failed to load interview template. Please try again.");
+      return null;
     }
   }
 
   async createInterviewTemplate(
     data: InterviewTemplateCreateDto
-  ): Promise<InterviewTemplate> {
+  ): Promise<InterviewTemplate | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to create interview template");
+      toast.error("Please log in to create interview template");
+      return null;
     }
 
     try {
@@ -255,19 +281,22 @@ class InterviewService {
         method: "POST",
         body: JSON.stringify(data),
       });
+      toast.success("Interview template created successfully!");
       return template;
     } catch (error) {
       console.error("❌ Failed to create interview template:", error);
-      throw error;
+      toast.error("Failed to create interview template. Please try again.");
+      return null;
     }
   }
 
   async updateInterviewTemplate(
     id: string,
     data: InterviewTemplateUpdateDto
-  ): Promise<InterviewTemplate> {
+  ): Promise<InterviewTemplate | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to update interview template");
+      toast.error("Please log in to update interview template");
+      return null;
     }
 
     try {
@@ -275,34 +304,41 @@ class InterviewService {
         method: "PUT",
         body: JSON.stringify(data),
       });
+      toast.success("Interview template updated successfully!");
       return template;
     } catch (error) {
       console.error("❌ Failed to update interview template:", error);
-      throw error;
+      toast.error("Failed to update interview template. Please try again.");
+      return null;
     }
   }
 
-  async deleteInterviewTemplate(id: string): Promise<void> {
+  async deleteInterviewTemplate(id: string): Promise<boolean> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to delete interview template");
+      toast.error("Please log in to delete interview template");
+      return false;
     }
 
     try {
       await this.fetchApi(`/interviews/templates/${id}`, {
         method: "DELETE",
       });
+      toast.success("Interview template deleted successfully!");
+      return true;
     } catch (error) {
       console.error("❌ Failed to delete interview template:", error);
-      throw error;
+      toast.error("Failed to delete interview template. Please try again.");
+      return false;
     }
   }
 
   async cloneInterviewTemplate(
     id: string,
     name: string
-  ): Promise<InterviewTemplate> {
+  ): Promise<InterviewTemplate | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to clone interview template");
+      toast.error("Please log in to clone interview template");
+      return null;
     }
 
     try {
@@ -313,18 +349,21 @@ class InterviewService {
           body: JSON.stringify({ name }),
         }
       );
+      toast.success("Interview template cloned successfully!");
       return template;
     } catch (error) {
       console.error("❌ Failed to clone interview template:", error);
-      throw error;
+      toast.error("Failed to clone interview template. Please try again.");
+      return null;
     }
   }
 
-  async setDefaultInterviewTemplate(id: string): Promise<InterviewTemplate> {
+  async setDefaultInterviewTemplate(id: string): Promise<InterviewTemplate | null> {
     if (!this.isAuthenticated()) {
-      throw new Error(
-        "Authentication required to set default interview template"
+      toast.error(
+        "Please log in to set default interview template"
       );
+      return null;
     }
 
     try {
@@ -337,13 +376,20 @@ class InterviewService {
       return template;
     } catch (error) {
       console.error("❌ Failed to set default interview template:", error);
-      throw error;
+      toast.error("Failed to set default interview template. Please try again.");
+      return null;
     }
   }
 
   async getInterviewStats(): Promise<InterviewStats> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view interview stats");
+      toast.error("Please log in to view interview stats");
+      return {
+        totalTemplates: 0,
+        activeInterviews: 0,
+        successRate: 0,
+        averageDuration: 0,
+      };
     }
 
     try {
@@ -358,14 +404,21 @@ class InterviewService {
       );
     } catch (error) {
       console.error("❌ Failed to load interview stats:", error);
-      throw error;
+      toast.error("Failed to load interview statistics. Please try again.");
+      return {
+        totalTemplates: 0,
+        activeInterviews: 0,
+        successRate: 0,
+        averageDuration: 0,
+      };
     }
   }
 
   // Interview Round Methods
   async getInterviewRounds(templateId: string): Promise<InterviewRound[]> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view interview rounds");
+      toast.error("Please log in to view interview rounds");
+      return [];
     }
 
     try {
@@ -375,16 +428,18 @@ class InterviewService {
       return rounds || [];
     } catch (error) {
       console.error("❌ Failed to load interview rounds:", error);
-      throw error;
+      toast.error("Failed to load interview rounds. Please try again.");
+      return [];
     }
   }
 
   async createInterviewRound(
     templateId: string,
     data: InterviewRoundCreateDto
-  ): Promise<InterviewRound> {
+  ): Promise<InterviewRound | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to create interview round");
+      toast.error("Please log in to create interview round");
+      return null;
     }
 
     try {
@@ -395,19 +450,22 @@ class InterviewService {
           body: JSON.stringify(data),
         }
       );
+      toast.success("Interview round created successfully!");
       return round;
     } catch (error) {
       console.error("❌ Failed to create interview round:", error);
-      throw error;
+      toast.error("Failed to create interview round. Please try again.");
+      return null;
     }
   }
 
   async updateInterviewRound(
     id: string,
     data: InterviewRoundUpdateDto
-  ): Promise<InterviewRound> {
+  ): Promise<InterviewRound | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to update interview round");
+      toast.error("Please log in to update interview round");
+      return null;
     }
 
     try {
@@ -415,25 +473,31 @@ class InterviewService {
         method: "PUT",
         body: JSON.stringify(data),
       });
+      toast.success("Interview round updated successfully!");
       return round;
     } catch (error) {
       console.error("❌ Failed to update interview round:", error);
-      throw error;
+      toast.error("Failed to update interview round. Please try again.");
+      return null;
     }
   }
 
-  async deleteInterviewRound(id: string): Promise<void> {
+  async deleteInterviewRound(id: string): Promise<boolean> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to delete interview round");
+      toast.error("Please log in to delete interview round");
+      return false;
     }
 
     try {
       await this.fetchApi(`/interviews/rounds/${id}`, {
         method: "DELETE",
       });
+      toast.success("Interview round deleted successfully!");
+      return true;
     } catch (error) {
       console.error("❌ Failed to delete interview round:", error);
-      throw error;
+      toast.error("Failed to delete interview round. Please try again.");
+      return false;
     }
   }
 
@@ -442,32 +506,32 @@ class InterviewService {
     return this.getInterviewTemplates();
   }
 
-  async getTemplateById(id: string): Promise<InterviewTemplate> {
+  async getTemplateById(id: string): Promise<InterviewTemplate | null> {
     return this.getInterviewTemplate(id);
   }
 
   async createTemplate(
     data: InterviewTemplateCreateDto
-  ): Promise<InterviewTemplate> {
+  ): Promise<InterviewTemplate | null> {
     return this.createInterviewTemplate(data);
   }
 
   async updateTemplate(
     id: string,
     data: InterviewTemplateUpdateDto
-  ): Promise<InterviewTemplate> {
+  ): Promise<InterviewTemplate | null> {
     return this.updateInterviewTemplate(id, data);
   }
 
-  async deleteTemplate(id: string): Promise<void> {
+  async deleteTemplate(id: string): Promise<boolean> {
     return this.deleteInterviewTemplate(id);
   }
 
-  async cloneTemplate(id: string, name: string): Promise<InterviewTemplate> {
+  async cloneTemplate(id: string, name: string): Promise<InterviewTemplate | null> {
     return this.cloneInterviewTemplate(id, name);
   }
 
-  async setDefaultTemplate(id: string): Promise<InterviewTemplate> {
+  async setDefaultTemplate(id: string): Promise<InterviewTemplate | null> {
     return this.setDefaultInterviewTemplate(id);
   }
 
@@ -482,18 +546,18 @@ class InterviewService {
   async createRound(
     templateId: string,
     data: InterviewRoundCreateDto
-  ): Promise<InterviewRound> {
+  ): Promise<InterviewRound | null> {
     return this.createInterviewRound(templateId, data);
   }
 
   async updateRound(
     id: string,
     data: InterviewRoundUpdateDto
-  ): Promise<InterviewRound> {
+  ): Promise<InterviewRound | null> {
     return this.updateInterviewRound(id, data);
   }
 
-  async deleteRound(id: string): Promise<void> {
+  async deleteRound(id: string): Promise<boolean> {
     return this.deleteInterviewRound(id);
   }
 }

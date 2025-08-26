@@ -149,8 +149,14 @@ public static class RoundConfigurationEndpoints
             var userId = GetUserId(user);
             if (userId == null) return Results.Unauthorized();
 
+            logger.LogInformation("GetRoundConfiguration: UserId={UserId}, JobId={JobId}, RoundId={RoundId}", 
+                userId.Value, jobId, roundId);
+
             // Check if user is a hiring user (has company access)
-            var companyId = await GetUserCompanyId(client, userId.Value);
+            var companyId = GetUserCompanyId(user, logger);
+            
+            logger.LogInformation("GetRoundConfiguration: CompanyId={CompanyId} for UserId={UserId}", 
+                companyId, userId.Value);
 
             if (companyId != null)
             {
@@ -160,9 +166,24 @@ public static class RoundConfigurationEndpoints
             }
             else
             {
-                // Applicant user - verify they have applied to this job
-                if (!await VerifyApplicantJobAccess(client, jobId, userId.Value))
-                    return Results.StatusCode(403);
+                // Check if user is the job creator (fallback for hiring users without proper profile)
+                var jobResponse = await client.From<Job>().Where(j => j.Id == jobId).Get();
+                var job = jobResponse.Models.FirstOrDefault();
+                
+                if (job?.CreatedBy == userId.Value)
+                {
+                    // User created this job, allow access
+                    logger.LogInformation("Access granted to job creator: {UserId} for job: {JobId}", userId.Value, jobId);
+                }
+                else
+                {
+                    // Applicant user - verify they have applied to this job
+                    if (!await VerifyApplicantJobAccess(client, jobId, userId.Value))
+                    {
+                        logger.LogWarning("Access denied: User {UserId} is not a hiring user for job {JobId} and has not applied", userId.Value, jobId);
+                        return Results.StatusCode(403);
+                    }
+                }
             }
 
             // Get round configuration
@@ -288,7 +309,7 @@ public static class RoundConfigurationEndpoints
             var userId = GetUserId(user);
             if (userId == null) return Results.Unauthorized();
 
-            var companyId = await GetUserCompanyId(client, userId.Value);
+            var companyId = GetUserCompanyId(user);
             if (companyId == null) return Results.Unauthorized();
 
             // Verify job belongs to user's company
@@ -566,7 +587,7 @@ public static class RoundConfigurationEndpoints
             var userId = GetUserId(user);
             if (userId == null) return Results.Unauthorized();
 
-            var companyId = await GetUserCompanyId(client, userId.Value);
+            var companyId = GetUserCompanyId(user);
             if (companyId == null) return Results.Unauthorized();
 
             // Verify job belongs to user's company
@@ -632,11 +653,87 @@ public static class RoundConfigurationEndpoints
         return Guid.TryParse(userIdString, out var userId) ? userId : null;
     }
 
-    private static async Task<Guid?> GetUserCompanyId(Supabase.Client client, Guid userId)
+    private static Guid? GetUserCompanyId(ClaimsPrincipal user, ILogger logger = null)
     {
-        var hiringUserResponse = await client.From<HiringUserProfile>().Get();
-        var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userId);
-        return hiringUser?.CompanyId;
+        // Check JWT claims for company_id in user_metadata first
+        var userMetadataClaim = user.FindFirst("user_metadata")?.Value;
+        if (!string.IsNullOrEmpty(userMetadataClaim))
+        {
+            try
+            {
+                var userMetadata = JsonDocument.Parse(userMetadataClaim);
+                if (userMetadata.RootElement.TryGetProperty("company_id", out var companyIdElement))
+                {
+                    var companyIdStr = companyIdElement.GetString();
+                    if (companyIdStr != null && Guid.TryParse(companyIdStr, out var companyId))
+                    {
+                        logger?.LogInformation("Found company_id in user_metadata: {CompanyId}", companyId);
+                        return companyId;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger?.LogError(ex, "Error parsing user_metadata JSON: {UserMetadata}", userMetadataClaim);
+            }
+        }
+
+        // Fallback: Check for direct company_id claim
+        var companyIdClaim = user.FindFirst("company_id")?.Value;
+        if (companyIdClaim != null && Guid.TryParse(companyIdClaim, out var companyIdFromJwt))
+        {
+            logger?.LogInformation("Found company_id in direct claims: {CompanyId}", companyIdFromJwt);
+            return companyIdFromJwt;
+        }
+
+        logger?.LogWarning("No company_id found in claims");
+        return null;
+    }
+
+    private static Guid? GetMigratedUserId(ClaimsPrincipal user)
+    {
+        // Check JWT claims for database user ID in user_metadata
+        var userMetadataClaim = user.FindFirst("user_metadata")?.Value;
+        if (!string.IsNullOrEmpty(userMetadataClaim))
+        {
+            try
+            {
+                var userMetadata = JsonDocument.Parse(userMetadataClaim);
+                
+                // First try database_user_id (for new users)
+                if (userMetadata.RootElement.TryGetProperty("database_user_id", out var databaseUserIdElement))
+                {
+                    var databaseUserIdStr = databaseUserIdElement.GetString();
+                    if (databaseUserIdStr != null && Guid.TryParse(databaseUserIdStr, out var databaseUserId))
+                    {
+                        return databaseUserId;
+                    }
+                }
+                
+                // Fallback to migrated_user_id (for migrated users)
+                if (userMetadata.RootElement.TryGetProperty("migrated_user_id", out var migratedUserIdElement))
+                {
+                    var migratedUserIdStr = migratedUserIdElement.GetString();
+                    if (migratedUserIdStr != null && Guid.TryParse(migratedUserIdStr, out var migratedUserId))
+                    {
+                        return migratedUserId;
+                    }
+                }
+            }
+            catch
+            {
+                // If parsing fails, continue to fallback
+            }
+        }
+
+        // Final fallback: Use the current user ID from NameIdentifier claim
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId != null && Guid.TryParse(userId, out var userGuid))
+        {
+            return userGuid;
+        }
+
+        return null;
     }
 
     private static async Task<bool> VerifyJobAccess(Supabase.Client client, Guid jobId, Guid companyId)
@@ -828,7 +925,7 @@ public static class RoundConfigurationEndpoints
             var userId = GetUserId(user);
             if (userId == null) return Results.Unauthorized();
 
-            var companyId = await GetUserCompanyId(client, userId.Value);
+            var companyId = GetUserCompanyId(user);
             if (companyId == null) return Results.Unauthorized();
 
             // Verify job belongs to user's company
@@ -902,7 +999,7 @@ public static class RoundConfigurationEndpoints
             var userId = GetUserId(user);
             if (userId == null) return Results.Unauthorized();
 
-            var companyId = await GetUserCompanyId(client, userId.Value);
+            var companyId = GetUserCompanyId(user);
             if (companyId == null) return Results.Unauthorized();
 
             // Verify both jobs belong to user's company
@@ -961,7 +1058,7 @@ public static class RoundConfigurationEndpoints
             var userId = GetUserId(user);
             if (userId == null) return Results.Unauthorized();
 
-            var companyId = await GetUserCompanyId(client, userId.Value);
+            var companyId = GetUserCompanyId(user);
             if (companyId == null) return Results.Unauthorized();
 
             // Verify job belongs to user's company
@@ -1028,7 +1125,7 @@ public static class RoundConfigurationEndpoints
             var userId = GetUserId(user);
             if (userId == null) return Results.Unauthorized();
 
-            var companyId = await GetUserCompanyId(client, userId.Value);
+            var companyId = GetUserCompanyId(user);
             if (companyId == null) return Results.Unauthorized();
 
             // Verify job belongs to user's company
@@ -1393,7 +1490,7 @@ public static class RoundConfigurationEndpoints
             var userId = GetUserId(user);
             if (userId == null) return Results.Unauthorized();
 
-            var companyId = await GetUserCompanyId(client, userId.Value);
+            var companyId = GetUserCompanyId(user);
             if (companyId == null) return Results.Unauthorized();
 
             // Verify job belongs to user's company
@@ -1595,7 +1692,7 @@ public static class RoundConfigurationEndpoints
             var userId = GetUserId(user);
             if (userId == null) return Results.Unauthorized();
 
-            var companyId = await GetUserCompanyId(client, userId.Value);
+            var companyId = GetUserCompanyId(user);
             if (companyId == null) return Results.Unauthorized();
 
             // Verify job belongs to user's company
@@ -1736,7 +1833,7 @@ public static class RoundConfigurationEndpoints
             var userId = GetUserId(user);
             if (userId == null) return Results.Unauthorized();
 
-            var companyId = await GetUserCompanyId(client, userId.Value);
+            var companyId = GetUserCompanyId(user);
             if (companyId == null) return Results.Unauthorized();
 
             // Verify job belongs to user's company
@@ -1802,7 +1899,7 @@ public static class RoundConfigurationEndpoints
             var userId = GetUserId(user);
             if (userId == null) return Results.Unauthorized();
 
-            var companyId = await GetUserCompanyId(client, userId.Value);
+            var companyId = GetUserCompanyId(user);
             if (companyId == null) return Results.Unauthorized();
 
             // Verify job belongs to user's company

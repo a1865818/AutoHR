@@ -32,8 +32,7 @@ interface AuthContextType {
   login: (
     email: string,
     password: string,
-    rememberMe?: boolean,
-    userType?: "application" | "hiring"
+    rememberMe?: boolean
   ) => Promise<boolean>;
   register: (userData: {
     firstName: string;
@@ -42,7 +41,6 @@ interface AuthContextType {
     password: string;
     company?: string;
     role?: string;
-    userType?: "application" | "hiring";
   }) => Promise<boolean>;
   logout: () => Promise<void>;
   updateUser: (userData: Partial<User>) => void;
@@ -156,29 +154,31 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         sessionData.userData
       ) {
         try {
-          // Verify token with backend based on user category
-          const userData =
-            sessionData.userCategory === "ApplicationUser"
-              ? await apiService.getCurrentApplicationUser()
-              : await apiService.getCurrentUser();
+          // Verify token with backend using unified endpoint
+          const userData = await apiService.getCurrentUser();
 
           console.log("🔍 AuthContext - Backend user data response:", userData);
 
-          const user: User = {
-            id: userData.id,
-            email: userData.email,
-            firstName: userData.firstName,
-            lastName: userData.lastName,
-            name: `${userData.firstName} ${userData.lastName}`,
-            role: userData.roles || "HiringUser",
-            userType: userData.userType,
-            userCategory: userData.userCategory || sessionData.userCategory,
-            companyId: userData.companyId,
-          };
+          if (userData) {
+            const user: User = {
+              id: userData.id,
+              email: userData.email,
+              firstName: userData.firstName,
+              lastName: userData.lastName,
+              name: `${userData.firstName} ${userData.lastName}`,
+              role: userData.roles || "HiringUser",
+              userType: userData.userType,
+              userCategory: userData.userCategory || userData.userType || sessionData.userCategory,
+              companyId: userData.companyId,
+            };
 
-          console.log("🔍 AuthContext - Constructed user object:", user);
+            console.log("🔍 AuthContext - Constructed user object:", user);
 
-          setUser(user);
+            setUser(user);
+          } else {
+            console.log("🔍 AuthContext - No user data received, clearing session");
+            sessionCookies.clearSessionData();
+          }
         } catch (error) {
           console.error("Error verifying token:", error);
           // Token is invalid, clear cookies
@@ -204,11 +204,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         if (token && userCategory) {
           try {
-            // Verify token with backend based on user category
-            const userData =
-              userCategory === "ApplicationUser"
-                ? await apiService.getCurrentApplicationUser()
-                : await apiService.getCurrentUser();
+            // Verify token with backend using unified endpoint
+            const userData = await apiService.getCurrentUser();
 
             console.log(
               "🔍 AuthContext (localStorage) - Backend user data response:",
@@ -223,7 +220,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               name: `${userData.firstName} ${userData.lastName}`,
               role: userData.roles || userData.userType || "HiringUser",
               userType: userData.userType,
-              userCategory: userData.userCategory || userCategory,
+              userCategory: userData.userCategory || userData.userType || userCategory,
               companyId: userData.companyId,
             };
 
@@ -286,19 +283,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const login = async (
     email: string,
     password: string,
-    rememberMe = false,
-    userType: "application" | "hiring" = "hiring"
+    rememberMe = false
   ): Promise<boolean> => {
     // Don't set global loading state during login to prevent double loading
     // The login form will handle its own loading state
 
     try {
-      const response =
-        userType === "application"
-          ? await apiService.applicationUserLogin({ email, password })
-          : await apiService.login({ email, password });
+      const response = await apiService.login({ email, password });
 
       console.log("🔍 AuthContext - Login response from backend:", response);
+
+      if (!response) {
+        console.log("🔍 AuthContext - No login response received");
+        return false;
+      }
 
       const user: User = {
         id: response.userId,
@@ -306,18 +304,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         firstName: response.firstName,
         lastName: response.lastName,
         name: `${response.firstName} ${response.lastName}`,
-        role:
-          userType === "application"
-            ? "User"
-            : (response as any).roles || "HiringUser",
-        userType:
-          userType === "application" ? undefined : (response as any).userType,
-        userCategory:
-          userType === "application"
-            ? "ApplicationUser"
-            : (response as any).userCategory,
-        companyId:
-          userType === "application" ? undefined : (response as any).companyId,
+        role: (response as any).roles || (response as any).userType || "User",
+        userType: (response as any).userType,
+        userCategory: (response as any).userType || "ApplicationUser",
+        companyId: (response as any).companyId,
       };
 
       console.log("🔍 AuthContext - Constructed user from login:", user);
@@ -358,7 +348,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     password: string;
     company?: string;
     role?: string;
-    userType?: "application" | "hiring";
   }): Promise<boolean> => {
     setIsLoading(true);
 
@@ -368,10 +357,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         lastName: userData.lastName,
         email: userData.email,
         password: userData.password,
-        userCategory:
-          userData.userType === "application"
-            ? "ApplicationUser"
-            : "HiringUserProfile",
+        userCategory: "ApplicationUser", // Default for new registrations
         userType: userData.role?.toLowerCase().replace(" ", "_") || "recruiter",
         bio: "",
         linkedinUrl: "",
@@ -379,10 +365,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         preferences: {},
       };
 
-      const response =
-        userData.userType === "application"
-          ? await apiService.applicationUserRegister(registerData)
-          : await apiService.register(registerData);
+      const response = await apiService.register(registerData);
+
+      if (!response) {
+        console.log("🔍 AuthContext - No register response received");
+        setIsLoading(false);
+        return false;
+      }
 
       const user: User = {
         id: response.userId,
@@ -390,22 +379,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         firstName: response.firstName,
         lastName: response.lastName,
         name: `${response.firstName} ${response.lastName}`,
-        role:
-          userData.userType === "application"
-            ? "User"
-            : (response as any).roles || (response as any).userType || "User",
-        userType:
-          userData.userType === "application"
-            ? undefined
-            : (response as any).userType,
-        userCategory:
-          userData.userType === "application"
-            ? "ApplicationUser"
-            : (response as any).userCategory,
-        companyId:
-          userData.userType === "application"
-            ? undefined
-            : (response as any).companyId,
+        role: (response as any).roles || (response as any).userType || "User",
+        userType: (response as any).userType,
+        userCategory: (response as any).userType || "ApplicationUser",
+        companyId: (response as any).companyId,
       };
 
       setUser(user);
@@ -466,13 +443,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Make API call in background (don't await to avoid delays)
     if (token) {
-      // Call appropriate logout endpoint in background - don't block the UI
+      // Call unified logout endpoint in background - don't block the UI
       try {
-        if (userCategory === "ApplicationUser") {
-          apiService.applicationUserLogout().catch(console.error);
-        } else {
-          apiService.logout().catch(console.error);
-        }
+        apiService.logout().catch(console.error);
       } catch (error) {
         // Silently handle errors since user is already logged out locally
         console.error("Background logout error:", error);

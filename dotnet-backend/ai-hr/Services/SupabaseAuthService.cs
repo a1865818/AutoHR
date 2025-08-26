@@ -3,6 +3,7 @@ using Supabase.Gotrue.Exceptions;
 using ai_hr.Contracts;
 using ai_hr.Models;
 using System.Security.Claims;
+using Supabase;
 
 namespace ai_hr.Services
 {
@@ -325,7 +326,14 @@ namespace ai_hr.Services
                         UserType = "HiringManager"
                     };
 
-                    await _supabaseClient.From<HiringUserProfile>().Insert(hiringUser);
+                    var insertedUserResponse = await _supabaseClient.From<HiringUserProfile>().Insert(hiringUser);
+                    var insertedUser = insertedUserResponse.Models.FirstOrDefault();
+
+                    if (insertedUser != null)
+                    {
+                        // Update Supabase user metadata with the database ID
+                        await UpdateUserMetadataWithDatabaseId(supabaseUser.Id, insertedUser.Id.ToString(), request.CompanyId?.ToString());
+                    }
                 }
                 else
                 {
@@ -345,7 +353,14 @@ namespace ai_hr.Services
                         ResumeList = new List<Dictionary<string, object>>()
                     };
 
-                    await _supabaseClient.From<ApplicationUser>().Insert(appUser);
+                    var insertedAppUserResponse = await _supabaseClient.From<ApplicationUser>().Insert(appUser);
+                    var insertedAppUser = insertedAppUserResponse.Models.FirstOrDefault();
+
+                    if (insertedAppUser != null)
+                    {
+                        // Update Supabase user metadata with the database ID
+                        await UpdateUserMetadataWithDatabaseId(supabaseUser.Id, insertedAppUser.Id.ToString(), null);
+                    }
                 }
 
                 _logger.LogInformation("Local user profile created for Supabase user: {UserId}", supabaseUser.Id);
@@ -402,6 +417,104 @@ namespace ai_hr.Services
             {
                 _logger.LogError(ex, "Error getting local user profile for Supabase user: {UserId}", supabaseUserId);
                 return null;
+            }
+        }
+
+        private async Task UpdateUserMetadataWithDatabaseId(string supabaseUserId, string databaseId, string? companyId)
+        {
+            try
+            {
+                _logger.LogInformation("Updating user metadata with database ID for Supabase user: {SupabaseUserId}, DatabaseId: {DatabaseId}", 
+                    supabaseUserId, databaseId);
+
+                // Add a small delay to ensure user is fully provisioned
+                await Task.Delay(500);
+
+                // First get the current user to preserve existing metadata
+                var currentUser = _supabaseClient.Auth.CurrentUser;
+                var existingMetadata = currentUser?.UserMetadata ?? new Dictionary<string, object>();
+
+                _logger.LogInformation("Current user metadata before update: {Metadata}", 
+                    string.Join(", ", existingMetadata.Select(kv => $"{kv.Key}: {kv.Value}")));
+
+                // Create updated metadata by preserving existing fields and adding new ones
+                var updatedMetadata = new Dictionary<string, object>(existingMetadata)
+                {
+                    ["database_user_id"] = databaseId
+                };
+
+                if (!string.IsNullOrEmpty(companyId))
+                {
+                    updatedMetadata["company_id"] = companyId;
+                }
+
+                _logger.LogInformation("Metadata to be sent to AdminClient: {Metadata}", 
+                    string.Join(", ", updatedMetadata.Select(kv => $"{kv.Key}: {kv.Value}")));
+
+                // Use AdminClient with correct URL configuration
+                var options = new ClientOptions
+                {
+                    Url = $"{Environment.GetEnvironmentVariable("SUPABASE_URL")}/auth/v1",
+                    Headers = new Dictionary<string, string>
+                    {
+                        { "apikey", Environment.GetEnvironmentVariable("SUPABASE_SERVICE_KEY")! }
+                    }
+                };
+
+                var adminClient = new AdminClient(
+                    serviceKey: Environment.GetEnvironmentVariable("SUPABASE_SERVICE_KEY")!,
+                    options: options
+                );
+
+
+                var adminUserAttributes = new AdminUserAttributes
+                {
+                    UserMetadata = updatedMetadata
+                };
+
+                // Capture the response to validate success
+                var updatedUser = await adminClient.UpdateUserById(supabaseUserId, adminUserAttributes);
+
+                if (updatedUser != null)
+                {
+                    _logger.LogInformation("AdminClient returned updated user: {UserId}, Metadata: {Metadata}", 
+                        updatedUser.Id, 
+                        string.Join(", ", (updatedUser.UserMetadata ?? new Dictionary<string, object>()).Select(kv => $"{kv.Key}: {kv.Value}")));
+
+                    // Verify the metadata was actually updated
+                    if (updatedUser.UserMetadata?.ContainsKey("database_user_id") == true)
+                    {
+                        _logger.LogInformation("Successfully verified database_user_id in updated user metadata: {DatabaseUserId}", 
+                            updatedUser.UserMetadata["database_user_id"]);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("database_user_id not found in updated user metadata - update may have failed");
+                    }
+                }
+                else
+                {
+                    _logger.LogError("AdminClient.UpdateUserById returned null - update failed");
+                }
+
+                _logger.LogInformation("Metadata update operation completed for Supabase user: {SupabaseUserId}", supabaseUserId);
+            }
+            catch (GotrueException gotrueEx)
+            {
+                _logger.LogError(gotrueEx, "Gotrue-specific error updating user metadata for Supabase user: {SupabaseUserId}. Status: {Status}, Message: {ErrorMessage}", 
+                    supabaseUserId, gotrueEx.StatusCode, gotrueEx.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error updating user metadata for Supabase user: {SupabaseUserId}. Type: {ExceptionType}, Message: {ErrorMessage}", 
+                    supabaseUserId, ex.GetType().Name, ex.Message);
+                
+                // Log inner exception details if available
+                if (ex.InnerException != null)
+                {
+                    _logger.LogError("Inner exception: {InnerExceptionType}: {InnerMessage}", 
+                        ex.InnerException.GetType().Name, ex.InnerException.Message);
+                }
             }
         }
     }

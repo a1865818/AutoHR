@@ -6,6 +6,7 @@ import {
 } from "@/interfaces/api";
 import { ApplicationData, PreliminaryData } from "@/interfaces/apply";
 import { jobService } from "@/services/jobService";
+import { toast } from "@/utils/toast";
 
 class ApplicationService {
   private baseUrl: string;
@@ -158,24 +159,27 @@ class ApplicationService {
     status: string;
     submittedAt: string;
     message: string;
-  }> {
-    const { token, userId, userCategory } = this.getAuthData();
+  } | null> {
+    try {
+      const { token, userId, userCategory } = this.getAuthData();
 
-    if (!token || !userId) {
-      throw new Error("User not authenticated - please log in");
-    }
+      if (!token || !userId) {
+        toast.error("Please log in to submit your application");
+        return null;
+      }
 
-    // Verify this is an ApplicationUser (not a hiring user)
-    if (userCategory !== "ApplicationUser") {
-      throw new Error("Only application users can submit job applications");
-    }
+      // Verify this is an ApplicationUser (not a hiring user)
+      if (userCategory !== "ApplicationUser") {
+        toast.error("Only job seekers can submit applications. Please use the correct account type.");
+        return null;
+      }
 
-    console.log("📤 Submitting application:", {
-      jobId,
-      candidateUserId: userId,
-      hasToken: !!token,
-      userCategory,
-    });
+      console.log("📤 Submitting application:", {
+        jobId,
+        candidateUserId: userId,
+        hasToken: !!token,
+        userCategory,
+      });
 
     // Combine all the application data into the format your backend expects
     const coverLetterText = this.buildCoverLetterText(
@@ -227,12 +231,15 @@ class ApplicationService {
         statusText: response.statusText,
         error,
       });
-      throw new Error(`Application submission failed: ${error}`);
+      toast.error("Failed to submit your application. Please try again.");
+      return null;
     }
 
     // Parse the response from the backend to get the real application ID
     const responseData = await response.json();
     console.log("✅ Application submitted successfully:", responseData);
+
+    toast.success("Application submitted successfully! We'll be in touch soon.");
 
     // Use the application ID returned from the backend
     return {
@@ -244,25 +251,33 @@ class ApplicationService {
         new Date().toISOString(),
       message: "Application submitted successfully",
     };
+    } catch (error) {
+      console.error("Error submitting application:", error);
+      toast.error("An unexpected error occurred while submitting your application. Please try again.");
+      return null;
+    }
   }
 
   // Get application status by ID
   async getApplicationStatus(
     applicationId: string
-  ): Promise<ApplicationDetailResponse> {
-    const { token } = this.getAuthData();
+  ): Promise<ApplicationDetailResponse | null> {
+    try {
+      const { token } = this.getAuthData();
 
-    if (!token) {
-      throw new Error("User not authenticated");
-    }
+      if (!token) {
+        toast.error("Please log in to view your application status");
+        return null;
+      }
 
-    // Validate that the applicationId is in the correct format (GUID format)
-    if (!this.isValidGuid(applicationId)) {
-      console.error("❌ Invalid application ID format:", applicationId);
-      throw new Error("Invalid application ID format. Expected a GUID.");
-    }
+      // Validate that the applicationId is in the correct format (GUID format)
+      if (!this.isValidGuid(applicationId)) {
+        console.error("❌ Invalid application ID format:", applicationId);
+        toast.error("Invalid application ID format. Please contact support.");
+        return null;
+      }
 
-    console.log("🔍 Getting application status for ID:", applicationId);
+      console.log("🔍 Getting application status for ID:", applicationId);
 
     const response = await fetch(
       `${this.baseUrl}/applicationdetails/${applicationId}`,
@@ -279,12 +294,18 @@ class ApplicationService {
         statusText: response.statusText,
         error,
       });
-      throw new Error(`Failed to get application status: ${error}`);
+      toast.error("Unable to retrieve application status. Please try again later.");
+      return null;
     }
 
-    const result = await response.json();
-    console.log("✅ Got application status:", result);
-    return result;
+      const result = await response.json();
+      console.log("✅ Got application status:", result);
+      return result;
+    } catch (error) {
+      console.error("Error getting application status:", error);
+      toast.error("An unexpected error occurred while retrieving your application status. Please try again.");
+      return null;
+    }
   }
 
   // Helper method to check if a string is a valid GUID
@@ -296,29 +317,37 @@ class ApplicationService {
 
   // Get user's applications
   async getUserApplications(): Promise<ApplicationDetailResponse[]> {
-    const { token, userId } = this.getAuthData();
+    try {
+      const { token, userId } = this.getAuthData();
 
-    if (!token || !userId) {
-      throw new Error("User not authenticated");
-    }
-
-    const response = await fetch(
-      `${this.baseUrl}/applicationdetails/candidate/${userId}`,
-      {
-        method: "GET",
-        headers: this.getHeaders(),
+      if (!token || !userId) {
+        toast.error("Please log in to view your applications");
+        return [];
       }
-    );
 
-    if (!response.ok) {
-      if (response.status === 404) {
-        return []; // No applications found
+      const response = await fetch(
+        `${this.baseUrl}/applicationdetails/candidate/${userId}`,
+        {
+          method: "GET",
+          headers: this.getHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return []; // No applications found
+        }
+        const error = await response.text();
+        toast.error("Unable to load your applications. Please try again later.");
+        return [];
       }
-      const error = await response.text();
-      throw new Error(`Failed to get applications: ${error}`);
-    }
 
-    return response.json();
+      return response.json();
+    } catch (error) {
+      console.error("Error getting user applications:", error);
+      toast.error("An unexpected error occurred while loading your applications. Please try again.");
+      return [];
+    }
   }
 
   // Get user's applications with pagination
@@ -328,22 +357,11 @@ class ApplicationService {
     page: number;
     pageSize: number;
   }> {
-    const { token, userId } = this.getAuthData();
+    try {
+      const { token, userId } = this.getAuthData();
 
-    if (!token || !userId) {
-      throw new Error("User not authenticated");
-    }
-
-    const response = await fetch(
-      `${this.baseUrl}/applicationdetails/candidate/${userId}/paged?page=${page}&pageSize=${pageSize}`,
-      {
-        method: "GET",
-        headers: this.getHeaders(),
-      }
-    );
-
-    if (!response.ok) {
-      if (response.status === 404) {
+      if (!token || !userId) {
+        toast.error("Please log in to view your applications");
         return {
           applications: [],
           totalCount: 0,
@@ -351,11 +369,45 @@ class ApplicationService {
           pageSize
         };
       }
-      const error = await response.text();
-      throw new Error(`Failed to get applications: ${error}`);
-    }
 
-    return response.json();
+      const response = await fetch(
+        `${this.baseUrl}/applicationdetails/candidate/${userId}/paged?page=${page}&pageSize=${pageSize}`,
+        {
+          method: "GET",
+          headers: this.getHeaders(),
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          return {
+            applications: [],
+            totalCount: 0,
+            page,
+            pageSize
+          };
+        }
+        const error = await response.text();
+        toast.error("Unable to load your applications. Please try again later.");
+        return {
+          applications: [],
+          totalCount: 0,
+          page,
+          pageSize
+        };
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error("Error getting user applications (paged):", error);
+      toast.error("An unexpected error occurred while loading your applications. Please try again.");
+      return {
+        applications: [],
+        totalCount: 0,
+        page,
+        pageSize
+      };
+    }
   }
 
   // Get user's applications with job details
@@ -573,9 +625,10 @@ class ApplicationService {
   async saveApplicationDraft(
     jobId: string,
     applicationData: Partial<ApplicationData>
-  ): Promise<{ draftId: string; savedAt: string }> {
+  ): Promise<{ draftId: string; savedAt: string } | null> {
     if (typeof window === "undefined") {
-      throw new Error("Cannot save draft on server side");
+      toast.error("Cannot save draft in this environment");
+      return null;
     }
 
     const { userId } = this.getAuthData();
@@ -587,12 +640,18 @@ class ApplicationService {
       savedAt: new Date().toISOString(),
     };
 
-    localStorage.setItem(draftKey, JSON.stringify(draftData));
-
-    return {
-      draftId: draftKey,
-      savedAt: draftData.savedAt,
-    };
+    try {
+      localStorage.setItem(draftKey, JSON.stringify(draftData));
+      toast.success("Draft saved successfully!");
+      
+      return {
+        draftId: draftKey,
+        savedAt: draftData.savedAt,
+      };
+    } catch (error) {
+      toast.error("Failed to save draft. Please try again.");
+      return null;
+    }
   }
 
   // Get saved application draft (from localStorage)
@@ -680,19 +739,46 @@ class ApplicationService {
 
       if (!response.ok) {
         if (response.status === 404) {
+          console.log("No assessment submission found - this is expected when no submission exists yet");
           return null; // No assessment found
         }
-        throw new Error(`Failed to get technical assessment: ${response.statusText}`);
+        console.error("Failed to load technical assessment:", response.status, response.statusText);
+        toast.error("Unable to load technical assessment. Please try again later.");
+        return null;
       }
 
-      const submission = await response.json();
+      // Handle empty response body
+      const responseText = await response.text();
+      if (!responseText || responseText.trim() === '') {
+        console.log("Empty response received - no assessment submission exists yet");
+        return null;
+      }
+
+      // Parse JSON response
+      let submission;
+      try {
+        submission = JSON.parse(responseText);
+      } catch (jsonError) {
+        console.error("Failed to parse JSON response:", jsonError);
+        console.error("Response text was:", responseText);
+        toast.error("Invalid response format from server");
+        return null;
+      }
+      
+      // Handle null response (when no submission exists)
+      if (!submission) {
+        console.log("No assessment submission found - this is expected when no submission exists yet");
+        return null;
+      }
+      
       return {
         url: submission.pdfUrl,
         fileName: submission.submissionData?.fileName || "Assessment",
         uploadedAt: submission.submittedAt
       };
     } catch (error) {
-      console.warn("Error getting technical assessment:", error);
+      console.error("Error getting technical assessment:", error);
+      toast.error("An unexpected error occurred while loading the technical assessment. Please try again.");
       return null;
     }
   }

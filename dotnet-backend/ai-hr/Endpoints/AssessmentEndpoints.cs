@@ -174,7 +174,8 @@ namespace ai_hr.Endpoints
                 if (submission == null)
                 {
                     Console.WriteLine($"❌ No submission found for candidateId: {candidateId}, roundId: {roundId}");
-                    return Results.NotFound("Assessment submission not found");
+                    // Return null instead of 404 - this is expected behavior when no submission exists yet
+                    return Results.Ok(null);
                 }
 
                 // Convert bucket path to signed URL for browser access

@@ -1,4 +1,5 @@
 import { CandidateStage, CandidateWithJobDetails } from "@/interfaces";
+import { toast } from "@/utils/toast";
 
 interface AddCandidatesToRankingRequest {
   companyId: string;
@@ -189,19 +190,22 @@ class CandidateRankingService {
   async addCandidatesToRanking(
     jobId: string,
     applicationIds: string[]
-  ): Promise<BulkRankingResponse> {
+  ): Promise<BulkRankingResponse | null> {
     const { token, userId, companyId } = this.getAuthData();
 
     if (!token) {
-      throw new Error("User not authenticated");
+      toast.error("Authentication required to rank candidates");
+      return null;
     }
 
     if (!companyId) {
-      throw new Error("Company ID not found");
+      toast.error("Company information not found");
+      return null;
     }
 
     if (!userId) {
-      throw new Error("User ID not found");
+      toast.error("User information not found");
+      return null;
     }
 
     console.log("📤 Adding candidates to ranking:", {
@@ -227,15 +231,19 @@ class CandidateRankingService {
 
       if (!response.ok) {
         const error = await response.text();
-        throw new Error(`Failed to add candidates to ranking: ${error}`);
+        toast.error(`Failed to add candidates to ranking: ${error}`);
+        return null;
       }
 
       const result = await response.json();
       console.log("✅ Candidates added to ranking successfully:", result);
+      toast.success(`Successfully added ${result.addedCount || applicationIds.length} candidates to ranking`);
       return result;
     } catch (error) {
       console.error("❌ Failed to add candidates to ranking:", error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : "Failed to add candidates to ranking";
+      toast.error(errorMessage);
+      return null;
     }
   }
 
@@ -243,15 +251,17 @@ class CandidateRankingService {
   async removeCandidateFromRanking(
     jobId: string,
     applicationId: string
-  ): Promise<void> {
+  ): Promise<void | null> {
     const { token, companyId } = this.getAuthData();
 
     if (!token) {
-      throw new Error("User not authenticated");
+      toast.error("Authentication required to remove candidates from ranking");
+      return null;
     }
 
     if (!companyId) {
-      throw new Error("Company ID not found");
+      toast.error("Company information not found");
+      return null;
     }
 
     console.log("📤 Removing candidate from ranking:", {
@@ -278,13 +288,17 @@ class CandidateRankingService {
 
       if (!response.ok) {
         const error = await response.text();
-        throw new Error(`Failed to remove candidate from ranking: ${error}`);
+        toast.error(`Failed to remove candidate from ranking: ${error}`);
+        return null;
       }
 
       console.log("✅ Candidate removed from ranking successfully");
+      toast.success("Candidate removed from ranking successfully");
     } catch (error) {
       console.error("❌ Failed to remove candidate from ranking:", error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : "Failed to remove candidate from ranking";
+      toast.error(errorMessage);
+      return null;
     }
   }
 
@@ -295,15 +309,17 @@ class CandidateRankingService {
     newPosition: number,
     newScore?: number,
     aiAnalysisData?: Record<string, unknown>
-  ): Promise<void> {
+  ): Promise<void | null> {
     const { token, companyId } = this.getAuthData();
 
     if (!token) {
-      throw new Error("User not authenticated");
+      toast.error("Authentication required to update ranking");
+      return null;
     }
 
     if (!companyId) {
-      throw new Error("Company ID not found");
+      toast.error("Company information not found");
+      return null;
     }
 
     console.log("📤 Updating ranking position:", {
@@ -335,22 +351,27 @@ class CandidateRankingService {
 
       if (!response.ok) {
         const error = await response.text();
-        throw new Error(`Failed to update ranking position: ${error}`);
+        toast.error(`Failed to update ranking position: ${error}`);
+        return null;
       }
 
       console.log("✅ Ranking position updated successfully");
+      toast.success("Ranking position updated successfully");
     } catch (error) {
       console.error("❌ Failed to update ranking position:", error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : "Failed to update ranking position";
+      toast.error(errorMessage);
+      return null;
     }
   }
 
   // Get rankings by job
-  async getRankingsByJob(jobId: string): Promise<RankingsByJobResponse> {
+  async getRankingsByJob(jobId: string): Promise<RankingsByJobResponse | null> {
     const { token } = this.getAuthData();
 
     if (!token) {
-      throw new Error("User not authenticated");
+      toast.error("Authentication required to view rankings");
+      return null;
     }
 
     console.log("📤 Getting rankings for job:", jobId);
@@ -366,7 +387,8 @@ class CandidateRankingService {
 
       if (!response.ok) {
         const error = await response.text();
-        throw new Error(`Failed to get rankings: ${error}`);
+        toast.error(`Failed to get rankings: ${error}`);
+        return null;
       }
 
       const result = await response.json();
@@ -374,7 +396,9 @@ class CandidateRankingService {
       return result;
     } catch (error) {
       console.error("❌ Failed to get rankings:", error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : "Failed to load rankings";
+      toast.error(errorMessage);
+      return null;
     }
   }
 
@@ -383,11 +407,13 @@ class CandidateRankingService {
     const { token, companyId } = this.getAuthData();
 
     if (!token) {
-      throw new Error("User not authenticated");
+      toast.error("Authentication required to view company rankings");
+      return [];
     }
 
     if (!companyId) {
-      throw new Error("Company ID not found");
+      toast.error("Company information not found");
+      return [];
     }
 
     console.log("📤 Fetching all rankings for company:", companyId);
@@ -406,7 +432,8 @@ class CandidateRankingService {
           return [];
         }
         const error = await response.text();
-        throw new Error(`Failed to fetch company rankings: ${error}`);
+        toast.error(`Failed to fetch company rankings: ${error}`);
+        return [];
       }
 
       const result = await response.json();
@@ -414,7 +441,9 @@ class CandidateRankingService {
       return result;
     } catch (error) {
       console.error("❌ Failed to fetch company rankings:", error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : "Failed to load company rankings";
+      toast.error(errorMessage);
+      return [];
     }
   }
 
@@ -423,13 +452,23 @@ class CandidateRankingService {
     const { token } = this.getAuthData();
 
     if (!token) {
-      throw new Error("User not authenticated");
+      toast.error("Authentication required to view rankings");
+      return {
+        success: false,
+        data: [],
+        error: "Authentication required",
+      };
     }
 
     const actualCompanyId = companyId || this.getAuthData().companyId;
 
     if (!actualCompanyId) {
-      throw new Error("Company ID is required");
+      toast.error("Company information is required");
+      return {
+        success: false,
+        data: [],
+        error: "Company ID is required",
+      };
     }
 
     console.log("📤 Fetching rankings:", {
@@ -461,7 +500,12 @@ class CandidateRankingService {
           };
         }
         const error = await response.text();
-        throw new Error(`Failed to fetch rankings: ${error}`);
+        toast.error(`Failed to fetch rankings: ${error}`);
+        return {
+          success: false,
+          data: [],
+          error: `Failed to fetch rankings: ${error}`,
+        };
       }
 
       const responseData = await response.json();
@@ -496,11 +540,12 @@ class CandidateRankingService {
   // Check if candidate is ranked
   async checkCandidateRanked(
     applicationId: string
-  ): Promise<CheckRankedResponse> {
+  ): Promise<CheckRankedResponse | null> {
     const { token } = this.getAuthData();
 
     if (!token) {
-      throw new Error("User not authenticated");
+      toast.error("Authentication required to check candidate ranking");
+      return null;
     }
 
     console.log("📤 Checking if candidate is ranked:", applicationId);
@@ -516,7 +561,8 @@ class CandidateRankingService {
 
       if (!response.ok) {
         const error = await response.text();
-        throw new Error(`Failed to check candidate ranking: ${error}`);
+        toast.error(`Failed to check candidate ranking: ${error}`);
+        return null;
       }
 
       const result = await response.json();
@@ -524,7 +570,9 @@ class CandidateRankingService {
       return result;
     } catch (error) {
       console.error("❌ Failed to check candidate ranking:", error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : "Failed to check candidate ranking";
+      toast.error(errorMessage);
+      return null;
     }
   }
 

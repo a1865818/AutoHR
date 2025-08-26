@@ -12,7 +12,7 @@ export default function MainLayout({
   // Determine if current route is /candidates or /jobs or their subroutes
   const isNoPadding = pathname.startsWith("/candidates") || pathname.startsWith("/jobs");
   return (
-    <ProtectedRoute requiredUserCategory="HiringUserProfile">
+    <ProtectedRoute requiredUserCategory="HiringUser">
       <div className="flex h-screen bg-gradient-to-br from-gray-50 to-slate-50">
         <HiringSidebar />
         <div className="flex-1 flex flex-col overflow-hidden ">

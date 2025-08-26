@@ -34,7 +34,7 @@ builder.Services.AddSingleton<ILoggerFactory, LoggerFactory>();
 builder.Services.AddScoped<ILogger>(provider =>
     provider.GetRequiredService<ILoggerFactory>().CreateLogger("Default"));
 
-// Configure JWT settings for legacy auth
+// Configure JWT settings
 builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
 
 // Configure FluentValidation
@@ -57,25 +57,25 @@ builder.Services.Configure<IpRateLimitOptions>(options =>
         {
             Endpoint = "*",
             Period = "1m",
-            Limit = 100
+            Limit = 100 // 100 requests per minute per IP
         },
         new RateLimitRule
         {
             Endpoint = "POST:/auth/*",
             Period = "1m",
-            Limit = 20 // Increased for hybrid auth
+            Limit = 10 // Login attempts: 10 per minute
         },
         new RateLimitRule
         {
             Endpoint = "*:/public/jobs/*",
             Period = "1m",
-            Limit = 200
+            Limit = 200 // Public job browsing: 200 per minute
         },
         new RateLimitRule
         {
             Endpoint = "*:/applicant/jobs/*",
             Period = "1m",
-            Limit = 150
+            Limit = 150 // Candidate job access: 150 per minute
         }
     };
 });
@@ -94,119 +94,68 @@ builder.Services.AddHttpsRedirection(options =>
     }
 });
 
-// HYBRID AUTHENTICATION CONFIGURATION
-// Support both legacy JWT and Supabase Auth JWT tokens
-
-var legacyJwtSecret = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? builder.Configuration["Jwt:SecretKey"];
-var supabaseJwtSecret = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET") ?? builder.Configuration["Supabase:JwtSecret"];
-var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL") ?? builder.Configuration["Supabase:Url"];
-
+// Add authentication and authorization
 builder.Services.AddAuthentication(options =>
 {
-    options.DefaultAuthenticateScheme = "Hybrid";
-    options.DefaultChallengeScheme = "Hybrid";
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
 })
-.AddJwtBearer("Legacy", options =>
+.AddJwtBearer(options =>
 {
-    if (!string.IsNullOrEmpty(legacyJwtSecret))
+    var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>();
+    var secretKey = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET") ?? jwtSettings?.SecretKey;
+
+    if (string.IsNullOrEmpty(secretKey))
     {
-        var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>();
-        var key = Encoding.UTF8.GetBytes(legacyJwtSecret);
-        
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(key),
-            ValidateIssuer = true,
-            ValidIssuer = jwtSettings?.Issuer,
-            ValidateAudience = true,
-            ValidAudience = jwtSettings?.Audience,
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.Zero
-        };
+        throw new InvalidOperationException("JWT SecretKey not configured");
     }
-})
-.AddJwtBearer("Supabase", options =>
-{
-    if (!string.IsNullOrEmpty(supabaseJwtSecret) && !string.IsNullOrEmpty(supabaseUrl))
+
+    options.TokenValidationParameters = new TokenValidationParameters
     {
-        var key = Encoding.UTF8.GetBytes(supabaseJwtSecret);
-        
-        options.TokenValidationParameters = new TokenValidationParameters
-        {
-            ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new SymmetricSecurityKey(key),
-            ValidateIssuer = true,
-            ValidIssuer = new Uri(supabaseUrl).GetLeftPart(UriPartial.Authority) + "/auth/v1",
-            ValidateAudience = true,
-            ValidAudience = "authenticated",
-            ValidateLifetime = true,
-            ClockSkew = TimeSpan.FromMinutes(5)
-        };
-    }
-})
-.AddPolicyScheme("Hybrid", "Hybrid", options =>
-{
-    options.ForwardDefaultSelector = context =>
-    {
-        var authHeader = context.Request.Headers["Authorization"].FirstOrDefault();
-        if (authHeader?.StartsWith("Bearer ") == true)
-        {
-            var token = authHeader["Bearer ".Length..];
-            
-            // Simple heuristic to determine token type
-            // Supabase JWTs typically have different structure/claims
-            try
-            {
-                var tokenParts = token.Split('.');
-                if (tokenParts.Length == 3)
-                {
-                    var payload = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>(
-                        Convert.FromBase64String(AddPadding(tokenParts[1])));
-                    
-                    // Supabase tokens typically have 'aud' claim set to 'authenticated'
-                    if (payload.ContainsKey("aud") && payload["aud"].ToString() == "authenticated")
-                    {
-                        return "Supabase";
-                    }
-                }
-            }
-            catch
-            {
-                // If we can't parse the token, try legacy first
-            }
-        }
-        
-        return "Legacy";
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
+        ValidateIssuer = true,
+        // Accept both custom tokens and Supabase tokens
+        ValidIssuers = new[] 
+        { 
+            jwtSettings?.Issuer ?? "AutoHR",
+            "https://uwejqhuvjkkycgecoauy.supabase.co/auth/v1" // Supabase issuer
+        },
+        ValidateAudience = true,
+        // Accept both custom audience and Supabase audience
+        ValidAudiences = new[] 
+        { 
+            jwtSettings?.Audience ?? "AutoHR-Users", 
+            "authenticated" // Supabase audience
+        },
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
     };
 });
 
-// Add authorization
 builder.Services.AddAuthorization();
 
-// Register ALL authentication services (legacy + Supabase + hybrid)
-builder.Services.AddScoped<IJwtService, JwtService>();
-builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
-builder.Services.AddScoped<IHiringUserProfileAuthenticationService, HiringUserProfileAuthenticationService>();
+// Register Supabase Authentication services
 builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
-builder.Services.AddScoped<IHybridAuthenticationService, HybridAuthenticationService>();
-
+builder.Services.AddScoped<IUnifiedAuthService, UnifiedAuthService>();
 builder.Services.AddScoped<ISavedJobsService, SavedJobsService>();
 builder.Services.AddScoped<IJobViewTrackingService, JobViewTrackingService>();
 
-// Register Advanced Security Services
+// Register Advanced Security Services (Phase 3)
 builder.Services.AddSingleton<ISecurityLoggingService, SecurityLoggingService>();
 builder.Services.AddScoped<ITokenRevocationService, TokenRevocationService>();
 builder.Services.AddScoped<IAdvancedAuthenticationService, AdvancedAuthenticationService>();
 builder.Services.AddScoped<ISecureExternalApiService, SecureExternalApiService>();
 
-// Register Refresh Token Cleanup Service (for legacy auth)
+// Register Refresh Token Cleanup Service
+// Register the service interface with a separate implementation for manual operations
 builder.Services.AddScoped<IRefreshTokenCleanupService>(provider =>
     new RefreshTokenCleanupService(
         provider.GetRequiredService<IServiceScopeFactory>(),
         provider.GetRequiredService<ILogger<RefreshTokenCleanupService>>(),
         provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<JwtSettings>>()));
 
+// Register as background service for automatic cleanup
 builder.Services.AddHostedService<RefreshTokenCleanupService>();
 
 // Register Gmail service
@@ -216,16 +165,19 @@ builder.Services.AddScoped<IGmailService, ai_hr.Services.GmailApiService>();
 builder.Services.AddScoped<IGoogleCalendarService, GoogleCalendarService>();
 
 
-// Enable session support for user tracking
+//Enable session support for user tracking
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options =>
 {
-    options.IdleTimeout = TimeSpan.FromHours(24);
+    options.IdleTimeout = TimeSpan.FromHours(24); // Session timeout
     options.Cookie.HttpOnly = true;
     options.Cookie.IsEssential = true;
+    //options.Cookie.SameSite = SameSiteMode.Lax;
 });
 
+// Add HttpContextAccessor for session support
 builder.Services.AddHttpContextAccessor();
+
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -233,15 +185,15 @@ builder.Services.AddSwaggerGen(c =>
     c.EnableAnnotations();
     c.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "AI HR Platform API - Hybrid Auth",
+        Title = "AI HR Platform API",
         Version = "v1",
-        Description = "A comprehensive HR platform API supporting both legacy JWT and Supabase Auth"
+        Description = "A comprehensive HR platform API with job management, candidate tracking, and recruitment features"
     });
 
     // Add JWT authentication to Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. Supports both legacy and Supabase Auth tokens. Example: \"Authorization: Bearer {token}\"",
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
@@ -263,6 +215,7 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
+    // Define tags for grouping endpoints
     c.TagActionsBy(api => new[] { api.GroupName ?? api.ActionDescriptor.EndpointMetadata.OfType<TagsAttribute>().SelectMany(t => t.Tags).FirstOrDefault() ?? "Default" });
     c.DocInclusionPredicate((name, api) => true);
 });
@@ -276,10 +229,10 @@ builder.Services.AddCors(options =>
             ?? new[] { "http://localhost:3000", "https://localhost:3000" };
 
         policy.WithOrigins(allowedOrigins)
-              .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-              .WithHeaders("Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With", "X-Session-ID")
+              .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS") // ✅ Restrict to needed methods
+              .WithHeaders("Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With", "X-Session-ID", "apikey") // ✅ Add apikey header for Supabase
               .AllowCredentials()
-              .SetPreflightMaxAge(TimeSpan.FromMinutes(30));
+              .SetPreflightMaxAge(TimeSpan.FromMinutes(30)); // ✅ Cache preflight requests
     });
 });
 
@@ -296,17 +249,16 @@ builder.Services.AddScoped<Supabase.Client>(_ => new Supabase.Client(
 
 var app = builder.Build();
 
-// Add security middleware first
+// ✅ Add security middleware first
 app.UseMiddleware<SecurityHeadersMiddleware>();
-app.UseMiddleware<CandidateSecurityMiddleware>();
 
-// Add rate limiting
+// ✅ Add rate limiting
 app.UseIpRateLimiting();
 
-// Add JWT validation middleware (handles both token types)
+// ✅ Add JWT validation middleware (Phase 3)
 app.UseMiddleware<JwtValidationMiddleware>();
 
-// Add custom error handling middleware
+// ✅ Add custom error handling middleware
 app.UseExceptionHandler(errorApp =>
 {
     errorApp.Run(async context =>
@@ -314,14 +266,19 @@ app.UseExceptionHandler(errorApp =>
         var exceptionHandlerPathFeature = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerPathFeature>();
         var exception = exceptionHandlerPathFeature?.Error;
 
+        // Get logger for security events
         var logger = context.RequestServices.GetRequiredService<ILogger<Program>>();
+
+        // Log the full exception for debugging (server-side only)
         logger.LogError(exception, "Unhandled exception occurred at path: {Path}", context.Request.Path);
 
+        // Return sanitized error response to client
         var isDevelopment = app.Environment.IsDevelopment();
         var response = new
         {
             message = "An internal server error occurred. Please try again later.",
             traceId = System.Diagnostics.Activity.Current?.Id ?? context.TraceIdentifier,
+            // ✅ Only include details in development
             details = isDevelopment ? exception?.Message : null,
             stackTrace = isDevelopment ? exception?.StackTrace : null
         };
@@ -332,6 +289,9 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 
+// Security headers are now handled by SecurityHeadersMiddleware
+
+// Use CORS after security headers
 app.UseCors("AllowNextJs");
 
 if (app.Environment.IsDevelopment())
@@ -339,20 +299,23 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "AI HR Platform API - Hybrid Auth v1");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "AI HR Platform API v1");
         c.RoutePrefix = "swagger";
     });
 }
 else
 {
+    // Enable Swagger in production for this API (remove this if not needed in production)
     app.UseSwagger();
     app.UseSwaggerUI(c =>
     {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "AI HR Platform API - Hybrid Auth v1");
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "AI HR Platform API v1");
         c.RoutePrefix = "swagger";
     });
 }
 
+// Add HTTPS redirection in the correct position (early in the pipeline)
+// Only enable HTTPS redirection if both HTTP and HTTPS ports are configured
 var urls = builder.Configuration["urls"] ?? Environment.GetEnvironmentVariable("ASPNETCORE_URLS") ?? "";
 if (urls.Contains("https://") && !app.Environment.IsDevelopment())
 {
@@ -361,11 +324,18 @@ if (urls.Contains("https://") && !app.Environment.IsDevelopment())
 
 app.UseRouting();
 
-// Use the hybrid authentication scheme
+
+// Add authentication and authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Map all existing endpoints
+app.UseMiddleware<CandidateSecurityMiddleware>();
+
+// Temporarily disable session to debug logging issue
+// app.UseSession();
+
+
+// Map endpoints by resource type
 app.MapUserEndpoints();
 app.MapApplicationDetailEndpoints();
 app.MapJobEndpoints();
@@ -373,13 +343,6 @@ app.MapCandidateEndpoints();
 app.MapCandidateRankingEndpoints();
 app.MapCompanyEndpoints();
 app.MapHiringUserProfileEndpoints();
-
-// Map BOTH legacy and new Supabase Auth endpoints
-app.MapAuthenticationEndpoints(); // Legacy endpoints
-app.MapHiringUserProfileAuthenticationEndpoints(); // Legacy hiring endpoints
-app.MapSupabaseAuthEndpoints(); // New Supabase endpoints
-app.MapSupabaseHiringAuthEndpoints(); // New Supabase hiring endpoints
-
 app.MapNotesEndpoints();
 app.MapLanggraphEndpoints();
 app.MapInterviewEndpoints();
@@ -389,21 +352,6 @@ app.MapSavedJobsEndpoints();
 app.MapEmailEndpoints();
 app.MapEmailTemplateEndpoints();
 app.MapGmailAuthEndpoints();
+app.MapUnifiedAuthEndpoints();
 app.MapAssessmentEndpoints();
-
-
 app.Run();
-
-// Helper function for base64 padding
-static string AddPadding(string base64)
-{
-    var length = base64.Length;
-    var remainder = length % 4;
-    
-    return remainder switch
-    {
-        2 => base64 + "==",
-        3 => base64 + "=",
-        _ => base64
-    };
-}

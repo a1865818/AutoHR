@@ -31,7 +31,7 @@ class ApiService {
   public async makeRequest<T>(
     endpoint: string,
     options: RequestInit = {}
-  ): Promise<T> {
+  ): Promise<T | null> {
     // Get token from cookies first, then fallback to localStorage/sessionStorage
     let token = null;
 
@@ -61,7 +61,11 @@ class ApiService {
 
     const headers: HeadersInit = {
       "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` }),
+      ...(token && { 
+        Authorization: `Bearer ${token}`,
+        // Add apikey header for new Supabase auth system
+        apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+      }),
       ...options.headers,
     };
 
@@ -73,9 +77,9 @@ class ApiService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(
-          `${response.status}: ${errorText || response.statusText}`
-        );
+        const errorMessage = `${response.status}: ${errorText || response.statusText}`;
+        toast.error(errorMessage);
+        return null as T;
       }
 
       // Check if response has content
@@ -88,7 +92,9 @@ class ApiService {
       return {} as T;
     } catch (error) {
       console.error("API request failed:", error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : "Network error occurred";
+      toast.error(errorMessage);
+      return null as T;
     }
   }
 
@@ -96,7 +102,7 @@ class ApiService {
   private async makeUnauthenticatedRequest<T>(
     endpoint: string,
     options: RequestInit = {}
-  ): Promise<T> {
+  ): Promise<T | null> {
     const headers: HeadersInit = {
       "Content-Type": "application/json",
       ...options.headers,
@@ -110,9 +116,9 @@ class ApiService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(
-          `${response.status}: ${errorText || response.statusText}`
-        );
+        const errorMessage = `${response.status}: ${errorText || response.statusText}`;
+        toast.error(errorMessage);
+        return null as T;
       }
 
       // Check if response has content
@@ -125,14 +131,16 @@ class ApiService {
       return {} as T;
     } catch (error) {
       console.error("API request failed:", error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : "Network error occurred";
+      toast.error(errorMessage);
+      return null as T;
     }
   }
 
-  // Authentication methods
-  async login(credentials: LoginRequest): Promise<LoginResponse> {
+  // Authentication methods - Unified endpoints
+  async login(credentials: LoginRequest): Promise<LoginResponse | null> {
     return this.makeUnauthenticatedRequest<LoginResponse>(
-      "/hiring-auth/login",
+      "/auth/login",
       {
         method: "POST",
         body: JSON.stringify(credentials),
@@ -140,9 +148,9 @@ class ApiService {
     );
   }
 
-  async register(userData: RegisterRequest): Promise<LoginResponse> {
+  async register(userData: RegisterRequest): Promise<LoginResponse | null> {
     return this.makeUnauthenticatedRequest<LoginResponse>(
-      "/hiring-auth/register",
+      "/auth/register",
       {
         method: "POST",
         body: JSON.stringify(userData),
@@ -150,9 +158,20 @@ class ApiService {
     );
   }
 
+  async forgotPassword(email: string): Promise<{ message: string } | null> {
+    return this.makeUnauthenticatedRequest<{ message: string }>(
+      "/auth/forgot-password",
+      {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      }
+    );
+  }
+
+  // Legacy methods for backward compatibility - redirect to unified endpoints
   async applicationUserLogin(
     credentials: LoginRequest
-  ): Promise<ApplicationUserLoginResponse> {
+  ): Promise<ApplicationUserLoginResponse | null> {
     return this.makeUnauthenticatedRequest<ApplicationUserLoginResponse>(
       "/auth/login",
       {
@@ -164,7 +183,7 @@ class ApiService {
 
   async applicationUserRegister(
     userData: ApplicationUserRegisterRequest
-  ): Promise<ApplicationUserLoginResponse> {
+  ): Promise<ApplicationUserLoginResponse | null> {
     return this.makeUnauthenticatedRequest<ApplicationUserLoginResponse>(
       "/auth/register",
       {
@@ -174,12 +193,13 @@ class ApiService {
     );
   }
 
-  // Profile methods
-  async getCurrentUser(): Promise<any> {
-    return this.makeRequest<any>("/hiring-auth/me");
+  // Profile methods - Unified endpoint
+  async getCurrentUser(): Promise<any | null> {
+    return this.makeRequest<any>("/auth/me");
   }
 
-  async getCurrentApplicationUser(): Promise<any> {
+  // Legacy method for backward compatibility - redirect to unified endpoint
+  async getCurrentApplicationUser(): Promise<any | null> {
     return this.makeRequest<any>("/auth/me");
   }
 
@@ -201,30 +221,32 @@ class ApiService {
     });
   }
 
-  // Logout methods
-  async logout(): Promise<void> {
-    return this.makeRequest<void>("/hiring-auth/logout", {
-      method: "POST",
-    });
-  }
-
-  async applicationUserLogout(): Promise<void> {
+  // Logout methods - Unified endpoint
+  async logout(): Promise<void | null> {
     return this.makeRequest<void>("/auth/logout", {
       method: "POST",
     });
   }
 
-  // Refresh token methods
-  async refreshToken(refreshToken: string): Promise<LoginResponse> {
-    return this.makeRequest<LoginResponse>("/hiring-auth/refresh", {
+  // Legacy method for backward compatibility - redirect to unified endpoint
+  async applicationUserLogout(): Promise<void | null> {
+    return this.makeRequest<void>("/auth/logout", {
+      method: "POST",
+    });
+  }
+
+  // Refresh token methods - Unified endpoint
+  async refreshToken(refreshToken: string): Promise<LoginResponse | null> {
+    return this.makeRequest<LoginResponse>("/auth/refresh", {
       method: "POST",
       body: JSON.stringify({ refreshToken }),
     });
   }
 
+  // Legacy method for backward compatibility - redirect to unified endpoint
   async applicationUserRefreshToken(
     refreshToken: string
-  ): Promise<ApplicationUserLoginResponse> {
+  ): Promise<ApplicationUserLoginResponse | null> {
     return this.makeRequest<ApplicationUserLoginResponse>("/auth/refresh", {
       method: "POST",
       body: JSON.stringify({ refreshToken }),
@@ -234,7 +256,7 @@ class ApiService {
   // Company registration method
   async registerCompany(
     companyData: CompanyRegisterRequest
-  ): Promise<CompanyRegisterResponse> {
+  ): Promise<CompanyRegisterResponse | null> {
     console.log("API Service - registerCompany called with:", companyData);
 
     const jsonPayload = JSON.stringify(companyData);
@@ -258,7 +280,7 @@ class ApiService {
   }
 
   // Get companies (for searching existing companies)
-  async getCompanies(industry?: string, isVerified?: boolean): Promise<any[]> {
+  async getCompanies(industry?: string, isVerified?: boolean): Promise<any[] | null> {
     if (industry || isVerified !== undefined) {
       // Use filter endpoint when filters are provided
       const params = new URLSearchParams();
@@ -269,28 +291,30 @@ class ApiService {
       const queryString = params.toString();
       const endpoint = `/companies/filter?${queryString}`;
 
-      return this.makeUnauthenticatedRequest<any[]>(endpoint, {
+      const result = await this.makeUnauthenticatedRequest<any[]>(endpoint, {
         method: "GET",
       });
+      return result || [];
     } else {
       // Use general endpoint for all companies
-      return this.makeUnauthenticatedRequest<any[]>("/companies", {
+      const result = await this.makeUnauthenticatedRequest<any[]>("/companies", {
         method: "GET",
       });
+      return result || [];
     }
   }
 
   // Get company by ID
-  async getCompanyById(id: string): Promise<any> {
+  async getCompanyById(id: string): Promise<any | null> {
     return this.makeUnauthenticatedRequest<any>(`/companies/${id}`, {
       method: "GET",
     });
   }
 
-  // Enhanced hiring user registration
+  // Enhanced hiring user registration (legacy method - now uses unified endpoint)
   async registerHiringUser(
     userData: HiringUserRegisterRequest
-  ): Promise<LoginResponse> {
+  ): Promise<LoginResponse | null> {
     console.log(
       "API Service - registerHiringUser called with userData:",
       userData
@@ -352,7 +376,7 @@ class ApiService {
     );
 
     return this.makeUnauthenticatedRequest<LoginResponse>(
-      "/hiring-auth/register",
+      "/auth/register-hiring",
       {
         method: "POST",
         body: JSON.stringify(unifiedRequest),
@@ -391,7 +415,7 @@ class ApiService {
   // Enhanced application user registration
   async registerApplicationUser(
     userData: ApplicationUserRegisterRequestEnhanced
-  ): Promise<ApplicationUserLoginResponse> {
+  ): Promise<ApplicationUserLoginResponse | null> {
     // Transform ApplicationUserRegisterRequestEnhanced to RegisterRequest format
     const registerRequest = {
       email: userData.email,
