@@ -105,50 +105,48 @@ class ResumeService {
 
   // Download resume file
   async downloadResume(resumeUrl: string, fileName: string): Promise<boolean> {
-    const { token, userCategory } = this.getAuthData();
+    const { token } = this.getAuthData();
     
     if (!token) {
       toast.error("Please log in to download resumes");
       return false;
     }
 
-    if (userCategory === "ApplicationUser") {
-      toast.error("Access denied - only hiring users can download resumes");
-      return false;
-    }
+    // Note: Both hiring users and application users can download resumes
+    // Hiring users can download candidate resumes, application users can download their own resumes
 
-    console.log("📤 Downloading resume:", { resumeUrl, fileName });
 
     try {
-      // Parse resumeUrl to extract bucket name and file name
-      // Expected format: "bucketName/fileName" or full URL
-      let bucketName: string;
+      // Use consistent bucket name from environment or default
+      const bucketName = process.env.NEXT_PUBLIC_BUCKET_NAME || process.env.BUCKET_NAME || 'resume-storage';
       let filePath: string;
 
+
       if (resumeUrl.startsWith("http")) {
-        // Handle full URLs - extract the path
+        // Handle full URLs - extract the file path from the URL
         const url = new URL(resumeUrl);
+        // For Supabase URLs like: https://xyz.supabase.co/storage/v1/object/public/bucket-name/file-path
         const pathParts = url.pathname.split("/").filter(Boolean);
-        if (pathParts.length >= 2) {
-          bucketName = pathParts[0];
-          filePath = pathParts.slice(1).join("/");
+        
+        // Find the bucket name in the URL and get everything after it
+        const bucketIndex = pathParts.findIndex(part => part === bucketName);
+        if (bucketIndex !== -1 && bucketIndex < pathParts.length - 1) {
+          filePath = pathParts.slice(bucketIndex + 1).join("/");
         } else {
-          toast.error("Invalid resume URL format");
-          return false;
+          // Fallback: assume the file path is the last part of the URL
+          filePath = pathParts[pathParts.length - 1];
         }
       } else {
-        // Handle relative paths like "resume-storage/fileName"
+        // Handle relative paths like "resume-storage/fileName" or just "fileName"
         const pathParts = resumeUrl.split("/");
-        if (pathParts.length >= 2) {
-          bucketName = pathParts[0];
+        if (pathParts.length >= 2 && pathParts[0] === bucketName) {
+          // Format: "bucketName/fileName"
           filePath = pathParts.slice(1).join("/");
         } else {
-          toast.error("Invalid resume URL format");
-          return false;
+          // Format: just "fileName" or different bucket name
+          filePath = resumeUrl;
         }
       }
-
-      console.log("📁 Parsed resume URL:", { bucketName, filePath });
 
       // Use the storage bucket service to download the file
       const { storageBucketService } = await import('./storageBucketService');
@@ -164,12 +162,21 @@ class ResumeService {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      console.log("✅ Resume downloaded successfully:", fileName);
       toast.success(`Resume "${fileName}" downloaded successfully`);
       return true;
     } catch (error) {
       console.error("❌ Failed to download resume:", error);
-      toast.error("Failed to download resume. Please try again.");
+      
+      // Provide more specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes('Bucket not found')) {
+          toast.error(`Storage bucket not found. Please contact support.`);
+        } else {
+          toast.error(`Download failed: ${error.message}`);
+        }
+      } else {
+        toast.error("Failed to download resume. Please try again.");
+      }
       return false;
     }
   }
@@ -371,7 +378,6 @@ class ResumeService {
         }))
       });
 
-      console.log("✅ Resume uploaded successfully:", newResume);
       toast.success(`Resume "${file.name}" uploaded successfully`);
 
       return newResume;
@@ -411,7 +417,6 @@ class ResumeService {
         }))
       });
 
-      console.log("✅ Resume deleted successfully:", resumeId);
       toast.success("Resume deleted successfully");
       return true;
     } catch (error) {

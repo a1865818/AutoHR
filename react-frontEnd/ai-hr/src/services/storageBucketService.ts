@@ -165,8 +165,7 @@ class StorageBucketService {
       throw new Error('File size must be less than 10MB');
     }
 
-    const bucketName =  process.env.BUCKET_NAME || 'resume-storage';
-    console.log('bucketName', bucketName);
+    const bucketName = process.env.NEXT_PUBLIC_BUCKET_NAME || process.env.BUCKET_NAME || 'resume-storage';
     const fileName = `${userId}_${Date.now()}_${file.name}`;
 
     try {

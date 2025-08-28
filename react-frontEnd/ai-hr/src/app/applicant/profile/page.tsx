@@ -1,47 +1,30 @@
 "use client";
 
 import {
-  AccountSecurity,
-  ActivityUsage,
-  ConnectedIntegrations,
   PersonalInformation,
-  PrivacyData,
   ProfileHeader,
   ProfileLayout,
   Toast,
-  UserPreferences,
 } from "@/components";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   PersonalInfo,
-  PrivacySettings,
-  SecuritySettings,
-  UserPreferences as UserPrefs,
   UserProfile,
 } from "@/interfaces";
 import { apiService } from "@/services/api";
 import {
-  Activity,
   AlertCircle,
-  AppWindowMac,
   Briefcase,
-  FileText,
   FileUser,
-  GlobeLock,
   GraduationCap,
-  List,
   Loader2,
-  Shield,
-  Target,
   User,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { ApplicationsSection } from "@/components/profile/applicants/ApplicationsSection";
 import { EducationSection } from "@/components/profile/applicants/EducationSection";
 import { ExperienceSection } from "@/components/profile/applicants/ExperienceSection";
 import { ResumeSection } from "@/components/profile/applicants/ResumeSection";
-import { SkillsSection } from "@/components/profile/applicants/SkillsSection";
 import { ApplicationUserData } from "@/interfaces/applicantProfile";
 
 export default function ApplicantProfilePage() {
@@ -375,119 +358,9 @@ export default function ApplicantProfilePage() {
     }
   };
 
-  const handleSecurityUpdate = async (
-    updatedSecurity: Partial<SecuritySettings>
-  ) => {
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      if (userProfile) {
-        setUserProfile((prev) =>
-          prev
-            ? {
-                ...prev,
-                securitySettings: {
-                  ...prev.securitySettings,
-                  ...updatedSecurity,
-                },
-              }
-            : null
-        );
-        showToast("Security settings updated successfully", "success");
-      }
-    } catch (error) {
-      showToast("Failed to update security settings", "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
-  const handlePreferencesUpdate = async (updatedPrefs: UserPrefs) => {
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      if (userProfile) {
-        setUserProfile((prev) =>
-          prev
-            ? {
-                ...prev,
-                preferences: updatedPrefs,
-              }
-            : null
-        );
-        showToast("Preferences updated successfully", "success");
-      }
-    } catch (error) {
-      showToast("Failed to update preferences", "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleIntegrationToggle = async (integrationId: string) => {
-    if (!userProfile) return;
-
-    const updatedIntegrations = userProfile.connectedIntegrations.map(
-      (integration) =>
-        integration.id === integrationId
-          ? {
-              ...integration,
-              connected: !integration.connected,
-              connectedAt: !integration.connected ? new Date() : undefined,
-              status: (!integration.connected ? "active" : "inactive") as
-                | "active"
-                | "inactive"
-                | "error",
-            }
-          : integration
-    );
-
-    setUserProfile((prev) =>
-      prev
-        ? {
-            ...prev,
-            connectedIntegrations: updatedIntegrations,
-          }
-        : null
-    );
-
-    showToast(
-      `Integration ${
-        updatedIntegrations.find((i) => i.id === integrationId)?.connected
-          ? "connected"
-          : "disconnected"
-      } successfully`,
-      "success"
-    );
-  };
-
-  const handlePrivacyUpdate = async (updatedPrivacy: PrivacySettings) => {
-    setIsLoading(true);
-    try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      if (userProfile) {
-        setUserProfile((prev) =>
-          prev
-            ? {
-                ...prev,
-                privacySettings: updatedPrivacy,
-              }
-            : null
-        );
-        showToast("Privacy settings updated successfully", "success");
-      }
-    } catch (error) {
-      showToast("Failed to update privacy settings", "error");
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -537,37 +410,6 @@ export default function ApplicantProfilePage() {
             isLoading={isLoading}
           />
         );
-      case "skills":
-        return (
-          <SkillsSection
-            skills={rawUserData?.skills || []}
-            onUpdate={async (skills) => {
-              try {
-                // Update skills through preferences
-                const updatedPreferences = {
-                  ...rawUserData?.preferences,
-                  skills,
-                };
-                await apiService.updateApplicationUserProfile({
-                  preferences: updatedPreferences,
-                });
-                setRawUserData((prev) =>
-                  prev
-                    ? {
-                        ...prev,
-                        preferences: updatedPreferences,
-                        skills, // Also update the skills field directly
-                      }
-                    : null
-                );
-                showToast("Skills updated successfully", "success");
-              } catch (error) {
-                showToast("Failed to update skills", "error");
-              }
-            }}
-            isLoading={isLoading}
-          />
-        );
       case "resume":
         return (
           <ResumeSection
@@ -583,47 +425,6 @@ export default function ApplicantProfilePage() {
                 showToast("Failed to update resume", "error");
               }
             }}
-            isLoading={isLoading}
-          />
-        );
-      case "applications":
-        return (
-          <ApplicationsSection
-            applications={[]} // This would be fetched from applications endpoint
-            isLoading={isLoading}
-          />
-        );
-      case "security":
-        return (
-          <AccountSecurity
-            securitySettings={userProfile.securitySettings}
-            onUpdate={handleSecurityUpdate}
-            isLoading={isLoading}
-          />
-        );
-      case "preferences":
-        return (
-          <UserPreferences
-            preferences={userProfile.preferences}
-            onUpdate={handlePreferencesUpdate}
-            isLoading={isLoading}
-          />
-        );
-      case "activity":
-        return <ActivityUsage activityData={userProfile.activityData} />;
-      case "integrations":
-        return (
-          <ConnectedIntegrations
-            integrations={userProfile.connectedIntegrations}
-            onToggle={handleIntegrationToggle}
-            isLoading={isLoading}
-          />
-        );
-      case "privacy":
-        return (
-          <PrivacyData
-            privacySettings={userProfile.privacySettings}
-            onUpdate={handlePrivacyUpdate}
             isLoading={isLoading}
           />
         );
@@ -691,52 +492,10 @@ function ApplicantProfileNavigation({
       description: "Professional history",
     },
     {
-      id: "skills",
-      label: "Skills & Expertise",
-      icon: Target,
-      description: "Technical & soft skills",
-    },
-    {
       id: "resume",
       label: "Resume & Documents",
       icon: FileUser,
       description: "Upload & manage resumes",
-    },
-    {
-      id: "applications",
-      label: "My Applications",
-      icon: FileText,
-      description: "Track job applications",
-    },
-    {
-      id: "security",
-      label: "Account Security",
-      icon: Shield,
-      description: "Password & 2FA",
-    },
-    {
-      id: "preferences",
-      label: "Preferences",
-      icon: List,
-      description: "Notifications & settings",
-    },
-    {
-      id: "activity",
-      label: "Activity & Usage",
-      icon: Activity,
-      description: "Login history & stats",
-    },
-    {
-      id: "integrations",
-      label: "Connected Apps",
-      icon: AppWindowMac,
-      description: "Third-party integrations",
-    },
-    {
-      id: "privacy",
-      label: "Privacy & Data",
-      icon: GlobeLock,
-      description: "Data settings & export",
     },
   ];
 

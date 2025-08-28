@@ -1,16 +1,18 @@
 "use client";
 
-import { useState } from "react";
-import { FileText, Plus, Edit3, Trash2, Save, X, Download, Eye } from "lucide-react";
+import { useState, useEffect } from "react";
+import { FileText, Plus, Edit3, Trash2, Save, X, Download, Eye, AlertCircle } from "lucide-react";
+import { resumeService, Resume as ResumeServiceResume } from "@/services/resumeService";
 
 export interface Resume {
   id: string;
-  name: string;
+  originalName: string; // Changed from 'name' to match service interface
   url: string;
   type: "resume" | "cover_letter" | "portfolio" | "certificate" | "other";
   uploadedAt: string;
   isDefault?: boolean;
   description?: string;
+  fileSize?: number; // Added to match service interface
 }
 
 interface ResumeSectionProps {
@@ -29,16 +31,45 @@ export function ResumeSection({
   const [tempResumeList, setTempResumeList] = useState<Resume[]>(resumeList);
   const [hasChanges, setHasChanges] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null); // Track which resume is being deleted
+  const [error, setError] = useState<string | null>(null);
+  const [deleteConfirmModal, setDeleteConfirmModal] = useState<{
+    isOpen: boolean;
+    resumeId: string;
+    resumeName: string;
+  }>({
+    isOpen: false,
+    resumeId: "",
+    resumeName: "",
+  });
+
+  // Sync tempResumeList with incoming resumeList
+  useEffect(() => {
+    setTempResumeList(resumeList);
+  }, [resumeList]);
+
+  // Handle keyboard events for modal
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (deleteConfirmModal.isOpen && event.key === 'Escape') {
+        handleCancelDelete();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [deleteConfirmModal.isOpen]);
 
   const handleAddResume = () => {
     const newResume: Resume = {
       id: `temp-${Date.now()}`,
-      name: "",
+      originalName: "",
       url: "",
       type: "resume",
       uploadedAt: new Date().toISOString(),
       isDefault: false,
       description: "",
+      fileSize: 0,
     };
     setTempResumeList([...tempResumeList, newResume]);
     setEditingId(newResume.id);
@@ -52,11 +83,18 @@ export function ResumeSection({
     setHasChanges(false);
   };
 
-  const handleSaveResumes = () => {
-    onUpdate(tempResumeList);
-    setIsEditing(false);
-    setEditingId(null);
-    setHasChanges(false);
+  const handleSaveResumes = async () => {
+    setError(null);
+    try {
+      // Update parent component which will save to database
+      await onUpdate(tempResumeList);
+      setIsEditing(false);
+      setEditingId(null);
+      setHasChanges(false);
+    } catch (error) {
+      console.error("Failed to save resume changes:", error);
+      setError("Failed to save changes. Please try again.");
+    }
   };
 
   const handleCancelEdit = () => {
@@ -66,10 +104,53 @@ export function ResumeSection({
     setHasChanges(false);
   };
 
-  const handleDeleteResume = (id: string) => {
-    const updatedResumeList = tempResumeList.filter(resume => resume.id !== id);
-    setTempResumeList(updatedResumeList);
-    setHasChanges(true);
+  const handleDeleteResumeClick = (id: string) => {
+    const resume = tempResumeList.find(r => r.id === id);
+    if (resume) {
+      setDeleteConfirmModal({
+        isOpen: true,
+        resumeId: id,
+        resumeName: resume.originalName,
+      });
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    const { resumeId } = deleteConfirmModal;
+    
+    setError(null);
+    setDeleting(resumeId); // Show loading state
+    setDeleteConfirmModal({ isOpen: false, resumeId: "", resumeName: "" }); // Close modal
+    
+    try {
+      // Delete from service (which updates the database)
+      const success = await resumeService.deleteResume(resumeId);
+      if (success) {
+        // Remove from local state
+        const updatedResumeList = tempResumeList.filter(resume => resume.id !== resumeId);
+        setTempResumeList(updatedResumeList);
+        
+        // Update the parent component immediately to reflect the change
+        onUpdate(updatedResumeList);
+        
+        // Clear any editing state if we were editing this resume
+        if (editingId === resumeId) {
+          setEditingId(null);
+          setIsEditing(false);
+        }
+        
+        setHasChanges(false);
+      }
+    } catch (error) {
+      console.error("Failed to delete resume:", error);
+      setError("Failed to delete resume. Please try again.");
+    } finally {
+      setDeleting(null); // Clear loading state
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmModal({ isOpen: false, resumeId: "", resumeName: "" });
   };
 
   const handleResumeChange = (id: string, field: keyof Resume, value: any) => {
@@ -94,20 +175,90 @@ export function ResumeSection({
   const handleFileUpload = async (file: File) => {
     setUploading(true);
     try {
-      // Simulate file upload - in real implementation, this would upload to your storage service
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Use real resume service to upload to Supabase bucket
+      const uploadedResume = await resumeService.uploadResume(file);
       
-      const uploadedUrl = `https://example.com/uploads/${file.name}`;
+      if (!uploadedResume) {
+        throw new Error("Failed to upload resume");
+      }
       
       if (editingId) {
-        handleResumeChange(editingId, "url", uploadedUrl);
-        handleResumeChange(editingId, "name", file.name);
+        // Update the resume in local state
+        setTempResumeList(prev =>
+          prev.map(resume =>
+            resume.id === editingId
+              ? {
+                  ...resume,
+                  url: uploadedResume.url,
+                  originalName: uploadedResume.originalName,
+                  fileSize: uploadedResume.fileSize,
+                  uploadedAt: uploadedResume.uploadedAt,
+                  id: uploadedResume.id, // Use the real ID from the service
+                }
+              : resume
+          )
+        );
+
+        // Since upload already saved to database via resumeService, 
+        // we need to update the parent to reflect the new resume list
+        const updatedList = tempResumeList.map(resume =>
+          resume.id === editingId
+            ? {
+                ...resume,
+                url: uploadedResume.url,
+                originalName: uploadedResume.originalName,
+                fileSize: uploadedResume.fileSize,
+                uploadedAt: uploadedResume.uploadedAt,
+                id: uploadedResume.id,
+              }
+            : resume
+        );
+        
+        // Update parent component immediately since upload already saved to DB
+        onUpdate(updatedList);
+        setHasChanges(false);
       }
       
       setUploading(false);
     } catch (error) {
       console.error("File upload failed:", error);
       setUploading(false);
+      // Error toast is already shown by the resume service
+    }
+  };
+
+  const handleViewResume = async (resume: Resume) => {
+    setError(null);
+    try {
+      // For viewing, we can use the same download logic but open in a new tab
+      if (resume.url) {
+        // If it's a full URL, open directly
+        if (resume.url.startsWith('http')) {
+          window.open(resume.url, '_blank');
+        } else {
+          // If it's a bucket path, get signed URL first
+          const fileInfo = await resumeService.getResumeFileInfo(resume.url);
+          if (fileInfo) {
+            // Open in new tab for viewing
+            window.open(resume.url, '_blank');
+          }
+        }
+      } else {
+        setError("Resume URL not available");
+      }
+    } catch (error) {
+      console.error("Failed to view resume:", error);
+      setError("Failed to view resume");
+    }
+  };
+
+  const handleDownloadResume = async (resume: Resume) => {
+    setError(null);
+    try {
+      await resumeService.downloadResume(resume.url, resume.originalName);
+    } catch (error) {
+      console.error("Failed to download resume:", error);
+      setError("Failed to download resume");
     }
   };
 
@@ -163,6 +314,22 @@ export function ResumeSection({
         </div>
       </div>
 
+      {/* Error Display */}
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md flex items-start">
+          <AlertCircle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <span className="text-red-700 text-sm">{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-600 hover:text-red-800 text-sm underline ml-2"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-6">
         {/* Documents List */}
         <div className="space-y-4">
@@ -179,7 +346,7 @@ export function ResumeSection({
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <h4 className="text-lg font-semibold text-gray-900">
-                        {resume.name || "Untitled Document"}
+                        {resume.originalName || "Untitled Document"}
                       </h4>
                       {resume.isDefault && (
                         <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
@@ -195,6 +362,7 @@ export function ResumeSection({
                       </span>
                     </div>
                     <p className="text-sm text-gray-500 mb-2">
+                      {resume.fileSize && `${(resume.fileSize / 1024 / 1024).toFixed(2)} MB • `}
                       Uploaded {new Date(resume.uploadedAt).toLocaleDateString()}
                     </p>
                     {resume.description && (
@@ -204,16 +372,18 @@ export function ResumeSection({
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => window.open(resume.url, '_blank')}
+                    onClick={() => handleViewResume(resume)}
                     className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                     title="View document"
+                    disabled={!resume.url}
                   >
                     <Eye className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => window.open(resume.url, '_blank')}
+                    onClick={() => handleDownloadResume(resume)}
                     className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                     title="Download document"
+                    disabled={!resume.url}
                   >
                     <Download className="h-4 w-4" />
                   </button>
@@ -224,10 +394,15 @@ export function ResumeSection({
                     <Edit3 className="h-4 w-4" />
                   </button>
                   <button
-                    onClick={() => handleDeleteResume(resume.id)}
-                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    onClick={() => handleDeleteResumeClick(resume.id)}
+                    disabled={deleting === resume.id}
+                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    {deleting === resume.id ? (
+                      <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -242,8 +417,8 @@ export function ResumeSection({
                       </label>
                       <input
                         type="text"
-                        value={resume.name}
-                        onChange={(e) => handleResumeChange(resume.id, "name", e.target.value)}
+                        value={resume.originalName}
+                        onChange={(e) => handleResumeChange(resume.id, "originalName", e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-orange-500"
                         placeholder="e.g., My Resume 2024"
                       />
@@ -279,7 +454,7 @@ export function ResumeSection({
                             handleFileUpload(file);
                           }
                         }}
-                        accept=".pdf,.doc,.docx,.txt"
+                        accept=".pdf"
                         className="hidden"
                         id={`file-upload-${resume.id}`}
                       />
@@ -293,7 +468,7 @@ export function ResumeSection({
                             {uploading ? "Uploading..." : "Click to upload or drag and drop"}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
-                            PDF, DOC, DOCX, TXT (max 10MB)
+                            PDF only (max 10MB)
                           </p>
                         </div>
                       </label>
@@ -389,6 +564,57 @@ export function ResumeSection({
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Blurry Background Overlay */}
+          <div 
+            className="absolute inset-0 backdrop-blur-md"
+            onClick={handleCancelDelete}
+          ></div>
+          
+          {/* Modal Content */}
+          <div className="relative bg-white rounded-xl shadow-2xl border border-gray-200 p-6 max-w-md w-full mx-4 transform transition-all duration-200 scale-100">
+            {/* Icon */}
+            <div className="flex items-center justify-center w-12 h-12 mx-auto mb-4 bg-red-100 rounded-full">
+              <AlertCircle className="w-6 h-6 text-red-600" />
+            </div>
+            
+            {/* Title */}
+            <h3 className="text-lg font-semibold text-gray-900 text-center mb-2">
+              Delete Resume
+            </h3>
+            
+            {/* Message */}
+            <p className="text-gray-600 text-center mb-1">
+              Are you sure you want to delete
+            </p>
+            <p className="text-gray-900 font-medium text-center mb-6">
+              "{deleteConfirmModal.resumeName}"?
+            </p>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              This action cannot be undone and the resume will be permanently removed from your profile.
+            </p>
+            
+            {/* Buttons */}
+            <div className="flex gap-3">
+              <button
+                onClick={handleCancelDelete}
+                className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
+              >
+                Delete Resume
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 } 
