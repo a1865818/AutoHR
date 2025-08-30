@@ -849,23 +849,33 @@ export function JobsPage() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-white border-b px-6 py-4">
+        <div className="bg-gradient-to-r from-[#066046]/5 to-[#267a54]/5 border border-[#066046]/10 rounded-xl p-8 mb-8 mx-6 mt-6">
           <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-900">
-                Job Management
-              </h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Manage your company&apos;s job postings and applications
-              </p>
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-[#066046]/10 rounded-lg">
+                <svg
+                  className="w-8 h-8 text-[#066046]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 13.255A23.931 23.931 0 0112 15c-3.183 0-6.22-.62-9-1.745M16 6V4a2 2 0 00-2-2h-4a2 2 0 00-2-2v2m8 0V6a2 2 0 012 2v6a2 2 0 01-2 2H8a2 2 0 01-2-2V8a2 2 0 012-2V6"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                  Job Management
+                </h1>
+                <p className="text-gray-600 text-base">
+                  Manage your company&apos;s job postings and applications
+                </p>
+              </div>
             </div>
-            <Link
-              href="/create-job"
-              className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors flex items-center"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Job
-            </Link>
           </div>
 
           {/* Enhanced Tabs */}
@@ -873,10 +883,10 @@ export function JobsPage() {
             {tabs.map((tab) => (
               <button
                 key={tab.id}
-                className={`whitespace-nowrap pb-2 px-3 ${
+                className={`whitespace-nowrap pb-2 px-3 transition-colors ${
                   viewMode === tab.id
-                    ? "text-blue-600 border-b-2 border-blue-600 font-medium"
-                    : "text-gray-500 hover:text-gray-700"
+                    ? "text-[#066046] border-b-2 border-[#066046] font-medium"
+                    : "text-gray-500 hover:text-[#066046]"
                 }`}
                 onClick={() => setViewMode(tab.id)}
               >
@@ -884,7 +894,7 @@ export function JobsPage() {
                 <span
                   className={`ml-2 text-sm px-2 py-0.5 rounded-full ${
                     viewMode === tab.id
-                      ? "bg-blue-100 text-blue-600"
+                      ? "bg-[#066046]/10 text-[#066046]"
                       : "bg-gray-100 text-gray-600"
                   }`}
                 >
@@ -903,7 +913,7 @@ export function JobsPage() {
                 </div>
                 <input
                   type="text"
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-[#066046] focus:border-[#066046]"
                   placeholder="Search jobs..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -918,7 +928,7 @@ export function JobsPage() {
                     className="flex items-center text-sm text-gray-600 hover:text-gray-800 transition-colors"
                   >
                     {isSelectAllMode ? (
-                      <CheckSquare className="h-4 w-4 mr-1 text-blue-600" />
+                      <CheckSquare className="h-4 w-4 mr-1 text-[#066046]" />
                     ) : (
                       <Square className="h-4 w-4 mr-1" />
                     )}
@@ -930,7 +940,7 @@ export function JobsPage() {
 
             <div className="relative ml-4">
               <button
-                className="flex items-center px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="flex items-center px-3 py-2 text-sm text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-[#066046]"
                 onClick={() => setShowSortDropdown(!showSortDropdown)}
               >
                 <span>Sort By: {getSortLabel(sortBy)}</span>
@@ -952,7 +962,7 @@ export function JobsPage() {
                         key={option}
                         className={`block w-full text-left px-4 py-2 text-sm hover:bg-gray-100 ${
                           sortBy === option
-                            ? "text-blue-600 bg-blue-50"
+                            ? "text-[#066046] bg-[#066046]/10"
                             : "text-gray-700"
                         }`}
                         onClick={() => {
@@ -1017,14 +1027,14 @@ export function JobsPage() {
                           clearAllFilters();
                           setSearchQuery("");
                         }}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                        className="px-4 py-2 bg-[#066046] text-white rounded-md hover:bg-[#267a54] transition-colors"
                       >
                         Clear Filters
                       </button>
                     ) : viewMode === "Draft" ? (
                       <Link
                         href="/jobs/create"
-                        className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                        className="px-4 py-2 bg-[#066046] text-white rounded-md hover:bg-[#267a54] transition-colors"
                       >
                         Create Your First Job
                       </Link>
@@ -1054,7 +1064,7 @@ export function JobsPage() {
                   Showing {paginatedJobs.length > 0 ? 1 : 0} to{" "}
                   {paginatedJobs.length} of {totalJobs} jobs
                   {selectedJobs.length > 0 && (
-                    <span className="ml-2 text-blue-600 font-medium">
+                    <span className="ml-2 text-[#066046] font-medium">
                       ({selectedJobs.length} selected)
                     </span>
                   )}
@@ -1067,7 +1077,7 @@ export function JobsPage() {
                     className={`p-2 rounded-md ${
                       currentPage === 1
                         ? "text-gray-400 cursor-not-allowed"
-                        : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                        : "text-gray-600 hover:text-[#066046] hover:bg-[#066046]/10"
                     }`}
                   >
                     <ChevronLeft className="h-4 w-4" />
@@ -1095,8 +1105,8 @@ export function JobsPage() {
                               onClick={() => handlePageChange(page)}
                               className={`px-3 py-1 rounded-md text-sm font-medium ${
                                 currentPage === page
-                                  ? "bg-blue-600 text-white"
-                                  : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
+                                  ? "bg-[#066046] text-white"
+                                  : "text-gray-600 hover:bg-[#066046]/10 hover:text-[#066046]"
                               }`}
                             >
                               {page}
@@ -1112,7 +1122,7 @@ export function JobsPage() {
                     className={`p-2 rounded-md ${
                       currentPage === totalPages
                         ? "text-gray-400 cursor-not-allowed"
-                        : "text-gray-600 hover:text-blue-600 hover:bg-blue-50"
+                        : "text-gray-600 hover:text-[#066046] hover:bg-[#066046]/10"
                     }`}
                   >
                     <ChevronRight className="h-4 w-4" />

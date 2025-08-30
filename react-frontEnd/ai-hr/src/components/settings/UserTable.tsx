@@ -110,7 +110,7 @@ export function UserTable({
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 capitalize">
+                  <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-[#066046]/15 text-[#066046] border border-[#066046]/20 capitalize">
                     {getRoleText(user)}
                   </span>
                 </td>
@@ -131,7 +131,7 @@ export function UserTable({
                         e.stopPropagation();
                         onEditUser(user.id);
                       }}
-                      className="text-primary hover:text-blue-900 mr-2"
+                      className="text-[#066046] hover:text-[#267a54] mr-2"
                       type="button"
                     >
                       <Edit className="h-4 w-4" />

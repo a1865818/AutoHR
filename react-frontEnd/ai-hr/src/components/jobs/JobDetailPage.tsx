@@ -249,13 +249,13 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
   const getTypeColor = (type: string) => {
     switch (type) {
       case "Full-Time":
-        return "bg-blue-100 text-blue-800";
+        return "bg-[#066046]/15 text-[#066046] border border-[#066046]/20";
       case "Part-Time":
-        return "bg-purple-100 text-purple-800";
+        return "bg-[#066046]/15 text-[#066046] border border-[#066046]/20";
       case "Contract":
-        return "bg-orange-100 text-orange-800";
+        return "bg-[#066046]/15 text-[#066046] border border-[#066046]/20";
       case "Internship":
-        return "bg-pink-100 text-pink-800";
+        return "bg-[#066046]/15 text-[#066046] border border-[#066046]/20";
       default:
         return "bg-gray-100 text-gray-800";
     }

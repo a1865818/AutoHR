@@ -74,7 +74,7 @@ function EmptyState({
         {state.action && (
           <button
             onClick={state.action}
-            className="inline-flex items-center px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-md hover:bg-blue-600 transition-colors mb-8"
+            className="inline-flex items-center px-4 py-2 bg-[#066046] text-white text-sm font-medium rounded-md hover:bg-[#267a54] transition-colors mb-8"
           >
             {state.actionIcon}
             {state.actionText}
@@ -269,7 +269,7 @@ function CandidatesPage() {
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+            className="bg-[#066046] text-white px-4 py-2 rounded hover:bg-[#267a54] transition-colors"
           >
             Try Again
           </button>
@@ -281,15 +281,32 @@ function CandidatesPage() {
   // Main render - show job grid with pagination
   return (
     <div className="flex-1 flex flex-col h-full bg-gray-50">
-      <div className="px-6 py-4 bg-white border-b">
+      <div className="bg-gradient-to-r from-[#066046]/5 to-[#267a54]/5 border border-[#066046]/10 rounded-xl p-8 mb-8 mx-6 mt-6">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900">
-              Candidates by Job
-            </h1>
-            <p className="text-gray-600 text-sm">
-              Select a job to view and manage its candidates
-            </p>
+          <div className="flex items-center space-x-4">
+            <div className="p-3 bg-[#066046]/10 rounded-lg">
+              <svg
+                className="w-8 h-8 text-[#066046]"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
+                />
+              </svg>
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                Candidates by Job
+              </h1>
+              <p className="text-gray-600 text-base">
+                Select a job to view and manage its candidates
+              </p>
+            </div>
           </div>
           <div className="flex items-center space-x-4">
             {/* Search input */}
@@ -299,14 +316,14 @@ function CandidatesPage() {
               </div>
               <input
                 type="text"
-                className="block w-64 pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                className="block w-64 pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-[#066046] focus:border-[#066046]"
                 placeholder="Search jobs..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
 
-            <div className="bg-white px-4 py-2 rounded-lg border border-gray-200">
+            <div className="bg-white px-4 py-2 rounded-lg border border-gray-200 shadow-sm">
               <span className="text-sm font-medium text-gray-600">
                 {searchQuery.trim()
                   ? `${displayedJobs.length} result${

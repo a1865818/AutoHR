@@ -57,10 +57,10 @@ const UserDropdown: React.FC = () => {
       <div className="relative" ref={dropdownRef}>
         <button
           onClick={toggleDropdown}
-          className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2"
         >
           {/* User Avatar */}
-          <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+          <div className="w-8 h-8 bg-[#066046] rounded-full flex items-center justify-center">
             <span className="text-white text-sm font-medium">
               {user.name
                 .split(" ")
@@ -89,22 +89,11 @@ const UserDropdown: React.FC = () => {
           <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
             {/* User Info Header */}
             <div className="px-4 py-3 border-b border-gray-100">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">
-                    {user.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")
-                      .toUpperCase()}
-                  </span>
+              <div>
+                <div className="text-sm font-medium text-gray-900">
+                  {user.name}
                 </div>
-                <div>
-                  <div className="text-sm font-medium text-gray-900">
-                    {user.name}
-                  </div>
-                  <div className="text-xs text-gray-500">{user.email}</div>
-                </div>
+                <div className="text-xs text-gray-500">{user.email}</div>
               </div>
             </div>
 
@@ -112,17 +101,17 @@ const UserDropdown: React.FC = () => {
             <div className="py-1">
               <button
                 onClick={handleProfileClick}
-                className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-[#066046]/10 transition-colors"
               >
-                <User className="w-4 h-4" />
+                <User className="w-4 h-4 mr-3" />
                 <span>Your Profile</span>
               </button>
 
               <button
                 onClick={handleSettingsClick}
-                className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-[#066046]/10 transition-colors"
               >
-                <Settings className="w-4 h-4" />
+                <Settings className="w-4 h-4 mr-3" />
                 <span>Settings</span>
               </button>
 
@@ -132,9 +121,9 @@ const UserDropdown: React.FC = () => {
                     setIsOpen(false);
                     router.push("/admin");
                   }}
-                  className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-[#066046]/10 transition-colors"
                 >
-                  <Shield className="w-4 h-4" />
+                  <Shield className="w-4 h-4 mr-3" />
                   <span>Admin Panel</span>
                 </button>
               )}
@@ -143,9 +132,9 @@ const UserDropdown: React.FC = () => {
 
               <button
                 onClick={handleLogoutClick}
-                className="flex items-center space-x-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-4 h-4 mr-3" />
                 <span>Sign out</span>
               </button>
             </div>

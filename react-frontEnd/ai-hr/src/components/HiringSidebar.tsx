@@ -61,7 +61,7 @@ export function HiringSidebar() {
         {!isOpen && (
           <button
             type="button"
-            className="lg:hidden p-2 rounded-md text-gray-600 bg-white hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+            className="lg:hidden p-2 rounded-md text-gray-600 bg-white hover:text-gray-900 hover:bg-[#066046]/10 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
             onClick={() => setIsOpen(true)}
           >
             <span className="sr-only">Open sidebar</span>
@@ -71,7 +71,7 @@ export function HiringSidebar() {
         {/* Desktop Collapse Toggle */}
         <button
           type="button"
-          className="hidden lg:block p-2 rounded-md text-gray-600 bg-white hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+          className="hidden lg:block p-2 rounded-md text-gray-600 bg-white hover:text-gray-900 hover:bg-[#066046]/10 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
           onClick={() => {
             const newValue = !isCollapsed;
             setIsCollapsed(newValue);
@@ -117,12 +117,12 @@ export function HiringSidebar() {
               >
                 <div
                   className={`flex items-center justify-center h-8 w-8 rounded ${
-                    isCollapsed ? "" : "bg-indigo-600"
+                    isCollapsed ? "" : "bg-primary"
                   }`}
                 >
                   <Building
                     className={`h-6 w-6 ${
-                      isCollapsed ? "text-indigo-600" : "text-white"
+                      isCollapsed ? "text-primary" : "text-white"
                     }`}
                   />
                 </div>
@@ -137,7 +137,7 @@ export function HiringSidebar() {
               {isOpen && (
                 <button
                   type="button"
-                  className="lg:hidden p-1 rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+                  className="lg:hidden p-1 rounded-md text-gray-500 hover:text-[#066046] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
                   onClick={() => setIsOpen(false)}
                 >
                   <span className="sr-only">Close sidebar</span>
@@ -166,19 +166,19 @@ export function HiringSidebar() {
                     href={item.href}
                     prefetch={false}
                     title={isCollapsed ? item.name : undefined}
-                    className={`flex items-center py-2 rounded-md text-sm font-medium transition-colors duration-150 relative
+                    className={`flex items-center py-2 rounded-md text-sm font-medium transition-colors duration-150 relative group
                       ${isCollapsed ? "px-2 justify-center" : "px-3"}
                       ${
                         isActive
                           ? isCollapsed
-                            ? "bg-indigo-100 text-indigo-700"
-                            : "bg-indigo-100 text-indigo-700 border-l-4 border-indigo-600"
-                          : "text-gray-700 hover:bg-indigo-50 hover:text-indigo-600"
+                            ? "bg-primary/10 text-primary"
+                            : "bg-primary/10 text-primary border-l-4 border-primary"
+                          : "text-gray-700 hover:bg-[#066046]/10"
                       }`}
                   >
                     <item.icon
                       className={`h-5 w-5 ${isCollapsed ? "" : "mr-3"} ${
-                        isActive ? "text-indigo-600" : "text-gray-500"
+                        isActive ? "text-primary" : "text-gray-500"
                       }`}
                     />
                     <span className={`${isCollapsed ? "lg:hidden" : ""}`}>
@@ -191,7 +191,7 @@ export function HiringSidebar() {
             <div className="border-t border-gray-200 pt-6">
               <div className={`${isCollapsed ? "lg:hidden" : ""} mb-4`}>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center">
-                  <span className="h-1 w-6 bg-indigo-600 rounded-full mr-2"></span>
+                  <span className="h-1 w-6 bg-primary rounded-full mr-2"></span>
                   Quick Actions
                 </p>
               </div>
@@ -200,20 +200,21 @@ export function HiringSidebar() {
                 {/* Create Job Button */}
                 <Link
                   href="/create-job"
-                  className={`group relative flex items-center py-3 px-4 rounded-xl text-sm font-medium text-white 
-                  bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 
-                  shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 
+                  className={`group relative flex items-center py-3 px-4 rounded-xl text-sm font-medium transition-colors
+                  bg-[#066046]/10 text-[#066046] hover:bg-[#066046] hover:text-white
+                  border border-[#066046]/20 hover:border-[#066046]
+                  shadow-sm hover:shadow-md transform hover:-translate-y-0.5
                   transition-all duration-200 ease-out
                   ${isCollapsed ? "justify-center" : ""}`}
                   title={isCollapsed ? "Create Job" : undefined}
                 >
                   <div className="flex items-center">
                     <div
-                      className={`p-1 rounded-lg bg-white/20 ${
+                      className={`p-1 rounded-lg transition-colors ${
                         isCollapsed ? "" : "mr-3"
-                      }`}
+                      } group-hover:bg-white/20 bg-[#066046]/20`}
                     >
-                      <PlusCircle className="h-4 w-4" />
+                      <PlusCircle className="h-4 w-4 transition-colors group-hover:text-white text-[#066046]" />
                     </div>
                     <span
                       className={`${
@@ -228,9 +229,9 @@ export function HiringSidebar() {
                 {/* Create Interview Template Button */}
                 <Link
                   href="/interview-templates/create"
-                  className={`group relative flex items-center py-3 px-4 rounded-xl text-sm font-medium text-gray-700
-                  bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200
-                  border border-gray-200 hover:border-gray-300
+                  className={`group relative flex items-center py-3 px-4 rounded-xl text-sm font-medium transition-colors
+                  bg-[#066046]/10 text-[#066046] hover:bg-[#066046] hover:text-white
+                  border border-[#066046]/20 hover:border-[#066046]
                   shadow-sm hover:shadow-md transform hover:-translate-y-0.5
                   transition-all duration-200 ease-out
                   ${isCollapsed ? "justify-center" : ""}`}
@@ -238,11 +239,11 @@ export function HiringSidebar() {
                 >
                   <div className="flex items-center">
                     <div
-                      className={`p-1 rounded-lg bg-indigo-100 text-indigo-600 ${
+                      className={`p-1 rounded-lg transition-colors ${
                         isCollapsed ? "" : "mr-3"
-                      }`}
+                      } group-hover:bg-white/20 bg-[#066046]/20`}
                     >
-                      <PlusCircle className="h-4 w-4" />
+                      <PlusCircle className="h-4 w-4 transition-colors group-hover:text-white text-[#066046]" />
                     </div>
                     <span
                       className={`${

@@ -154,13 +154,13 @@ export function JobCard({
     const safeType = safeRender(type);
     switch (safeType) {
       case "Full-Time":
-        return "bg-blue-100 text-blue-800";
+        return "bg-[#066046]/15 text-[#066046] border border-[#066046]/20";
       case "Part-Time":
-        return "bg-purple-100 text-purple-800";
+        return "bg-[#066046]/15 text-[#066046] border border-[#066046]/20";
       case "Contract":
-        return "bg-orange-100 text-orange-800";
+        return "bg-[#066046]/15 text-[#066046] border border-[#066046]/20";
       case "Internship":
-        return "bg-pink-100 text-pink-800";
+        return "bg-[#066046]/15 text-[#066046] border border-[#066046]/20";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -407,7 +407,7 @@ export function JobCard({
         {/* Right side - Actions */}
         <div className="ml-6 flex flex-col gap-2 relative">
           <button
-            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-[#066046] text-white text-sm font-medium rounded-md hover:bg-[#267a54] transition-colors"
             onClick={handleEdit}
           >
             Edit Job

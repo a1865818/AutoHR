@@ -49,7 +49,7 @@ export function CandidateHeader({
           )}
           <div>
             <h1 className="text-xl font-semibold text-gray-900">
-              {jobTitle ? `Candidates for ${jobTitle}` : "Candidates"}
+              {jobTitle ? `${jobTitle}` : "Candidates"}
             </h1>
             {totalCandidates !== undefined && (
               <p className="text-gray-600 text-sm">

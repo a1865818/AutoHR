@@ -67,8 +67,8 @@ export function CompanySettings({
     <div className="space-y-6">
       <div>
         <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-blue-100 rounded-lg">
-            <Building2 className="h-6 w-6 text-blue-600" />
+          <div className="p-2 bg-[#066046]/10 rounded-lg">
+            <Building2 className="h-6 w-6 text-[#066046]" />
           </div>
           <div>
             <h3 className="text-lg font-medium text-gray-900">
@@ -83,13 +83,13 @@ export function CompanySettings({
         <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <h4 className="font-semibold text-gray-900 flex items-center">
-              <div className="w-2 h-2 bg-blue-500 rounded-full mr-3"></div>
+              <div className="w-2 h-2 bg-[#066046] rounded-full mr-3"></div>
               Company Details
             </h4>
             {!isEditing && (
               <button
                 onClick={handleStartEdit}
-                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-[#066046] hover:text-[#267a54] hover:bg-[#066046]/10 rounded-lg transition-colors"
               >
                 <Edit3 className="h-4 w-4" />
                 Edit Information
@@ -113,7 +113,7 @@ export function CompanySettings({
                 disabled={!isEditing}
                 className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-colors ${
                   isEditing
-                    ? "border-blue-300 focus:ring-blue-500 bg-white"
+                    ? "border-[#066046]/30 focus:ring-[#066046] bg-white"
                     : "border-gray-200 bg-gray-50 text-gray-600 cursor-not-allowed"
                 }`}
                 placeholder="Enter company name"
@@ -135,7 +135,7 @@ export function CompanySettings({
                 disabled={!isEditing}
                 className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-colors ${
                   isEditing
-                    ? "border-blue-300 focus:ring-blue-500 bg-white"
+                    ? "border-[#066046]/30 focus:ring-[#066046] bg-white"
                     : "border-gray-200 bg-gray-50 text-gray-600 cursor-not-allowed"
                 }`}
                 placeholder="https://yourcompany.com"
@@ -156,7 +156,7 @@ export function CompanySettings({
                 disabled={!isEditing}
                 className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-colors ${
                   isEditing
-                    ? "border-blue-300 focus:ring-blue-500 bg-white"
+                    ? "border-[#066046]/30 focus:ring-[#066046] bg-white"
                     : "border-gray-200 bg-gray-50 text-gray-600 cursor-not-allowed"
                 }`}
               >
@@ -187,7 +187,7 @@ export function CompanySettings({
                 disabled={!isEditing}
                 className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-colors ${
                   isEditing
-                    ? "border-blue-300 focus:ring-blue-500 bg-white"
+                    ? "border-[#066046]/30 focus:ring-[#066046] bg-white"
                     : "border-gray-200 bg-gray-50 text-gray-600 cursor-not-allowed"
                 }`}
               >
@@ -216,7 +216,7 @@ export function CompanySettings({
               disabled={!isEditing}
               className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:border-transparent transition-colors resize-none ${
                 isEditing
-                  ? "border-blue-300 focus:ring-blue-500 bg-white"
+                  ? "border-[#066046]/30 focus:ring-[#066046] bg-white"
                   : "border-gray-200 bg-gray-50 text-gray-600 cursor-not-allowed"
               }`}
               placeholder="Describe your company, its mission, and what makes it unique..."
@@ -249,7 +249,7 @@ export function CompanySettings({
                   <button
                     onClick={handleSaveChanges}
                     disabled={!hasChanges}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#066046] hover:bg-[#267a54] disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors"
                   >
                     <Save className="h-4 w-4" />
                     Save Changes

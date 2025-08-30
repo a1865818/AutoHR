@@ -108,9 +108,8 @@ export default function HiringDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      
       {/* Welcome Header */}
-      <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl  p-6 mb-8 text-white">
+      <div className="bg-gradient-to-r from-primary to-accent rounded-xl  p-6 mb-8 text-white">
         <div className="flex items-center space-x-4">
           <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
             <span className="text-white text-xl font-bold">
@@ -125,7 +124,7 @@ export default function HiringDashboard() {
             <h2 className="text-2xl font-semibold">
               Welcome back, {user.firstName}!
             </h2>
-            <p className="mt-1 text-indigo-100 flex items-center space-x-2">
+            <p className="mt-1 text-white/80 flex items-center space-x-2">
               <User className="w-4 h-4" />
               <span>{user.role}</span>
               <span>•</span>
@@ -134,7 +133,7 @@ export default function HiringDashboard() {
               </span>
             </p>
             {user.companyId && (
-              <p className="mt-1 text-indigo-200 flex items-center space-x-1">
+              <p className="mt-1 text-white/70 flex items-center space-x-1">
                 <Building className="w-4 h-4" />
                 <span>Company ID: {user.companyId}</span>
               </p>
@@ -148,16 +147,18 @@ export default function HiringDashboard() {
         <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Active Jobs</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm font-medium text-foreground/70">
+                Active Jobs
+              </p>
+              <p className="text-2xl font-bold text-foreground">
                 {recruitmentStats.activeJobs}
               </p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-full">
-              <Briefcase className="w-6 h-6 text-blue-600" />
+            <div className="p-3 bg-primary/10 rounded-full">
+              <Briefcase className="w-6 h-6 text-primary" />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-sm text-green-600">
+          <div className="mt-4 flex items-center text-sm text-secondary">
             <TrendingUp className="w-4 h-4 mr-1" />
             <span>+2 this week</span>
           </div>
@@ -166,18 +167,18 @@ export default function HiringDashboard() {
         <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">
+              <p className="text-sm font-medium text-foreground/70">
                 Total Candidates
               </p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-2xl font-bold text-foreground">
                 {recruitmentStats.totalCandidates}
               </p>
             </div>
-            <div className="p-3 bg-green-100 rounded-full">
-              <Users className="w-6 h-6 text-green-600" />
+            <div className="p-3 bg-secondary/10 rounded-full">
+              <Users className="w-6 h-6 text-secondary" />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-sm text-green-600">
+          <div className="mt-4 flex items-center text-sm text-secondary">
             <TrendingUp className="w-4 h-4 mr-1" />
             <span>+15 this week</span>
           </div>
@@ -186,18 +187,18 @@ export default function HiringDashboard() {
         <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">
+              <p className="text-sm font-medium text-foreground/70">
                 New Applications
               </p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-2xl font-bold text-foreground">
                 {recruitmentStats.newApplications}
               </p>
             </div>
-            <div className="p-3 bg-yellow-100 rounded-full">
-              <Eye className="w-6 h-6 text-yellow-600" />
+            <div className="p-3 bg-accent/10 rounded-full">
+              <Eye className="w-6 h-6 text-accent" />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-sm text-orange-600">
+          <div className="mt-4 flex items-center text-sm text-accent">
             <AlertCircle className="w-4 h-4 mr-1" />
             <span>Needs review</span>
           </div>
@@ -206,16 +207,18 @@ export default function HiringDashboard() {
         <div className="bg-white p-6 rounded-xl shadow-lg border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Interviews</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm font-medium text-foreground/70">
+                Interviews
+              </p>
+              <p className="text-2xl font-bold text-foreground">
                 {recruitmentStats.interviewsScheduled}
               </p>
             </div>
-            <div className="p-3 bg-purple-100 rounded-full">
-              <Clock className="w-6 h-6 text-purple-600" />
+            <div className="p-3 bg-primary/10 rounded-full">
+              <Clock className="w-6 h-6 text-primary" />
             </div>
           </div>
-          <div className="mt-4 flex items-center text-sm text-purple-600">
+          <div className="mt-4 flex items-center text-sm text-primary">
             <CheckCircle className="w-4 h-4 mr-1" />
             <span>This week</span>
           </div>
@@ -230,16 +233,16 @@ export default function HiringDashboard() {
         >
           <div className="flex items-center justify-between flex-1">
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 group-hover:text-indigo-600">
+              <h3 className="text-lg font-semibold text-foreground group-hover:text-primary">
                 Create New Job
               </h3>
-              <p className="mt-2 text-gray-600 text-sm">
+              <p className="mt-2 text-foreground/70 text-sm">
                 Generate job descriptions and start accepting applications
               </p>
             </div>
-            <PlusCircle className="w-8 h-8 text-indigo-600" />
+            <PlusCircle className="w-8 h-8 text-primary" />
           </div>
-          <div className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white py-3 rounded-lg flex items-center justify-center text-sm font-medium transition-colors">
+          <div className="mt-4 bg-primary hover:bg-accent text-white py-3 rounded-lg flex items-center justify-center text-sm font-medium transition-colors">
             <PlusCircle className="mr-2 h-4 w-4" />
             Create Job
           </div>
@@ -251,16 +254,16 @@ export default function HiringDashboard() {
         >
           <div className="flex items-center justify-between flex-1">
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 group-hover:text-green-600">
+              <h3 className="text-lg font-semibold text-foreground group-hover:text-secondary">
                 Manage Candidates
               </h3>
-              <p className="mt-2 text-gray-600 text-sm">
+              <p className="mt-2 text-foreground/70 text-sm">
                 Review applications and select the best candidates
               </p>
             </div>
-            <Users className="w-8 h-8 text-green-600" />
+            <Users className="w-8 h-8 text-secondary" />
           </div>
-          <div className="mt-4 bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg flex items-center justify-center text-sm font-medium transition-colors">
+          <div className="mt-4 bg-secondary hover:bg-accent text-white py-3 rounded-lg flex items-center justify-center text-sm font-medium transition-colors">
             <Users className="mr-2 h-4 w-4" />
             View Candidates
           </div>
@@ -272,16 +275,16 @@ export default function HiringDashboard() {
         >
           <div className="flex items-center justify-between flex-1">
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 group-hover:text-purple-600">
+              <h3 className="text-lg font-semibold text-foreground group-hover:text-primary">
                 Active Jobs
               </h3>
-              <p className="mt-2 text-gray-600 text-sm">
+              <p className="mt-2 text-foreground/70 text-sm">
                 Monitor your current job postings and applications
               </p>
             </div>
-            <Briefcase className="w-8 h-8 text-purple-600" />
+            <Briefcase className="w-8 h-8 text-primary" />
           </div>
-          <div className="mt-4 bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-lg flex items-center justify-center text-sm font-medium transition-colors">
+          <div className="mt-4 bg-primary hover:bg-accent text-white py-3 rounded-lg flex items-center justify-center text-sm font-medium transition-colors">
             <Briefcase className="mr-2 h-4 w-4" />
             View Jobs
           </div>
@@ -293,13 +296,13 @@ export default function HiringDashboard() {
         {/* Recent Activity */}
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 flex flex-col h-full">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold text-gray-800 flex items-center">
+            <h3 className="text-xl font-semibold text-foreground flex items-center">
               <TrendingUp className="w-5 h-5 mr-2" />
               Recent Activity
             </h3>
             <Link
               href="/activity"
-              className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
+              className="text-primary hover:text-accent text-sm font-medium"
             >
               View all
             </Link>
@@ -312,16 +315,24 @@ export default function HiringDashboard() {
                   key={activity.id}
                   className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
-                  <div className={`p-2 rounded-full ${activity.bgColor}`}>
+                  <div
+                    className={`p-2 rounded-full ${activity.bgColor
+                      .replace("blue-100", "primary/10")
+                      .replace("green-100", "secondary/10")
+                      .replace("yellow-100", "accent/10")}`}
+                  >
                     <IconComponent
-                      className={`w-4 h-4 ${activity.iconColor}`}
+                      className={`w-4 h-4 ${activity.iconColor
+                        .replace("text-blue-600", "text-primary")
+                        .replace("text-green-600", "text-secondary")
+                        .replace("text-yellow-600", "text-accent")}`}
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-800 text-sm line-clamp-2">
+                    <p className="font-medium text-foreground text-sm line-clamp-2">
                       {activity.message}
                     </p>
-                    <p className="text-xs text-gray-500 flex items-center mt-1">
+                    <p className="text-xs text-foreground/60 flex items-center mt-1">
                       <Clock className="w-3 h-3 mr-1" />
                       {activity.time}
                     </p>
@@ -334,7 +345,7 @@ export default function HiringDashboard() {
 
         {/* Urgent Tasks */}
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 flex flex-col h-full">
-          <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+          <h4 className="font-semibold text-foreground mb-4 flex items-center">
             <AlertCircle className="w-5 h-5 mr-2 text-orange-500" />
             Urgent Tasks
           </h4>
@@ -344,7 +355,7 @@ export default function HiringDashboard() {
                 key={task.id}
                 className="border-l-4 border-orange-400 pl-3 py-2"
               >
-                <p className="text-sm font-medium text-gray-800 line-clamp-2">
+                <p className="text-sm font-medium text-foreground line-clamp-2">
                   {task.task}
                 </p>
                 <div className="flex items-center justify-between mt-2">
@@ -356,14 +367,16 @@ export default function HiringDashboard() {
                     {task.priority.charAt(0).toUpperCase() +
                       task.priority.slice(1)}
                   </span>
-                  <span className="text-xs text-gray-500">{task.dueDate}</span>
+                  <span className="text-xs text-foreground/60">
+                    {task.dueDate}
+                  </span>
                 </div>
               </div>
             ))}
           </div>
           <Link
             href="/tasks"
-            className="mt-4 w-full bg-orange-600 hover:bg-orange-700 text-white py-2 rounded-lg flex items-center justify-center text-sm font-medium transition-colors"
+            className="mt-4 w-full bg-secondary hover:bg-accent text-white py-2 rounded-lg flex items-center justify-center text-sm font-medium transition-colors"
           >
             <CheckCircle className="mr-2 h-4 w-4" />
             View All Tasks
@@ -372,31 +385,39 @@ export default function HiringDashboard() {
 
         {/* Quick Analytics */}
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6 flex flex-col h-full">
-          <h4 className="font-semibold text-gray-800 mb-4 flex items-center">
+          <h4 className="font-semibold text-foreground mb-4 flex items-center">
             <BarChart3 className="w-5 h-5 mr-2" />
             Quick Analytics
           </h4>
           <div className="space-y-4 flex-1">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 text-sm">Avg. Time to Hire</span>
+              <span className="text-foreground/70 text-sm">
+                Avg. Time to Hire
+              </span>
               <span className="font-medium">18 days</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 text-sm">Application Rate</span>
-              <span className="font-medium text-green-600">+12%</span>
+              <span className="text-foreground/70 text-sm">
+                Application Rate
+              </span>
+              <span className="font-medium text-secondary">+12%</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 text-sm">Interview Success</span>
+              <span className="text-foreground/70 text-sm">
+                Interview Success
+              </span>
               <span className="font-medium">68%</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 text-sm">Offer Acceptance</span>
-              <span className="font-medium text-green-600">85%</span>
+              <span className="text-foreground/70 text-sm">
+                Offer Acceptance
+              </span>
+              <span className="font-medium text-secondary">85%</span>
             </div>
           </div>
           <Link
             href="/analytics"
-            className="mt-4 w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 rounded-lg flex items-center justify-center text-sm font-medium transition-colors"
+            className="mt-4 w-full bg-primary hover:bg-accent text-white py-2 rounded-lg flex items-center justify-center text-sm font-medium transition-colors"
           >
             <BarChart3 className="mr-2 h-4 w-4" />
             View Full Analytics

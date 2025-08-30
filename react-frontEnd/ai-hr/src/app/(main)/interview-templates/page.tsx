@@ -121,7 +121,7 @@ export default function InterviewsPage() {
       selectedTemplate.id,
       cloneName.trim()
     );
-    
+
     if (clonedTemplate) {
       setTemplates((prev) => [clonedTemplate, ...prev]);
       setStats((prev) => ({
@@ -134,7 +134,7 @@ export default function InterviewsPage() {
     } else {
       setError("Failed to clone template");
     }
-    
+
     setActionLoading(null);
     setSelectedTemplate(null);
     setCloneName("");
@@ -155,8 +155,9 @@ export default function InterviewsPage() {
     setActionLoading(templateId);
     setError(null);
 
-    const updatedTemplate =
-      await interviewService.setDefaultInterviewTemplate(templateId);
+    const updatedTemplate = await interviewService.setDefaultInterviewTemplate(
+      templateId
+    );
 
     if (updatedTemplate) {
       // Update the templates list to reflect the change
@@ -174,7 +175,7 @@ export default function InterviewsPage() {
     } else {
       setError("Failed to set default template");
     }
-    
+
     setActionLoading(null);
   };
 
@@ -185,8 +186,10 @@ export default function InterviewsPage() {
     setError(null);
     setShowDeleteModal(false);
 
-    const deleteResult = await interviewService.deleteInterviewTemplate(selectedTemplate.id);
-    
+    const deleteResult = await interviewService.deleteInterviewTemplate(
+      selectedTemplate.id
+    );
+
     if (deleteResult) {
       setTemplates((prev) => prev.filter((t) => t.id !== selectedTemplate.id));
       setStats((prev) => ({
@@ -201,7 +204,7 @@ export default function InterviewsPage() {
     } else {
       setError("Failed to delete template");
     }
-    
+
     setActionLoading(null);
     setSelectedTemplate(null);
   };
@@ -220,12 +223,17 @@ export default function InterviewsPage() {
 
   const getInterviewTypeColor = (type: InterviewType) => {
     const colorMap = {
-      phone_screening: "text-blue-600 bg-blue-100",
-      video_interview: "text-green-600 bg-green-100",
-      technical_assessment: "text-purple-600 bg-purple-100",
-      coding_challenge: "text-orange-600 bg-orange-100",
-      final_interview: "text-yellow-600 bg-yellow-100",
-      culture_fit: "text-red-600 bg-red-100",
+      phone_screening:
+        "text-[#066046] bg-[#066046]/8 border border-[#066046]/15",
+      video_interview:
+        "text-[#267a54] bg-[#267a54]/12 border border-[#267a54]/20",
+      technical_assessment:
+        "text-[#066046] bg-[#066046]/18 border border-[#066046]/25",
+      coding_challenge:
+        "text-[#267a54] bg-[#267a54]/25 border border-[#267a54]/35",
+      final_interview:
+        "text-[#066046] bg-[#066046]/35 border border-[#066046]/45",
+      culture_fit: "text-[#267a54] bg-[#267a54]/30 border border-[#267a54]/40",
     };
     return colorMap[type] || "text-gray-600 bg-gray-100";
   };
@@ -275,20 +283,42 @@ export default function InterviewsPage() {
       {!loading && (
         <>
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Interviews</h1>
-              <p className="mt-2 text-gray-600">
-                Design and manage your interview processes
-              </p>
+          <div className="bg-gradient-to-r from-[#066046]/5 to-[#267a54]/5 border border-[#066046]/10 rounded-xl p-8 mb-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="p-3 bg-[#066046]/10 rounded-lg">
+                  <svg
+                    className="w-8 h-8 text-[#066046]"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                    Interview Templates
+                  </h1>
+                  <p className="text-gray-600 text-lg">
+                    Design and manage your interview processes with customizable
+                    templates
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/interview-templates/create"
+                className="bg-[#066046] hover:bg-[#267a54] text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 flex items-center space-x-2 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              >
+                <Plus className="w-5 h-5" />
+                <span>Create Template</span>
+              </Link>
             </div>
-            <Link
-              href="/interview-templates/create"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2 shadow-lg"
-            >
-              <Plus className="w-5 h-5" />
-              <span>Create Interview Template</span>
-            </Link>
           </div>
 
           {/* Stats Overview */}
@@ -301,8 +331,8 @@ export default function InterviewsPage() {
                     {stats.totalTemplates}
                   </p>
                 </div>
-                <div className="p-3 bg-blue-100 rounded-full">
-                  <Calendar className="w-6 h-6 text-blue-600" />
+                <div className="p-3 bg-[#066046]/10 rounded-full">
+                  <Calendar className="w-6 h-6 text-[#066046]" />
                 </div>
               </div>
             </div>
@@ -317,8 +347,8 @@ export default function InterviewsPage() {
                     {stats.activeInterviews}
                   </p>
                 </div>
-                <div className="p-3 bg-green-100 rounded-full">
-                  <Users className="w-6 h-6 text-green-600" />
+                <div className="p-3 bg-[#267a54]/10 rounded-full">
+                  <Users className="w-6 h-6 text-[#267a54]" />
                 </div>
               </div>
             </div>
@@ -333,8 +363,8 @@ export default function InterviewsPage() {
                     {stats.successRate}%
                   </p>
                 </div>
-                <div className="p-3 bg-yellow-100 rounded-full">
-                  <TrendingUp className="w-6 h-6 text-yellow-600" />
+                <div className="p-3 bg-[#384252]/10 rounded-full">
+                  <TrendingUp className="w-6 h-6 text-[#384252]" />
                 </div>
               </div>
             </div>
@@ -349,8 +379,8 @@ export default function InterviewsPage() {
                     {Math.round(stats.averageDuration / 60)}h
                   </p>
                 </div>
-                <div className="p-3 bg-purple-100 rounded-full">
-                  <Clock className="w-6 h-6 text-purple-600" />
+                <div className="p-3 bg-[#066046]/15 rounded-full">
+                  <Clock className="w-6 h-6 text-[#066046]" />
                 </div>
               </div>
             </div>
@@ -366,7 +396,7 @@ export default function InterviewsPage() {
                   placeholder="Search templates..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#066046] focus:border-transparent"
                 />
               </div>
 
@@ -380,7 +410,7 @@ export default function InterviewsPage() {
                         e.target.value as "all" | "default" | "custom"
                       )
                     }
-                    className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-[#066046] focus:border-transparent"
                   >
                     <option value="all">All Templates</option>
                     <option value="default">Default Templates</option>
@@ -407,7 +437,7 @@ export default function InterviewsPage() {
                           {template.name}
                         </h3>
                         {template.isDefault && (
-                          <span className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs font-medium rounded-full">
+                          <span className="px-2 py-1 bg-[#066046]/15 text-[#066046] border border-[#066046]/20 text-xs font-medium rounded-full">
                             Default
                           </span>
                         )}
@@ -446,7 +476,7 @@ export default function InterviewsPage() {
                           handleCloneTemplate(template.id, template.name)
                         }
                         disabled={loading || actionLoading === template.id}
-                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-2 text-gray-400 hover:text-[#066046] hover:bg-[#066046]/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         title="Clone template"
                       >
                         {actionLoading === template.id ? (
@@ -459,7 +489,7 @@ export default function InterviewsPage() {
                         <button
                           onClick={() => handleSetDefaultTemplate(template.id)}
                           disabled={loading || actionLoading === template.id}
-                          className="p-2 text-gray-400 hover:text-yellow-600 hover:bg-yellow-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="p-2 text-gray-400 hover:text-[#267a54] hover:bg-[#267a54]/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Set as default template"
                         >
                           {actionLoading === template.id ? (
@@ -471,7 +501,7 @@ export default function InterviewsPage() {
                       )}
                       <Link
                         href={`/interview-templates/edit?id=${template.id}`}
-                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                        className="p-2 text-gray-400 hover:text-[#066046] hover:bg-[#066046]/10 rounded-lg transition-colors"
                         title="Edit template"
                       >
                         <Edit className="w-5 h-5" />
@@ -547,7 +577,7 @@ export default function InterviewsPage() {
               </p>
               <Link
                 href="/interview-templates/create"
-                className="inline-flex items-center px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                className="inline-flex items-center px-6 py-3 bg-[#066046] text-white rounded-lg hover:bg-[#267a54] transition-colors"
               >
                 <Plus className="w-5 h-5 mr-2" />
                 Create Template
@@ -591,8 +621,8 @@ export default function InterviewsPage() {
             <div className="relative z-10 inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
-                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-indigo-100 sm:mx-0 sm:h-10 sm:w-10">
-                    <Copy className="h-6 w-6 text-indigo-600" />
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-[#066046]/10 sm:mx-0 sm:h-10 sm:w-10">
+                    <Copy className="h-6 w-6 text-[#066046]" />
                   </div>
                   <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
                     <h3 className="text-lg leading-6 font-medium text-gray-900">
@@ -608,7 +638,7 @@ export default function InterviewsPage() {
                         value={cloneName}
                         onChange={(e) => setCloneName(e.target.value)}
                         placeholder="Enter template name"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#066046] focus:border-transparent"
                         autoFocus
                         onKeyDown={(e) => {
                           if (e.key === "Enter") confirmCloneTemplate();
@@ -624,14 +654,14 @@ export default function InterviewsPage() {
                   type="button"
                   onClick={confirmCloneTemplate}
                   disabled={!cloneName.trim()}
-                  className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-indigo-600 text-base font-medium text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-300 disabled:cursor-not-allowed"
+                  className="w-full inline-flex justify-center rounded-lg border border-transparent shadow-sm px-4 py-2 bg-[#066046] text-base font-medium text-white hover:bg-[#267a54] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#066046] sm:ml-3 sm:w-auto sm:text-sm disabled:bg-gray-300 disabled:cursor-not-allowed"
                 >
                   Clone & Edit
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowCloneModal(false)}
-                  className="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  className="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#066046] sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                 >
                   Cancel
                 </button>
@@ -683,7 +713,7 @@ export default function InterviewsPage() {
                 <button
                   type="button"
                   onClick={() => setShowDeleteModal(false)}
-                  className="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                  className="mt-3 w-full inline-flex justify-center rounded-lg border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#066046] sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
                 >
                   Cancel
                 </button>
