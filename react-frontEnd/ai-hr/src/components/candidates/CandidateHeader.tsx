@@ -37,25 +37,44 @@ export function CandidateHeader({
   return (
     <>
       {/* Header */}
-      <div className="p-6 bg-white">
-        <div className="flex items-center mb-4">
-          {onBackToJobs && (
-            <button
-              onClick={onBackToJobs}
-              className="mr-4 p-2 rounded-full hover:bg-gray-100 transition-colors"
-            >
-              <ChevronLeft className="h-5 w-5 text-gray-600" />
-            </button>
-          )}
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900">
-              {jobTitle ? `${jobTitle}` : "Candidates"}
-            </h1>
-            {totalCandidates !== undefined && (
-              <p className="text-gray-600 text-sm">
-                {totalCandidates} candidates
-              </p>
+      <div className="bg-gradient-to-r from-[#066046]/5 to-[#267a54]/5 border border-[#066046]/10 rounded-xl p-8 mb-8 mx-6 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-4">
+            {onBackToJobs && (
+              <button
+                onClick={onBackToJobs}
+                className="p-2 rounded-full hover:bg-[#066046]/10 transition-colors"
+              >
+                <ChevronLeft className="h-5 w-5 text-[#066046]" />
+              </button>
             )}
+            <div className="flex items-center space-x-4">
+              <div className="p-3 bg-[#066046]/10 rounded-lg">
+                <svg
+                  className="w-8 h-8 text-[#066046]"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                  {jobTitle ? `${jobTitle}` : "Candidates"}
+                </h1>
+                {totalCandidates !== undefined && (
+                  <p className="text-gray-600 text-base">
+                    {totalCandidates} candidates
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -63,10 +82,10 @@ export function CandidateHeader({
         <div className="flex mt-6 border-b">
           <button
             onClick={() => onTabChange("candidates")}
-            className={`pb-2 px-4 text-sm font-medium border-b-2 transition-colors  flex items-center space-x-2${
+            className={`pb-2 px-4 text-sm font-medium border-b-2 transition-colors flex items-center space-x-2${
               activeTab === "candidates"
-                ? "border-blue-500 text-blue-500"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                ? "border-[#066046] text-[#066046]"
+                : "border-transparent text-gray-500 hover:text-[#066046]"
             }`}
           >
             <User className="h-4 w-4 mr-2" />
@@ -74,7 +93,7 @@ export function CandidateHeader({
             <span
               className={`ml-1 text-xs px-2 py-0.5 rounded-full ${
                 activeTab === "candidates"
-                  ? "bg-blue-100 text-blue-500"
+                  ? "bg-[#066046]/10 text-[#066046]"
                   : "bg-gray-100 text-gray-500"
               }`}
             >
@@ -83,10 +102,10 @@ export function CandidateHeader({
           </button>
           <button
             onClick={() => onTabChange("notes")}
-            className={`pb-2 px-4 text-sm font-medium border-b-2 transition-colors   flex items-center space-x-2${
+            className={`pb-2 px-4 text-sm font-medium border-b-2 transition-colors flex items-center space-x-2${
               activeTab === "notes"
-                ? "border-blue-500 text-blue-500"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                ? "border-[#066046] text-[#066046]"
+                : "border-transparent text-gray-500 hover:text-[#066046]"
             }`}
           >
             <NotebookIcon className="h-4 w-4 mr-2" />
@@ -94,7 +113,7 @@ export function CandidateHeader({
             <span
               className={`ml-1 text-xs px-2 py-0.5 rounded-full ${
                 activeTab === "notes"
-                  ? "bg-blue-100 text-blue-500"
+                  ? "bg-[#066046]/10 text-[#066046]"
                   : "bg-gray-100 text-gray-500"
               }`}
             >
@@ -105,8 +124,8 @@ export function CandidateHeader({
             onClick={() => onTabChange("ranking")}
             className={`pb-2 px-4 text-sm font-medium border-b-2 transition-colors flex items-center space-x-2 ${
               activeTab === "ranking"
-                ? "border-blue-500 text-blue-500"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                ? "border-[#066046] text-[#066046]"
+                : "border-transparent text-gray-500 hover:text-[#066046]"
             }`}
           >
             <Trophy className="h-4 w-4" />
@@ -114,7 +133,7 @@ export function CandidateHeader({
             <span
               className={`ml-1 text-xs px-2 py-0.5 rounded-full ${
                 activeTab === "ranking"
-                  ? "bg-blue-100 text-blue-500"
+                  ? "bg-[#066046]/10 text-[#066046]"
                   : "bg-gray-100 text-gray-500"
               }`}
             >
@@ -125,8 +144,8 @@ export function CandidateHeader({
             onClick={() => onTabChange("rejected")}
             className={`pb-2 px-4 text-sm font-medium border-b-2 transition-colors flex items-center space-x-2 ${
               activeTab === "rejected"
-                ? "border-red-500 text-red-500"
-                : "border-transparent text-gray-500 hover:text-gray-700"
+                ? "border-[#267a54] text-[#267a54]"
+                : "border-transparent text-gray-500 hover:text-[#267a54]"
             }`}
           >
             <UserX className="h-4 w-4" />
@@ -134,7 +153,7 @@ export function CandidateHeader({
             <span
               className={`ml-1 text-xs px-2 py-0.5 rounded-full ${
                 activeTab === "rejected"
-                  ? "bg-red-100 text-red-500"
+                  ? "bg-[#267a54]/10 text-[#267a54]"
                   : "bg-gray-100 text-gray-500"
               }`}
             >
@@ -154,7 +173,7 @@ export function CandidateHeader({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md text-sm placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-[#066046] focus:border-[#066046] transition-colors"
             placeholder={
               activeTab === "candidates"
                 ? "Search candidates..."

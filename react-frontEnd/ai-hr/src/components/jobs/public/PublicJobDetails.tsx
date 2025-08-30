@@ -286,7 +286,7 @@ export function PublicJobDetails({ jobId }: PublicJobDetailsProps) {
                     {job.department}
                   </span>
                 )}
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-purple-100 text-purple-800">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-[#066046]/15 text-[#066046] border border-[#066046]/20">
                   {job.employmentType}
                 </span>
               </div>

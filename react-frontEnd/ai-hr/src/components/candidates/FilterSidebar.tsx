@@ -14,7 +14,7 @@ const statusFilters: Omit<FilterOption, "count">[] = [
 const getStatusColor = (statusId: string) => {
   const colorMap: Record<string, string> = {
     "in-progress": "text-blue-600",
-    offered: "text-purple-600",
+    offered: "text-orange-600",
     hired: "text-green-600",
   };
   return colorMap[statusId] || "text-gray-600";
@@ -131,7 +131,7 @@ export function FilterSidebar({
                 ) : (
                   <ChevronRight className="h-3 w-3 text-gray-500 mr-1" />
                 )}
-                <Briefcase className="h-3 w-3 text-blue-500 mr-1" />
+                <Briefcase className="h-3 w-3 text-[#066046] mr-1" />
                 <span className="text-sm font-medium text-gray-700">
                   Position
                 </span>
@@ -166,7 +166,7 @@ export function FilterSidebar({
                             e.target.checked
                           )
                         }
-                        className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="h-3 w-3 rounded border-gray-300 text-[#066046] focus:ring-[#066046]"
                       />
                       <label
                         htmlFor={`position-${job.id}`}
@@ -177,7 +177,7 @@ export function FilterSidebar({
                             content={job.title}
                             department={job.department}
                           >
-                            <span className="block truncate hover:text-blue-600 transition-colors">
+                            <span className="block truncate hover:text-[#066046] transition-colors">
                               {job.title}
                             </span>
                           </Tooltip>
@@ -250,7 +250,7 @@ export function FilterSidebar({
                           e.target.checked
                         )
                       }
-                      className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      className="h-3 w-3 rounded border-gray-300 text-[#066046] focus:ring-[#066046]"
                     />
                     <label
                       htmlFor={`status-${item.id}`}
@@ -316,7 +316,7 @@ export function FilterSidebar({
                             e.target.checked
                           )
                         }
-                        className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        className="h-3 w-3 rounded border-gray-300 text-[#066046] focus:ring-[#066046]"
                       />
                       <label
                         htmlFor={`stage-${stage.id}`}
