@@ -12,6 +12,10 @@ namespace ai_hr.Models
         [PrimaryKey("id", false)]
         public Guid Id { get; set; }
 
+        // Supabase Auth integration (optional for hybrid auth)
+        [Column("SupabaseAuthId")]
+        public string? SupabaseAuthId { get; set; }
+
         [Column("FirstName")]
         public string FirstName { get; set; }
 
@@ -21,6 +25,7 @@ namespace ai_hr.Models
         [Column("Email")]
         public string Email { get; set; }
 
+        // Legacy authentication field (kept for backward compatibility)
         [Column("Password")]
         public string? Password { get; set; }
 
@@ -45,7 +50,7 @@ namespace ai_hr.Models
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        // Authentication fields
+        // Legacy authentication fields (kept for backward compatibility)
         [Column("RefreshToken")]
         public string? RefreshToken { get; set; }
 

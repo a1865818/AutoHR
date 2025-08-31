@@ -1,4 +1,5 @@
 import { Question } from "@/components/interview_pipeline/rounds/shared/QuestionBuilder";
+import { toast } from "@/utils/toast";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5189";
 
@@ -70,7 +71,7 @@ class AssessmentService {
     return null;
   }
 
-  private async fetchApi(endpoint: string, options?: RequestInit) {
+  private async fetchApi(endpoint: string, options?: RequestInit, suppressErrors?: { [status: number]: boolean }) {
     const url = `${API_BASE_URL}${endpoint}`;
     const token = this.getAuthToken();
 
@@ -107,17 +108,23 @@ class AssessmentService {
         }
 
         if (response.status === 401) {
-          console.error("🚫 Unauthorized - Token may be invalid or expired");
           if (typeof window !== "undefined") {
             localStorage.removeItem("authToken");
             sessionStorage.removeItem("authToken");
           }
-          throw new Error("Authentication required. Please log in again.");
+          toast.error("Your session has expired. Please log in again.");
+          return null;
         }
 
-        throw new Error(
-          errorData.error || `HTTP error! status: ${response.status}`
-        );
+        // Check if error should be suppressed (for expected 404s, etc.)
+        if (suppressErrors && suppressErrors[response.status]) {
+          console.log(`Suppressed ${response.status} error for ${endpoint}:`, errorData);
+          return null;
+        }
+
+        const errorMessage = errorData.error || `Request failed with status ${response.status}`;
+        toast.error(errorMessage);
+        return null;
       }
 
       if (response.status === 204) {
@@ -142,11 +149,8 @@ class AssessmentService {
           return JSON.parse(text);
         } catch (parseError: unknown) {
           console.error("❌ JSON Parse Error:", parseError);
-          throw new Error(
-            `Invalid JSON response from server: ${
-              parseError instanceof Error ? parseError.message : "Unknown error"
-            }`
-          );
+          toast.error("Received invalid response from server. Please try again.");
+          return null;
         }
       }
 
@@ -155,11 +159,8 @@ class AssessmentService {
         try {
           return JSON.parse(text);
         } catch (parseError: unknown) {
-          throw new Error(
-            `Invalid JSON response: ${
-              parseError instanceof Error ? parseError.message : "Unknown error"
-            }`
-          );
+          toast.error("Received invalid response format. Please try again.");
+          return null;
         }
       }
 
@@ -173,11 +174,8 @@ class AssessmentService {
       }
 
       console.error("🚨 Network/Fetch Error:", { url, error });
-      throw new Error(
-        `Network error: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
+      toast.error("Network connection failed. Please check your connection and try again.");
+      return null;
     }
   }
 
@@ -229,20 +227,21 @@ class AssessmentService {
     roundId: string
   ): Promise<AssessmentSubmission | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view assessment submission");
+      toast.error("Please log in to view assessment submission");
+      return null;
     }
 
     try {
       const submission = await this.fetchApi(
-        `/assessments/submissions/${candidateId}/${roundId}`
+        `/assessments/submissions/${candidateId}/${roundId}`,
+        {},
+        { 404: true } // Suppress 404 errors since missing submissions are expected
       );
       return submission;
     } catch (error) {
-      if (error instanceof Error && error.message.includes("404")) {
-        return null; // No submission found
-      }
       console.error("❌ Failed to load assessment submission:", error);
-      throw error;
+      toast.error("Unable to load assessment submission. Please try again.");
+      return null;
     }
   }
 
@@ -251,27 +250,31 @@ class AssessmentService {
     submissionId: string
   ): Promise<AssessmentGrade | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view assessment grade");
+      toast.error("Please log in to view assessment grade");
+      return null;
     }
 
     try {
-      const grade = await this.fetchApi(`/assessments/grades/${submissionId}`);
+      const grade = await this.fetchApi(
+        `/assessments/grades/${submissionId}`,
+        {},
+        { 404: true } // Suppress 404 errors since grades might not exist for new submissions
+      );
       return grade;
     } catch (error) {
-      if (error instanceof Error && error.message.includes("404")) {
-        return null; // No grade found
-      }
       console.error("❌ Failed to load assessment grade:", error);
-      throw error;
+      toast.error("Unable to load assessment grade. Please try again.");
+      return null;
     }
   }
 
   // Save assessment grade
   async saveAssessmentGrade(
     data: AssessmentGradeRequest
-  ): Promise<AssessmentGrade> {
+  ): Promise<AssessmentGrade | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to save assessment grade");
+      toast.error("Please log in to save assessment grade");
+      return null;
     }
 
     try {
@@ -285,6 +288,7 @@ class AssessmentService {
       });
 
       console.log("✅ Assessment grade saved successfully:", grade);
+      toast.success("Assessment grade saved successfully!");
       return grade;
     } catch (error) {
       console.error("❌ Error saving assessment grade:", error);
@@ -292,7 +296,8 @@ class AssessmentService {
         message: error instanceof Error ? error.message : "Unknown error",
         stack: error instanceof Error ? error.stack : undefined,
       });
-      throw error;
+      toast.error("Failed to save assessment grade. Please try again.");
+      return null;
     }
   }
 
@@ -300,9 +305,10 @@ class AssessmentService {
   async updateAssessmentGrade(
     gradeId: string,
     data: Partial<AssessmentGradeRequest>
-  ): Promise<AssessmentGrade> {
+  ): Promise<AssessmentGrade | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to update assessment grade");
+      toast.error("Please log in to update assessment grade");
+      return null;
     }
 
     try {
@@ -310,26 +316,32 @@ class AssessmentService {
         method: "PUT",
         body: JSON.stringify(data),
       });
+      toast.success("Assessment grade updated successfully!");
       return grade;
     } catch (error) {
       console.error("❌ Failed to update assessment grade:", error);
-      throw error;
+      toast.error("Failed to update assessment grade. Please try again.");
+      return null;
     }
   }
 
   // Delete assessment grade by grade ID
-  async deleteAssessmentGrade(gradeId: string): Promise<void> {
+  async deleteAssessmentGrade(gradeId: string): Promise<boolean> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to delete assessment grade");
+      toast.error("Please log in to delete assessment grade");
+      return false;
     }
     try {
       await this.fetchApi(`/assessments/grades/${gradeId}`, {
         method: "DELETE",
       });
       console.log("✅ Assessment grade deleted successfully");
+      toast.success("Assessment grade deleted successfully!");
+      return true;
     } catch (error) {
       console.error("❌ Failed to delete assessment grade:", error);
-      throw error;
+      toast.error("Failed to delete assessment grade. Please try again.");
+      return false;
     }
   }
 
@@ -338,7 +350,8 @@ class AssessmentService {
     jobId: string
   ): Promise<AssessmentSubmission[]> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view assessment submissions");
+      toast.error("Please log in to view assessment submissions");
+      return [];
     }
 
     try {
@@ -348,7 +361,8 @@ class AssessmentService {
       return submissions || [];
     } catch (error) {
       console.error("❌ Failed to load job assessment submissions:", error);
-      throw error;
+      toast.error("Unable to load assessment submissions for this job. Please try again.");
+      return [];
     }
   }
 
@@ -357,7 +371,8 @@ class AssessmentService {
     roundId: string
   ): Promise<AssessmentSubmission[]> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view assessment submissions");
+      toast.error("Please log in to view assessment submissions");
+      return [];
     }
 
     try {
@@ -367,7 +382,8 @@ class AssessmentService {
       return submissions || [];
     } catch (error) {
       console.error("❌ Failed to load round assessment submissions:", error);
-      throw error;
+      toast.error("Unable to load assessment submissions for this round. Please try again.");
+      return [];
     }
   }
 
@@ -377,7 +393,8 @@ class AssessmentService {
     roundId: string
   ): Promise<boolean> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to check submission status");
+      toast.error("Please log in to check submission status");
+      return false;
     }
 
     try {
@@ -427,7 +444,8 @@ class AssessmentService {
     roundId: string
   ): Promise<boolean> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to check grading status");
+      toast.error("Please log in to check grading status");
+      return false;
     }
 
     try {
@@ -484,11 +502,10 @@ class AssessmentService {
     pdfUrl: string | null,
     submissionData: Record<string, unknown>,
     githubUrl?: string | null
-  ): Promise<AssessmentSubmission> {
+  ): Promise<AssessmentSubmission | null> {
     if (!this.isAuthenticated()) {
-      throw new Error(
-        "Authentication required to create assessment submission"
-      );
+      toast.error("Please log in to submit your assessment");
+      return null;
     }
 
     try {
@@ -511,10 +528,12 @@ class AssessmentService {
         method: "POST",
         body: JSON.stringify(requestBody),
       });
+      toast.success("Assessment submitted successfully!");
       return submission;
     } catch (error) {
       console.error("❌ Failed to create assessment submission:", error);
-      throw error;
+      toast.error("Failed to submit assessment. Please try again.");
+      return null;
     }
   }
 
@@ -524,7 +543,8 @@ class AssessmentService {
     roundId: string
   ): Promise<(AssessmentSubmission & { grade?: AssessmentGrade }) | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view submission");
+      toast.error("Please log in to view submission");
+      return null;
     }
 
     try {
@@ -534,14 +554,23 @@ class AssessmentService {
 
       // Fetch submission data
       const submission = await this.fetchApi(
-        `/assessments/submissions/${candidateId}/${roundId}`
+        `/assessments/submissions/${candidateId}/${roundId}`,
+        {},
+        { 404: true } // Suppress 404 errors since missing submissions are expected
       );
+
+      // If no submission found, return null
+      if (!submission) {
+        return null;
+      }
 
       // Try to fetch grade data if submission exists
       let grade = null;
       try {
         grade = await this.fetchApi(
-          `/assessments/grades/${submission.id}`
+          `/assessments/grades/${submission.id}`,
+          {},
+          { 404: true } // Suppress 404 errors since grades might not exist
         );
       } catch (gradeError) {
         console.log("No grade found for this submission:", gradeError);
@@ -560,7 +589,8 @@ class AssessmentService {
         return null; // Return null to indicate no submission
       }
       
-      throw error;
+      toast.error("Failed to load submission details. Please try again.");
+      return null;
     }
   }
 

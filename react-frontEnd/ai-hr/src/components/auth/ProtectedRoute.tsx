@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 interface ProtectedRouteProps {
   children: React.ReactNode;
   fallback?: React.ReactNode;
-  requiredUserCategory?: "ApplicationUser" | "HiringUserProfile";
+  requiredUserCategory?: "ApplicationUser" | "HiringUser";
 }
 
 const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
@@ -49,7 +49,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
         // Redirect to appropriate dashboard based on user category
         if (user.userCategory === "ApplicationUser") {
           router.push("/applicant");
-        } else if (user.userCategory === "HiringUserProfile") {
+        } else if (user.userCategory === "HiringUser") {
           router.push("/dashboard");
         }
         return;

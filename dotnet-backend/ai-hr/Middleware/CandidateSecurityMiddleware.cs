@@ -49,8 +49,9 @@ namespace ai_hr.Middleware
             var candidateEndpoints = new[]
             {
                 "/applicant/jobs/",
-                "/public/jobs/",
-                "/jobs/", // Public job endpoints for browsing
+                "/public/jobs/"
+                // Removed "/jobs/" as it catches all job-related API endpoints including admin ones
+                // Only specific public and applicant endpoints should be subject to candidate security
             };
 
             return candidateEndpoints.Any(endpoint => path?.StartsWith(endpoint, StringComparison.OrdinalIgnoreCase) == true);

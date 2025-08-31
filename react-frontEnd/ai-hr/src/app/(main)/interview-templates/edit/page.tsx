@@ -254,14 +254,14 @@ export default function EditInterviewPage() {
 
   const getColorClasses = (color: string) => {
     const colorMap: Record<string, string> = {
-      blue: "bg-blue-100 text-blue-800 border-blue-200",
-      green: "bg-green-100 text-green-800 border-green-200",
-      purple: "bg-purple-100 text-purple-800 border-purple-200",
-      orange: "bg-orange-100 text-orange-800 border-orange-200",
-      pink: "bg-pink-100 text-pink-800 border-pink-200",
-      indigo: "bg-indigo-100 text-indigo-800 border-indigo-200",
-      yellow: "bg-yellow-100 text-yellow-800 border-yellow-200",
-      red: "bg-red-100 text-red-800 border-red-200",
+      blue: "bg-[#066046]/8 text-[#066046] border-[#066046]/15",
+      green: "bg-[#267a54]/12 text-[#267a54] border-[#267a54]/20",
+      purple: "bg-[#066046]/18 text-[#066046] border-[#066046]/25",
+      orange: "bg-[#267a54]/25 text-[#267a54] border-[#267a54]/35",
+      pink: "bg-[#066046]/35 text-[#066046] border-[#066046]/45",
+      indigo: "bg-[#267a54]/30 text-[#267a54] border-[#267a54]/40",
+      yellow: "bg-[#066046]/60 text-[#066046] border-[#066046]/70",
+      red: "bg-[#267a54]/75 text-[#267a54] border-[#267a54]/85",
     };
     return colorMap[color] || "bg-gray-100 text-gray-800 border-gray-200";
   };
@@ -439,7 +439,7 @@ export default function EditInterviewPage() {
       <div className="max-w-4xl mx-auto">
         <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
           <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-indigo-600 mr-3" />
+            <Loader2 className="w-8 h-8 animate-spin text-[#066046] mr-3" />
             <span className="text-gray-600">Loading template...</span>
           </div>
         </div>
@@ -495,7 +495,7 @@ export default function EditInterviewPage() {
             onChange={(e) =>
               setTemplate((prev) => ({ ...prev, isDefault: e.target.checked }))
             }
-            className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+            className="h-4 w-4 text-[#066046] focus:ring-[#066046] border-gray-300 rounded"
           />
           <label htmlFor="isDefault" className="ml-3 text-sm text-gray-700">
             Set as default template for new jobs
@@ -659,7 +659,7 @@ export default function EditInterviewPage() {
                             isOptional: e.target.checked,
                           })
                         }
-                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                        className="h-4 w-4 text-[#066046] focus:ring-[#066046] border-gray-300 rounded"
                       />
                       <label
                         htmlFor={`optional-${round.id}`}
@@ -697,7 +697,7 @@ export default function EditInterviewPage() {
             </h3>
             <p className="text-gray-600 mb-4">{template.description}</p>
             {template.isDefault && (
-              <span className="px-2 py-1 bg-indigo-100 text-indigo-800 text-xs font-medium rounded-full">
+              <span className="px-2 py-1 bg-[#066046]/15 text-[#066046] border border-[#066046]/20 text-xs font-medium rounded-full">
                 Default Template
               </span>
             )}
@@ -784,7 +784,7 @@ export default function EditInterviewPage() {
                 <div
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                     step <= currentStep
-                      ? "bg-indigo-600 text-white"
+                      ? "bg-[#066046] text-white"
                       : "bg-gray-200 text-gray-600"
                   }`}
                 >
@@ -793,7 +793,7 @@ export default function EditInterviewPage() {
                 {step < 3 && (
                   <div
                     className={`w-16 h-1 mx-2 ${
-                      step < currentStep ? "bg-indigo-600" : "bg-gray-200"
+                      step < currentStep ? "bg-[#066046]" : "bg-gray-200"
                     }`}
                   />
                 )}
@@ -839,7 +839,7 @@ export default function EditInterviewPage() {
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting || !canProceed()}
-                className="flex items-center space-x-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+                className="flex items-center space-x-2 px-6 py-3 bg-[#066046] text-white rounded-lg hover:bg-[#267a54] disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
               >
                 {isSubmitting ? (
                   <>
@@ -859,7 +859,7 @@ export default function EditInterviewPage() {
                   setCurrentStep((prev) => Math.min(3, prev + 1) as Step)
                 }
                 disabled={!canProceed() || isSubmitting}
-                className="flex items-center space-x-2 px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+                className="flex items-center space-x-2 px-6 py-3 bg-[#066046] text-white rounded-lg hover:bg-[#267a54] disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
               >
                 <span>Continue</span>
                 <ArrowRight className="w-4 h-4" />

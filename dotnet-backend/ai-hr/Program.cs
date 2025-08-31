@@ -103,7 +103,7 @@ builder.Services.AddAuthentication(options =>
 .AddJwtBearer(options =>
 {
     var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>();
-    var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? jwtSettings?.SecretKey;
+    var secretKey = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET") ?? jwtSettings?.SecretKey;
 
     if (string.IsNullOrEmpty(secretKey))
     {
@@ -115,9 +115,19 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
         ValidateIssuer = true,
-        ValidIssuer = jwtSettings?.Issuer,
+        // Accept both custom tokens and Supabase tokens
+        ValidIssuers = new[] 
+        { 
+            jwtSettings?.Issuer ?? "AutoHR",
+            "https://uwejqhuvjkkycgecoauy.supabase.co/auth/v1" // Supabase issuer
+        },
         ValidateAudience = true,
-        ValidAudience = jwtSettings?.Audience,
+        // Accept both custom audience and Supabase audience
+        ValidAudiences = new[] 
+        { 
+            jwtSettings?.Audience ?? "AutoHR-Users", 
+            "authenticated" // Supabase audience
+        },
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
@@ -125,10 +135,9 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// Register JWT and Authentication services
-builder.Services.AddScoped<IJwtService, JwtService>();
-builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
-builder.Services.AddScoped<IHiringUserProfileAuthenticationService, HiringUserProfileAuthenticationService>();
+// Register Supabase Authentication services
+builder.Services.AddScoped<ISupabaseAuthService, SupabaseAuthService>();
+builder.Services.AddScoped<IUnifiedAuthService, UnifiedAuthService>();
 builder.Services.AddScoped<ISavedJobsService, SavedJobsService>();
 builder.Services.AddScoped<IJobViewTrackingService, JobViewTrackingService>();
 
@@ -221,7 +230,7 @@ builder.Services.AddCors(options =>
 
         policy.WithOrigins(allowedOrigins)
               .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS") // ✅ Restrict to needed methods
-              .WithHeaders("Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With", "X-Session-ID") // ✅ Allow session ID header
+              .WithHeaders("Content-Type", "Authorization", "Accept", "Origin", "X-Requested-With", "X-Session-ID", "apikey") // ✅ Add apikey header for Supabase
               .AllowCredentials()
               .SetPreflightMaxAge(TimeSpan.FromMinutes(30)); // ✅ Cache preflight requests
     });
@@ -320,8 +329,6 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ✅ Add candidate security middleware AFTER authentication
-// Temporarily disabled for debugging
 app.UseMiddleware<CandidateSecurityMiddleware>();
 
 // Temporarily disable session to debug logging issue
@@ -336,8 +343,6 @@ app.MapCandidateEndpoints();
 app.MapCandidateRankingEndpoints();
 app.MapCompanyEndpoints();
 app.MapHiringUserProfileEndpoints();
-app.MapHiringUserProfileAuthenticationEndpoints();
-app.MapAuthenticationEndpoints();
 app.MapNotesEndpoints();
 app.MapLanggraphEndpoints();
 app.MapInterviewEndpoints();
@@ -347,5 +352,6 @@ app.MapSavedJobsEndpoints();
 app.MapEmailEndpoints();
 app.MapEmailTemplateEndpoints();
 app.MapGmailAuthEndpoints();
+app.MapUnifiedAuthEndpoints();
 app.MapAssessmentEndpoints();
 app.Run();

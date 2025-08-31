@@ -148,7 +148,7 @@ export function TeamManagement({
           <button
             onClick={handleInviteUserClick}
             disabled={isLoading}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center px-4 py-2 bg-[#066046] text-white rounded-md hover:bg-[#267a54] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus className="h-4 w-4 mr-2" />
             Invite Member
@@ -162,7 +162,7 @@ export function TeamManagement({
 
       {isLoading && users.length === 0 ? (
         <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#066046] mx-auto"></div>
           <p className="text-gray-500 mt-2">Loading team members...</p>
         </div>
       ) : users.length === 0 ? (

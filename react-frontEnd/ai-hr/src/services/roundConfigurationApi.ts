@@ -6,6 +6,7 @@ import {
   ScheduleConfig,
 } from "@/components/interview_pipeline/rounds/shared/TimeSlotPicker";
 import { cleanJsonObject } from "@/utils/jsonUtils";
+import { toast } from "@/utils/toast";
 
 // Meeting data interface
 export interface MeetingData {
@@ -255,7 +256,7 @@ export class RoundConfigurationAPI {
   async getConfiguration(
     jobId: string,
     roundId: string
-  ): Promise<ConfigurationResponse> {
+  ): Promise<ConfigurationResponse | null> {
     try {
       const response = await fetch(
         `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration`,
@@ -274,14 +275,16 @@ export class RoundConfigurationAPI {
           );
           return this.getDefaultForRound(jobId, roundId);
         }
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+        toast.error(`Failed to load configuration: ${response.statusText}`);
+        return null;
       }
 
       const data = await response.json();
       return data;
     } catch (error: any) {
       console.error("Failed to get round configuration:", error);
-      throw error;
+      toast.error("Unable to load round configuration. Please try again.");
+      return null;
     }
   }
 
@@ -300,9 +303,29 @@ export class RoundConfigurationAPI {
       );
 
       if (!roundResponse.ok) {
-        throw new Error(
-          `Error ${roundResponse.status}: ${roundResponse.statusText}`
-        );
+        toast.warning("Unable to fetch round details, using basic configuration");
+        // Return basic default if we can't get round info
+        return {
+          success: true,
+          data: {
+            id: "",
+            jobId: jobId,
+            roundId: roundId,
+            roundType: "unknown",
+            name: "New Round Configuration",
+            description: "Default configuration",
+            duration: 60,
+            status: "draft",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            createdBy: "",
+            lastModifiedBy: "",
+            version: 1,
+            configurationData: {} as any,
+            questions: [],
+            scoringCriteria: [],
+          } as any,
+        };
       }
 
       const roundData = await roundResponse.json();
@@ -338,6 +361,7 @@ export class RoundConfigurationAPI {
       };
     } catch (error: any) {
       console.error("Failed to get default configuration for round:", error);
+      toast.warning("Using basic default configuration");
       // Return basic default if we can't get anything else
       return {
         success: true,
@@ -369,7 +393,7 @@ export class RoundConfigurationAPI {
     jobId: string,
     roundId: string,
     configuration: any // Use any here to accommodate the configurationData property
-  ): Promise<ConfigurationResponse> {
+  ): Promise<ConfigurationResponse | null> {
     try {
       // Ensure we have valid configurationData to send
       // This is critical - we need to make sure the configurationData field is
@@ -401,9 +425,10 @@ export class RoundConfigurationAPI {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
+        toast.error(
+          errorData.message || "Failed to save configuration. Please try again."
         );
+        return null;
       }
 
       const responseData = await response.json();
@@ -415,10 +440,12 @@ export class RoundConfigurationAPI {
         );
       }
 
+      toast.success("Configuration saved successfully!");
       return responseData;
     } catch (error) {
       console.error("Error saving round configuration:", error);
-      throw error;
+      toast.error("Unable to save configuration. Please check your connection and try again.");
+      return null;
     }
   }
 
@@ -480,7 +507,12 @@ export class RoundConfigurationAPI {
             message: "Using basic default configuration",
           };
         }
-        throw new Error(`HTTP error! status: ${response.status}`);
+        toast.warning("Unable to fetch default configuration, using basic template");
+        return {
+          success: true,
+          data: this.getBasicDefault(roundType),
+          message: "Using basic default configuration",
+        };
       }
 
       return await response.json();
@@ -507,7 +539,7 @@ export class RoundConfigurationAPI {
     jobId: string,
     roundId: string,
     questions: Question[]
-  ): Promise<ConfigurationResponse<Question[]>> {
+  ): Promise<ConfigurationResponse<Question[]> | null> {
     try {
       // Transform questions to backend format
       const backendQuestions = questions.map((q, index) => ({
@@ -530,15 +562,19 @@ export class RoundConfigurationAPI {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.message || `HTTP error! status: ${response.status}`
+        toast.error(
+          errorData.message || "Failed to save questions. Please try again."
         );
+        return null;
       }
 
-      return await response.json();
+      const result = await response.json();
+      toast.success("Questions saved successfully!");
+      return result;
     } catch (error) {
       console.error("Error saving questions:", error);
-      throw error;
+      toast.error("Unable to save questions. Please check your connection and try again.");
+      return null;
     }
   }
 
@@ -548,7 +584,7 @@ export class RoundConfigurationAPI {
     sourceRoundId: string,
     targetJobId: string,
     targetRoundId: string
-  ): Promise<ConfigurationResponse> {
+  ): Promise<ConfigurationResponse | null> {
     try {
       const response = await fetch(
         `${this.baseUrl}/jobs/${targetJobId}/rounds/${targetRoundId}/configuration/clone`,
@@ -563,20 +599,24 @@ export class RoundConfigurationAPI {
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        toast.error("Failed to clone configuration. Please try again.");
+        return null;
       }
 
-      return await response.json();
+      const result = await response.json();
+      toast.success("Configuration cloned successfully!");
+      return result;
     } catch (error) {
       console.error("Error cloning configuration:", error);
-      throw error;
+      toast.error("Unable to clone configuration. Please check your connection and try again.");
+      return null;
     }
   }
 
   // Get all configurations for a job
   async getJobConfigurations(
     jobId: string
-  ): Promise<ConfigurationListResponse> {
+  ): Promise<ConfigurationListResponse | null> {
     try {
       const response = await fetch(
         `${this.baseUrl}/jobs/${jobId}/rounds/configurations`,
@@ -586,13 +626,15 @@ export class RoundConfigurationAPI {
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        toast.error("Failed to load job configurations. Please try again.");
+        return null;
       }
 
       return await response.json();
     } catch (error) {
       console.error("Error fetching job configurations:", error);
-      throw error;
+      toast.error("Unable to load configurations. Please check your connection and try again.");
+      return null;
     }
   }
 
@@ -601,7 +643,7 @@ export class RoundConfigurationAPI {
     jobId: string,
     roundId: string,
     configuration: Partial<RoundConfiguration>
-  ): Promise<{ valid: boolean; errors: string[] }> {
+  ): Promise<{ valid: boolean; errors: string[] } | null> {
     try {
       const response = await fetch(
         `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration/validate`,
@@ -613,13 +655,21 @@ export class RoundConfigurationAPI {
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        toast.error("Failed to validate configuration. Please try again.");
+        return null;
       }
 
-      return await response.json();
+      const result = await response.json();
+      if (result.valid) {
+        toast.success("Configuration is valid!");
+      } else {
+        toast.warning("Configuration has validation errors. Please review.");
+      }
+      return result;
     } catch (error) {
       console.error("Error validating configuration:", error);
-      throw error;
+      toast.error("Unable to validate configuration. Please check your connection and try again.");
+      return null;
     }
   }
 
@@ -628,7 +678,7 @@ export class RoundConfigurationAPI {
     jobId: string,
     roundId: string,
     limit: number = 10
-  ): Promise<ConfigurationListResponse> {
+  ): Promise<ConfigurationListResponse | null> {
     try {
       const response = await fetch(
         `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration/history?limit=${limit}`,
@@ -638,18 +688,20 @@ export class RoundConfigurationAPI {
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        toast.error("Failed to load configuration history. Please try again.");
+        return null;
       }
 
       return await response.json();
     } catch (error) {
       console.error("Error fetching configuration history:", error);
-      throw error;
+      toast.error("Unable to load history. Please check your connection and try again.");
+      return null;
     }
   }
 
   // Export configuration
-  async exportConfiguration(jobId: string, roundId: string): Promise<Blob> {
+  async exportConfiguration(jobId: string, roundId: string): Promise<Blob | null> {
     try {
       const response = await fetch(
         `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration/export`,
@@ -659,13 +711,17 @@ export class RoundConfigurationAPI {
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        toast.error("Failed to export configuration. Please try again.");
+        return null;
       }
 
-      return await response.blob();
+      const blob = await response.blob();
+      toast.success("Configuration exported successfully!");
+      return blob;
     } catch (error) {
       console.error("Error exporting configuration:", error);
-      throw error;
+      toast.error("Unable to export configuration. Please check your connection and try again.");
+      return null;
     }
   }
 
@@ -673,7 +729,7 @@ export class RoundConfigurationAPI {
   async generateMeetLink(
     jobId: string,
     roundId: string
-  ): Promise<ConfigurationResponse<{ meetLink: string; eventId: string; calendarEventId: string }>> {
+  ): Promise<ConfigurationResponse<{ meetLink: string; eventId: string; calendarEventId: string }> | null> {
     try {
       const response = await fetch(
         `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/configuration/generate-meet-link`,
@@ -684,13 +740,17 @@ export class RoundConfigurationAPI {
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        toast.error("Failed to generate Google Meet link. Please try again.");
+        return null;
       }
 
-      return await response.json();
+      const result = await response.json();
+      toast.success("Google Meet link generated successfully!");
+      return result;
     } catch (error) {
       console.error("Error generating Google Meet link:", error);
-      throw error;
+      toast.error("Unable to generate meet link. Please check your Google Calendar connection and try again.");
+      return null;
     }
   }
 
@@ -717,7 +777,7 @@ export class RoundConfigurationAPI {
     timezone: string;
     applicationId?: string;
     scheduledAt: string;
-  }>> {
+  }> | null> {
     try {
       const response = await fetch(
         `${this.baseUrl}/google-calendar/create-event`,
@@ -738,13 +798,17 @@ export class RoundConfigurationAPI {
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        toast.error("Failed to schedule meeting. Please try again.");
+        return null;
       }
 
-      return await response.json();
+      const result = await response.json();
+      toast.success("Meeting scheduled successfully!");
+      return result;
     } catch (error) {
       console.error("Error scheduling meeting:", error);
-      throw error;
+      toast.error("Unable to schedule meeting. Please check your Google Calendar connection and try again.");
+      return null;
     }
   }
 
@@ -758,7 +822,7 @@ export class RoundConfigurationAPI {
     time: string,
     duration: number,
     attendeeEmail?: string
-  ): Promise<ConfigurationResponse<{ meetLink: string; eventId: string; calendarEventId: string }>> {
+  ): Promise<ConfigurationResponse<{ meetLink: string; eventId: string; calendarEventId: string }> | null> {
     try {
       const response = await fetch(
         `${this.baseUrl}/google-calendar/update-event`,
@@ -780,13 +844,17 @@ export class RoundConfigurationAPI {
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        toast.error("Failed to update meeting. Please try again.");
+        return null;
       }
 
-      return await response.json();
+      const result = await response.json();
+      toast.success("Meeting updated successfully!");
+      return result;
     } catch (error) {
       console.error("Error updating meeting:", error);
-      throw error;
+      toast.error("Unable to update meeting. Please check your Google Calendar connection and try again.");
+      return null;
     }
   }
 
@@ -795,7 +863,7 @@ export class RoundConfigurationAPI {
     jobId: string,
     roundId: string,
     file: File
-  ): Promise<ConfigurationResponse> {
+  ): Promise<ConfigurationResponse | null> {
     try {
       const formData = new FormData();
       formData.append("configuration", file);
@@ -820,13 +888,17 @@ export class RoundConfigurationAPI {
       );
 
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        toast.error("Failed to import configuration. Please check the file format and try again.");
+        return null;
       }
 
-      return await response.json();
+      const result = await response.json();
+      toast.success("Configuration imported successfully!");
+      return result;
     } catch (error) {
       console.error("Error importing configuration:", error);
-      throw error;
+      toast.error("Unable to import configuration. Please check the file and try again.");
+      return null;
     }
   }
 
@@ -843,7 +915,7 @@ export class RoundConfigurationAPI {
       endTime?: string;
       summary?: string;
     };
-  }> {
+  } | null> {
     try {
       const response = await fetch(
         `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/candidates/${applicationId}/meeting-status`,
@@ -854,15 +926,16 @@ export class RoundConfigurationAPI {
       );
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Failed to check meeting status: ${error}`);
+        toast.error("Failed to check meeting status. Please try again.");
+        return null;
       }
 
       const data = await response.json();
       return data;
     } catch (error) {
       console.error("Error checking meeting status:", error);
-      throw error;
+      toast.error("Unable to check meeting status. Please check your connection and try again.");
+      return null;
     }
   }
 
@@ -873,7 +946,7 @@ export class RoundConfigurationAPI {
   ): Promise<{
     success: boolean;
     data: MeetingData;
-  }> {
+  } | null> {
     try {
       const response = await fetch(
         `${this.baseUrl}/jobs/${jobId}/rounds/${roundId}/candidates/${applicationId}/meeting-details`,
@@ -884,15 +957,16 @@ export class RoundConfigurationAPI {
       );
 
       if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Failed to get meeting details: ${error}`);
+        toast.error("Failed to get meeting details. Please try again.");
+        return null;
       }
 
       const data = await response.json();
       return data;
     } catch (error) {
       console.error("Error getting meeting details:", error);
-      throw error;
+      toast.error("Unable to get meeting details. Please check your connection and try again.");
+      return null;
     }
   }
 }

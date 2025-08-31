@@ -23,7 +23,16 @@
   "devDependencies": {
     "concurrently": "^8.2.2"
   },
-  "keywords": ["hr", "ai", "dotnet", "nextjs", "react"],
+  "keywords": [
+    "hr",
+    "ai",
+    "dotnet",
+    "nextjs",
+    "react"
+  ],
   "author": "AutoHR Team",
-  "license": "MIT"
-} 
+  "license": "MIT",
+  "dependencies": {
+    "ccundo": "^1.1.1"
+  }
+}

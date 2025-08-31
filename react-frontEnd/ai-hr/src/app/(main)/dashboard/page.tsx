@@ -170,7 +170,7 @@ export default function HiringDashboard() {
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href="/create-job"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#066046] text-white text-sm font-medium hover:bg-accent transition-colors"
             >
               <PlusCircle className="w-4 h-4" />
               Create job

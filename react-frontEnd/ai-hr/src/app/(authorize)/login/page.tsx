@@ -10,7 +10,6 @@ const LoginPage: React.FC = () => {
     email: "",
     password: "",
     rememberMe: false,
-    userType: "hiring" as "application" | "hiring",
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [showPassword, setShowPassword] = useState(false);
@@ -74,8 +73,7 @@ const LoginPage: React.FC = () => {
       const success = await login(
         formData.email,
         formData.password,
-        formData.rememberMe,
-        formData.userType
+        formData.rememberMe
       );
 
       if (!success) {
@@ -206,30 +204,6 @@ const LoginPage: React.FC = () => {
               )}
             </div>
 
-            {/* User Type Field */}
-            <div>
-              <label
-                htmlFor="userType"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Account Type
-              </label>
-              <select
-                id="userType"
-                name="userType"
-                value={formData.userType}
-                onChange={handleInputChange}
-                className="block w-full px-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors bg-white"
-              >
-                <option value="hiring">Hiring User</option>
-                <option value="application">Job Applicant</option>
-              </select>
-              <p className="mt-1 text-xs text-gray-500">
-                {formData.userType === "hiring"
-                  ? "For HR professionals, recruiters, and hiring managers who post jobs and manage candidates"
-                  : "For job seekers who want to apply for positions"}
-              </p>
-            </div>
 
             {/* Remember Me & Forgot Password */}
             <div className="flex items-center justify-between">

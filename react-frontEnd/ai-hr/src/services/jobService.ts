@@ -12,6 +12,7 @@ import {
   CreateJobRequest,
   UpdateJobRequest,
 } from "@/interfaces/api";
+import { toast } from "@/utils/toast";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5189";
 
@@ -48,7 +49,7 @@ class JobService {
     return null;
   }
 
-  private async fetchApi(endpoint: string, options?: RequestInit) {
+  private async fetchApi(endpoint: string, options?: RequestInit): Promise<any | null> {
     const url = `${API_BASE_URL}${endpoint}`;
     const token = this.getAuthToken();
 
@@ -92,17 +93,16 @@ class JobService {
 
         // Handle specific error cases
         if (response.status === 401) {
-          console.error("🚫 Unauthorized - Token may be invalid or expired");
           if (typeof window !== "undefined") {
             localStorage.removeItem("authToken");
             sessionStorage.removeItem("authToken");
           }
-          throw new Error("Authentication required. Please log in again.");
+          toast.error("Your session has expired. Please log in again.");
+          return null;
         }
 
-        throw new Error(
-          errorData.error || `HTTP error! status: ${response.status}`
-        );
+        toast.error(errorData.error || `Request failed with status ${response.status}`);
+        return null;
       }
 
       // Handle 204 No Content
@@ -137,11 +137,8 @@ class JobService {
         } catch (parseError) {
           console.error("❌ JSON Parse Error:", parseError);
           console.error("❌ Response text:", text);
-          throw new Error(
-            `Invalid JSON response from server: ${
-              parseError instanceof Error ? parseError.message : "Unknown error"
-            }`
-          );
+          toast.error('Server returned invalid response format');
+          return null;
         }
       }
 
@@ -154,11 +151,8 @@ class JobService {
           return JSON.parse(text);
         } catch (parseError) {
           console.error("❌ Failed to parse JSON-like text:", text);
-          throw new Error(
-            `Invalid JSON response: ${
-              parseError instanceof Error ? parseError.message : "Unknown error"
-            }`
-          );
+          toast.error('Server returned invalid response format');
+          return null;
         }
       }
 
@@ -170,25 +164,17 @@ class JobService {
         error instanceof Error &&
         (error.message.includes("JSON") || error.message.includes("HTTP"))
       ) {
-        throw error;
+        toast.error(error.message);
+        return null;
       }
 
-      console.error("🚨 Network/Fetch Error:", { 
-        url, 
-        error: error instanceof Error ? error.message : "Unknown error",
-        stack: error instanceof Error ? error.stack : undefined
-      });
-      
-      // Provide more specific error messages
-      if (error instanceof TypeError && error.message.includes('fetch')) {
-        throw new Error("Cannot connect to server. Please check if the backend is running.");
-      }
-      
-      throw new Error(
+      console.error("🚨 Network/Fetch Error:", { url, error });
+      toast.error(
         `Network error: ${
-          error instanceof Error ? error.message : "Unknown error"
+          error instanceof Error ? error.message : "Connection failed"
         }`
       );
+      return null;
     }
   }
   // Check if user is authenticated
@@ -211,16 +197,18 @@ class JobService {
     }
   }
 
-  async getJobById(id: string): Promise<ApiJob> {
+  async getJobById(id: string): Promise<ApiJob | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view job details");
+      toast.error("Authentication required to view job details");
+      return null;
     }
 
     try {
       const response = await this.fetchApi(`/jobs/${id}`);
 
       if (!response) {
-        throw new Error("Job not found");
+        toast.error("Job not found");
+        return null;
       }
 
       // Handle wrapped response from backend
@@ -233,7 +221,8 @@ class JobService {
       );
 
       if (!job) {
-        throw new Error("Job not found");
+        toast.error("Job not found");
+        return null;
       }
 
 
@@ -247,15 +236,18 @@ class JobService {
       // Provide more helpful error messages
       if (error instanceof Error) {
         if (error.message.includes("404")) {
-          throw new Error("Job not found. It may have been deleted.");
+          toast.error("Job not found. It may have been deleted.");
         } else if (error.message.includes("401")) {
-          throw new Error("Authentication required. Please log in again.");
+          toast.error("Authentication required. Please log in again.");
         } else if (error.message.includes("403")) {
-          throw new Error("You do not have permission to view this job.");
+          toast.error("You do not have permission to view this job.");
+        } else {
+          toast.error("Failed to load job details");
         }
+      } else {
+        toast.error("Failed to load job details");
       }
-
-      throw error;
+      return null;
     }
   }
 
@@ -269,9 +261,10 @@ class JobService {
       hasNextPage: boolean;
       hasPreviousPage: boolean;
     };
-  }> {
+  } | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view jobs");
+      toast.error("Authentication required to view jobs");
+      return null;
     }
 
     // Don't do complex conversions - pass status directly to backend
@@ -307,11 +300,17 @@ class JobService {
 
     console.log("📊 Final API endpoint:", endpoint);
 
-    const response = await this.fetchApi(endpoint);
-    console.log("📊 Received response from API:", response);
+    try {
+      const response = await this.fetchApi(endpoint);
+      console.log("📊 Received response from API:", response);
 
-    // Handle both old format (array) and new format (paginated object)
-    if (Array.isArray(response)) {
+      if (!response) {
+        toast.error("Failed to load jobs");
+        return null;
+      }
+
+      // Handle both old format (array) and new format (paginated object)
+      if (Array.isArray(response)) {
       // Legacy format - return as single page
       return {
         jobs: response || [],
@@ -337,6 +336,11 @@ class JobService {
           hasPreviousPage: false
         }
       };
+    }
+    } catch (error) {
+      console.error("❌ Failed to load jobs:", error);
+      toast.error("Failed to load jobs");
+      return null;
     }
   }
 
@@ -410,7 +414,8 @@ class JobService {
 
   async createJob(data: CreateJobRequest): Promise<void> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to create jobs");
+      toast.error("Authentication required to create jobs");
+      return;
     }
 
     console.log("🚀 JobService createJob called with data:", {
@@ -418,15 +423,25 @@ class JobService {
       interviewTemplateId: data.interviewTemplateId,
     });
 
-    return this.fetchApi("/jobs", {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
+    try {
+      const result = await this.fetchApi("/jobs", {
+        method: "POST",
+        body: JSON.stringify(data),
+      });
+
+      if (result !== null) {
+        toast.success("Job created successfully!");
+      }
+    } catch (error) {
+      console.error("❌ Failed to create job:", error);
+      toast.error("Failed to create job");
+    }
   }
 
   async updateJob(id: string, data: UpdateJobRequest): Promise<void> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to update jobs");
+      toast.error("Authentication required to update jobs");
+      return;
     }
 
     try {
@@ -435,46 +450,71 @@ class JobService {
         body: JSON.stringify(data),
       });
 
-      // No need to return anything for successful updates
-      return;
+      if (response !== null) {
+        toast.success("Job updated successfully!");
+      }
     } catch (error) {
       console.error("❌ Job update failed:", error);
-      throw error;
+      toast.error("Failed to update job");
     }
   }
 
   async deleteJob(id: string): Promise<void> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to delete job");
+      toast.error("Authentication required to delete job");
+      return;
     }
 
-    await this.fetchApi(`/jobs/${id}`, { method: "DELETE" });
+    try {
+      const result = await this.fetchApi(`/jobs/${id}`, { method: "DELETE" });
+      if (result !== null) {
+        toast.success("Job deleted successfully!");
+      }
+    } catch (error) {
+      console.error("❌ Failed to delete job:", error);
+      toast.error("Failed to delete job");
+    }
   }
 
   async getJobsByCompany(companyId: string): Promise<ApiJob[]> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view company jobs");
+      toast.error("Authentication required to view company jobs");
+      return [];
     }
     
     const response = await this.getAllJobs(undefined, companyId, 1, 100);
-    return response.jobs;
+    return response?.jobs || [];
   }
 
   async getCompanyJobs(companyId: string): Promise<ApiJob[]> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view company jobs");
+      toast.error("Authentication required to view company jobs");
+      return [];
     }
     
     const response = await this.getAllJobs(undefined, companyId, 1, 100);
-    return response.jobs;
+    return response?.jobs || [];
   }
 
   // Company-related methods
-  async getCompanyById(id: string): Promise<ApiCompany> {
+  async getCompanyById(id: string): Promise<ApiCompany | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view company details");
+      toast.error("Authentication required to view company details");
+      return null;
     }
-    return this.fetchApi(`/companies/${id}`);
+    
+    try {
+      const result = await this.fetchApi(`/companies/${id}`);
+      if (!result) {
+        toast.error("Company not found");
+        return null;
+      }
+      return result;
+    } catch (error) {
+      console.error("❌ Failed to load company:", error);
+      toast.error("Failed to load company details");
+      return null;
+    }
   }
 
   async getAllCompanies(
@@ -482,7 +522,8 @@ class JobService {
     isVerified?: boolean
   ): Promise<ApiCompany[]> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view companies");
+      toast.error("Authentication required to view companies");
+      return [];
     }
 
     const params = new URLSearchParams();
@@ -493,7 +534,14 @@ class JobService {
     const queryString = params.toString();
     const endpoint = `/companies/filter${queryString ? `?${queryString}` : ""}`;
 
-    return this.fetchApi(endpoint);
+    try {
+      const result = await this.fetchApi(endpoint);
+      return result || [];
+    } catch (error) {
+      console.error("❌ Failed to load companies:", error);
+      toast.error("Failed to load companies");
+      return [];
+    }
   }
 
   //   Status Change
@@ -503,7 +551,8 @@ class JobService {
     request: JobStatusChangeRequest
   ): Promise<void> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to change job status");
+      toast.error("Authentication required to change job status");
+      return;
     }
 
     try {
@@ -514,17 +563,20 @@ class JobService {
         body: JSON.stringify(request),
       });
 
-      console.log(`✅ Successfully changed job status`);
-      return response;
+      if (response !== null) {
+        console.log(`✅ Successfully changed job status`);
+        toast.success("Job status updated successfully!");
+      }
     } catch (error) {
       console.error("❌ Failed to change job status:", error);
-      throw error;
+      toast.error("Failed to change job status");
     }
   }
 
-  async bulkChangeJobStatus(request: BulkJobStatusChangeRequest): Promise<any> {
+  async bulkChangeJobStatus(request: BulkJobStatusChangeRequest): Promise<any | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to change job statuses");
+      toast.error("Authentication required to change job statuses");
+      return null;
     }
 
     try {
@@ -535,20 +587,25 @@ class JobService {
         body: JSON.stringify(request),
       });
 
-      console.log(`✅ Bulk status change completed`);
+      if (response !== null) {
+        console.log(`✅ Bulk status change completed`);
+        toast.success("Job statuses updated successfully!");
+      }
       return response;
     } catch (error) {
       console.error("❌ Failed to bulk change job statuses:", error);
-      throw error;
+      toast.error("Failed to change job statuses");
+      return null;
     }
   }
 
   async duplicateJob(
     jobId: string,
     request: JobDuplicateRequest
-  ): Promise<any> {
+  ): Promise<any | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to duplicate job");
+      toast.error("Authentication required to duplicate job");
+      return null;
     }
 
     try {
@@ -559,22 +616,31 @@ class JobService {
         body: JSON.stringify(request),
       });
 
-      console.log(`✅ Successfully duplicated job`);
+      if (response !== null) {
+        console.log(`✅ Successfully duplicated job`);
+        toast.success("Job duplicated successfully!");
+      }
       return response;
     } catch (error) {
       console.error("❌ Failed to duplicate job:", error);
-      throw error;
+      toast.error("Failed to duplicate job");
+      return null;
     }
   }
 
   async getJobsByStatus(status: string): Promise<ApiJob[]> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view jobs");
+      toast.error("Authentication required to view jobs");
+      return [];
     }
 
     try {
       console.log(`📊 Getting jobs with status: ${status}`);
       const jobs = await this.fetchApi(`/jobs/by-status/${status}`);
+
+      if (!jobs) {
+        return [];
+      }
 
       // Normalize status in response
       return jobs.map((job: any) => ({
@@ -583,17 +649,23 @@ class JobService {
       }));
     } catch (error) {
       console.error("❌ Failed to get jobs by status:", error);
-      throw error;
+      toast.error("Failed to load jobs by status");
+      return [];
     }
   }
 
   async getJobStatusHistory(jobId: string): Promise<JobStatusHistory[]> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view job status history");
+      toast.error("Authentication required to view job status history");
+      return [];
     }
 
     try {
       const history = await this.fetchApi(`/jobs/${jobId}/status-history`);
+
+      if (!history) {
+        return [];
+      }
 
       // Normalize statuses in history
       return history.map((record: any) => ({
@@ -603,7 +675,8 @@ class JobService {
       }));
     } catch (error) {
       console.error("❌ Failed to get job status history:", error);
-      throw error;
+      toast.error("Failed to load job status history");
+      return [];
     }
   }
 
@@ -639,7 +712,7 @@ class JobService {
       hasNextPage: boolean;
       hasPreviousPage: boolean;
     };
-  }> {
+  } | null> {
     // Build query parameters for public endpoint
     const params = new URLSearchParams();
     if (status && status.trim()) params.append("status", status);
@@ -672,9 +745,8 @@ class JobService {
             error: `HTTP ${response.status}: ${response.statusText}`,
           };
         }
-        throw new Error(
-          errorData.error || `HTTP error! status: ${response.status}`
-        );
+        toast.error(errorData.error || `Failed to load public jobs`);
+        return null;
       }
 
       const data = await response.json();
@@ -682,13 +754,12 @@ class JobService {
       return data;
     } catch (error: unknown) {
       console.error("❌ Failed to fetch public jobs:", error);
-      throw error instanceof Error
-        ? error
-        : new Error("Failed to fetch public jobs");
+      toast.error("Failed to load public jobs");
+      return null;
     }
   }
 
-  async getPublicJobById(id: string): Promise<ApiJob> {
+  async getPublicJobById(id: string): Promise<ApiJob | null> {
     console.log("🌍 Fetching public job by ID:", id);
 
     try {
@@ -714,12 +785,11 @@ class JobService {
 
         // Provide more helpful error messages
         if (response.status === 404) {
-          throw new Error("Job not found or is no longer available.");
+          toast.error("Job not found or is no longer available.");
+        } else {
+          toast.error(errorData.error || "Failed to load job details");
         }
-
-        throw new Error(
-          errorData.error || `HTTP error! status: ${response.status}`
-        );
+        return null;
       }
 
       const job = await response.json();
@@ -727,24 +797,29 @@ class JobService {
       return job;
     } catch (error: unknown) {
       console.error("❌ Failed to fetch public job:", error);
-      throw error instanceof Error
-        ? error
-        : new Error("Failed to fetch public job");
+      toast.error("Failed to load job details");
+      return null;
     }
   }
 
   // Get job analytics (for hiring users)
-  async getJobAnalytics(jobId: string): Promise<any> {
+  async getJobAnalytics(jobId: string): Promise<any | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view job analytics");
+      toast.error("Authentication required to view job analytics");
+      return null;
     }
 
     try {
       const analytics = await this.fetchApi(`/jobs/${jobId}/analytics`);
+      if (!analytics) {
+        toast.error("Failed to load job analytics");
+        return null;
+      }
       return analytics;
     } catch (error) {
       console.error("❌ Failed to load job analytics:", error);
-      throw error;
+      toast.error("Failed to load job analytics");
+      return null;
     }
   }
 
@@ -755,19 +830,28 @@ class JobService {
     updatedJobs: number;
     errors: number;
     success: boolean;
-  }> {
+  } | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to fix view counts");
+      toast.error("Authentication required to fix view counts");
+      return null;
     }
 
     try {
       const result = await this.fetchApi("/jobs/fix-view-counts", {
         method: "POST",
       });
+      
+      if (!result) {
+        toast.error("Failed to fix view counts");
+        return null;
+      }
+      
+      toast.success("View counts updated successfully!");
       return result;
     } catch (error) {
       console.error("❌ Failed to fix view counts:", error);
-      throw error;
+      toast.error("Failed to fix view counts");
+      return null;
     }
   }
 
@@ -778,7 +862,7 @@ class JobService {
     let sessionId = sessionStorage.getItem("viewSessionId");
     if (!sessionId) {
       sessionId =
-        "view_" + Math.random().toString(36).substr(2, 9) + "_" + Date.now();
+        "view_" + Math.random().toString(36).substring(2, 11) + "_" + Date.now();
       sessionStorage.setItem("viewSessionId", sessionId);
     }
     return sessionId;
@@ -811,11 +895,23 @@ class JobService {
     applicationRate: number;
   }> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view job statistics");
+      toast.error("Authentication required to view job statistics");
+      return {
+        totalViews: 0,
+        viewsByUserType: {},
+        applicationRate: 0,
+      };
     }
 
     try {
       const analytics = await this.getJobAnalytics(jobId);
+      if (!analytics) {
+        return {
+          totalViews: 0,
+          viewsByUserType: {},
+          applicationRate: 0,
+        };
+      }
       return {
         totalViews: analytics.TotalViews || 0,
         viewsByUserType: analytics.ViewsByUserType || {},
@@ -1193,9 +1289,10 @@ class JobService {
     };
   }
 
-  async getApplicantJobById(id: string): Promise<ApiJob> {
+  async getApplicantJobById(id: string): Promise<ApiJob | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view job details");
+      toast.error("Authentication required to view job details");
+      return null;
     }
 
     try {
@@ -1213,7 +1310,8 @@ class JobService {
       );
 
       if (!job) {
-        throw new Error("Job not found");
+        toast.error("Job not found");
+        return null;
       }
 
       return job;
@@ -1223,21 +1321,25 @@ class JobService {
       // Provide more helpful error messages
       if (error instanceof Error) {
         if (error.message.includes("404")) {
-          throw new Error("Job not found. It may have been deleted.");
+          toast.error("Job not found. It may have been deleted.");
         } else if (error.message.includes("401")) {
-          throw new Error("Authentication required. Please log in again.");
+          toast.error("Authentication required. Please log in again.");
         } else if (error.message.includes("403")) {
-          throw new Error("You do not have permission to view this job.");
+          toast.error("You do not have permission to view this job.");
+        } else {
+          toast.error("Failed to load job details");
         }
+      } else {
+        toast.error("Failed to load job details");
       }
-
-      throw error;
+      return null;
     }
   }
 
   async getInterviewTemplatesForJobs(): Promise<any[]> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view interview templates");
+      toast.error("Authentication required to view interview templates");
+      return [];
     }
 
     try {
@@ -1245,18 +1347,33 @@ class JobService {
       return templates || [];
     } catch (error) {
       console.error("❌ Failed to load interview templates:", error);
-      throw error;
+      toast.error("Failed to load interview templates");
+      return [];
     }
   }
 
   // Enhanced getJobs method to handle API response
   async getJobs() {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to view jobs");
+      toast.error("Authentication required to view jobs");
+      return {
+        success: false,
+        data: [],
+        error: "Authentication required",
+      };
     }
 
     try {
       const response = await this.fetchApi(`/jobs`);
+      if (!response) {
+        toast.error("Failed to load jobs");
+        return {
+          success: false,
+          data: [],
+          error: "Failed to load jobs",
+        };
+      }
+      
       const jobs = response.data || response || [];
       return {
         success: true,
@@ -1265,6 +1382,7 @@ class JobService {
       };
     } catch (error) {
       console.error("Failed to load jobs:", error);
+      toast.error("Failed to load jobs");
       return {
         success: false,
         data: [],

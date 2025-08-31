@@ -142,7 +142,7 @@ export function InviteUserModal({
                     value={formData.email}
                     onChange={(e) => handleChange("email", e.target.value)}
                     disabled={isLoading}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed ${
                       errors.email ? "border-red-300" : "border-gray-300"
                     }`}
                     placeholder="Enter email address"
@@ -160,7 +160,7 @@ export function InviteUserModal({
                     value={formData.role}
                     onChange={(e) => handleChange("role", e.target.value)}
                     disabled={isLoading}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed ${
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed ${
                       errors.role ? "border-red-300" : "border-gray-300"
                     }`}
                   >
@@ -185,19 +185,19 @@ export function InviteUserModal({
                     onChange={(e) => handleChange("message", e.target.value)}
                     disabled={isLoading}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                     placeholder="Add a personal message to the invitation..."
                   />
                 </div>
 
-                <div className="bg-blue-50 p-4 rounded-md">
+                <div className="bg-[#066046]/10 p-4 rounded-md">
                   <div className="flex">
-                    <Mail className="h-5 w-5 text-blue-400 mr-2 mt-0.5" />
+                    <Mail className="h-5 w-5 text-[#066046] mr-2 mt-0.5" />
                     <div>
-                      <h4 className="text-sm font-medium text-blue-900">
+                      <h4 className="text-sm font-medium text-[#066046]">
                         What happens next?
                       </h4>
-                      <p className="text-sm text-blue-700 mt-1">
+                      <p className="text-sm text-[#066046]/80 mt-1">
                         The invited user will receive an email with instructions
                         to join your team. They can either create a new account
                         or use an existing one.
@@ -218,7 +218,7 @@ export function InviteUserModal({
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center px-4 py-2 bg-[#066046] text-white rounded-md hover:bg-[#267a54] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Send className="h-4 w-4 mr-2" />
                     {isLoading ? "Sending..." : "Next"}
@@ -256,14 +256,14 @@ export function InviteUserModal({
                   </div>
                 </div>
 
-                <div className="bg-blue-50 p-4 rounded-md">
+                <div className="bg-[#066046]/10 p-4 rounded-md">
                   <div className="flex">
-                    <Mail className="h-5 w-5 text-blue-400 mr-2 mt-0.5" />
+                    <Mail className="h-5 w-5 text-[#066046] mr-2 mt-0.5" />
                     <div>
-                      <h4 className="text-sm font-medium text-blue-900">
+                      <h4 className="text-sm font-medium text-[#066046]">
                         Customize Email
                       </h4>
-                      <p className="text-sm text-blue-700 mt-1">
+                      <p className="text-sm text-[#066046]/80 mt-1">
                         You can now customize the invitation email that will be
                         sent to {formData.email}.
                       </p>
@@ -283,7 +283,7 @@ export function InviteUserModal({
                   <button
                     onClick={() => setShowEmailModal(true)}
                     disabled={isLoading}
-                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center px-4 py-2 bg-[#066046] text-white rounded-md hover:bg-[#267a54] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Mail className="h-4 w-4 mr-2" />
                     Customize & Send Email

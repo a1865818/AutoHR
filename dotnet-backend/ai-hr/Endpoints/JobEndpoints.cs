@@ -889,18 +889,40 @@ public static class JobEndpoints
             }
 
             // ✅ Check if the authenticated user has applied to this job
-            ApplicationDetail? userApplication = null;
-            try
+            // Extract the real database user ID from JWT metadata if available
+            string? realUserId = null;
+            var userMetadataClaim = context.User.FindFirst("user_metadata")?.Value;
+            if (!string.IsNullOrEmpty(userMetadataClaim))
             {
-                var userApplicationResponse = await client.From<ApplicationDetail>().Get();
-                userApplication = userApplicationResponse.Models?.FirstOrDefault(ad => 
-                    ad.JobId == id && ad.CandidateUserId == Guid.Parse(userId));
+                try
+                {
+                    var userMetadata = System.Text.Json.JsonDocument.Parse(userMetadataClaim);
+                    if (userMetadata.RootElement.TryGetProperty("database_user_id", out var databaseUserIdElement))
+                    {
+                        realUserId = databaseUserIdElement.GetString();
+                    }
+                    else if (userMetadata.RootElement.TryGetProperty("migrated_user_id", out var migratedUserIdElement))
+                    {
+                        realUserId = migratedUserIdElement.GetString();
+                    }
+                }
+                catch
+                {
+                    // Ignore parsing errors and fall back to NameIdentifier
+                }
             }
-            catch (Exception ex)
+
+            var userIdToCompare = !string.IsNullOrEmpty(realUserId) ? realUserId : userId;
+            if (!Guid.TryParse(userIdToCompare, out var userGuidForCompare))
             {
-                Console.WriteLine($"⚠️ Error checking user application: {ex.Message}");
-                // Don't fail the request if application check fails
+                return Results.Unauthorized();
             }
+
+            var userApplicationResponse = await client.From<ApplicationDetail>()
+                .Where(ad => ad.JobId == id && ad.CandidateUserId == userGuidForCompare)
+                .Get();
+
+            var userApplication = userApplicationResponse.Models?.FirstOrDefault();
 
             // ✅ Get interview template details if user has applied and template exists
             object? interviewTemplate = null;
@@ -1045,7 +1067,14 @@ public static class JobEndpoints
             Console.WriteLine($"Job.InterviewTemplateId being inserted: {job.InterviewTemplateId}");
 
             var response = await client.From<Job>().Insert(job);
-            return Results.Ok();
+            
+            // Return the created job with its ID
+            var createdJob = await CreateJobDto(job, client);
+            return Results.Ok(new { 
+                success = true, 
+                message = "Job created successfully", 
+                data = createdJob 
+            });
         }
         catch (Exception ex)
         {
@@ -1665,34 +1694,20 @@ public static class JobEndpoints
         {
             Console.WriteLine("🔍 Getting interview templates for job creation");
 
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
+            // Get company ID from JWT metadata
+            var companyId = GetUserCompanyId(user);
+            if (companyId == null)
             {
-                Console.WriteLine("❌ No user ID found");
+                Console.WriteLine("❌ Company ID not found in JWT");
                 return Results.Unauthorized();
             }
 
-            if (!Guid.TryParse(userId, out var userGuid))
-            {
-                Console.WriteLine("❌ Invalid user ID format");
-                return Results.BadRequest(new { error = "Invalid user ID format" });
-            }
-
-            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
-            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
-
-            if (hiringUser == null)
-            {
-                Console.WriteLine("❌ Hiring user not found");
-                return Results.Unauthorized();
-            }
-
-            Console.WriteLine($"🔍 Getting templates for company: {hiringUser.CompanyId}");
+            Console.WriteLine($"🔍 Getting templates for company: {companyId.Value}");
 
             // Get interview templates for this company and global templates
             var templatesResponse = await client.From<ai_hr.Models.InterviewTemplate>().Get();
             var templates = templatesResponse.Models
-                .Where(t => t.CompanyId == hiringUser.CompanyId || t.CompanyId == null)
+                .Where(t => t.CompanyId == companyId.Value || t.CompanyId == null)
                 .OrderByDescending(t => t.IsDefault)
                 .ThenBy(t => t.Name)
                 .ToList();
@@ -1707,7 +1722,7 @@ public static class JobEndpoints
                 CompanyId = template.CompanyId
             }).ToList();
 
-            Console.WriteLine($"🔍 Found {templateDtos.Count} interview templates for company {hiringUser.CompanyId}");
+            Console.WriteLine($"🔍 Found {templateDtos.Count} interview templates for company {companyId.Value}");
             return Results.Ok(templateDtos);
         }
         catch (Exception ex)
@@ -2002,5 +2017,39 @@ public static class JobEndpoints
             Console.WriteLine($"Stack trace: {ex.StackTrace}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }
+    }
+
+    private static Guid? GetUserCompanyId(ClaimsPrincipal user)
+    {
+        // Check JWT claims for company_id in user_metadata first
+        var userMetadataClaim = user.FindFirst("user_metadata")?.Value;
+        if (!string.IsNullOrEmpty(userMetadataClaim))
+        {
+            try
+            {
+                var userMetadata = JsonDocument.Parse(userMetadataClaim);
+                if (userMetadata.RootElement.TryGetProperty("company_id", out var companyIdElement))
+                {
+                    var companyIdStr = companyIdElement.GetString();
+                    if (companyIdStr != null && Guid.TryParse(companyIdStr, out var companyId))
+                    {
+                        return companyId;
+                    }
+                }
+            }
+            catch
+            {
+                // If parsing fails, continue to fallback
+            }
+        }
+
+        // Fallback: Check for direct company_id claim
+        var companyIdClaim = user.FindFirst("company_id")?.Value;
+        if (companyIdClaim != null && Guid.TryParse(companyIdClaim, out var companyIdFromJwt))
+        {
+            return companyIdFromJwt;
+        }
+
+        return null;
     }
 }

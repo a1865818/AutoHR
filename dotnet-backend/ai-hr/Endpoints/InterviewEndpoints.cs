@@ -2,6 +2,7 @@ using ai_hr.Models;
 using ai_hr.Contracts.Interview;
 using Supabase;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace ai_hr.Endpoints;
 
@@ -12,92 +13,108 @@ public static class InterviewEndpoints
         var group = routes.MapGroup("/interviews").WithTags("Interviews");
 
         // Interview Templates Endpoints
-        group.MapGet("/templates", GetInterviewTemplates)
+        group.MapGet("/templates", (Supabase.Client client, ClaimsPrincipal user, ILogger logger) => 
+            GetInterviewTemplates(client, user, logger))
             .WithName("GetInterviewTemplates")
-            .WithSummary("Get all interview templates for the user's company");
+            .WithSummary("Get all interview templates for the user's company")
+            .RequireAuthorization();
 
         group.MapGet("/templates/{id:guid}", GetInterviewTemplate)
             .WithName("GetInterviewTemplate")
-            .WithSummary("Get a specific interview template by ID");
+            .WithSummary("Get a specific interview template by ID")
+            .RequireAuthorization();
 
         group.MapGet("/templates/{id:guid}/applicant", GetApplicantInterviewTemplate)
             .WithName("GetApplicantInterviewTemplate")
-            .WithSummary("Get a specific interview template by ID for applicants");
+            .WithSummary("Get a specific interview template by ID for applicants")
+            .RequireAuthorization();
 
         group.MapPost("/templates", CreateInterviewTemplate)
             .WithName("CreateInterviewTemplate")
-            .WithSummary("Create a new interview template");
-        // .RequireAuthorization();
+            .WithSummary("Create a new interview template")
+            .RequireAuthorization();
 
         group.MapPut("/templates/{id:guid}", UpdateInterviewTemplate)
             .WithName("UpdateInterviewTemplate")
-            .WithSummary("Update an existing interview template");
-        // .RequireAuthorization();
+            .WithSummary("Update an existing interview template")
+            .RequireAuthorization();
 
         group.MapDelete("/templates/{id:guid}", DeleteInterviewTemplate)
             .WithName("DeleteInterviewTemplate")
-            .WithSummary("Delete an interview template");
-        // .RequireAuthorization();
+            .WithSummary("Delete an interview template")
+            .RequireAuthorization();
 
         group.MapPost("/templates/{id:guid}/clone", CloneInterviewTemplate)
             .WithName("CloneInterviewTemplate")
-            .WithSummary("Clone an existing interview template");
-        // .RequireAuthorization();
+            .WithSummary("Clone an existing interview template")
+            .RequireAuthorization();
 
         group.MapPost("/templates/{id:guid}/set-default", SetDefaultInterviewTemplate)
             .WithName("SetDefaultInterviewTemplate")
-            .WithSummary("Set a template as the default template");
-        // .RequireAuthorization();
+            .WithSummary("Set a template as the default template")
+            .RequireAuthorization();
 
         group.MapGet("/stats", GetInterviewStats)
             .WithName("GetInterviewStats")
-            .WithSummary("Get interview statistics");
-        // .RequireAuthorization();
+            .WithSummary("Get interview statistics")
+            .RequireAuthorization();
 
         // Interview Rounds Endpoints
         group.MapGet("/templates/{templateId:guid}/rounds", GetInterviewRounds)
             .WithName("GetInterviewRounds")
-            .WithSummary("Get all rounds for a template");
-        // .RequireAuthorization();
+            .WithSummary("Get all rounds for a template")
+            .RequireAuthorization();
 
         group.MapPost("/templates/{templateId:guid}/rounds", CreateInterviewRound)
             .WithName("CreateInterviewRound")
-            .WithSummary("Create a new interview round");
-        // .RequireAuthorization();
+            .WithSummary("Create a new interview round")
+            .RequireAuthorization();
 
         group.MapPut("/rounds/{id:guid}", UpdateInterviewRound)
             .WithName("UpdateInterviewRound")
-            .WithSummary("Update an existing interview round");
-        // .RequireAuthorization();
+            .WithSummary("Update an existing interview round")
+            .RequireAuthorization();
 
         group.MapDelete("/rounds/{id:guid}", DeleteInterviewRound)
             .WithName("DeleteInterviewRound")
-            .WithSummary("Delete an interview round");
-        // .RequireAuthorization();
+            .WithSummary("Delete an interview round")
+            .RequireAuthorization();
     }
 
     private static async Task<IResult> GetInterviewTemplates(
         Supabase.Client client,
-        ClaimsPrincipal user)
+        ClaimsPrincipal user,
+        ILogger logger = null)
     {
         try
         {
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            // Extract user ID from both possible claim types (Supabase uses "sub", custom uses NameIdentifier)
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? 
+                         user.FindFirst("sub")?.Value;
+            
+            logger?.LogInformation("🔍 GetInterviewTemplates: UserId={UserId}, AllClaims={Claims}", 
+                userId, string.Join(", ", user.Claims.Select(c => $"{c.Type}:{c.Value}")));
+            
             if (string.IsNullOrEmpty(userId))
+            {
+                logger?.LogWarning("❌ No user ID found in token claims");
                 return Results.Unauthorized();
+            }
 
             if (!Guid.TryParse(userId, out var userGuid))
+            {
+                logger?.LogWarning("❌ Invalid user ID format: {UserId}", userId);
                 return Results.BadRequest(new { error = "Invalid user ID format" });
+            }
 
-            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
-            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
-
-            if (hiringUser == null)
+            // Get company ID from JWT metadata
+            var companyId = GetUserCompanyId(user);
+            if (companyId == null)
                 return Results.Unauthorized();
 
             var templatesResponse = await client.From<InterviewTemplate>().Get();
             var templates = templatesResponse.Models
-                .Where(t => t.CompanyId == hiringUser.CompanyId || t.CompanyId == null)
+                .Where(t => t.CompanyId == companyId.Value || t.CompanyId == null)
                 .OrderByDescending(t => t.CreatedAt)
                 .ToList();
 
@@ -121,22 +138,23 @@ public static class InterviewEndpoints
     {
         try
         {
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            // Extract user ID from both possible claim types (Supabase uses "sub", custom uses NameIdentifier)
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? 
+                         user.FindFirst("sub")?.Value;
             if (string.IsNullOrEmpty(userId))
                 return Results.Unauthorized();
 
             if (!Guid.TryParse(userId, out var userGuid))
                 return Results.BadRequest(new { error = "Invalid user ID format" });
 
-            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
-            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
-
-            if (hiringUser == null)
+            // Get company ID from JWT metadata
+            var companyId = GetUserCompanyId(user);
+            if (companyId == null)
                 return Results.Unauthorized();
 
             var templateResponse = await client.From<InterviewTemplate>().Get();
             var template = templateResponse.Models.FirstOrDefault(t => t.Id == id &&
-                (t.CompanyId == hiringUser.CompanyId || t.CompanyId == null));
+                (t.CompanyId == companyId.Value || t.CompanyId == null));
 
             if (template == null)
                 return Results.NotFound();
@@ -188,17 +206,15 @@ public static class InterviewEndpoints
     {
         try
         {
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
+            // Get company ID from JWT metadata
+            var companyId = GetUserCompanyId(user);
+            if (companyId == null)
                 return Results.Unauthorized();
 
-            if (!Guid.TryParse(userId, out var userGuid))
-                return Results.BadRequest(new { error = "Invalid user ID format" });
-
-            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
-            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
-
-            if (hiringUser == null)
+            // Get migrated user ID from JWT metadata
+            var migratedUserId = GetMigratedUserId(user);
+            Console.WriteLine($"🔍 CreateInterviewTemplate - MigratedUserId: {migratedUserId}");
+            if (migratedUserId == null)
                 return Results.Unauthorized();
 
             var template = new InterviewTemplate
@@ -206,8 +222,8 @@ public static class InterviewEndpoints
                 Name = dto.Name,
                 Description = dto.Description,
                 IsDefault = dto.IsDefault,
-                CompanyId = hiringUser.CompanyId,
-                CreatedBy = userGuid,
+                CompanyId = companyId.Value,
+                CreatedBy = migratedUserId.Value,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -242,14 +258,13 @@ public static class InterviewEndpoints
             if (!Guid.TryParse(userId, out var userGuid))
                 return Results.BadRequest(new { error = "Invalid user ID format" });
 
-            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
-            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
-
-            if (hiringUser == null)
+            // Get company ID from JWT metadata
+            var companyId = GetUserCompanyId(user);
+            if (companyId == null)
                 return Results.Unauthorized();
 
             var templateResponse = await client.From<InterviewTemplate>().Get();
-            var template = templateResponse.Models.FirstOrDefault(t => t.Id == id && t.CompanyId == hiringUser.CompanyId);
+            var template = templateResponse.Models.FirstOrDefault(t => t.Id == id && t.CompanyId == companyId.Value);
 
             if (template == null)
                 return Results.NotFound();
@@ -293,14 +308,13 @@ public static class InterviewEndpoints
             if (!Guid.TryParse(userId, out var userGuid))
                 return Results.BadRequest(new { error = "Invalid user ID format" });
 
-            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
-            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
-
-            if (hiringUser == null)
+            // Get company ID from JWT metadata
+            var companyId = GetUserCompanyId(user);
+            if (companyId == null)
                 return Results.Unauthorized();
 
             var templateResponse = await client.From<InterviewTemplate>().Get();
-            var template = templateResponse.Models.FirstOrDefault(t => t.Id == id && t.CompanyId == hiringUser.CompanyId);
+            var template = templateResponse.Models.FirstOrDefault(t => t.Id == id && t.CompanyId == companyId.Value);
 
             if (template == null)
                 return Results.NotFound();
@@ -323,32 +337,25 @@ public static class InterviewEndpoints
     {
         try
         {
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
+            // Get company ID from JWT metadata
+            var companyId = GetUserCompanyId(user);
+            if (companyId == null)
             {
-                Console.WriteLine("❌ No user ID found");
+                Console.WriteLine("❌ Company ID not found in JWT");
                 return Results.Unauthorized();
             }
 
-            if (!Guid.TryParse(userId, out var userGuid))
+            // Get migrated user ID from JWT metadata
+            var migratedUserId = GetMigratedUserId(user);
+            if (migratedUserId == null)
             {
-                Console.WriteLine("❌ Invalid user ID format");
-                return Results.BadRequest(new { error = "Invalid user ID format" });
-            }
-
-            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
-            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
-
-            if (hiringUser == null)
-            {
-                Console.WriteLine("❌ Hiring user not found");
+                Console.WriteLine("❌ Migrated user ID not found in JWT");
                 return Results.Unauthorized();
             }
-
 
             var templateResponse = await client.From<InterviewTemplate>().Get();
             var originalTemplate = templateResponse.Models.FirstOrDefault(t => t.Id == id &&
-                (t.CompanyId == hiringUser.CompanyId || t.CompanyId == null));
+                (t.CompanyId == companyId.Value || t.CompanyId == null));
 
             if (originalTemplate == null)
             {
@@ -361,8 +368,8 @@ public static class InterviewEndpoints
                 Name = request.Name,
                 Description = originalTemplate.Description,
                 IsDefault = false,
-                CompanyId = hiringUser.CompanyId,
-                CreatedBy = userGuid,
+                CompanyId = companyId.Value,
+                CreatedBy = migratedUserId.Value,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
@@ -469,25 +476,24 @@ public static class InterviewEndpoints
                 return Results.BadRequest(new { error = "Invalid user ID format" });
             }
 
-            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
-            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
-
-            if (hiringUser == null)
+            // Get company ID from JWT metadata
+            var companyId = GetUserCompanyId(user);
+            if (companyId == null)
             {
-                Console.WriteLine("❌ Hiring user not found");
+                Console.WriteLine("❌ Company ID not found in JWT");
                 return Results.Unauthorized();
             }
 
             // Get fresh template data to avoid stale references
             Console.WriteLine($"🔍 Getting fresh template data for: {id}");
             var templateResponse = await client.From<InterviewTemplate>().Get();
-            var template = templateResponse.Models.FirstOrDefault(t => t.Id == id && t.CompanyId == hiringUser.CompanyId);
+            var template = templateResponse.Models.FirstOrDefault(t => t.Id == id && t.CompanyId == companyId.Value);
 
             if (template == null)
             {
                 Console.WriteLine("❌ Template not found or access denied");
-                Console.WriteLine($"🔍 Available templates for company {hiringUser.CompanyId}:");
-                var availableTemplates = templateResponse.Models.Where(t => t.CompanyId == hiringUser.CompanyId).ToList();
+                Console.WriteLine($"🔍 Available templates for company {companyId.Value}:");
+                var availableTemplates = templateResponse.Models.Where(t => t.CompanyId == companyId.Value).ToList();
                 foreach (var t in availableTemplates)
                 {
                     Console.WriteLine($"   - {t.Id}: {t.Name} (IsDefault: {t.IsDefault})");
@@ -508,7 +514,7 @@ public static class InterviewEndpoints
             }
 
             // First, unset all other templates as default for this company using UPDATE
-            var companyTemplates = templateResponse.Models.Where(t => t.CompanyId == hiringUser.CompanyId && t.IsDefault && t.Id != id).ToList();
+            var companyTemplates = templateResponse.Models.Where(t => t.CompanyId == companyId.Value && t.IsDefault && t.Id != id).ToList();
             Console.WriteLine($"🔍 Found {companyTemplates.Count} current default templates to unset");
 
             foreach (var existingDefault in companyTemplates)
@@ -600,22 +606,23 @@ public static class InterviewEndpoints
     {
         try
         {
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            // Extract user ID from both possible claim types (Supabase uses "sub", custom uses NameIdentifier)
+            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? 
+                         user.FindFirst("sub")?.Value;
             if (string.IsNullOrEmpty(userId))
                 return Results.Unauthorized();
 
             if (!Guid.TryParse(userId, out var userGuid))
                 return Results.BadRequest(new { error = "Invalid user ID format" });
 
-            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
-            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
-
-            if (hiringUser == null)
+            // Get company ID from JWT metadata
+            var companyId = GetUserCompanyId(user);
+            if (companyId == null)
                 return Results.Unauthorized();
 
             var templatesResponse = await client.From<InterviewTemplate>().Get();
             var templates = templatesResponse.Models
-                .Where(t => t.CompanyId == hiringUser.CompanyId || t.CompanyId == null)
+                .Where(t => t.CompanyId == companyId.Value || t.CompanyId == null)
                 .ToList();
 
             var totalTemplates = templates.Count;
@@ -662,15 +669,14 @@ public static class InterviewEndpoints
             if (!Guid.TryParse(userId, out var userGuid))
                 return Results.BadRequest(new { error = "Invalid user ID format" });
 
-            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
-            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
-
-            if (hiringUser == null)
+            // Get company ID from JWT metadata
+            var companyId = GetUserCompanyId(user);
+            if (companyId == null)
                 return Results.Unauthorized();
 
             var templateResponse = await client.From<InterviewTemplate>().Get();
             var template = templateResponse.Models.FirstOrDefault(t => t.Id == templateId &&
-                (t.CompanyId == hiringUser.CompanyId || t.CompanyId == null));
+                (t.CompanyId == companyId.Value || t.CompanyId == null));
 
             if (template == null)
                 return Results.NotFound();
@@ -702,14 +708,13 @@ public static class InterviewEndpoints
             if (!Guid.TryParse(userId, out var userGuid))
                 return Results.BadRequest(new { error = "Invalid user ID format" });
 
-            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
-            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
-
-            if (hiringUser == null)
+            // Get company ID from JWT metadata
+            var companyId = GetUserCompanyId(user);
+            if (companyId == null)
                 return Results.Unauthorized();
 
             var templateResponse = await client.From<InterviewTemplate>().Get();
-            var template = templateResponse.Models.FirstOrDefault(t => t.Id == templateId && t.CompanyId == hiringUser.CompanyId);
+            var template = templateResponse.Models.FirstOrDefault(t => t.Id == templateId && t.CompanyId == companyId.Value);
 
             if (template == null)
                 return Results.NotFound();
@@ -764,13 +769,11 @@ public static class InterviewEndpoints
                 return Results.BadRequest(new { error = "Invalid user ID format" });
             }
 
-            Console.WriteLine($"🔍 Getting hiring user for: {userGuid}");
-            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
-            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
-
-            if (hiringUser == null)
+            // Get company ID from JWT metadata
+            var companyId = GetUserCompanyId(user);
+            if (companyId == null)
             {
-                Console.WriteLine("❌ Hiring user not found");
+                Console.WriteLine("❌ Company ID not found in JWT");
                 return Results.Unauthorized();
             }
 
@@ -789,7 +792,7 @@ public static class InterviewEndpoints
             // Get the template to check company ownership
             Console.WriteLine($"🔍 Checking template ownership for: {round.TemplateId}");
             var templateResponse = await client.From<InterviewTemplate>().Get();
-            var template = templateResponse.Models.FirstOrDefault(t => t.Id == round.TemplateId && t.CompanyId == hiringUser.CompanyId);
+            var template = templateResponse.Models.FirstOrDefault(t => t.Id == round.TemplateId && t.CompanyId == companyId.Value);
 
             if (template == null)
             {
@@ -921,10 +924,9 @@ public static class InterviewEndpoints
             if (!Guid.TryParse(userId, out var userGuid))
                 return Results.BadRequest(new { error = "Invalid user ID format" });
 
-            var hiringUserResponse = await client.From<HiringUserProfile>().Get();
-            var hiringUser = hiringUserResponse.Models.FirstOrDefault(hu => hu.Id == userGuid);
-
-            if (hiringUser == null)
+            // Get company ID from JWT metadata
+            var companyId = GetUserCompanyId(user);
+            if (companyId == null)
                 return Results.Unauthorized();
 
             var roundResponse = await client.From<InterviewRound>().Get();
@@ -935,7 +937,7 @@ public static class InterviewEndpoints
 
             // Get the template to check company ownership
             var templateResponse = await client.From<InterviewTemplate>().Get();
-            var template = templateResponse.Models.FirstOrDefault(t => t.Id == round.TemplateId && t.CompanyId == hiringUser.CompanyId);
+            var template = templateResponse.Models.FirstOrDefault(t => t.Id == round.TemplateId && t.CompanyId == companyId.Value);
 
             if (template == null)
                 return Results.NotFound();
@@ -988,6 +990,86 @@ public static class InterviewEndpoints
             CreatedAt = round.CreatedAt,
             UpdatedAt = round.UpdatedAt
         };
+    }
+
+    private static Guid? GetUserCompanyId(ClaimsPrincipal user)
+    {
+        // Check JWT claims for company_id in user_metadata first
+        var userMetadataClaim = user.FindFirst("user_metadata")?.Value;
+        if (!string.IsNullOrEmpty(userMetadataClaim))
+        {
+            try
+            {
+                var userMetadata = JsonDocument.Parse(userMetadataClaim);
+                if (userMetadata.RootElement.TryGetProperty("company_id", out var companyIdElement))
+                {
+                    var companyIdStr = companyIdElement.GetString();
+                    if (companyIdStr != null && Guid.TryParse(companyIdStr, out var companyId))
+                    {
+                        return companyId;
+                    }
+                }
+            }
+            catch
+            {
+                // If parsing fails, continue to fallback
+            }
+        }
+
+        // Fallback: Check for direct company_id claim
+        var companyIdClaim = user.FindFirst("company_id")?.Value;
+        if (companyIdClaim != null && Guid.TryParse(companyIdClaim, out var companyIdFromJwt))
+        {
+            return companyIdFromJwt;
+        }
+
+        return null;
+    }
+
+    private static Guid? GetMigratedUserId(ClaimsPrincipal user)
+    {
+        // Check JWT claims for database user ID in user_metadata
+        var userMetadataClaim = user.FindFirst("user_metadata")?.Value;
+        if (!string.IsNullOrEmpty(userMetadataClaim))
+        {
+            try
+            {
+                var userMetadata = JsonDocument.Parse(userMetadataClaim);
+                
+                // First try database_user_id (for new users)
+                if (userMetadata.RootElement.TryGetProperty("database_user_id", out var databaseUserIdElement))
+                {
+                    var databaseUserIdStr = databaseUserIdElement.GetString();
+                    if (databaseUserIdStr != null && Guid.TryParse(databaseUserIdStr, out var databaseUserId))
+                    {
+                        return databaseUserId;
+                    }
+                }
+                
+                // Fallback to migrated_user_id (for migrated users)
+                if (userMetadata.RootElement.TryGetProperty("migrated_user_id", out var migratedUserIdElement))
+                {
+                    var migratedUserIdStr = migratedUserIdElement.GetString();
+                    if (migratedUserIdStr != null && Guid.TryParse(migratedUserIdStr, out var migratedUserId))
+                    {
+                        return migratedUserId;
+                    }
+                }
+            }
+            catch
+            {
+                // If parsing fails, continue to fallback
+            }
+        }
+
+        // Final fallback: Use the current user ID from NameIdentifier claim
+        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (userId != null && Guid.TryParse(userId, out var userGuid))
+        {
+            return userGuid;
+        }
+
+        return null;
     }
 }
 

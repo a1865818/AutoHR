@@ -1,6 +1,9 @@
 ﻿using ai_hr.Models;
 using ai_hr.Contracts;
+using ai_hr.Services;
 using Supabase;
+using System.Reflection;
+using System.Text.Json;
 
 namespace ai_hr.Endpoints;
 
@@ -14,8 +17,8 @@ public static class ApplicationDetailEndpoints
             .WithSummary("Create new application")
             .WithDescription("Submit a new job application with candidate details and optional documents");
 
-        app.MapGet("/applicationdetails/{id}", (Guid id, Supabase.Client client, HttpContext context) => 
-            GetApplicationDetailById(id, client, context))
+        app.MapGet("/applicationdetails/{id}", (Guid id, Supabase.Client client, HttpContext context, IUnifiedAuthService authService) => 
+            GetApplicationDetailById(id, client, context, authService))
             .WithTags("Application Details")
             .WithName("GetApplicationDetailById")
             .WithSummary("Get application by ID")
@@ -28,8 +31,8 @@ public static class ApplicationDetailEndpoints
             .WithSummary("Get applications by job")
             .WithDescription("Retrieves all applications for a specific job posting");
 
-        app.MapGet("/applicationdetails/candidate/{candidateUserId}", (Guid candidateUserId, Supabase.Client client, HttpContext context) =>
-            GetApplicationDetailsByCandidate(candidateUserId, client, context))
+        app.MapGet("/applicationdetails/candidate/{candidateUserId}", (Guid candidateUserId, Supabase.Client client, HttpContext context, IUnifiedAuthService authService) =>
+            GetApplicationDetailsByCandidate(candidateUserId, client, context, authService))
             .WithTags("Application Details")
             .WithName("GetApplicationDetailsByCandidate")
             .WithSummary("Get applications by candidate")
@@ -44,11 +47,13 @@ public static class ApplicationDetailEndpoints
             .WithDescription("Retrieves the specific application for a candidate and job combination")
             .AllowAnonymous(); // Temporarily allow anonymous access for testing
 
-        app.MapGet("/applicationdetails/candidate/{candidateUserId}/paged", GetApplicationDetailsByCandidatePaged)
+        app.MapGet("/applicationdetails/candidate/{candidateUserId}/paged", (Guid candidateUserId, int? page, int? pageSize, Supabase.Client client, HttpContext context, IUnifiedAuthService authService) =>
+            GetApplicationDetailsByCandidatePaged(candidateUserId, page, pageSize, client, context, authService))
             .WithTags("Application Details")
             .WithName("GetApplicationDetailsByCandidatePaged")
             .WithSummary("Get applications by candidate (paged)")
-            .WithDescription("Retrieves applications submitted by a specific candidate with pagination support");
+            .WithDescription("Retrieves applications submitted by a specific candidate with pagination support")
+            .RequireAuthorization();
 
         app.MapPut("/applicationdetails/{id}", UpdateApplicationDetail)
             .WithTags("Application Details")
@@ -157,7 +162,7 @@ public static class ApplicationDetailEndpoints
         }
     }
 
-    private static async Task<IResult> GetApplicationDetailById(Guid id, Supabase.Client client, HttpContext context)
+    private static async Task<IResult> GetApplicationDetailById(Guid id, Supabase.Client client, HttpContext context, IUnifiedAuthService authService)
     {
         try
         {
@@ -166,9 +171,58 @@ public static class ApplicationDetailEndpoints
             var userCategory = context.User.FindFirst("userCategory")?.Value;
             var companyId = context.User.FindFirst("companyId")?.Value;
 
+            // Add debugging information
+            Console.WriteLine($"🔍 GetApplicationDetailById - User Info:");
+            Console.WriteLine($"   UserId: {userId}");
+            Console.WriteLine($"   UserCategory: {userCategory}");
+            Console.WriteLine($"   CompanyId: {companyId}");
+            Console.WriteLine($"   ApplicationId: {id}");
+
             if (string.IsNullOrEmpty(userId))
             {
+                Console.WriteLine("❌ User ID is null or empty - unauthorized");
                 return Results.Unauthorized();
+            }
+
+            // If userCategory is not in claims, get it from the auth service directly
+            if (string.IsNullOrEmpty(userCategory))
+            {
+                try
+                {
+                    Console.WriteLine("🔍 UserCategory not found in claims, fetching from auth service");
+                    var userInfo = await authService.GetCurrentUserAsync(userId);
+                    if (userInfo != null)
+                    {
+                        // Extract userCategory from the dynamic user info object
+                        var userInfoType = userInfo.GetType();
+                        
+                        // Try UserCategory first (for ApplicationUser)
+                        var userCategoryProperty = userInfoType.GetProperty("UserCategory");
+                        if (userCategoryProperty != null)
+                        {
+                            userCategory = userCategoryProperty.GetValue(userInfo)?.ToString();
+                            Console.WriteLine($"✅ Retrieved UserCategory from auth service: {userCategory}");
+                        }
+                        else
+                        {
+                            // Try UserType (for HiringUserProfile) 
+                            var userTypeProperty = userInfoType.GetProperty("UserType");
+                            if (userTypeProperty != null)
+                            {
+                                var userType = userTypeProperty.GetValue(userInfo)?.ToString();
+                                // Map UserType to UserCategory format
+                                userCategory = userType == "recruiter" || userType == "hiring_manager" 
+                                    ? "HiringUserProfile" 
+                                    : userType;
+                                Console.WriteLine($"✅ Retrieved UserType from auth service and mapped to: {userCategory}");
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Failed to fetch userCategory from auth service: {ex.Message}");
+                }
             }
 
             var response = await client.From<ApplicationDetail>().Where(ad => ad.Id == id).Get();
@@ -182,10 +236,54 @@ public static class ApplicationDetailEndpoints
             // ✅ AUTHORIZATION CHECK: Graduated access based on user type and relationship to data
             bool hasAccess = false;
 
+            Console.WriteLine($"🔍 Authorization Check:");
+            Console.WriteLine($"   Application CandidateUserId: {applicationDetail.CandidateUserId}");
+            Console.WriteLine($"   Application JobId: {applicationDetail.JobId}");
+
             if (userCategory == "ApplicationUser")
             {
+                // ✅ Extract the real database user ID from JWT metadata
+                string? realUserId = null;
+                var userMetadataClaim = context.User.FindFirst("user_metadata")?.Value;
+                if (!string.IsNullOrEmpty(userMetadataClaim))
+                {
+                    try
+                    {
+                        var userMetadata = JsonDocument.Parse(userMetadataClaim);
+                        
+                        // First try database_user_id (for new users)
+                        if (userMetadata.RootElement.TryGetProperty("database_user_id", out var databaseUserIdElement))
+                        {
+                            realUserId = databaseUserIdElement.GetString();
+                            Console.WriteLine($"   Found database_user_id in metadata: {realUserId}");
+                        }
+                        // Fallback to migrated_user_id (for migrated users)
+                        else if (userMetadata.RootElement.TryGetProperty("migrated_user_id", out var migratedUserIdElement))
+                        {
+                            realUserId = migratedUserIdElement.GetString();
+                            Console.WriteLine($"   Found migrated_user_id in metadata: {realUserId}");
+                        }
+                        else
+                        {
+                            Console.WriteLine("   No database_user_id or migrated_user_id found in metadata");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"   Failed to parse user_metadata: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("   No user_metadata claim found");
+                }
+
+                // Use real user ID if available, otherwise fall back to userId from JWT
+                var userIdToCompare = !string.IsNullOrEmpty(realUserId) ? realUserId : userId;
+                
                 // ✅ Candidates can only access their own applications
-                hasAccess = applicationDetail.CandidateUserId.ToString() == userId;
+                hasAccess = applicationDetail.CandidateUserId.ToString() == userIdToCompare;
+                Console.WriteLine($"   ApplicationUser check: {applicationDetail.CandidateUserId.ToString()} == {userIdToCompare} => {hasAccess}");
             }
             else if (userCategory == "HiringUserProfile")
             {
@@ -198,15 +296,25 @@ public static class ApplicationDetailEndpoints
                         .Get();
                         
                     var job = jobResponse.Models.FirstOrDefault();
-                    if (job != null && job.CompanyId.ToString() == companyId)
+                    Console.WriteLine($"   Job found: {job != null}");
+                    if (job != null)
                     {
-                        hasAccess = true;
+                        Console.WriteLine($"   Job CompanyId: {job.CompanyId}, User CompanyId: {companyId}");
+                        hasAccess = job.CompanyId.ToString() == companyId;
                     }
                 }
+                Console.WriteLine($"   HiringUserProfile check: {hasAccess}");
             }
+            else
+            {
+                Console.WriteLine($"   Unknown user category: {userCategory}");
+            }
+
+            Console.WriteLine($"   Final access decision: {hasAccess}");
 
             if (!hasAccess)
             {
+                Console.WriteLine("❌ Access denied - returning 403");
                 return Results.Forbid(); // ❌ Access denied
             }
 
@@ -282,7 +390,7 @@ public static class ApplicationDetailEndpoints
         }
     }
 
-    private static async Task<IResult> GetApplicationDetailsByCandidate(Guid candidateUserId, Supabase.Client client, HttpContext context)
+    private static async Task<IResult> GetApplicationDetailsByCandidate(Guid candidateUserId, Supabase.Client client, HttpContext context, IUnifiedAuthService authService)
     {
         try
         {
@@ -291,9 +399,52 @@ public static class ApplicationDetailEndpoints
             var userCategory = context.User.FindFirst("userCategory")?.Value;
             var companyId = context.User.FindFirst("companyId")?.Value;
 
+            Console.WriteLine($"🔍 GetApplicationDetailsByCandidate - User Info:");
+            Console.WriteLine($"   UserId: {userId}");
+            Console.WriteLine($"   UserCategory: {userCategory}");
+            Console.WriteLine($"   CompanyId: {companyId}");
+            Console.WriteLine($"   CandidateUserId: {candidateUserId}");
+
             if (string.IsNullOrEmpty(userId))
             {
+                Console.WriteLine("❌ User ID is null or empty - unauthorized");
                 return Results.Unauthorized();
+            }
+
+            // If userCategory is not in claims, get it from the auth service directly
+            if (string.IsNullOrEmpty(userCategory))
+            {
+                try
+                {
+                    Console.WriteLine("🔍 UserCategory not found in claims, fetching from auth service");
+                    var userInfo = await authService.GetCurrentUserAsync(userId);
+                    if (userInfo != null)
+                    {
+                        var userInfoType = userInfo.GetType();
+                        var userCategoryProperty = userInfoType.GetProperty("UserCategory");
+                        if (userCategoryProperty != null)
+                        {
+                            userCategory = userCategoryProperty.GetValue(userInfo)?.ToString();
+                            Console.WriteLine($"✅ Retrieved UserCategory from auth service: {userCategory}");
+                        }
+                        else
+                        {
+                            var userTypeProperty = userInfoType.GetProperty("UserType");
+                            if (userTypeProperty != null)
+                            {
+                                var userType = userTypeProperty.GetValue(userInfo)?.ToString();
+                                userCategory = userType == "recruiter" || userType == "hiring_manager"
+                                    ? "HiringUserProfile"
+                                    : userType;
+                                Console.WriteLine($"✅ Retrieved UserType from auth service and mapped to: {userCategory}");
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Failed to fetch userCategory from auth service: {ex.Message}");
+                }
             }
 
             // ✅ AUTHORIZATION CHECK: Only allow access to own applications or hiring managers
@@ -301,8 +452,48 @@ public static class ApplicationDetailEndpoints
 
             if (userCategory == "ApplicationUser")
             {
+                // Extract the real database user ID from JWT metadata
+                string? realUserId = null;
+                var userMetadataClaim = context.User.FindFirst("user_metadata")?.Value;
+                if (!string.IsNullOrEmpty(userMetadataClaim))
+                {
+                    try
+                    {
+                        var userMetadata = JsonDocument.Parse(userMetadataClaim);
+                        
+                        // First try database_user_id (for new users)
+                        if (userMetadata.RootElement.TryGetProperty("database_user_id", out var databaseUserIdElement))
+                        {
+                            realUserId = databaseUserIdElement.GetString();
+                            Console.WriteLine($"   Found database_user_id in metadata: {realUserId}");
+                        }
+                        // Fallback to migrated_user_id (for migrated users)
+                        else if (userMetadata.RootElement.TryGetProperty("migrated_user_id", out var migratedUserIdElement))
+                        {
+                            realUserId = migratedUserIdElement.GetString();
+                            Console.WriteLine($"   Found migrated_user_id in metadata: {realUserId}");
+                        }
+                        else
+                        {
+                            Console.WriteLine("   No database_user_id or migrated_user_id found in metadata");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"   Failed to parse user_metadata: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("   No user_metadata claim found");
+                }
+
+                // Use real user ID if available, otherwise fall back to userId from JWT
+                var userIdToCompare = !string.IsNullOrEmpty(realUserId) ? realUserId : userId;
+                
                 // ✅ Candidates can only access their own applications
-                hasAccess = candidateUserId.ToString() == userId;
+                hasAccess = candidateUserId.ToString() == userIdToCompare;
+                Console.WriteLine($"   ApplicationUser check: {candidateUserId.ToString()} == {userIdToCompare} => {hasAccess}");
             }
             else if (userCategory == "HiringUserProfile" && !string.IsNullOrEmpty(companyId))
             {
@@ -443,13 +634,128 @@ public static class ApplicationDetailEndpoints
             return Results.Problem("An error occurred while retrieving application details");
         }
     }
+    
+    private static async Task<IResult> GetApplicationDetailsByCandidatePaged(Guid candidateUserId, int? page, int? pageSize, Supabase.Client client, HttpContext context, IUnifiedAuthService authService)
 
-    private static async Task<IResult> GetApplicationDetailsByCandidatePaged(Guid candidateUserId, int? page, int? pageSize, Supabase.Client client)
     {
         try
         {
             if (page < 1) page = 1;
             if (pageSize < 1) pageSize = 10;
+
+            // Get the authenticated user information
+            var userId = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            var userCategory = context.User.FindFirst("userCategory")?.Value;
+            var companyId = context.User.FindFirst("companyId")?.Value;
+
+            Console.WriteLine($"🔍 GetApplicationDetailsByCandidatePaged - User Info:");
+            Console.WriteLine($"   UserId: {userId}");
+            Console.WriteLine($"   UserCategory: {userCategory}");
+            Console.WriteLine($"   CompanyId: {companyId}");
+            Console.WriteLine($"   CandidateUserId: {candidateUserId}");
+
+            if (string.IsNullOrEmpty(userId))
+            {
+                Console.WriteLine("❌ User ID is null or empty - unauthorized");
+                return Results.Unauthorized();
+            }
+
+            // If userCategory is not in claims, get it from the auth service directly
+            if (string.IsNullOrEmpty(userCategory))
+            {
+                try
+                {
+                    Console.WriteLine("🔍 UserCategory not found in claims, fetching from auth service");
+                    var userInfo = await authService.GetCurrentUserAsync(userId);
+                    if (userInfo != null)
+                    {
+                        var userInfoType = userInfo.GetType();
+                        var userCategoryProperty = userInfoType.GetProperty("UserCategory");
+                        if (userCategoryProperty != null)
+                        {
+                            userCategory = userCategoryProperty.GetValue(userInfo)?.ToString();
+                            Console.WriteLine($"✅ Retrieved UserCategory from auth service: {userCategory}");
+                        }
+                        else
+                        {
+                            var userTypeProperty = userInfoType.GetProperty("UserType");
+                            if (userTypeProperty != null)
+                            {
+                                var userType = userTypeProperty.GetValue(userInfo)?.ToString();
+                                userCategory = userType == "recruiter" || userType == "hiring_manager"
+                                    ? "HiringUserProfile"
+                                    : userType;
+                                Console.WriteLine($"✅ Retrieved UserType from auth service and mapped to: {userCategory}");
+                            }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"⚠️ Failed to fetch userCategory from auth service: {ex.Message}");
+                }
+            }
+
+            // ✅ AUTHORIZATION CHECK: Only allow access to own applications or hiring managers
+            bool hasAccess = false;
+
+            if (userCategory == "ApplicationUser")
+            {
+                // Extract the real database user ID from JWT metadata
+                string? realUserId = null;
+                var userMetadataClaim = context.User.FindFirst("user_metadata")?.Value;
+                if (!string.IsNullOrEmpty(userMetadataClaim))
+                {
+                    try
+                    {
+                        var userMetadata = JsonDocument.Parse(userMetadataClaim);
+                        
+                        // First try database_user_id (for new users)
+                        if (userMetadata.RootElement.TryGetProperty("database_user_id", out var databaseUserIdElement))
+                        {
+                            realUserId = databaseUserIdElement.GetString();
+                            Console.WriteLine($"   Found database_user_id in metadata: {realUserId}");
+                        }
+                        // Fallback to migrated_user_id (for migrated users)
+                        else if (userMetadata.RootElement.TryGetProperty("migrated_user_id", out var migratedUserIdElement))
+                        {
+                            realUserId = migratedUserIdElement.GetString();
+                            Console.WriteLine($"   Found migrated_user_id in metadata: {realUserId}");
+                        }
+                        else
+                        {
+                            Console.WriteLine("   No database_user_id or migrated_user_id found in metadata");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"   Failed to parse user_metadata: {ex.Message}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("   No user_metadata claim found");
+                }
+
+                // Use real user ID if available, otherwise fall back to userId from JWT
+                var userIdToCompare = !string.IsNullOrEmpty(realUserId) ? realUserId : userId;
+                
+                // ✅ Candidates can only access their own applications
+                hasAccess = candidateUserId.ToString() == userIdToCompare;
+                Console.WriteLine($"   ApplicationUser check: {candidateUserId.ToString()} == {userIdToCompare} => {hasAccess}");
+            }
+            else if (userCategory == "HiringUserProfile" && !string.IsNullOrEmpty(companyId))
+            {
+                // ✅ Hiring users can access applications for jobs in their company
+                hasAccess = true; // Will be validated when fetching applications
+                Console.WriteLine($"   HiringUserProfile check: {hasAccess}");
+            }
+
+            if (!hasAccess)
+            {
+                Console.WriteLine("❌ Access denied - returning 403");
+                return Results.Forbid(); // ❌ Access denied
+            }
 
             // Load all applications for count and paging
             var response = await client.From<ApplicationDetail>()

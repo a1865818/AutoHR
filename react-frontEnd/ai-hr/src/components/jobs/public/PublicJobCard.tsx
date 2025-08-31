@@ -139,7 +139,7 @@ export function PublicJobCard({
               </span>
             )}
             {job.department && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#1a4d2e]/15 text-[#1a4d2e] border border-[#1a4d2e]/20">
                 {job.department}
               </span>
             )}

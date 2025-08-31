@@ -1,3 +1,5 @@
+import { toast } from "@/utils/toast";
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5189";
 
 export interface SavedJobsResponse {
@@ -89,17 +91,18 @@ class SavedJobsService {
         }
 
         if (response.status === 401) {
-          console.error("🚫 Unauthorized - Token may be invalid or expired");
           if (typeof window !== "undefined") {
             localStorage.removeItem("authToken");
             sessionStorage.removeItem("authToken");
           }
-          throw new Error("Authentication required. Please log in again.");
+          toast.error("Your session has expired. Please log in again.");
+          return null;
         }
 
-        throw new Error(
+        toast.error(
           errorData.error || `HTTP error! status: ${response.status}`
         );
+        return null;
       }
 
       if (response.status === 204) {
@@ -117,8 +120,16 @@ class SavedJobsService {
 
       return await response.text();
     } catch (error) {
-      console.error("🚨 SavedJobs API Error:", { url, error });
-      throw error;
+      if (error instanceof Error && error.message.includes("session has expired")) {
+        // Don't show duplicate toast for auth errors
+        return null;
+      }
+      toast.error(
+        `Network error: ${
+          error instanceof Error ? error.message : "Connection failed"
+        }`
+      );
+      return null;
     }
   }
 
@@ -131,64 +142,60 @@ class SavedJobsService {
     return !!token;
   }
 
-  async saveJob(jobId: string): Promise<SaveJobResponse> {
+  async saveJob(jobId: string): Promise<SaveJobResponse | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to save jobs");
+      toast.error("Authentication required to save jobs");
+      return null;
     }
 
     if (!jobId) {
-      throw new Error("Job ID is required");
+      toast.error("Job ID is required");
+      return null;
     }
 
-    try {
-      const response = await this.fetchApi(`/api/saved-jobs/${jobId}`, {
-        method: "POST",
-      });
+    const response = await this.fetchApi(`/api/saved-jobs/${jobId}`, {
+      method: "POST",
+    });
 
+    if (response) {
       console.log("✅ Job saved successfully:", jobId);
-      return response;
-    } catch (error) {
-      console.error("❌ Failed to save job:", error);
-      throw error;
+      toast.success("Job saved successfully!");
     }
+    return response;
   }
 
-  async unsaveJob(jobId: string): Promise<SaveJobResponse> {
+  async unsaveJob(jobId: string): Promise<SaveJobResponse | null> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to unsave jobs");
+      toast.error("Authentication required to unsave jobs");
+      return null;
     }
 
     if (!jobId) {
-      throw new Error("Job ID is required");
+      toast.error("Job ID is required");
+      return null;
     }
 
-    try {
-      const response = await this.fetchApi(`/api/saved-jobs/${jobId}`, {
-        method: "DELETE",
-      });
+    const response = await this.fetchApi(`/api/saved-jobs/${jobId}`, {
+      method: "DELETE",
+    });
 
+    if (response) {
       console.log("✅ Job unsaved successfully:", jobId);
-      return response;
-    } catch (error) {
-      console.error("❌ Failed to unsave job:", error);
-      throw error;
+      toast.success("Job removed from saved list!");
     }
+    return response;
   }
 
   async getSavedJobIds(): Promise<string[]> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required to get saved jobs");
+      toast.error("Authentication required to get saved jobs");
+      return [];
     }
 
-    try {
-      const response: SavedJobsResponse = await this.fetchApi(
-        "/api/saved-jobs"
-      );
-      return response?.savedJobs || [];
-    } catch (error) {
-      console.error("❌ Failed to get saved jobs:", error);
-      throw error;
-    }
+    const response: SavedJobsResponse | null = await this.fetchApi(
+      "/api/saved-jobs"
+    );
+    return response?.savedJobs || [];
   }
 
   async isJobSaved(jobId: string): Promise<boolean> {
@@ -200,35 +207,26 @@ class SavedJobsService {
       return false;
     }
 
-    try {
-      const response: IsJobSavedResponse = await this.fetchApi(
-        `/api/saved-jobs/check/${jobId}`
-      );
-      return response?.isSaved || false;
-    } catch (error) {
-      console.error("❌ Failed to check if job is saved:", error);
-      return false;
-    }
+    const response: IsJobSavedResponse | null = await this.fetchApi(
+      `/api/saved-jobs/check/${jobId}`
+    );
+    return response?.isSaved || false;
   }
 
   async toggleJobSaved(jobId: string): Promise<boolean> {
     if (!this.isAuthenticated()) {
-      throw new Error("Authentication required");
+      toast.error("Authentication required");
+      return false;
     }
 
-    try {
-      const isSaved = await this.isJobSaved(jobId);
+    const isSaved = await this.isJobSaved(jobId);
 
-      if (isSaved) {
-        await this.unsaveJob(jobId);
-        return false;
-      } else {
-        await this.saveJob(jobId);
-        return true;
-      }
-    } catch (error) {
-      console.error("❌ Failed to toggle job saved status:", error);
-      throw error;
+    if (isSaved) {
+      const result = await this.unsaveJob(jobId);
+      return result ? false : isSaved; // Return current state if unsave failed
+    } else {
+      const result = await this.saveJob(jobId);
+      return result ? true : isSaved; // Return current state if save failed
     }
   }
 }

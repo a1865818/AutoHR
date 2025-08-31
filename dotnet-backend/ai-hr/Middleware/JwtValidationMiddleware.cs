@@ -15,7 +15,7 @@ namespace ai_hr.Middleware
             _logger = logger;
         }
 
-        public async Task InvokeAsync(HttpContext context, ITokenRevocationService tokenRevocationService, ISecurityLoggingService securityLogger)
+        public async Task InvokeAsync(HttpContext context, ISecurityLoggingService securityLogger)
         {
             var token = ExtractTokenFromRequest(context.Request);
             
@@ -23,50 +23,16 @@ namespace ai_hr.Middleware
             {
                 try
                 {
-                    var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                    var tokenId = context.User.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+                    var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? 
+                                 context.User.FindFirst("sub")?.Value;
+                    var audience = context.User.FindFirst("aud")?.Value;
 
-                    if (!string.IsNullOrEmpty(tokenId))
-                    {
-                        // Check if token is revoked
-                        if (await tokenRevocationService.IsTokenRevokedAsync(tokenId))
-                        {
-                            var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-                            var userAgent = context.Request.Headers.UserAgent.ToString();
+                    _logger.LogInformation("🔍 JWT Middleware: UserId={UserId}, Audience={Audience}, Path={Path}", 
+                        userId, audience, context.Request.Path);
 
-                            await securityLogger.LogUnauthorizedAccessAsync(
-                                context.Request.Path,
-                                userId,
-                                ipAddress,
-                                userAgent,
-                                "Revoked token used"
-                            );
-
-                            context.Response.StatusCode = 401;
-                            await context.Response.WriteAsync("{\"error\": \"Token has been revoked\"}");
-                            return;
-                        }
-
-                        // Additional token validation
-                        var validationResult = await tokenRevocationService.ValidateTokenAsync(token, userId);
-                        if (!validationResult.IsValid)
-                        {
-                            var ipAddress = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
-                            var userAgent = context.Request.Headers.UserAgent.ToString();
-
-                            await securityLogger.LogUnauthorizedAccessAsync(
-                                context.Request.Path,
-                                userId,
-                                ipAddress,
-                                userAgent,
-                                $"Token validation failed: {validationResult.FailureReason}"
-                            );
-
-                            context.Response.StatusCode = 401;
-                            await context.Response.WriteAsync($"{{\"error\": \"{validationResult.FailureReason}\"}}");
-                            return;
-                        }
-                    }
+                    // All tokens are now Supabase tokens - no additional validation needed
+                    // The JWT Bearer middleware has already validated the token signature, expiration, etc.
+                    _logger.LogInformation("🔍 JWT Middleware: Supabase token validated successfully");
                 }
                 catch (Exception ex)
                 {

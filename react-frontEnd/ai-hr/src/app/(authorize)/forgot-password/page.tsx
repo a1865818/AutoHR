@@ -9,6 +9,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiService } from "@/services/api";
 import Link from "next/link";
 
 const ForgotPasswordPage: React.FC = () => {
@@ -55,14 +56,12 @@ const ForgotPasswordPage: React.FC = () => {
     setIsSubmitting(true);
 
     try {
-      // TODO: Replace with actual API call to backend
-      // For now, simulating password reset process
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Mock success - in real app, this would send an email
+      const response = await apiService.forgotPassword(email);
+      console.log("Password reset response:", response);
       setResetSuccess(true);
     } catch (error) {
-      setResetError("An unexpected error occurred. Please try again.");
+      const errorMessage = error instanceof Error ? error.message : "An unexpected error occurred. Please try again.";
+      setResetError(errorMessage);
       console.error("Password reset error:", error);
     } finally {
       setIsSubmitting(false);

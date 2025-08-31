@@ -56,7 +56,7 @@ export function JobPreviewModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 backdrop-blur-md z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b p-6 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">Job Preview</h3>
@@ -79,7 +79,7 @@ export function JobPreviewModal({
             )}
 
             <div className="flex flex-wrap gap-2 mb-6">
-              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium" style={{backgroundColor: '#06604620', color: '#066046'}}>
                 {formData.type}
               </span>
               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
@@ -139,7 +139,7 @@ export function JobPreviewModal({
                   .filter((r) => r.trim())
                   .map((responsibility, index) => (
                     <li key={index} className="flex items-start">
-                      <div className="flex-shrink-0 w-2 h-2 bg-blue-600 rounded-full mt-2 mr-3"></div>
+                      <div className="flex-shrink-0 w-2 h-2 rounded-full mt-2 mr-3" style={{backgroundColor: '#066046'}}></div>
                       <span className="text-gray-700">{responsibility}</span>
                     </li>
                   ))}
@@ -260,7 +260,7 @@ export function JobPreviewModal({
               </div>
             )}
 
-            <button className="w-full bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 transition-colors">
+            <button className="w-full text-white px-6 py-3 rounded-md font-medium hover:opacity-90 transition-colors" style={{backgroundColor: '#066046'}}>
               Apply for This Position
             </button>
           </div>

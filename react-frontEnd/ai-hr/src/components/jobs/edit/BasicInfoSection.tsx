@@ -27,7 +27,7 @@ export function BasicInfoSection({
               type="text"
               value={formData.title}
               onChange={(e) => updateFormData("title", e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-[#066046] ${
                 errors.title ? "border-red-300" : "border-gray-300"
               }`}
               placeholder="e.g. Senior Frontend Developer"
@@ -45,7 +45,7 @@ export function BasicInfoSection({
               type="text"
               value={formData.company || ""}
               onChange={(e) => updateFormData("company", e.target.value)}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-[#066046] ${
                 errors.company ? "border-red-300" : "border-gray-300"
               }`}
               placeholder="e.g. Figma"
@@ -63,7 +63,7 @@ export function BasicInfoSection({
               type="text"
               value={formData.department || ""}
               onChange={(e) => updateFormData("department", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#066046]"
               placeholder="e.g. Engineering"
             />
           </div>
@@ -75,7 +75,7 @@ export function BasicInfoSection({
             <select
               value={formData.type}
               onChange={(e) => updateFormData("type", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#066046]"
             >
               <option value="">Select job type</option>
               <option value="Full-Time">Full-Time</option>
@@ -94,7 +94,7 @@ export function BasicInfoSection({
             <select
               value={formData.experience}
               onChange={(e) => updateFormData("experience", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#066046]"
             >
               <option value="">Select experience level</option>
               <option value="0-1 years">0-1 years (Entry Level)</option>
@@ -149,7 +149,7 @@ export function BasicInfoSection({
             <select
               value={formData.locationType}
               onChange={(e) => updateFormData("locationType", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#066046]"
             >
               <option value="On-site">On-site</option>
               <option value="Remote">Remote</option>
@@ -166,7 +166,7 @@ export function BasicInfoSection({
             value={formData.description}
             onChange={(e) => updateFormData("description", e.target.value)}
             rows={6}
-            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 ${
+            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-[#066046] ${
               errors.description ? "border-red-300" : "border-gray-300"
             }`}
             placeholder="Describe the role, team, and what makes this opportunity exciting..."

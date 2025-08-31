@@ -5,7 +5,7 @@ import UserDropdown from "./auth/UserDropdown";
 
 export function Header() {
   return (
-    <header className="bg-white border-b border-gray-200 ">
+    <header className="sticky top-0 z-20 bg-background/60 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="flex items-center justify-end px-4 py-[10px] pl-16 md:pl-14 lg:pl-4">
         {/* Right-side Icons & Profile */}
         <div className="flex items-center">

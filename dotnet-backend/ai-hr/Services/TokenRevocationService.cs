@@ -176,7 +176,7 @@ namespace ai_hr.Services
 
                 // Validate token signature and expiration
                 var jwtSettings = _configuration.GetSection("Jwt").Get<JwtSettings>();
-                var secretKey = Environment.GetEnvironmentVariable("JWT_SECRET_KEY") ?? jwtSettings?.SecretKey;
+                var secretKey = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET") ?? jwtSettings?.SecretKey;
 
                 if (string.IsNullOrEmpty(secretKey))
                 {

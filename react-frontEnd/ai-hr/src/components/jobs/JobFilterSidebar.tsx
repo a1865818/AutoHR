@@ -108,7 +108,7 @@ export function JobFilterSidebar({
           <span className="text-sm font-medium text-gray-700">{title}</span>
         </div>
         <button
-          className="text-gray-400 hover:text-gray-600"
+          className="text-gray-400 hover:text-[#066046]"
           onClick={(e) => {
             e.stopPropagation();
             // Clear this specific filter category
@@ -136,7 +136,7 @@ export function JobFilterSidebar({
                   onChange={(e) =>
                     handleFilterChange(category, item.id, e.target.checked)
                   }
-                  className="h-3 w-3 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="h-3 w-3 rounded border-gray-300 text-[#066046] focus:ring-[#066046]"
                 />
                 <label
                   htmlFor={`${category}-${item.id}`}
@@ -189,13 +189,13 @@ export function JobFilterSidebar({
 
         {/* Filter buttons */}
         <div className="flex space-x-2 mt-6">
-          <button className="flex-1 bg-blue-500 text-white rounded-md py-1.5 text-xs font-medium hover:bg-blue-600 flex items-center justify-center transition-colors">
+          <button className="flex-1 bg-[#066046] text-white rounded-md py-1.5 text-xs font-medium hover:bg-[#267a54] flex items-center justify-center transition-colors">
             <Plus className="h-3 w-3 mr-1" /> Add filter
           </button>
           <button
             className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-colors ${
               hasActiveFilters
-                ? "bg-white border border-gray-300 text-gray-700 hover:bg-gray-50"
+                ? "bg-white border border-gray-300 text-gray-700 hover:bg-[#066046]/10"
                 : "bg-gray-100 text-gray-400 cursor-not-allowed"
             }`}
             onClick={clearAllFilters}

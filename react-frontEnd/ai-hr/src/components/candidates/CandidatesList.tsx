@@ -41,9 +41,9 @@ export function CandidatesList({
       return <ChevronDown className="ml-1 h-3 w-3 text-gray-400" />;
     }
     return sortBy.direction === "asc" ? (
-      <ChevronUp className="ml-1 h-3 w-3 text-blue-500" />
+      <ChevronUp className="ml-1 h-3 w-3 text-[#066046]" />
     ) : (
-      <ChevronDown className="ml-1 h-3 w-3 text-blue-500" />
+      <ChevronDown className="ml-1 h-3 w-3 text-[#066046]" />
     );
   };
 
@@ -65,7 +65,7 @@ export function CandidatesList({
                 if (input) input.indeterminate = someSelected;
               }}
               onChange={(e) => onSelectAllForRanking(e.target.checked)}
-              className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+              className="h-4 w-4 text-[#066046] rounded border-gray-300 focus:ring-[#066046]"
             />
             <span className="text-sm text-gray-700">
               Select All for Ranking
@@ -78,7 +78,7 @@ export function CandidatesList({
               </span>
               <button
                 onClick={onGoToRanking}
-                className="inline-flex items-center px-3 py-1.5 bg-blue-500 text-white text-sm rounded-md hover:bg-blue-600 transition-colors"
+                className="inline-flex items-center px-3 py-1.5 bg-[#066046] text-white text-sm rounded-md hover:bg-[#267a54] transition-colors"
               >
                 <Trophy className="h-4 w-4 mr-1" />
                 Add to Ranking
@@ -101,7 +101,7 @@ export function CandidatesList({
             <button
               onClick={() => onSort("name")}
               className={`flex items-center hover:text-gray-700 transition-colors ${
-                sortBy.field === "name" ? "text-blue-500" : ""
+                sortBy.field === "name" ? "text-gray-500" : ""
               }`}
             >
               Name {getSortIcon("name")}
@@ -111,7 +111,7 @@ export function CandidatesList({
             <button
               onClick={() => onSort("stage")}
               className={`flex items-center hover:text-gray-700 transition-colors ${
-                sortBy.field === "stage" ? "text-blue-500" : ""
+                sortBy.field === "stage" ? "text-[#066046]" : ""
               }`}
             >
               Stage {getSortIcon("stage")}
@@ -121,7 +121,7 @@ export function CandidatesList({
             <button
               onClick={() => onSort("status")}
               className={`flex items-center hover:text-gray-700 transition-colors ${
-                sortBy.field === "status" ? "text-blue-500" : ""
+                sortBy.field === "status" ? "text-[#066046]" : ""
               }`}
             >
               Status {getSortIcon("status")}

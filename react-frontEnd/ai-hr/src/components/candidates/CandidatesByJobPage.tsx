@@ -11,6 +11,7 @@ import { RankingModal } from "@/components/candidates/RankingModal";
 import { RankingTab } from "@/components/candidates/RankingTab";
 import { RejectedCandidatesTab } from "@/components/candidates/RejectedCandidatesTab";
 import { JobSpecificEmailModal } from "@/components/candidates/JobSpecificEmailModal";
+import { LoadingState } from "@/components/ui/LoadingState";
 
 import { useHiringAuth } from "@/hooks/useHiringAuth";
 import {
@@ -154,7 +155,7 @@ function EmptyState({
         {state.action && (
           <button
             onClick={state.action}
-            className="inline-flex items-center px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-md hover:bg-blue-600 transition-colors mb-8"
+            className="inline-flex items-center px-4 py-2 bg-[#066046] text-white text-sm font-medium rounded-md hover:bg-[#267a54] transition-colors mb-8"
           >
             {state.actionIcon}
             {state.actionText}
@@ -169,7 +170,7 @@ function EmptyState({
           <ul className="text-sm text-gray-600 space-y-2">
             {state.tips.map((tip, index) => (
               <li key={index} className="flex items-start">
-                <span className="text-blue-500 mr-2">•</span>
+                <span className="text-[#066046] mr-2">•</span>
                 {tip}
               </li>
             ))}
@@ -1085,12 +1086,10 @@ function CandidatesByJobPageComponent({ jobId }: CandidatesByJobPageProps) {
   // Handle loading state
   if (loading && candidates.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading candidates...</p>
-        </div>
-      </div>
+      <LoadingState
+        message="Loading candidates..."
+        minHeightClass="min-h-screen"
+      />
     );
   }
 
@@ -1130,7 +1129,7 @@ function CandidatesByJobPageComponent({ jobId }: CandidatesByJobPageProps) {
           </p>
           <button
             onClick={() => window.location.reload()}
-            className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+            className="bg-[#066046] text-white px-4 py-2 rounded hover:bg-[#267a54] transition-colors"
           >
             Try Again
           </button>

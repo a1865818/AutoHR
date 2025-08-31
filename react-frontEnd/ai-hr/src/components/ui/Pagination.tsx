@@ -90,7 +90,7 @@ export function Pagination({
           className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
             currentPage === 1
               ? "text-gray-400 cursor-not-allowed"
-              : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+              : "text-gray-700 hover:text-[#066046] hover:bg-[#066046]/10"
           }`}
         >
           <ChevronLeft className="h-4 w-4 mr-1" />
@@ -120,8 +120,8 @@ export function Pagination({
                 onClick={() => onPageChange(pageNumber)}
                 className={`w-10 h-10 text-sm font-medium rounded-md transition-colors ${
                   isActive
-                    ? "bg-blue-600 text-white"
-                    : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+                    ? "bg-[#066046] text-white"
+                    : "text-gray-700 hover:text-[#066046] hover:bg-[#066046]/10"
                 }`}
               >
                 {pageNumber}
@@ -137,7 +137,7 @@ export function Pagination({
           className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
             currentPage === totalPages
               ? "text-gray-400 cursor-not-allowed"
-              : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+              : "text-gray-700 hover:text-[#066046] hover:bg-[#066046]/10"
           }`}
         >
           <span className="hidden sm:block">Next</span>

@@ -52,7 +52,7 @@ export function BasicInfoStep({
             value={formData.title}
             onChange={(e) => handleInputChange("title", e.target.value)}
             placeholder="e.g. Senior Frontend Developer"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
           />
         </div>
 
@@ -93,7 +93,7 @@ export function BasicInfoStep({
             value={formData.department}
             onChange={(e) => handleInputChange("department", e.target.value)}
             placeholder="e.g. Engineering"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
           />
         </div>
 
@@ -111,7 +111,7 @@ export function BasicInfoStep({
             value={formData.city}
             onChange={(e) => handleInputChange("city", e.target.value)}
             placeholder="e.g. San Francisco"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
           />
         </div>
 
@@ -129,7 +129,7 @@ export function BasicInfoStep({
             value={formData.country}
             onChange={(e) => handleInputChange("country", e.target.value)}
             placeholder="e.g. United States"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
           />
         </div>
 
@@ -150,7 +150,7 @@ export function BasicInfoStep({
                 e.target.value as JobFormData["locationType"]
               )
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
           >
             <option value="On-site">On-site</option>
             <option value="Remote">Remote</option>
@@ -172,7 +172,7 @@ export function BasicInfoStep({
             onChange={(e) =>
               handleInputChange("type", e.target.value as JobFormData["type"])
             }
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
           >
             <option value="Full-Time">Full-Time</option>
             <option value="Part-Time">Part-Time</option>
@@ -193,7 +193,7 @@ export function BasicInfoStep({
             id="experience"
             value={formData.experience}
             onChange={(e) => handleInputChange("experience", e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
           >
             <option value="">Select experience level</option>
             <option value="Entry Level">Entry Level (0-2 years)</option>
@@ -229,7 +229,7 @@ export function BasicInfoStep({
                 )
               }
               placeholder="50000"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
             />
           </div>
 
@@ -251,7 +251,7 @@ export function BasicInfoStep({
                 )
               }
               placeholder="80000"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
             />
           </div>
 
@@ -266,7 +266,7 @@ export function BasicInfoStep({
               id="currency"
               value={formData.salary.currency}
               onChange={(e) => handleSalaryChange("currency", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
             >
               <option value="USD">USD</option>
               <option value="EUR">EUR</option>
@@ -286,7 +286,7 @@ export function BasicInfoStep({
               id="period"
               value={formData.salary.period || "per year"}
               onChange={(e) => handleSalaryChange("period", e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
             >
               <option value="per hour">Per Hour</option>
               <option value="per month">Per Month</option>
@@ -301,7 +301,7 @@ export function BasicInfoStep({
         <button
           onClick={onNext}
           disabled={!isFormValid()}
-          className="inline-flex items-center px-6 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center px-6 py-2 text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style={{backgroundColor: '#066046'}}
         >
           Continue
           <ChevronRight className="ml-2 h-4 w-4" />

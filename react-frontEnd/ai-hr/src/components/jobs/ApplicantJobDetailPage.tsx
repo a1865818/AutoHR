@@ -130,13 +130,13 @@ export function ApplicantJobDetailPage({ jobId }: ApplicantJobDetailPageProps) {
   const getTypeColor = (type: string) => {
     switch (type?.toLowerCase()) {
       case "full-time":
-        return "bg-blue-100 text-blue-800";
+        return "bg-[#066046]/15 text-[#066046] border border-[#066046]/20";
       case "part-time":
-        return "bg-purple-100 text-purple-800";
+        return "bg-[#066046]/15 text-[#066046] border border-[#066046]/20";
       case "contract":
-        return "bg-orange-100 text-orange-800";
+        return "bg-[#066046]/15 text-[#066046] border border-[#066046]/20";
       case "internship":
-        return "bg-green-100 text-green-800";
+        return "bg-[#066046]/15 text-[#066046] border border-[#066046]/20";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -404,7 +404,7 @@ export function ApplicantJobDetailPage({ jobId }: ApplicantJobDetailPageProps) {
                     {jobEmploymentType}
                   </span>
                   {job.department && job.department !== "Not specified" && (
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#1a4d2e]/15 text-[#1a4d2e] border border-[#1a4d2e]/20">
                       {safeRender(job.department)}
                     </span>
                   )}

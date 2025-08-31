@@ -460,7 +460,9 @@ export default function JobApplicationForm({
       try {
         // Use AuthContext's authentication state instead of manually checking tokens
         // The AuthContext already handles cookies and session persistence
-        console.log("✅ Using AuthContext authentication state for profile data");
+        console.log(
+          "✅ Using AuthContext authentication state for profile data"
+        );
         const userData = await apiService.getCurrentApplicationUser();
         console.log("📥 Received user data for auto-fill:", userData);
 
@@ -1113,13 +1115,13 @@ export default function JobApplicationForm({
   const getTypeColor = (type: string) => {
     switch (type?.toLowerCase()) {
       case "full-time":
-        return "bg-blue-100 text-blue-800";
+        return "bg-[#066046]/15 text-[#066046] border border-[#066046]/20";
       case "part-time":
-        return "bg-purple-100 text-purple-800";
+        return "bg-[#066046]/15 text-[#066046] border border-[#066046]/20";
       case "contract":
-        return "bg-orange-100 text-orange-800";
+        return "bg-[#066046]/15 text-[#066046] border border-[#066046]/20";
       case "internship":
-        return "bg-pink-100 text-pink-800";
+        return "bg-[#066046]/15 text-[#066046] border border-[#066046]/20";
       default:
         return "bg-gray-100 text-gray-800";
     }

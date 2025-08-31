@@ -1,7 +1,7 @@
 "use client";
 
 import { Edit3, GraduationCap, Plus, Save, Trash2, X } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 interface Education {
   id: string;
@@ -28,8 +28,23 @@ export function EducationSection({
 }: EducationSectionProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [tempEducation, setTempEducation] = useState<Education[]>(education);
+  const [tempEducation, setTempEducation] = useState<Education[]>(
+    education.map((edu, index) => ({
+      ...edu,
+      id: edu.id || `education-${index}-${Date.now()}`
+    }))
+  );
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Update tempEducation when education prop changes
+  useEffect(() => {
+    setTempEducation(
+      education.map((edu, index) => ({
+        ...edu,
+        id: edu.id || `education-${index}-${Date.now()}`
+      }))
+    );
+  }, [education]);
 
   const handleAddEducation = () => {
     const newEducation: Education = {
@@ -124,8 +139,7 @@ export function EducationSection({
                     {edu.institution || "Institution Name"}
                   </h4>
                   <p className="text-gray-600">
-                    {edu.degree} {edu.degree && edu.fieldOfStudy && "in"}{" "}
-                    {edu.fieldOfStudy}
+                    {edu.degree}{edu.degree && edu.fieldOfStudy && " in "}{edu.fieldOfStudy}
                   </p>
                   <p className="text-sm text-gray-500">
                     {edu.startDate} - {edu.endDate || "Present"}
@@ -196,11 +210,8 @@ export function EducationSection({
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
                       >
                         <option value="">Select degree</option>
-                        {degrees.map((degree, index) => (
-                          <option
-                            key={`degree-${index}-${degree}`}
-                            value={degree}
-                          >
+                        {degrees.map((degree) => (
+                          <option key={degree} value={degree}>
                             {degree}
                           </option>
                         ))}

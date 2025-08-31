@@ -54,7 +54,7 @@ export function CompensationSection({
               onChange={(e) =>
                 updateNestedFormData("salary", "currency", e.target.value)
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#066046]"
             >
               <option value="USD">USD ($)</option>
               <option value="EUR">EUR (€)</option>
@@ -76,7 +76,7 @@ export function CompensationSection({
               onChange={(e) =>
                 updateNestedFormData("salary", "period", e.target.value)
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#066046]"
             >
               <option value="">Select period</option>
               <option value="per year">Per Year</option>
@@ -103,7 +103,7 @@ export function CompensationSection({
                   e.target.value ? parseInt(e.target.value) : undefined
                 )
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#066046]"
               placeholder="e.g. 90000"
               min="0"
             />
@@ -123,7 +123,7 @@ export function CompensationSection({
                   e.target.value ? parseInt(e.target.value) : undefined
                 )
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#066046]"
               placeholder="e.g. 120000"
               min="0"
             />
@@ -140,11 +140,11 @@ export function CompensationSection({
           </p>
         </div>
 
-        <div className="mt-4 p-4 bg-blue-50 rounded-md">
-          <h4 className="text-sm font-medium text-blue-900 mb-2">
+        <div className="mt-4 p-4 rounded-md" style={{backgroundColor: '#06604620'}}>
+          <h4 className="text-sm font-medium mb-2" style={{color: '#066046'}}>
             💡 Salary Tips
           </h4>
-          <ul className="text-xs text-blue-800 space-y-1">
+          <ul className="text-xs space-y-1" style={{color: '#066046'}}>
             <li>
               • Include salary ranges to attract more qualified candidates
             </li>

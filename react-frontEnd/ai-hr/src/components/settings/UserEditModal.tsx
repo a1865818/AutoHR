@@ -137,7 +137,7 @@ export function UserEditModal({
                       value={formData.name}
                       onChange={(e) => handleChange("name", e.target.value)}
                       disabled={isLoading}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed ${
                         errors.name ? "border-red-300" : "border-gray-300"
                       }`}
                       placeholder="Enter full name"
@@ -156,7 +156,7 @@ export function UserEditModal({
                       value={formData.email}
                       onChange={(e) => handleChange("email", e.target.value)}
                       disabled={isLoading}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed ${
                         errors.email ? "border-red-300" : "border-gray-300"
                       }`}
                       placeholder="Enter email address"
@@ -176,7 +176,7 @@ export function UserEditModal({
                       value={formData.role}
                       onChange={(e) => handleChange("role", e.target.value)}
                       disabled={isLoading}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed ${
                         errors.role ? "border-red-300" : "border-gray-300"
                       }`}
                     >
@@ -202,7 +202,7 @@ export function UserEditModal({
                         handleChange("status", e.target.value as User["status"])
                       }
                       disabled={isLoading}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <option value="active">Active</option>
                       <option value="pending">Pending</option>
@@ -223,7 +223,7 @@ export function UserEditModal({
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center px-4 py-2 bg-[#066046] text-white rounded-md hover:bg-[#267a54] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Save className="h-4 w-4 mr-2" />
                     {isLoading ? "Saving..." : "Save Changes"}

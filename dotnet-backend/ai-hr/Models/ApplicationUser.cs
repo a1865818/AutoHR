@@ -10,14 +10,23 @@ namespace ai_hr.Models
         public string Id { get; set; }
         [Column("Email")]
         public string Email { get; set; }
+        
+        // Supabase Auth integration (optional for hybrid auth)
+        [Column("SupabaseAuthId")]
+        public string? SupabaseAuthId { get; set; }
+
+        // Legacy authentication fields (kept for backward compatibility)
         [Column("Password")]
-        public string Password { get; set; }
+        public string? Password { get; set; }
+        
         [Column("FirstName")]
         public string FirstName { get; set; }
         [Column("LastName")]
         public string LastName { get; set; }
         [Column("CreatedAt")]
         public DateTime CreatedAt { get; set; }
+        
+        // Legacy refresh token fields (kept for backward compatibility)
         [Column("RefreshToken")]
         public string? RefreshToken { get; set; }
         [Column("RefreshTokenExpiry")]

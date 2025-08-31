@@ -195,7 +195,7 @@ export function ApplicationSettingsStep({
               handleApplicationSettingChange("deadline", e.target.value)
             }
             min={getMinDate()}
-            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
           />
         </div>
 
@@ -205,7 +205,7 @@ export function ApplicationSettingsStep({
             onClick={() =>
               handleApplicationSettingChange("deadline", getSuggestedDate())
             }
-            className="text-sm text-indigo-600 hover:text-indigo-700"
+            className="text-sm text-accent hover:text-accent/80"
           >
             Set to 30 days from now
           </button>
@@ -229,7 +229,7 @@ export function ApplicationSettingsStep({
 
           {loadingTemplates ? (
             <div className="flex items-center space-x-2 text-gray-500">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-accent"></div>
               <span className="text-sm">Loading interview templates...</span>
             </div>
           ) : (
@@ -240,7 +240,7 @@ export function ApplicationSettingsStep({
                   interviewTemplateId: e.target.value || undefined,
                 })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
             >
               <option value="">Select an interview template</option>
               {interviewTemplates.map((template) => (
@@ -252,21 +252,21 @@ export function ApplicationSettingsStep({
           )}
 
           {formData.interviewTemplateId && (
-            <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <div className="mt-2 p-3 bg-accent/10 border border-accent/20 rounded-md">
               {(() => {
                 const selectedTemplate = interviewTemplates.find(
                   (t) => t.id === formData.interviewTemplateId
                 );
                 return selectedTemplate ? (
                   <div>
-                    <p className="text-sm font-medium text-blue-900">
+                    <p className="text-sm font-medium text-accent">
                       {selectedTemplate.name}
                     </p>
-                    <p className="text-sm text-blue-700 mt-1">
+                    <p className="text-sm text-accent/80 mt-1">
                       {selectedTemplate.description}
                     </p>
                     {selectedTemplate.isDefault && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800 mt-2">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-secondary/10 text-secondary mt-2">
                         <Users className="w-3 h-3 mr-1" />
                         Default Template
                       </span>
@@ -324,7 +324,7 @@ export function ApplicationSettingsStep({
                 <button
                   type="button"
                   onClick={handleCreateTemplate}
-                  className="inline-flex items-center px-3 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
+                  className="inline-flex items-center px-3 py-2 text-white text-sm font-medium rounded-md hover:opacity-90 transition-colors" style={{backgroundColor: '#066046'}}
                 >
                   <Plus className="w-4 h-4 mr-2" />
                   Create Template
@@ -378,7 +378,7 @@ export function ApplicationSettingsStep({
                     e.target.checked
                   )
                 }
-                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                className="h-4 w-4 text-accent focus:ring-accent border-gray-300 rounded"
               />
             </div>
             <div className="ml-3">
@@ -412,7 +412,7 @@ export function ApplicationSettingsStep({
                     e.target.checked
                   )
                 }
-                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                className="h-4 w-4 text-accent focus:ring-accent border-gray-300 rounded"
               />
             </div>
             <div className="ml-3">
@@ -446,7 +446,7 @@ export function ApplicationSettingsStep({
                     e.target.checked
                   )
                 }
-                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                className="h-4 w-4 text-accent focus:ring-accent border-gray-300 rounded"
               />
             </div>
             <div className="ml-3">
@@ -480,7 +480,7 @@ export function ApplicationSettingsStep({
                     e.target.checked
                   )
                 }
-                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                className="h-4 w-4 text-accent focus:ring-accent border-gray-300 rounded"
               />
             </div>
             <div className="ml-3">
@@ -504,11 +504,11 @@ export function ApplicationSettingsStep({
       </div>
 
       {/* Application Summary */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="text-sm font-medium text-blue-900 mb-2">
+      <div className="bg-accent/10 border border-accent/20 rounded-lg p-4">
+        <h4 className="text-sm font-medium text-accent mb-2">
           Application Summary
         </h4>
-        <div className="text-sm text-blue-800">
+        <div className="text-sm text-accent/80">
           <p className="mb-1">
             <strong>Deadline:</strong>{" "}
             {formData.applicationSettings.deadline
@@ -546,7 +546,7 @@ export function ApplicationSettingsStep({
               !formData.applicationSettings.coverLetterRequired &&
               !formData.applicationSettings.portfolioRequired &&
               !formData.applicationSettings.questionsRequired && (
-                <li className="text-blue-600">Basic application only</li>
+                <li className="text-accent">Basic application only</li>
               )}
           </ul>
         </div>
@@ -582,7 +582,7 @@ export function ApplicationSettingsStep({
         <button
           onClick={onNext}
           disabled={!isFormValid()}
-          className="inline-flex items-center px-6 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center px-6 py-2 text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style={{backgroundColor: '#066046'}}
         >
           Continue
           <ChevronRight className="ml-2 h-4 w-4" />

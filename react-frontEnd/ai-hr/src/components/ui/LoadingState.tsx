@@ -15,7 +15,7 @@ export function LoadingState({
   return (
     <div className={`flex items-center justify-center ${minHeightClass}`}>
       <div className="text-center">
-        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-indigo-600" />
+        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-[#066046]" />
         <p className="text-gray-600">{message}</p>
       </div>
     </div>

@@ -2,12 +2,13 @@
 
 import {
   BarChart3,
-  Building,
+  Command,
   Calendar,
   FileText,
   GitBranch,
   Home,
-  Menu,
+  PanelLeftOpen,
+  PanelLeftClose,
   PlusCircle,
   Settings,
   Users,
@@ -32,6 +33,19 @@ export function HiringSidebar() {
       setIsCollapsed(false); // default to not collapsed
     }
   }, []);
+
+  // Allow external toggle via a custom window event from layout
+  useEffect(() => {
+    const handleToggle = () => {
+      const newValue = !(isCollapsed ?? false);
+      setIsCollapsed(newValue);
+      localStorage.setItem("sidebar-collapsed", newValue.toString());
+    };
+    // Casting to any to satisfy TypeScript for custom event name
+    window.addEventListener("toggle-sidebar" as any, handleToggle as any);
+    return () =>
+      window.removeEventListener("toggle-sidebar" as any, handleToggle as any);
+  }, [isCollapsed]);
 
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: Home },
@@ -61,26 +75,13 @@ export function HiringSidebar() {
         {!isOpen && (
           <button
             type="button"
-            className="lg:hidden p-2 rounded-md text-gray-600 bg-white hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+            className="lg:hidden p-2 rounded-md text-gray-600 bg-white hover:text-gray-900 hover:bg-[#066046]/10 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
             onClick={() => setIsOpen(true)}
           >
             <span className="sr-only">Open sidebar</span>
-            <Menu className="h-6 w-6" />
+            <PanelLeftOpen className="h-6 w-6" />
           </button>
         )}
-        {/* Desktop Collapse Toggle */}
-        <button
-          type="button"
-          className="hidden lg:block p-2 rounded-md text-gray-600 bg-white hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
-          onClick={() => {
-            const newValue = !isCollapsed;
-            setIsCollapsed(newValue);
-            localStorage.setItem("sidebar-collapsed", newValue.toString());
-          }}
-        >
-          <span className="sr-only">Toggle sidebar</span>
-          <Menu className="h-6 w-4" />
-        </button>
       </div>
 
       {/* Mobile overlay */}
@@ -93,12 +94,28 @@ export function HiringSidebar() {
 
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-30 bg-white shadow-lg transition-all duration-300 ease-in-out
-          lg:static lg:h-screen lg:overflow-y-auto
-          ${isOpen ? "translate-x-0 w-sidebar" : "-translate-x-full w-sidebar"}
+        className={`fixed inset-y-0 left-0 z-30 bg-card/95 transition-all duration-300 ease-in-out relative
+          lg:relative lg:z-30 lg:h-screen lg:m-2 lg:rounded-2xl lg:shadow-sm
+          ${isOpen ? "translate-x-0" : "-translate-x-full"}
+          w-[280px]
           lg:translate-x-0
-          ${isCollapsed ? "lg:w-sidebar-collapsed" : "lg:w-sidebar"}`}
+          ${
+            isCollapsed
+              ? "lg:w-[72px] lg:overflow-visible"
+              : "lg:w-[280px] lg:overflow-y-auto"
+          }`}
       >
+        {/* Main-page edge click zone for easy toggling */}
+        <button
+          type="button"
+          aria-label="Toggle sidebar"
+          className="hidden lg:block absolute -right-2 top-0 h-full w-3 opacity-0 hover:opacity-100 cursor-ew-resize z-[55] hover:shadow-lg hover:shadow-gray-400/50 hover:bg-gradient-to-r hover:from-transparent hover:to-gray-200/30 transition-all duration-200"
+          onClick={() => {
+            const newValue = !isCollapsed;
+            setIsCollapsed(newValue);
+            localStorage.setItem("sidebar-collapsed", newValue.toString());
+          }}
+        />
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="relative">
@@ -112,32 +129,24 @@ export function HiringSidebar() {
                 prefetch={false}
                 className="flex items-center"
                 title={
-                  isCollapsed ? "AutoHire Dashboard" : "AutoHire Dashboard"
+                  isCollapsed ? "AutoHR Dashboard" : "AutoHR Dashboard"
                 }
               >
-                <div
-                  className={`flex items-center justify-center h-8 w-8 rounded ${
-                    isCollapsed ? "" : "bg-indigo-600"
-                  }`}
-                >
-                  <Building
-                    className={`h-6 w-6 ${
-                      isCollapsed ? "text-indigo-600" : "text-white"
-                    }`}
-                  />
+                <div className="flex items-center justify-center h-9 w-9 rounded-lg ring-2 ring-[#064e3b] bg-[#064e3b]/10">
+                  <Command className="h-5 w-5 text-[#064e3b]" />
                 </div>
                 <span
                   className={`ml-2 text-lg font-semibold text-gray-900 ${
                     isCollapsed ? "lg:hidden" : ""
                   }`}
                 >
-                  AutoHire
+                  AutoHR
                 </span>
               </Link>
               {isOpen && (
                 <button
                   type="button"
-                  className="lg:hidden p-1 rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+                  className="lg:hidden p-1 rounded-md text-gray-500 hover:text-[#066046] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary"
                   onClick={() => setIsOpen(false)}
                 >
                   <span className="sr-only">Close sidebar</span>
@@ -145,14 +154,12 @@ export function HiringSidebar() {
                 </button>
               )}
             </div>
-            {/* Custom divider */}
-            <div className="absolute left-0 right-0 bottom-0 h-px bg-gray-200" />
           </div>
 
           {/* Navigation */}
           <nav
-            className={`flex-1 mt-4 space-y-6 overflow-y-auto ${
-              isCollapsed ? "px-2" : "px-4"
+            className={`flex-1 mt-4 space-y-6 ${
+              isCollapsed ? "px-2 overflow-visible" : "px-4 overflow-y-auto"
             }`}
           >
             {/* Main Navigation */}
@@ -166,32 +173,37 @@ export function HiringSidebar() {
                     href={item.href}
                     prefetch={false}
                     title={isCollapsed ? item.name : undefined}
-                    className={`flex items-center py-2 rounded-md text-sm font-medium transition-colors duration-150 relative
+                    className={`flex items-center py-2 rounded-md text-sm font-medium transition-colors duration-150 relative group
                       ${isCollapsed ? "px-2 justify-center" : "px-3"}
                       ${
                         isActive
-                          ? isCollapsed
-                            ? "bg-indigo-100 text-indigo-700"
-                            : "bg-indigo-100 text-indigo-700 border-l-4 border-indigo-600"
-                          : "text-gray-700 hover:bg-indigo-50 hover:text-indigo-600"
+                          ? "bg-primary/10 text-primary"
+                          : "text-gray-700 hover:bg-[#066046]/10"
                       }`}
                   >
                     <item.icon
                       className={`h-5 w-5 ${isCollapsed ? "" : "mr-3"} ${
-                        isActive ? "text-indigo-600" : "text-gray-500"
+                        isActive ? "text-primary" : "text-gray-500"
                       }`}
                     />
                     <span className={`${isCollapsed ? "lg:hidden" : ""}`}>
                       {item.name}
                     </span>
+                    {/* Tooltip for collapsed mode */}
+                    {isCollapsed && (
+                      <div className="absolute left-full ml-3 px-2 py-1 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-[9999] pointer-events-none shadow-lg top-1/2 -translate-y-1/2">
+                        {item.name}
+                        <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                      </div>
+                    )}
                   </Link>
                 );
               })}
             </div>
-            <div className="border-t border-gray-200 pt-6">
+            <div className="pt-6">
               <div className={`${isCollapsed ? "lg:hidden" : ""} mb-4`}>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center">
-                  <span className="h-1 w-6 bg-indigo-600 rounded-full mr-2"></span>
+                  <span className="h-1 w-6 bg-primary rounded-full mr-2"></span>
                   Quick Actions
                 </p>
               </div>
@@ -200,20 +212,21 @@ export function HiringSidebar() {
                 {/* Create Job Button */}
                 <Link
                   href="/create-job"
-                  className={`group relative flex items-center py-3 px-4 rounded-xl text-sm font-medium text-white 
-                  bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 
-                  shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 
+                  className={`group relative flex items-center py-3 px-4 rounded-xl text-sm font-medium transition-colors
+                  bg-[#066046]/10 text-[#066046] hover:bg-[#066046] hover:text-white
+                  border border-[#066046]/20 hover:border-[#066046]
+                  shadow-sm hover:shadow-md transform hover:-translate-y-0.5
                   transition-all duration-200 ease-out
                   ${isCollapsed ? "justify-center" : ""}`}
                   title={isCollapsed ? "Create Job" : undefined}
                 >
                   <div className="flex items-center">
                     <div
-                      className={`p-1 rounded-lg bg-white/20 ${
+                      className={`p-1 rounded-lg transition-colors ${
                         isCollapsed ? "" : "mr-3"
-                      }`}
+                      } group-hover:bg-white/20 bg-[#066046]/20`}
                     >
-                      <PlusCircle className="h-4 w-4" />
+                      <PlusCircle className="h-4 w-4 transition-colors group-hover:text-white text-[#066046]" />
                     </div>
                     <span
                       className={`${
@@ -223,14 +236,21 @@ export function HiringSidebar() {
                       Create Job
                     </span>
                   </div>
+                  {/* Tooltip for collapsed mode */}
+                  {isCollapsed && (
+                    <div className="absolute left-full ml-3 px-2 py-1 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-[9999] pointer-events-none shadow-lg top-1/2 -translate-y-1/2">
+                      Create Job
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                    </div>
+                  )}
                 </Link>
 
                 {/* Create Interview Template Button */}
                 <Link
                   href="/interview-templates/create"
-                  className={`group relative flex items-center py-3 px-4 rounded-xl text-sm font-medium text-gray-700
-                  bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-200
-                  border border-gray-200 hover:border-gray-300
+                  className={`group relative flex items-center py-3 px-4 rounded-xl text-sm font-medium transition-colors
+                  bg-[#066046]/10 text-[#066046] hover:bg-[#066046] hover:text-white
+                  border border-[#066046]/20 hover:border-[#066046]
                   shadow-sm hover:shadow-md transform hover:-translate-y-0.5
                   transition-all duration-200 ease-out
                   ${isCollapsed ? "justify-center" : ""}`}
@@ -238,11 +258,11 @@ export function HiringSidebar() {
                 >
                   <div className="flex items-center">
                     <div
-                      className={`p-1 rounded-lg bg-indigo-100 text-indigo-600 ${
+                      className={`p-1 rounded-lg transition-colors ${
                         isCollapsed ? "" : "mr-3"
-                      }`}
+                      } group-hover:bg-white/20 bg-[#066046]/20`}
                     >
-                      <PlusCircle className="h-4 w-4" />
+                      <PlusCircle className="h-4 w-4 transition-colors group-hover:text-white text-[#066046]" />
                     </div>
                     <span
                       className={`${
@@ -252,6 +272,13 @@ export function HiringSidebar() {
                       Create Interview Template
                     </span>
                   </div>
+                  {/* Tooltip for collapsed mode */}
+                  {isCollapsed && (
+                    <div className="absolute left-full ml-3 px-2 py-1 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-[9999] pointer-events-none shadow-lg top-1/2 -translate-y-1/2">
+                      Create Interview Template
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                    </div>
+                  )}
                 </Link>
               </div>
             </div>

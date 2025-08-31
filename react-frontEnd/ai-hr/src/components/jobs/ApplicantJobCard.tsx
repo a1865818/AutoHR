@@ -225,21 +225,17 @@ export function ApplicantJobCard({ job, company }: ApplicantJobCardProps) {
                   ? "bg-blue-50 text-blue-600 hover:bg-blue-100"
                   : "bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-400"
               } ${
-                isToggling 
-                  ? "opacity-70 cursor-not-allowed" 
-                  : "cursor-pointer"
+                isToggling ? "opacity-70 cursor-not-allowed" : "cursor-pointer"
               }`}
               title={isSaved ? "Remove from saved jobs" : "Save job"}
             >
               {isToggling ? (
                 <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
               ) : (
-                <Star 
+                <Star
                   className={`h-5 w-5 ${
-                    isSaved 
-                      ? "fill-current text-blue-600" 
-                      : "text-gray-400"
-                  }`} 
+                    isSaved ? "fill-current text-blue-600" : "text-gray-400"
+                  }`}
                 />
               )}
             </button>
@@ -260,7 +256,7 @@ export function ApplicantJobCard({ job, company }: ApplicantJobCardProps) {
             {safeRender(job.locationType) || "On-site"}
           </span>
           {job.department && job.department !== "Not specified" && (
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-[#1a4d2e]/15 text-[#1a4d2e] border border-[#1a4d2e]/20">
               {safeRender(job.department)}
             </span>
           )}

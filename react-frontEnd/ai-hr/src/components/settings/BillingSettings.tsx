@@ -40,13 +40,13 @@ export function BillingSettings({
   const getPlanDetails = () => {
     switch (currentPlan) {
       case "starter":
-        return { name: "Starter", price: "$29", color: "text-green-600" };
+        return { name: "Starter", price: "$29", color: "text-gray-900" };
       case "professional":
-        return { name: "Professional", price: "$99", color: "text-blue-600" };
+        return { name: "Professional", price: "$99", color: "text-gray-900" };
       case "enterprise":
-        return { name: "Enterprise", price: "$299", color: "text-purple-600" };
+        return { name: "Enterprise", price: "$299", color: "text-gray-900" };
       default:
-        return { name: "Professional", price: "$99", color: "text-blue-600" };
+        return { name: "Professional", price: "$99", color: "text-gray-900" };
     }
   };
 
@@ -83,7 +83,7 @@ export function BillingSettings({
           </div>
           <button
             onClick={handleChangePlanClick}
-            className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+            className="px-4 py-2 bg-[#066046] text-white rounded-md hover:bg-[#267a54] transition-colors"
           >
             Change Plan
           </button>
@@ -102,7 +102,7 @@ export function BillingSettings({
           <h5 className="font-medium text-gray-900 mb-3">Payment Method</h5>
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <div className="h-8 w-12 bg-blue-600 rounded flex items-center justify-center mr-3">
+              <div className="h-8 w-12 bg-[#066046] rounded flex items-center justify-center mr-3">
                 <span className="text-white text-xs font-bold">VISA</span>
               </div>
               <div>
@@ -112,7 +112,7 @@ export function BillingSettings({
             </div>
             <button
               onClick={onUpdatePayment}
-              className="text-primary hover:text-blue-600 text-sm"
+              className="text-[#066046] hover:text-[#267a54] text-sm"
             >
               Update
             </button>
@@ -136,7 +136,7 @@ export function BillingSettings({
                 <p className="text-sm font-medium">{invoice.amount}</p>
                 <button
                   onClick={() => onDownloadInvoice(invoice.id)}
-                  className="text-xs text-primary hover:text-blue-600"
+                  className="text-xs text-[#066046] hover:text-[#267a54]"
                 >
                   Download
                 </button>
