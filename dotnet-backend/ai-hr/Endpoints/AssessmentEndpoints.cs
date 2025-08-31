@@ -20,11 +20,18 @@ namespace ai_hr.Endpoints
             // Assessment Submissions
             group.MapGet("/submissions/{candidateId}/{roundId}", GetAssessmentSubmission)
                 .WithName("GetAssessmentSubmission")
-                .WithSummary("Get assessment submission for a candidate and round");
+                .WithSummary("Get assessment submission for a candidate and round")
+                .AllowAnonymous(); // Temporarily allow anonymous access for testing
 
             group.MapGet("/submissions/job/{jobId}", GetJobAssessmentSubmissions)
                 .WithName("GetJobAssessmentSubmissions")
-                .WithSummary("Get all assessment submissions for a job");
+                .WithSummary("Get all assessment submissions for a job")
+                .AllowAnonymous(); // Temporarily allow anonymous access for testing
+
+            group.MapGet("/submissions/candidate/{candidateId}", GetCandidateAssessmentSubmissions)
+                .WithName("GetCandidateAssessmentSubmissions")
+                .WithSummary("Get all assessment submissions for a candidate")
+                .AllowAnonymous(); // Temporarily allow anonymous access for testing
 
             group.MapGet("/submissions/round/{roundId}", GetRoundAssessmentSubmissions)
                 .WithName("GetRoundAssessmentSubmissions")
@@ -63,15 +70,42 @@ namespace ai_hr.Endpoints
             group.MapGet("/test", () => Results.Ok(new { message = "Assessment API is working!", timestamp = DateTime.UtcNow }))
                 .WithName("TestAssessmentAPI")
                 .WithSummary("Test endpoint to verify assessment API is working");
+
+            // Simple test endpoint for debugging
+            group.MapGet("/debug/{roundId}", (string roundId) => 
+                Results.Ok(new { 
+                    message = "Debug endpoint working", 
+                    roundId = roundId,
+                    roundIdLength = roundId?.Length,
+                    timestamp = DateTime.UtcNow 
+                }))
+                .WithName("DebugAssessmentAPI")
+                .WithSummary("Debug endpoint to test roundId parsing");
+
+            // Culture Fit Assessment Endpoints (temporarily without auth for testing)
+            group.MapGet("/{roundId}/configuration", GetAssessmentConfiguration)
+                .WithName("GetAssessmentConfiguration")
+                .WithSummary("Get assessment configuration for a round")
+                .AllowAnonymous(); // Temporarily allow anonymous access for testing
+
+            group.MapPost("/{roundId}/submit", SubmitAssessmentResults)
+                .WithName("SubmitAssessmentResults")
+                .WithSummary("Submit assessment results")
+                .AllowAnonymous(); // Temporarily allow anonymous access for testing
+
+            group.MapGet("/{roundId}/submission-status/{candidateId}", GetAssessmentSubmissionStatus)
+                .WithName("GetAssessmentSubmissionStatus")
+                .WithSummary("Check if candidate has submitted assessment for a round")
+                .AllowAnonymous(); // Temporarily allow anonymous access for testing
         }
 
-        //// Assessment Submission Endpoints
-        //private static async Task<IResult> GetAssessmentSubmission(
+        // // Assessment Submission Endpoints
+        // private static async Task<IResult> GetAssessmentSubmission(
         //    Guid candidateId,
         //    Guid roundId,
         //    Supabase.Client client,
         //    ClaimsPrincipal user)
-        //{
+        // {
         //    try
         //    {
         //        Console.WriteLine($"🔍 GetAssessmentSubmission called with:");
@@ -149,7 +183,7 @@ namespace ai_hr.Endpoints
         //        Console.WriteLine($"Error getting assessment submission: {ex.Message}");
         //        return Results.Problem("Failed to get assessment submission");
         //    }
-        //}
+        // }
 
         private static async Task<IResult> GetAssessmentSubmission(
     Guid candidateId,
@@ -174,6 +208,17 @@ namespace ai_hr.Endpoints
                 if (submission == null)
                 {
                     Console.WriteLine($"❌ No submission found for candidateId: {candidateId}, roundId: {roundId}");
+                    
+                    // Let's also check what submissions DO exist in the table
+                    var allSubmissionsResponse = await client.From<AssessmentSubmission>().Get();
+                    var allSubmissions = allSubmissionsResponse.Models;
+                    Console.WriteLine($"🔍 Total submissions in database: {allSubmissions.Count}");
+                    
+                    foreach (var sub in allSubmissions.Take(5)) // Show first 5
+                    {
+                        Console.WriteLine($"   - CandidateId: {sub.CandidateId}, RoundId: {sub.RoundId}, Status: {sub.Status}");
+                    }
+                    
                     return Results.NotFound("Assessment submission not found");
                 }
 
@@ -248,7 +293,7 @@ namespace ai_hr.Endpoints
                     SubmittedAt = submission.SubmittedAt,
                     PdfUrl = accessiblePdfUrl,
                     Status = submission.Status,
-                    SubmissionData = submission.SubmissionData,
+                    SubmissionData = ProcessRetrievedSubmissionData(submission.SubmissionData),
                     CreatedAt = submission.CreatedAt,
                     UpdatedAt = submission.UpdatedAt,
                     Candidate = candidateInfo
@@ -308,7 +353,7 @@ namespace ai_hr.Endpoints
                         SubmittedAt = s.SubmittedAt,
                         PdfUrl = accessiblePdfUrl,
                         Status = s.Status,
-                        SubmissionData = s.SubmissionData,
+                        SubmissionData = ProcessRetrievedSubmissionData(s.SubmissionData),
                         CreatedAt = s.CreatedAt,
                         UpdatedAt = s.UpdatedAt
                     });
@@ -320,6 +365,72 @@ namespace ai_hr.Endpoints
             {
                 Console.WriteLine($"Error getting job assessment submissions: {ex.Message}");
                 return Results.Problem("Failed to get job assessment submissions");
+            }
+        }
+
+        private static async Task<IResult> GetCandidateAssessmentSubmissions(
+            Guid candidateId,
+            Supabase.Client client,
+            ClaimsPrincipal user)
+        {
+            try
+            {
+                Console.WriteLine($"🔍 GetCandidateAssessmentSubmissions called for candidateId: {candidateId}");
+
+                var response = await client
+                    .From<AssessmentSubmission>()
+                    .Where(x => x.CandidateId == candidateId)
+                    .Get();
+
+                Console.WriteLine($"🔍 Found {response.Models.Count} submissions for candidate {candidateId}");
+
+                var submissions = new List<AssessmentSubmissionResponse>();
+
+                foreach (var s in response.Models)
+                {
+                    Console.WriteLine($"🔍 Processing submission: ID={s.Id}, RoundId={s.RoundId}, Status={s.Status}");
+
+                    // Convert bucket path to signed URL for browser access
+                    string accessiblePdfUrl = s.PdfUrl;
+                    if (!string.IsNullOrEmpty(s.PdfUrl) && !s.PdfUrl.StartsWith("http"))
+                    {
+                        try
+                        {
+                            var pathParts = s.PdfUrl.Split('/', 2);
+                            if (pathParts.Length == 2)
+                            {
+                                var bucketName = pathParts[0];
+                                var fileName = pathParts[1];
+                                accessiblePdfUrl = await StorageBucketEndpoints.get_file_url_backend(client, bucketName, fileName);
+                            }
+                        }
+                        catch (Exception urlEx)
+                        {
+                            Console.WriteLine($"⚠️ Failed to generate signed URL for PDF: {urlEx.Message}");
+                        }
+                    }
+
+                    submissions.Add(new AssessmentSubmissionResponse
+                    {
+                        Id = s.Id,
+                        CandidateId = s.CandidateId,
+                        RoundId = s.RoundId,
+                        JobId = s.JobId,
+                        SubmittedAt = s.SubmittedAt,
+                        PdfUrl = accessiblePdfUrl,
+                        Status = s.Status,
+                        SubmissionData = ProcessRetrievedSubmissionData(s.SubmissionData),
+                        CreatedAt = s.CreatedAt,
+                        UpdatedAt = s.UpdatedAt
+                    });
+                }
+
+                return Results.Ok(submissions);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error getting candidate assessment submissions: {ex.Message}");
+                return Results.Problem("Failed to get candidate assessment submissions");
             }
         }
 
@@ -368,7 +479,7 @@ namespace ai_hr.Endpoints
                         SubmittedAt = s.SubmittedAt,
                         PdfUrl = accessiblePdfUrl,
                         Status = s.Status,
-                        SubmissionData = s.SubmissionData,
+                        SubmissionData = ProcessRetrievedSubmissionData(s.SubmissionData),
                         CreatedAt = s.CreatedAt,
                         UpdatedAt = s.UpdatedAt
                     });
@@ -415,7 +526,7 @@ namespace ai_hr.Endpoints
                     SubmittedAt = createdSubmission.SubmittedAt,
                     PdfUrl = createdSubmission.PdfUrl,
                     Status = createdSubmission.Status,
-                    SubmissionData = createdSubmission.SubmissionData,
+                    SubmissionData = ProcessRetrievedSubmissionData(createdSubmission.SubmissionData),
                     CreatedAt = createdSubmission.CreatedAt,
                     UpdatedAt = createdSubmission.UpdatedAt
                 };
@@ -473,7 +584,7 @@ namespace ai_hr.Endpoints
                     SubmittedAt = updatedSubmission.SubmittedAt,
                     PdfUrl = updatedSubmission.PdfUrl,
                     Status = updatedSubmission.Status,
-                    SubmissionData = updatedSubmission.SubmissionData,
+                    SubmissionData = ProcessRetrievedSubmissionData(updatedSubmission.SubmissionData),
                     CreatedAt = updatedSubmission.CreatedAt,
                     UpdatedAt = updatedSubmission.UpdatedAt
                 };
@@ -918,7 +1029,7 @@ namespace ai_hr.Endpoints
             }
         }
 
-        // Use the same JsonElement conversion pattern as RoundConfiguration
+        // Helper method to convert JsonElement objects to .NET types
         private static object ConvertFromJsonElement(object value)
         {
             if (value is JArray jArray)
@@ -988,22 +1099,22 @@ namespace ai_hr.Endpoints
 
         private static Dictionary<string, object> ConvertJsonElementObject(JsonElement element)
         {
-            var dict = new Dictionary<string, object>();
+            var result = new Dictionary<string, object>();
             foreach (var property in element.EnumerateObject())
             {
-                dict[property.Name] = ConvertFromJsonElement(property.Value);
+                result[property.Name] = ConvertFromJsonElement(property.Value);
             }
-            return dict;
+            return result;
         }
 
         private static List<object> ConvertJsonElementArray(JsonElement element)
         {
-            var list = new List<object>();
+            var result = new List<object>();
             foreach (var item in element.EnumerateArray())
             {
-                list.Add(ConvertFromJsonElement(item));
+                result.Add(ConvertFromJsonElement(item));
             }
-            return list;
+            return result;
         }
 
         private static object ConvertQuestionScoresToDict(List<QuestionScoreRequest> questionScores)
@@ -1017,6 +1128,502 @@ namespace ai_hr.Endpoints
             }).ToList();
 
             return scores;
+        }
+
+        // Culture Fit Assessment Endpoints
+        private static async Task<IResult> GetAssessmentConfiguration(
+            string roundId,
+            Supabase.Client client,
+            ClaimsPrincipal? user = null)
+        {
+            try
+            {
+                Console.WriteLine($"🔍 GetAssessmentConfiguration called for roundId: {roundId}");
+                Console.WriteLine($"🔍 RoundId length: {roundId?.Length}");
+                Console.WriteLine($"🔍 RoundId format check: {roundId?.Contains("-")} (contains hyphens)");
+                Console.WriteLine($"🔍 RoundId format: {roundId}");
+
+                // Parse the roundId to get the actual GUID
+                if (!Guid.TryParse(roundId, out var roundGuid))
+                {
+                    Console.WriteLine($"❌ Failed to parse roundId as GUID: {roundId}");
+                    return Results.BadRequest(new { error = "Invalid round ID format" });
+                }
+                
+                Console.WriteLine($"✅ Successfully parsed roundId as GUID: {roundGuid}");
+
+                // Get ALL round configurations for this round to see what we have
+                Console.WriteLine($"🔍 Looking for ALL round configurations with RoundId: {roundGuid}");
+                var allConfigsResponse = await client.From<RoundConfiguration>()
+                    .Where(rc => rc.RoundId == roundGuid)
+                    .Get();
+                
+                Console.WriteLine($"🔍 Found {allConfigsResponse.Models?.Count ?? 0} total round configurations");
+                
+                // Log all configurations found
+                foreach (var cfg in allConfigsResponse.Models)
+                {
+                    Console.WriteLine($"🔍 Config: ID={cfg.Id}, Type={cfg.RoundType}, Name={cfg.Name}, Status={cfg.Status}");
+                    if (cfg.ConfigurationData != null)
+                    {
+                        Console.WriteLine($"🔍   ConfigData keys: {string.Join(", ", cfg.ConfigurationData.Keys)}");
+                        Console.WriteLine($"🔍   ConfigData count: {cfg.ConfigurationData.Count}");
+                    }
+                }
+                
+                // Try to find a configuration with cultureQuestions
+                var configWithCultureQuestions = allConfigsResponse.Models.FirstOrDefault(cfg => 
+                    cfg.ConfigurationData != null && 
+                    cfg.ConfigurationData.ContainsKey("cultureQuestions"));
+                
+                RoundConfiguration? config;
+                if (configWithCultureQuestions != null)
+                {
+                    Console.WriteLine($"✅ Found config with cultureQuestions: ID={configWithCultureQuestions.Id}, Type={configWithCultureQuestions.RoundType}");
+                    config = configWithCultureQuestions;
+                }
+                else
+                {
+                    Console.WriteLine($"❌ No config found with cultureQuestions in this round, searching for any culture_fit round with complete data...");
+                    
+                    // If no config with cultureQuestions found in this specific round, 
+                    // search for ANY culture_fit round that has complete configuration
+                    var allCultureFitConfigsResponse = await client.From<RoundConfiguration>()
+                        .Where(rc => rc.RoundType == "culture_fit")
+                        .Get();
+                    
+                    var cultureFitConfigWithQuestions = allCultureFitConfigsResponse.Models.FirstOrDefault(cfg => 
+                        cfg.ConfigurationData != null && 
+                        cfg.ConfigurationData.ContainsKey("cultureQuestions"));
+                    
+                    if (cultureFitConfigWithQuestions != null)
+                    {
+                        Console.WriteLine($"✅ Found culture_fit config with cultureQuestions from different round: ID={cultureFitConfigWithQuestions.Id}, RoundId={cultureFitConfigWithQuestions.RoundId}");
+                        config = cultureFitConfigWithQuestions;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"❌ No culture_fit config with cultureQuestions found anywhere, using first available");
+                        config = allConfigsResponse.Models.FirstOrDefault();
+                    }
+                }
+                if (config == null)
+                {
+                    Console.WriteLine($"❌ No configuration found for roundId: {roundGuid}");
+                    return Results.NotFound(new { error = "Assessment configuration not found" });
+                }
+
+                // Debug: Log the configuration data
+                Console.WriteLine($"🔍 Selected config: ID={config.Id}, Type={config.RoundType}, Name={config.Name}");
+                Console.WriteLine($"🔍 Configuration data type: {config.ConfigurationData?.GetType()}");
+                Console.WriteLine($"🔍 Configuration data keys: {config.ConfigurationData?.Keys?.Count ?? 0}");
+                if (config.ConfigurationData != null)
+                {
+                    Console.WriteLine($"🔍 Configuration data keys: {string.Join(", ", config.ConfigurationData.Keys)}");
+                    
+                    // Check if cultureQuestions exists
+                    if (config.ConfigurationData.TryGetValue("cultureQuestions", out var originalCultureQuestions))
+                    {
+                        Console.WriteLine($"✅ cultureQuestions found: {originalCultureQuestions?.GetType()}");
+                        if (originalCultureQuestions is IList list)
+                        {
+                            Console.WriteLine($"✅ cultureQuestions count: {list.Count}");
+                        }
+                    }
+                    else
+                    {
+                        Console.WriteLine($"❌ cultureQuestions NOT found in configuration data");
+                    }
+                }
+                
+                // Use the same proven approach as RoundConfigurationEndpoints
+                Console.WriteLine($"🔍 Processing configuration data using RoundConfigurationEndpoints approach...");
+                
+                // Process the configuration data using the same method as RoundConfigurationEndpoints
+                var processedConfigData = ProcessRetrievedConfigurationData(config.ConfigurationData);
+                
+                Console.WriteLine($"🔍 Processed config data keys: {string.Join(", ", processedConfigData.Keys)}");
+                if (processedConfigData.TryGetValue("cultureQuestions", out var processedCultureQuestions))
+                {
+                    Console.WriteLine($"✅ cultureQuestions found in processed data: {processedCultureQuestions?.GetType()}");
+                    if (processedCultureQuestions is IList list)
+                    {
+                        Console.WriteLine($"✅ cultureQuestions count: {list.Count}");
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"❌ cultureQuestions NOT found in processed data");
+                }
+                
+                // Use the processed configuration data
+                var finalConfigData = processedConfigData;
+                
+                Console.WriteLine($"🔍 Final config data keys: {string.Join(", ", finalConfigData.Keys)}");
+                Console.WriteLine($"🔍 Final config data count: {finalConfigData.Count}");
+                
+                // Check if we have any data at all
+                if (finalConfigData.Count == 0)
+                {
+                    Console.WriteLine($"❌ No data in final config - returning empty response");
+                    return Results.Ok(new
+                    {
+                        success = true,
+                        data = new Dictionary<string, object>()
+                    });
+                }
+                
+                // Return the configuration data
+                return Results.Ok(new
+                {
+                    success = true,
+                    data = finalConfigData
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error getting assessment configuration: {ex.Message}");
+                return Results.Problem($"Failed to get assessment configuration: {ex.Message}");
+            }
+        }
+
+
+        // Helper method to process configuration data retrieved from database
+        private static Dictionary<string, object> ProcessRetrievedConfigurationData(Dictionary<string, object>? configData)
+        {
+            Console.WriteLine($"🔍 ProcessRetrievedConfigurationData called with configData: {configData?.Count ?? 0} keys");
+            
+            if (configData == null)
+            {
+                Console.WriteLine($"❌ ConfigData is null");
+                return new Dictionary<string, object>();
+            }
+
+            Console.WriteLine($"🔍 Original configData keys: {string.Join(", ", configData.Keys)}");
+            
+            var processedData = new Dictionary<string, object>();
+
+            foreach (var kvp in configData)
+            {
+                Console.WriteLine($"🔍 Processing key: {kvp.Key}, value type: {kvp.Value?.GetType()}");
+                var convertedValue = ConvertFromJsonElement(kvp.Value);
+                Console.WriteLine($"🔍 Converted value type: {convertedValue?.GetType()}");
+                processedData[kvp.Key] = convertedValue;
+            }
+
+            Console.WriteLine($"🔍 Processed data keys: {string.Join(", ", processedData.Keys)}");
+            return processedData;
+        }
+
+        // Helper method to process submission data before storing in database
+        private static Dictionary<string, object> ProcessSubmissionData(Dictionary<string, object>? submissionData)
+        {
+            Console.WriteLine($"🔍 ProcessSubmissionData called with submissionData: {submissionData?.Count ?? 0} keys");
+            
+            if (submissionData == null)
+            {
+                Console.WriteLine($"❌ SubmissionData is null");
+                return new Dictionary<string, object>();
+            }
+
+            Console.WriteLine($"🔍 Original submissionData keys: {string.Join(", ", submissionData.Keys)}");
+            
+            // Use the same processing logic as configuration data
+            return ProcessRetrievedConfigurationData(submissionData);
+        }
+
+        // Helper method to process submission data when retrieving from database
+        private static object? ProcessRetrievedSubmissionData(object? submissionData)
+        {
+            Console.WriteLine($"🔍 ProcessRetrievedSubmissionData called with submissionData type: {submissionData?.GetType()}");
+            
+            if (submissionData == null)
+            {
+                Console.WriteLine($"❌ SubmissionData is null");
+                return null;
+            }
+
+            // If it's already a Dictionary<string, object>, it might be processed data
+            if (submissionData is Dictionary<string, object> dict)
+            {
+                Console.WriteLine($"🔍 SubmissionData is already Dictionary<string, object> with {dict.Count} keys");
+                // Still process it to ensure all nested objects are converted
+                var processed = ProcessRetrievedConfigurationData(dict);
+                Console.WriteLine($"🔍 After processing - keys: {string.Join(", ", processed.Keys)}");
+                if (processed.ContainsKey("gameAnswers"))
+                {
+                    Console.WriteLine($"🔍 Retrieved game answers type: {processed["gameAnswers"]?.GetType()}");
+                    Console.WriteLine($"🔍 Retrieved game answers count: {((processed["gameAnswers"] as IList)?.Count ?? 0)}");
+                }
+                return processed;
+            }
+
+            // If it's JsonElement, convert it using the proper conversion method
+            if (submissionData is JsonElement jsonElement)
+            {
+                Console.WriteLine($"🔍 Converting JsonElement to Dictionary<string, object>");
+                var converted = ConvertFromJsonElement(jsonElement);
+                Console.WriteLine($"🔍 Converted type: {converted?.GetType()}");
+                return converted;
+            }
+
+            // For any other type, try to convert it
+            Console.WriteLine($"🔍 Converting unknown type to Dictionary<string, object>");
+            return ConvertFromJsonElement(submissionData);
+        }
+
+        private static async Task<IResult> SubmitAssessmentResults(
+            string roundId,
+            [FromBody] AssessmentSubmissionRequest request,
+            Supabase.Client client,
+            ClaimsPrincipal? user = null)
+        {
+            try
+            {
+                Console.WriteLine($"🔍 SubmitAssessmentResults called for roundId: {roundId}");
+
+                // Parse the roundId to get the actual GUID
+                Console.WriteLine($"🔍 Attempting to parse roundId as GUID: {roundId}");
+                if (!Guid.TryParse(roundId, out var roundGuid))
+                {
+                    Console.WriteLine($"❌ Failed to parse roundId as GUID: {roundId}");
+                    return Results.BadRequest(new { error = "Invalid round ID format" });
+                }
+                Console.WriteLine($"✅ Successfully parsed roundId as GUID: {roundGuid}");
+
+                var userId = GetUserId(user);
+                // For now, use a default user ID if none is provided (for testing)
+                var effectiveUserId = userId ?? Guid.NewGuid();
+
+                // Get the job ID from the round
+                var roundResponse = await client.From<InterviewRound>()
+                    .Where(r => r.Id == roundGuid)
+                    .Get();
+
+                var round = roundResponse.Models.FirstOrDefault();
+                if (round == null)
+                {
+                    Console.WriteLine($"❌ Round not found for ID: {roundGuid}");
+                    return Results.NotFound(new { error = "Round not found" });
+                }
+
+                Console.WriteLine($"✅ Found round: {round.Name}, TemplateId: {round.TemplateId}");
+
+                // Get the job ID from the template
+                var templateResponse = await client.From<InterviewTemplate>()
+                    .Where(t => t.Id == round.TemplateId)
+                    .Get();
+
+                var template = templateResponse.Models.FirstOrDefault();
+                if (template == null)
+                {
+                    Console.WriteLine($"❌ Template not found for ID: {round.TemplateId}");
+                    return Results.NotFound(new { error = "Interview template not found" });
+                }
+
+                Console.WriteLine($"✅ Found template: {template.Name}");
+
+                // Find a job that uses this template
+                var jobResponse = await client.From<Job>()
+                    .Where(j => j.InterviewTemplateId == template.Id)
+                    .Get();
+
+                var job = jobResponse.Models.FirstOrDefault();
+                if (job == null)
+                {
+                    Console.WriteLine($"❌ No job found using template: {template.Id}");
+                    
+                    // Try to find any job that might be related to this round
+                    var allJobsResponse = await client.From<Job>().Get();
+                    var allJobs = allJobsResponse.Models;
+                    Console.WriteLine($"🔍 Total jobs in database: {allJobs.Count}");
+                    
+                    if (allJobs.Any())
+                    {
+                        // Use the first available job as fallback
+                        job = allJobs.First();
+                        Console.WriteLine($"⚠️ Using fallback job: {job.Title} (ID: {job.Id})");
+                    }
+                    else
+                    {
+                        return Results.NotFound(new { error = "No jobs found in the system" });
+                    }
+                }
+                else
+                {
+                    Console.WriteLine($"✅ Found job: {job.Title} (ID: {job.Id})");
+                }
+
+                // Parse candidate ID properly
+                Guid candidateGuid;
+                if (!string.IsNullOrEmpty(request.CandidateId) && Guid.TryParse(request.CandidateId, out candidateGuid))
+                {
+                    Console.WriteLine($"✅ Using provided candidate ID: {candidateGuid}");
+                }
+                else
+                {
+                    Console.WriteLine($"⚠️ Invalid candidate ID provided: {request.CandidateId}, using effective user ID: {effectiveUserId}");
+                    candidateGuid = effectiveUserId;
+                }
+
+                // Create assessment submission
+                var processedSubmissionData = ProcessSubmissionData(request.Results);
+                Console.WriteLine($"🔍 Processed submission data keys: {string.Join(", ", processedSubmissionData.Keys)}");
+                if (processedSubmissionData.ContainsKey("gameAnswers"))
+                {
+                    Console.WriteLine($"🔍 Game answers type: {processedSubmissionData["gameAnswers"]?.GetType()}");
+                    Console.WriteLine($"🔍 Game answers count: {((processedSubmissionData["gameAnswers"] as IList)?.Count ?? 0)}");
+                }
+                if (processedSubmissionData.ContainsKey("scenarioAnswers"))
+                {
+                    Console.WriteLine($"🔍 Scenario answers type: {processedSubmissionData["scenarioAnswers"]?.GetType()}");
+                    Console.WriteLine($"🔍 Scenario answers count: {((processedSubmissionData["scenarioAnswers"] as IList)?.Count ?? 0)}");
+                }
+
+                var submission = new AssessmentSubmission
+                {
+                    CandidateId = candidateGuid,
+                    RoundId = roundGuid,
+                    JobId = job.Id,
+                    SubmissionData = processedSubmissionData,
+                    Status = "submitted",
+                    SubmittedAt = DateTime.UtcNow
+                };
+
+                Console.WriteLine($"💾 Creating assessment submission:");
+                Console.WriteLine($"   CandidateId: {submission.CandidateId}");
+                Console.WriteLine($"   RoundId: {submission.RoundId}");
+                Console.WriteLine($"   JobId: {submission.JobId}");
+                Console.WriteLine($"   Status: {submission.Status}");
+                Console.WriteLine($"   Results count: {request.Results?.Count ?? 0}");
+                Console.WriteLine($"   Request candidateId: {request.CandidateId}");
+                Console.WriteLine($"   Parsed candidateGuid: {candidateGuid}");
+                Console.WriteLine($"   Effective userId: {effectiveUserId}");
+
+                var insertResponse = await client.From<AssessmentSubmission>().Insert(submission);
+                var createdSubmission = insertResponse.Models.FirstOrDefault();
+
+                if (createdSubmission == null)
+                {
+                    Console.WriteLine($"❌ Failed to create assessment submission");
+                    return Results.Problem("Failed to create assessment submission");
+                }
+
+                Console.WriteLine($"✅ Assessment results submitted successfully. Submission ID: {createdSubmission.Id}");
+
+                // Update the application status to reflect assessment completion
+                try
+                {
+                    // Find the application for this candidate and job
+                    var applicationResponse = await client.From<ApplicationDetail>()
+                        .Where(ad => ad.CandidateUserId == submission.CandidateId && ad.JobId == submission.JobId)
+                        .Get();
+
+                    var application = applicationResponse.Models.FirstOrDefault();
+                    if (application != null)
+                    {
+                        Console.WriteLine($"📝 Updating application status for application ID: {application.Id}");
+                        
+                        // Update the application to reflect assessment completion
+                        application.StatusChangedAt = DateTime.UtcNow;
+                        
+                       
+                        
+                        var updateResponse = await client.From<ApplicationDetail>()
+                            .Where(ad => ad.Id == application.Id)
+                            .Update(application);
+                            
+                        Console.WriteLine($"✅ Application status updated successfully");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"⚠️ No application found for candidate {submission.CandidateId} and job {submission.JobId}");
+                    }
+                }
+                catch (Exception appUpdateEx)
+                {
+                    Console.WriteLine($"⚠️ Failed to update application status: {appUpdateEx.Message}");
+                    // Don't fail the submission if application update fails
+                }
+
+                return Results.Ok(new
+                {
+                    success = true,
+                    message = "Assessment results submitted successfully",
+                    submissionId = createdSubmission.Id
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error submitting assessment results: {ex.Message}");
+                return Results.Problem($"Failed to submit assessment results: {ex.Message}");
+            }
+        }
+
+        // Check if a candidate has submitted an assessment for a specific round
+        private static async Task<IResult> GetAssessmentSubmissionStatus(
+            string roundId,
+            string candidateId,
+            Supabase.Client client,
+            ClaimsPrincipal? user = null)
+        {
+            try
+            {
+                Console.WriteLine($"🔍 GetAssessmentSubmissionStatus called for roundId: {roundId}, candidateId: {candidateId}");
+
+                // Parse the roundId to get the actual GUID
+                if (!Guid.TryParse(roundId, out var roundGuid))
+                {
+                    Console.WriteLine($"❌ Failed to parse roundId as GUID: {roundId}");
+                    return Results.BadRequest(new { error = "Invalid round ID format" });
+                }
+
+                // Parse the candidateId to get the actual GUID
+                if (!Guid.TryParse(candidateId, out var candidateGuid))
+                {
+                    Console.WriteLine($"❌ Failed to parse candidateId as GUID: {candidateId}");
+                    return Results.BadRequest(new { error = "Invalid candidate ID format" });
+                }
+
+                Console.WriteLine($"✅ Successfully parsed roundId: {roundGuid}, candidateId: {candidateGuid}");
+
+                // Check if submission exists
+                var response = await client
+                    .From<AssessmentSubmission>()
+                    .Where(x => x.CandidateId == candidateGuid && x.RoundId == roundGuid)
+                    .Get();
+
+                var submission = response.Models.FirstOrDefault();
+                var hasSubmitted = submission != null;
+
+                Console.WriteLine($"🔍 Submission found: {hasSubmitted}");
+                if (hasSubmitted)
+                {
+                    Console.WriteLine($"   Submission ID: {submission.Id}");
+                    Console.WriteLine($"   Status: {submission.Status}");
+                    Console.WriteLine($"   Submitted at: {submission.SubmittedAt}");
+                }
+
+                return Results.Ok(new
+                {
+                    hasSubmitted = hasSubmitted,
+                    submissionId = submission?.Id,
+                    status = submission?.Status,
+                    submittedAt = submission?.SubmittedAt
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error checking assessment submission status: {ex.Message}");
+                return Results.Problem($"Failed to check assessment submission status: {ex.Message}");
+            }
+        }
+
+        // Request/Response DTOs for assessment endpoints
+        public class AssessmentSubmissionRequest
+        {
+            public string? CandidateId { get; set; }
+            public Dictionary<string, object>? Results { get; set; }
         }
     }
 }

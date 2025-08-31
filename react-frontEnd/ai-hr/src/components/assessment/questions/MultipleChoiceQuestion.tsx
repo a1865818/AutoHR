@@ -22,10 +22,9 @@ interface Question {
 interface MultipleChoiceQuestionProps {
   question: Question;
   onAnswer: (answer: string) => void;
-  onSkip: () => void;
 }
 
-export function MultipleChoiceQuestion({ question, onAnswer, onSkip }: MultipleChoiceQuestionProps) {
+export function MultipleChoiceQuestion({ question, onAnswer }: MultipleChoiceQuestionProps) {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
 
@@ -34,17 +33,10 @@ export function MultipleChoiceQuestion({ question, onAnswer, onSkip }: MultipleC
     setSelectedOption(optionId);
   };
 
-  const handleSubmit = () => {
+  const handleNext = () => {
     if (selectedOption && !isAnswered) {
       setIsAnswered(true);
       onAnswer(selectedOption);
-    }
-  };
-
-  const handleSkip = () => {
-    if (!isAnswered) {
-      setIsAnswered(true);
-      onSkip();
     }
   };
 
@@ -89,24 +81,26 @@ export function MultipleChoiceQuestion({ question, onAnswer, onSkip }: MultipleC
         ))}
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex justify-between items-center pt-6 border-t">
-        <button
-          onClick={handleSkip}
-          disabled={isAnswered}
-          className="px-6 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Skip
-        </button>
-        
-        <button
-          onClick={handleSubmit}
-          disabled={!selectedOption || isAnswered}
-          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Submit Answer
-        </button>
-      </div>
+      {/* Next Button */}
+      {selectedOption && !isAnswered && (
+        <div className="flex justify-end pt-6 border-t">
+          <button
+            onClick={handleNext}
+            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Next Question
+          </button>
+        </div>
+      )}
+
+      {/* Answer Status */}
+      {isAnswered && (
+        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-sm text-green-800">
+            ✓ Answer submitted. Moving to next question...
+          </p>
+        </div>
+      )}
     </div>
   );
 }

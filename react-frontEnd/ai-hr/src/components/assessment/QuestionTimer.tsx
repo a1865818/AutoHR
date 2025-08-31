@@ -13,11 +13,22 @@ export function QuestionTimer({ duration, onTimeUp }: QuestionTimerProps) {
   const [isWarning, setIsWarning] = useState(false);
   const [isCritical, setIsCritical] = useState(false);
 
+  // Reset timer when duration changes
+  useEffect(() => {
+    console.log(`🔍 QuestionTimer: Duration changed to ${duration} seconds`);
+    setRemainingTime(duration);
+    setIsWarning(false);
+    setIsCritical(false);
+  }, [duration]);
+
   // Timer effect
   useEffect(() => {
+    console.log(`🔍 QuestionTimer: Starting timer for ${duration} seconds`);
+    
     const interval = setInterval(() => {
       setRemainingTime((prev) => {
         const newTime = prev - 1;
+        console.log(`🔍 QuestionTimer: ${prev}s → ${newTime}s`);
         
         // Update warning states
         const warningThreshold = duration * 0.3; // 30% of time
@@ -27,6 +38,7 @@ export function QuestionTimer({ duration, onTimeUp }: QuestionTimerProps) {
         setIsCritical(newTime <= criticalThreshold);
         
         if (newTime <= 0) {
+          console.log(`🔍 QuestionTimer: Time up!`);
           clearInterval(interval);
           onTimeUp();
           return 0;
@@ -36,7 +48,10 @@ export function QuestionTimer({ duration, onTimeUp }: QuestionTimerProps) {
       });
     }, 1000);
 
-    return () => clearInterval(interval);
+    return () => {
+      console.log(`🔍 QuestionTimer: Cleaning up timer`);
+      clearInterval(interval);
+    };
   }, [duration, onTimeUp]);
 
   const formatTime = (seconds: number) => {

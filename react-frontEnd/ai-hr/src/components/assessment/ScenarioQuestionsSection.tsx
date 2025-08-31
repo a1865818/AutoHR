@@ -48,13 +48,29 @@ export function ScenarioQuestionsSection({
   const currentScenario = shuffledScenarios[currentScenarioIndex];
 
   const handleScenarioComplete = (answer: ScenarioAnswer) => {
+    console.log("🔍 ScenarioQuestionsSection - Scenario completed:", {
+      scenarioId: answer.scenarioId,
+      responseLength: answer.response.length,
+      wordCount: answer.wordCount,
+      timeSpent: answer.timeSpent,
+      currentIndex: currentScenarioIndex,
+      totalScenarios: shuffledScenarios.length
+    });
+
     const newAnswers = [...answers, answer];
     setAnswers(newAnswers);
+
+    console.log("🔍 ScenarioQuestionsSection - Updated answers:", {
+      answersCount: newAnswers.length,
+      allAnswers: newAnswers.map(a => ({ scenarioId: a.scenarioId, wordCount: a.wordCount }))
+    });
 
     // Move to next scenario or complete
     if (currentScenarioIndex < shuffledScenarios.length - 1) {
       setCurrentScenarioIndex(currentScenarioIndex + 1);
+      console.log("🔍 ScenarioQuestionsSection - Moving to next scenario:", currentScenarioIndex + 1);
     } else {
+      console.log("🔍 ScenarioQuestionsSection - All scenarios completed, calling onComplete");
       onComplete(newAnswers);
     }
   };
@@ -68,16 +84,6 @@ export function ScenarioQuestionsSection({
       wordCount: 0,
     };
     handleScenarioComplete(emptyAnswer);
-  };
-
-  const handleSkip = () => {
-    const skipAnswer: ScenarioAnswer = {
-      scenarioId: currentScenario.id,
-      response: "",
-      timeSpent: 0,
-      wordCount: 0,
-    };
-    handleScenarioComplete(skipAnswer);
   };
 
   if (!currentScenario) {
@@ -102,7 +108,7 @@ export function ScenarioQuestionsSection({
             </span>
           </div>
           <div className="text-sm text-gray-500">
-            Time limit: {currentScenario.timeLimitMinutes} minutes
+            Time Limit: {currentScenario.timeLimitMinutes} minutes
           </div>
         </div>
         
@@ -120,26 +126,8 @@ export function ScenarioQuestionsSection({
           scenario={currentScenario}
           onComplete={handleScenarioComplete}
           onTimeUp={handleScenarioTimeUp}
-          onSkip={handleSkip}
+          key={currentScenario.id} // Force re-render for each scenario to reset state
         />
-      </div>
-
-      {/* Navigation */}
-      <div className="flex justify-between items-center mt-6">
-        <button
-          onClick={() => setCurrentScenarioIndex(Math.max(0, currentScenarioIndex - 1))}
-          disabled={currentScenarioIndex === 0}
-          className="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Previous
-        </button>
-        
-        <button
-          onClick={handleSkip}
-          className="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
-        >
-          Skip
-        </button>
       </div>
     </div>
   );

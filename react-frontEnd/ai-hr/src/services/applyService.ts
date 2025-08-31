@@ -287,6 +287,53 @@ class ApplicationService {
     return result;
   }
 
+  // Get application ID for a specific candidate and job
+  async getApplicationIdByCandidateAndJob(
+    candidateUserId: string,
+    jobId: string
+  ): Promise<ApplicationDetailResponse> {
+    const { token } = this.getAuthData();
+
+    if (!token) {
+      throw new Error("User not authenticated");
+    }
+
+    // Validate that the candidateUserId and jobId are in the correct format (GUID format)
+    if (!this.isValidGuid(candidateUserId)) {
+      console.error("❌ Invalid candidate user ID format:", candidateUserId);
+      throw new Error("Invalid candidate user ID format. Expected a GUID.");
+    }
+
+    if (!this.isValidGuid(jobId)) {
+      console.error("❌ Invalid job ID format:", jobId);
+      throw new Error("Invalid job ID format. Expected a GUID.");
+    }
+
+    console.log("🔍 Getting application ID for candidate:", candidateUserId, "and job:", jobId);
+
+    const response = await fetch(
+      `${this.baseUrl}/applicationdetails/candidate/${candidateUserId}/job/${jobId}`,
+      {
+        method: "GET",
+        headers: this.getHeaders(),
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("❌ Failed to get application ID:", {
+        status: response.status,
+        statusText: response.statusText,
+        error,
+      });
+      throw new Error(`Failed to get application ID: ${error}`);
+    }
+
+    const result = await response.json();
+    console.log("✅ Got application ID:", result);
+    return result;
+  }
+
   // Helper method to check if a string is a valid GUID
   private isValidGuid(str: string): boolean {
     const guidRegex =
@@ -670,6 +717,9 @@ class ApplicationService {
     uploadedAt: string;
   } | null> {
     try {
+      console.log(`🔍 Looking for assessment submission for candidate: ${candidateId}, round: ${roundId}`);
+      
+      // First try the specific round
       const response = await fetch(
         `${this.baseUrl}/assessments/submissions/${candidateId}/${roundId}`,
         {
@@ -678,19 +728,51 @@ class ApplicationService {
         }
       );
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          return null; // No assessment found
-        }
-        throw new Error(`Failed to get technical assessment: ${response.statusText}`);
+      if (response.ok) {
+        const submission = await response.json();
+        console.log(`✅ Found submission for specific round: ${roundId}`);
+        return {
+          url: submission.pdfUrl,
+          fileName: submission.submissionData?.fileName || "Assessment",
+          uploadedAt: submission.submittedAt
+        };
       }
 
-      const submission = await response.json();
-      return {
-        url: submission.pdfUrl,
-        fileName: submission.submissionData?.fileName || "Assessment",
-        uploadedAt: submission.submittedAt
-      };
+      // If not found for specific round, try to find any submission for this candidate
+      if (response.status === 404) {
+        console.log(`📝 No submission found for round ${roundId} (this is normal if the application has progressed to a new stage)`);
+        
+        // Get all submissions for the candidate
+        const allSubmissionsResponse = await fetch(
+          `${this.baseUrl}/assessments/submissions/candidate/${candidateId}`,
+          {
+            method: "GET",
+            headers: this.getHeaders(),
+          }
+        );
+
+        if (allSubmissionsResponse.ok) {
+          const allSubmissions = await allSubmissionsResponse.json();
+          console.log(`🔍 Found ${allSubmissions.length} submissions for candidate ${candidateId}`);
+          
+          // Find the most recent submitted or graded submission
+          const candidateSubmission = allSubmissions
+            .filter((sub: any) => sub.status === "submitted" || sub.status === "graded")
+            .sort((a: any, b: any) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())[0];
+          
+          if (candidateSubmission) {
+            console.log(`✅ Found submission in round: ${candidateSubmission.roundId} (different from current round ${roundId})`);
+            return {
+              url: candidateSubmission.pdfUrl,
+              fileName: candidateSubmission.submissionData?.fileName || "Assessment",
+              uploadedAt: candidateSubmission.submittedAt
+            };
+          }
+        }
+      }
+
+      console.log(`📭 No assessment submissions found for candidate: ${candidateId}`);
+      return null;
     } catch (error) {
       console.warn("Error getting technical assessment:", error);
       return null;

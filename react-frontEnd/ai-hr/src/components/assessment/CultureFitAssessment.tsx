@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { GameQuestionsSection } from "./GameQuestionsSection";
 import { ScenarioQuestionsSection } from "./ScenarioQuestionsSection";
-import { AssessmentTimer } from "./AssessmentTimer";
+
 import { AssessmentProgress } from "./AssessmentProgress";
 import { AssessmentInstructions } from "./AssessmentInstructions";
 
@@ -91,39 +91,75 @@ export function CultureFitAssessment({ assessment, onComplete }: CultureFitAsses
   const [gameAnswers, setGameAnswers] = useState<AssessmentResults["gameAnswers"]>([]);
   const [scenarioAnswers, setScenarioAnswers] = useState<AssessmentResults["scenarioAnswers"]>([]);
   const [startTime, setStartTime] = useState<Date | null>(null);
-  const [currentTime, setCurrentTime] = useState<Date>(new Date());
-  const [isPaused, setIsPaused] = useState(false);
+
 
   const config = assessment.configuration;
   const totalDuration = config.duration * 60; // Convert to seconds
 
-  // Timer effect
-  useEffect(() => {
-    if (currentPhase === "game" || currentPhase === "scenarios") {
-      const interval = setInterval(() => {
-        if (!isPaused) {
-          setCurrentTime(new Date());
+  // Fallback scenarios if none are provided in configuration
+  const effectiveScenarios = config.culturalScenarios && config.culturalScenarios.length > 0 
+    ? config.culturalScenarios 
+    : [
+        {
+          id: "cs1",
+          title: "Deadline Pressure",
+          scenario: "Your team is facing a tight deadline and a colleague suggests cutting corners on quality to meet it. How would you respond?",
+          category: "Integrity",
+          expectedResponse: "Should discuss concerns openly, propose alternatives, escalate if necessary",
+          evaluationCriteria: [
+            "Maintains quality standards",
+            "Communicates concerns effectively",
+            "Seeks collaborative solutions",
+            "Shows integrity under pressure",
+          ],
+          timeLimitMinutes: 5,
+          wordLimit: { min: 200, max: 300 },
+        },
+        {
+          id: "cs2",
+          title: "Team Conflict",
+          scenario: "Two team members have a disagreement about the direction of a project and ask for your input. How do you handle this?",
+          category: "Collaboration",
+          expectedResponse: "Listen to both sides, facilitate discussion, focus on project goals",
+          evaluationCriteria: [
+            "Remains neutral and objective",
+            "Facilitates open communication",
+            "Focuses on solutions",
+            "Considers all perspectives",
+          ],
+          timeLimitMinutes: 5,
+          wordLimit: { min: 200, max: 300 },
         }
-      }, 1000);
+      ];
 
-      return () => clearInterval(interval);
-    }
-  }, [currentPhase, isPaused]);
+  // Create effective config with fallback scenarios
+  const effectiveConfig = {
+    ...config,
+    culturalScenarios: effectiveScenarios
+  };
 
-  // Calculate remaining time
-  const getRemainingTime = useCallback(() => {
-    if (!startTime) return totalDuration;
-    
-    const elapsed = Math.floor((currentTime.getTime() - startTime.getTime()) / 1000);
-    return Math.max(0, totalDuration - elapsed);
-  }, [startTime, currentTime, totalDuration]);
-
-  // Check if time is up
+  // Debug logging for configuration
   useEffect(() => {
-    if (getRemainingTime() <= 0 && (currentPhase === "game" || currentPhase === "scenarios")) {
-      handleTimeUp();
-    }
-  }, [getRemainingTime, currentPhase]);
+    console.log("🔍 CultureFitAssessment - Configuration loaded:", {
+      name: config.name,
+      duration: config.duration,
+      cultureQuestionsCount: config.cultureQuestions?.length || 0,
+      culturalScenariosCount: config.culturalScenarios?.length || 0,
+      effectiveScenariosCount: effectiveScenarios.length,
+      culturalScenarios: config.culturalScenarios,
+      effectiveScenarios: effectiveScenarios,
+      assessmentSettings: config.assessmentSettings
+    });
+  }, [config, effectiveScenarios]);
+
+  // Phase change logging
+  useEffect(() => {
+    console.log("🔍 CultureFitAssessment - Phase changed:", {
+      currentPhase,
+      gameAnswersCount: gameAnswers.length,
+      scenarioAnswersCount: scenarioAnswers.length
+    });
+  }, [currentPhase, gameAnswers.length, scenarioAnswers.length]);
 
   const handleStartAssessment = () => {
     setStartTime(new Date());
@@ -133,7 +169,7 @@ export function CultureFitAssessment({ assessment, onComplete }: CultureFitAsses
   const handleGameComplete = (answers: AssessmentResults["gameAnswers"]) => {
     setGameAnswers(answers);
     
-    if (config.culturalScenarios.length > 0) {
+    if (effectiveConfig.culturalScenarios.length > 0) {
       setCurrentPhase("scenarios");
     } else {
       handleComplete();
@@ -141,33 +177,68 @@ export function CultureFitAssessment({ assessment, onComplete }: CultureFitAsses
   };
 
   const handleScenariosComplete = (answers: AssessmentResults["scenarioAnswers"]) => {
+    console.log("🔍 CultureFitAssessment - Scenarios completed:", {
+      answersCount: answers.length,
+      answers: answers.map(a => ({ scenarioId: a.scenarioId, wordCount: a.wordCount, responseLength: a.response.length }))
+    });
+    
     setScenarioAnswers(answers);
-    handleComplete();
+    console.log("🔍 CultureFitAssessment - Scenario answers state updated:", {
+      scenarioAnswersCount: answers.length,
+      scenarioAnswers: answers
+    });
+    handleComplete(answers);
   };
 
   const handleTimeUp = () => {
     // Auto-submit with current answers
-    handleComplete();
+    // If we're in scenarios phase and have some scenario answers, preserve them
+    if (currentPhase === "scenarios" && scenarioAnswers.length > 0) {
+      // We already have some scenario answers, complete with what we have
+      console.log("🔍 Time up during scenarios phase with answers:", scenarioAnswers.length);
+      handleComplete();
+    } else if (currentPhase === "scenarios" && scenarioAnswers.length === 0) {
+      // We're in scenarios phase but have no answers - this might indicate an issue
+      console.warn("⚠️ Time up during scenarios phase with no scenario answers collected");
+      handleComplete();
+    } else {
+      // We're in game phase or haven't reached scenarios yet
+      console.log("🔍 Time up during game phase or before scenarios");
+      handleComplete();
+    }
   };
 
-  const handleComplete = () => {
+  const handleComplete = (scenarioAnswersOverride?: AssessmentResults["scenarioAnswers"]) => {
+    const finalScenarioAnswers = scenarioAnswersOverride || scenarioAnswers;
+    
+    console.log("🔍 CultureFitAssessment - handleComplete called:", {
+      gameAnswersCount: gameAnswers.length,
+      scenarioAnswersCount: finalScenarioAnswers.length,
+      currentPhase,
+      culturalScenariosCount: effectiveConfig.culturalScenarios?.length || 0
+    });
+
     const results: AssessmentResults = {
       gameAnswers,
-      scenarioAnswers,
+      scenarioAnswers: finalScenarioAnswers,
       totalTimeSpent: startTime ? Math.floor((new Date().getTime() - startTime.getTime()) / 1000) : 0,
       completedAt: new Date().toISOString(),
     };
 
+    console.log("🔍 Assessment completed with results:", {
+      gameAnswersCount: results.gameAnswers.length,
+      scenarioAnswersCount: results.scenarioAnswers.length,
+      totalTimeSpent: results.totalTimeSpent,
+      currentPhase,
+      culturalScenariosCount: effectiveConfig.culturalScenarios?.length || 0,
+      gameAnswers: results.gameAnswers.map(a => ({ questionId: a.questionId, timeSpent: a.timeSpent })),
+      scenarioAnswers: results.scenarioAnswers.map(a => ({ scenarioId: a.scenarioId, wordCount: a.wordCount, responseLength: a.response.length }))
+    });
+
     onComplete(results);
   };
 
-  const handlePause = () => {
-    setIsPaused(true);
-  };
 
-  const handleResume = () => {
-    setIsPaused(false);
-  };
 
   const getCurrentPhaseTitle = () => {
     switch (currentPhase) {
@@ -199,17 +270,10 @@ export function CultureFitAssessment({ assessment, onComplete }: CultureFitAsses
             
             {(currentPhase === "game" || currentPhase === "scenarios") && (
               <div className="flex items-center space-x-4">
-                <AssessmentTimer
-                  remainingTime={getRemainingTime()}
-                  totalTime={totalDuration}
-                  isPaused={isPaused}
-                  onPause={handlePause}
-                  onResume={handleResume}
-                />
                 <AssessmentProgress
                   currentPhase={currentPhase}
                   gameProgress={gameAnswers.length / config.cultureQuestions.length}
-                  scenarioProgress={scenarioAnswers.length / config.culturalScenarios.length}
+                  scenarioProgress={scenarioAnswers.length / effectiveConfig.culturalScenarios.length}
                 />
               </div>
             )}
@@ -237,7 +301,7 @@ export function CultureFitAssessment({ assessment, onComplete }: CultureFitAsses
 
         {currentPhase === "scenarios" && (
           <ScenarioQuestionsSection
-            scenarios={config.culturalScenarios}
+            scenarios={effectiveConfig.culturalScenarios}
             onComplete={handleScenariosComplete}
             onTimeUp={handleTimeUp}
           />

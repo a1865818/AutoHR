@@ -46,9 +46,16 @@ export function GameQuestionsSection({
   const [questionStartTime, setQuestionStartTime] = useState<Date>(new Date());
   const [shuffledQuestions, setShuffledQuestions] = useState<Question[]>([]);
 
+  // Debug logging
+  console.log("🔍 GameQuestionsSection received questions:", questions);
+  console.log("🔍 Questions length:", questions?.length);
+  console.log("🔍 Questions structure:", questions);
+
   // Shuffle questions if needed
   useEffect(() => {
+    console.log("🔍 Shuffling questions:", questions);
     const shuffled = [...questions].sort(() => Math.random() - 0.5);
+    console.log("🔍 Shuffled questions:", shuffled);
     setShuffledQuestions(shuffled);
   }, [questions]);
 
@@ -80,34 +87,35 @@ export function GameQuestionsSection({
     handleAnswer(null);
   };
 
-  const handleSkip = () => {
-    handleAnswer(null);
-  };
-
   const renderQuestion = () => {
     if (!currentQuestion) return null;
 
     const commonProps = {
       question: currentQuestion,
       onAnswer: handleAnswer,
-      onSkip: handleSkip,
     };
 
     switch (currentQuestion.type) {
       case "multiple_choice":
-        return <MultipleChoiceQuestion {...commonProps} />;
+        return <MultipleChoiceQuestion key={currentQuestion.id} {...commonProps} />;
       case "rank_scenario":
-        return <RankScenarioQuestion {...commonProps} />;
+        return <RankScenarioQuestion key={currentQuestion.id} {...commonProps} />;
       case "slider":
-        return <SliderQuestion {...commonProps} />;
+        return <SliderQuestion key={currentQuestion.id} {...commonProps} />;
       case "open_ended":
-        return <OpenEndedQuestion {...commonProps} />;
+        return <OpenEndedQuestion key={currentQuestion.id} {...commonProps} />;
       default:
         return <div>Unsupported question type</div>;
     }
   };
 
+  console.log("🔍 Current question:", currentQuestion);
+  console.log("🔍 Current question index:", currentQuestionIndex);
+  console.log("🔍 Shuffled questions length:", shuffledQuestions.length);
+  console.log("🔍 Time per question:", timePerQuestion);
+
   if (!currentQuestion) {
+    console.log("🔍 No current question found - showing loading message");
     return (
       <div className="flex items-center justify-center min-h-64">
         <div className="text-gray-500">Loading questions...</div>
@@ -146,24 +154,6 @@ export function GameQuestionsSection({
       {/* Question Content */}
       <div className="bg-white rounded-lg shadow-sm p-8">
         {renderQuestion()}
-      </div>
-
-      {/* Navigation */}
-      <div className="flex justify-between items-center mt-6">
-        <button
-          onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
-          disabled={currentQuestionIndex === 0}
-          className="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Previous
-        </button>
-        
-        <button
-          onClick={handleSkip}
-          className="px-4 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
-        >
-          Skip
-        </button>
       </div>
     </div>
   );

@@ -88,7 +88,7 @@ export function AssessmentInstructions({ config, onStart }: AssessmentInstructio
             <FileText className="w-6 h-6 text-green-600" />
             <div>
               <p className="font-medium text-gray-900">Game Questions</p>
-              <p className="text-sm text-gray-600">{config.cultureQuestions.length} questions</p>
+              <p className="text-sm text-gray-600">{config.cultureQuestions?.length || 0} questions</p>
             </div>
           </div>
           
@@ -96,7 +96,7 @@ export function AssessmentInstructions({ config, onStart }: AssessmentInstructio
             <CheckCircle className="w-6 h-6 text-purple-600" />
             <div>
               <p className="font-medium text-gray-900">Scenarios</p>
-              <p className="text-sm text-gray-600">{config.culturalScenarios.length} scenarios</p>
+              <p className="text-sm text-gray-600">{config.culturalScenarios?.length || 0} scenarios</p>
             </div>
           </div>
         </div>
@@ -106,7 +106,7 @@ export function AssessmentInstructions({ config, onStart }: AssessmentInstructio
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Instructions</h2>
         <div className="prose prose-gray max-w-none">
-          <div className="whitespace-pre-wrap text-gray-700">{config.instructions}</div>
+          <div className="whitespace-pre-wrap text-gray-700">{config.instructions || "No instructions available."}</div>
         </div>
       </div>
 
@@ -140,7 +140,7 @@ export function AssessmentInstructions({ config, onStart }: AssessmentInstructio
             </ul>
           </div>
 
-          {config.culturalScenarios.length > 0 && (
+          {config.culturalScenarios?.length > 0 && (
             <div className="border border-gray-200 rounded-lg p-4">
               <h3 className="font-medium text-gray-900 mb-2">Cultural Scenarios</h3>
               <p className="text-sm text-gray-600 mb-3">
@@ -169,7 +169,7 @@ export function AssessmentInstructions({ config, onStart }: AssessmentInstructio
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Company Values We Assess</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {config.companyValues.map((value) => (
+          {config.companyValues?.map((value) => (
             <div key={value.id} className="border border-gray-200 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-medium text-gray-900">{value.name}</h3>
@@ -178,7 +178,7 @@ export function AssessmentInstructions({ config, onStart }: AssessmentInstructio
                 </span>
               </div>
               <p className="text-sm text-gray-600 mb-2">{value.description}</p>
-              {value.indicators.length > 0 && (
+              {value.indicators?.length > 0 && (
                 <div className="text-xs text-gray-500">
                   <strong>Indicators:</strong> {value.indicators.slice(0, 2).join(", ")}
                   {value.indicators.length > 2 && "..."}

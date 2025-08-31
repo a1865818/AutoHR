@@ -28,10 +28,9 @@ interface ScenarioQuestionProps {
   scenario: Scenario;
   onComplete: (answer: ScenarioAnswer) => void;
   onTimeUp: () => void;
-  onSkip: () => void;
 }
 
-export function ScenarioQuestion({ scenario, onComplete, onTimeUp, onSkip }: ScenarioQuestionProps) {
+export function ScenarioQuestion({ scenario, onComplete, onTimeUp }: ScenarioQuestionProps) {
   const [response, setResponse] = useState("");
   const [startTime] = useState(new Date());
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -58,27 +57,20 @@ export function ScenarioQuestion({ scenario, onComplete, onTimeUp, onSkip }: Sce
     }
   }, [remainingTime, isSubmitted, onTimeUp]);
 
-  const handleSubmit = () => {
+  const handleResponseChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    if (isSubmitted) return;
+    const newResponse = e.target.value;
+    setResponse(newResponse);
+  };
+
+  const handleNext = () => {
     if (!isSubmitted && response.trim()) {
       setIsSubmitted(true);
       const answer: ScenarioAnswer = {
         scenarioId: scenario.id,
         response: response.trim(),
-        timeSpent,
-        wordCount,
-      };
-      onComplete(answer);
-    }
-  };
-
-  const handleSkip = () => {
-    if (!isSubmitted) {
-      setIsSubmitted(true);
-      const answer: ScenarioAnswer = {
-        scenarioId: scenario.id,
-        response: "",
-        timeSpent,
-        wordCount: 0,
+        timeSpent: Math.floor((new Date().getTime() - startTime.getTime()) / 1000),
+        wordCount: response.trim().split(/\s+/).filter(word => word.length > 0).length,
       };
       onComplete(answer);
     }
@@ -135,7 +127,7 @@ export function ScenarioQuestion({ scenario, onComplete, onTimeUp, onSkip }: Sce
         <textarea
           id="scenario-response"
           value={response}
-          onChange={(e) => setResponse(e.target.value)}
+          onChange={handleResponseChange}
           disabled={isSubmitted}
           rows={10}
           className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -168,24 +160,27 @@ export function ScenarioQuestion({ scenario, onComplete, onTimeUp, onSkip }: Sce
         </ul>
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex justify-between items-center pt-6 border-t">
-        <button
-          onClick={handleSkip}
-          disabled={isSubmitted}
-          className="px-6 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Skip
-        </button>
-        
-        <button
-          onClick={handleSubmit}
-          disabled={!response.trim() || isSubmitted || wordCount < scenario.wordLimit.min}
-          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Submit Response
-        </button>
-      </div>
+      {/* Next Button */}
+      {response.trim() && !isSubmitted && (
+        <div className="flex justify-end pt-6 border-t">
+          <button
+            onClick={handleNext}
+            disabled={wordCount < scenario.wordLimit.min}
+            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Next Scenario
+          </button>
+        </div>
+      )}
+
+      {/* Answer Status */}
+      {isSubmitted && (
+        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-sm text-green-800">
+            ✓ Response submitted. Moving to next scenario...
+          </p>
+        </div>
+      )}
     </div>
   );
 }

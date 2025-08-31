@@ -17,10 +17,9 @@ interface Question {
 interface SliderQuestionProps {
   question: Question;
   onAnswer: (answer: number) => void;
-  onSkip: () => void;
 }
 
-export function SliderQuestion({ question, onAnswer, onSkip }: SliderQuestionProps) {
+export function SliderQuestion({ question, onAnswer }: SliderQuestionProps) {
   const [value, setValue] = useState(5);
   const [isAnswered, setIsAnswered] = useState(false);
 
@@ -32,26 +31,19 @@ export function SliderQuestion({ question, onAnswer, onSkip }: SliderQuestionPro
     setValue(newValue);
   };
 
-  const handleSubmit = () => {
-    if (!isAnswered) {
-      setIsAnswered(true);
-      onAnswer(value);
-    }
-  };
-
-  const handleSkip = () => {
-    if (!isAnswered) {
-      setIsAnswered(true);
-      onSkip();
-    }
-  };
-
   const getValueLabel = (val: number) => {
     if (val <= 2) return "Strongly Disagree";
     if (val <= 4) return "Disagree";
     if (val <= 6) return "Neutral";
     if (val <= 8) return "Agree";
     return "Strongly Agree";
+  };
+
+  const handleNext = () => {
+    if (!isAnswered) {
+      setIsAnswered(true);
+      onAnswer(value);
+    }
   };
 
   return (
@@ -141,24 +133,26 @@ export function SliderQuestion({ question, onAnswer, onSkip }: SliderQuestionPro
         ))}
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex justify-between items-center pt-6 border-t">
-        <button
-          onClick={handleSkip}
-          disabled={isAnswered}
-          className="px-6 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Skip
-        </button>
-        
-        <button
-          onClick={handleSubmit}
-          disabled={isAnswered}
-          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Submit Answer
-        </button>
-      </div>
+      {/* Next Button */}
+      {!isAnswered && (
+        <div className="flex justify-end pt-6 border-t">
+          <button
+            onClick={handleNext}
+            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Next Question
+          </button>
+        </div>
+      )}
+
+      {/* Answer Status */}
+      {isAnswered && (
+        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-sm text-green-800">
+            ✓ Answer submitted. Moving to next question...
+          </p>
+        </div>
+      )}
     </div>
   );
 }

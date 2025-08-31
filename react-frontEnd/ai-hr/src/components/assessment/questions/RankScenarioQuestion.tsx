@@ -21,10 +21,9 @@ interface Question {
 interface RankScenarioQuestionProps {
   question: Question;
   onAnswer: (answer: string[]) => void;
-  onSkip: () => void;
 }
 
-export function RankScenarioQuestion({ question, onAnswer, onSkip }: RankScenarioQuestionProps) {
+export function RankScenarioQuestion({ question, onAnswer }: RankScenarioQuestionProps) {
   const [rankedOptions, setRankedOptions] = useState<string[]>([]);
   const [isAnswered, setIsAnswered] = useState(false);
 
@@ -32,7 +31,11 @@ export function RankScenarioQuestion({ question, onAnswer, onSkip }: RankScenari
 
   const handleOptionSelect = (optionId: string) => {
     if (isAnswered) return;
-    setRankedOptions([...rankedOptions, optionId]);
+    const newRankedOptions = [...rankedOptions, optionId];
+    setRankedOptions(newRankedOptions);
+    
+    // Remove auto-save - let users continue working on their ranking
+    // Only submit when they explicitly click "Next Question"
   };
 
   const handleOptionRemove = (optionId: string) => {
@@ -40,17 +43,10 @@ export function RankScenarioQuestion({ question, onAnswer, onSkip }: RankScenari
     setRankedOptions(rankedOptions.filter(id => id !== optionId));
   };
 
-  const handleSubmit = () => {
+  const handleNext = () => {
     if (rankedOptions.length > 0 && !isAnswered) {
       setIsAnswered(true);
       onAnswer(rankedOptions);
-    }
-  };
-
-  const handleSkip = () => {
-    if (!isAnswered) {
-      setIsAnswered(true);
-      onSkip();
     }
   };
 
@@ -68,7 +64,7 @@ export function RankScenarioQuestion({ question, onAnswer, onSkip }: RankScenari
           {question.text}
         </h3>
         <p className="text-sm text-gray-500">
-          Drag and drop the options to rank them from most likely to least likely. Click on an option to add it to your ranking.
+          Click on options to add them to your ranking. You can reorder or remove items until you're satisfied, then click "Next Question" to continue.
         </p>
       </div>
 
@@ -127,34 +123,38 @@ export function RankScenarioQuestion({ question, onAnswer, onSkip }: RankScenari
         </div>
       )}
 
-      {/* Action Buttons */}
-      <div className="flex justify-between items-center pt-6 border-t">
-        <div className="flex space-x-3">
-          <button
-            onClick={handleSkip}
-            disabled={isAnswered}
-            className="px-6 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Skip
-          </button>
-          
+      {/* Reset Button */}
+      {rankedOptions.length > 0 && !isAnswered && (
+        <div className="flex justify-start pt-6 border-t">
           <button
             onClick={handleReset}
-            disabled={isAnswered || rankedOptions.length === 0}
-            className="px-6 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="px-6 py-2 text-gray-600 bg-gray-100 rounded-md hover:bg-gray-200"
           >
-            Reset
+            Reset Ranking
           </button>
         </div>
-        
-        <button
-          onClick={handleSubmit}
-          disabled={rankedOptions.length === 0 || isAnswered}
-          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Submit Ranking
-        </button>
-      </div>
+      )}
+
+      {/* Next Button */}
+      {rankedOptions.length > 0 && !isAnswered && (
+        <div className="flex justify-end pt-6 border-t">
+          <button
+            onClick={handleNext}
+            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Next Question
+          </button>
+        </div>
+      )}
+
+      {/* Answer Status */}
+      {isAnswered && (
+        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-sm text-green-800">
+            ✓ Answer submitted. Moving to next question...
+          </p>
+        </div>
+      )}
     </div>
   );
 }

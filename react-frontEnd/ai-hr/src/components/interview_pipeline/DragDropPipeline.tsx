@@ -148,7 +148,7 @@ export const DragDropCandidateCard = React.memo(function DragDropCandidateCard({
   };
 
   const isAssessmentRound =
-    roundType === "technical_assessment" || roundType === "coding_challenge";
+    roundType === "technical_assessment" || roundType === "coding_challenge" || roundType === "culture_fit";
   const isOnlineMode = (() => {
     const conf = roundConfigurationData as any;
     const mode = conf?.mode ?? conf?.Mode;
@@ -204,7 +204,7 @@ export const DragDropCandidateCard = React.memo(function DragDropCandidateCard({
   // Compact variant: condensed row with hover/focus flyout
   if (variant === "compact") {
     const isAssessmentRoundCompact =
-      roundType === "technical_assessment" || roundType === "coding_challenge";
+      roundType === "technical_assessment" || roundType === "coding_challenge" || roundType === "culture_fit";
 
     return (
       <div
@@ -434,7 +434,8 @@ export const DragDropCandidateCard = React.memo(function DragDropCandidateCard({
                 </button>
               )}
               {(roundType === "technical_assessment" ||
-                roundType === "coding_challenge") &&
+                roundType === "coding_challenge" ||
+                roundType === "culture_fit") &&
                 (!hasSubmittedAssessment ? (
                   <button
                     disabled

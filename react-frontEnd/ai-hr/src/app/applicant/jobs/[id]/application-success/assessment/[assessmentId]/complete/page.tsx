@@ -1,12 +1,84 @@
 "use client";
 
 import React from "react";
-import { useParams } from "next/navigation";
-import { CheckCircle, Clock, FileText } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { CheckCircle, Clock, FileText, ArrowLeft } from "lucide-react";
+import { applicationService } from "@/services/applyService";
 
 export default function AssessmentCompletePage() {
   const params = useParams();
+  const router = useRouter();
   const assessmentId = params.assessmentId as string;
+  const jobId = params.id as string;
+
+  // Validate assessment ID format
+  const isValidAssessmentId = () => {
+    const parts = assessmentId.split('-');
+    return parts.length >= 7;
+  };
+
+  const handleBackToApplication = async () => {
+    // Parse assessment ID to get user ID using the new format
+    // Format: {roundId}-{userId}-{timestamp}
+    const parts = assessmentId.split('-');
+    
+    if (parts.length < 7) {
+      console.error('Invalid assessment ID format in complete page');
+      // Fallback to application success page without applicationId
+      router.push(`/applicant/jobs/${jobId}/application-success`);
+      return;
+    }
+    
+    // userId is the next 5 parts (another GUID)
+    const userId = parts.slice(5, 10).join('-');
+    
+    try {
+      console.log('🔍 Fetching application ID for candidate:', userId, 'and job:', jobId);
+      
+      // Get the correct application ID for this candidate and job
+      const applicationDetail = await applicationService.getApplicationIdByCandidateAndJob(userId, jobId);
+      
+      console.log('✅ Got application detail:', applicationDetail);
+      
+      // Redirect to application success page with the correct application ID
+      router.push(`/applicant/jobs/${jobId}/application-success?applicationId=${applicationDetail.id}`);
+    } catch (error) {
+      console.error('❌ Failed to get application ID:', error);
+      // Fallback to application success page without applicationId
+      router.push(`/applicant/jobs/${jobId}/application-success`);
+    }
+  };
+
+  // If assessment ID is invalid, show error
+  if (!isValidAssessmentId()) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="max-w-2xl mx-auto text-center">
+          <div className="bg-white rounded-lg shadow-sm p-8">
+            <div className="flex justify-center mb-6">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                </svg>
+              </div>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+              Invalid Assessment
+            </h1>
+            <p className="text-gray-600 mb-8">
+              The assessment ID is invalid. Please return to your application.
+            </p>
+            <button
+              onClick={() => router.push(`/applicant/jobs/${jobId}/application-success`)}
+              className="w-full px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
+            >
+              Back to Application
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -74,6 +146,15 @@ export default function AssessmentCompletePage() {
             </ul>
           </div>
 
+          {/* Back to Application Button */}
+          <button
+            onClick={handleBackToApplication}
+            className="w-full px-6 py-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium flex items-center justify-center mb-6"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Application
+          </button>
+
           {/* Contact Information */}
           <div className="text-sm text-gray-500">
             <p>If you have any questions about your assessment, please contact us at:</p>
@@ -84,3 +165,4 @@ export default function AssessmentCompletePage() {
     </div>
   );
 }
+
