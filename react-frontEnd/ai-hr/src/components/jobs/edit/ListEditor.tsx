@@ -29,7 +29,8 @@ export function ListEditor({
         <button
           onClick={onAdd}
           disabled={items.length >= maxItems}
-          className="flex items-center text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed"
+          className="flex items-center text-sm hover:opacity-80 disabled:text-gray-400 disabled:cursor-not-allowed"
+          style={{color: '#066046'}}
         >
           <Plus className="h-4 w-4 mr-1" />
           Add {title.split(" ")[0]}
@@ -42,7 +43,7 @@ export function ListEditor({
               type="text"
               value={item}
               onChange={(e) => onUpdate(index, e.target.value)}
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#066046]"
               placeholder={placeholder}
             />
             <button
@@ -58,7 +59,8 @@ export function ListEditor({
             <p className="text-sm">No {title.toLowerCase()} added yet</p>
             <button
               onClick={onAdd}
-              className="mt-2 text-blue-600 hover:text-blue-800 text-sm font-medium"
+              className="mt-2 hover:opacity-80 text-sm font-medium"
+              style={{color: '#066046'}}
             >
               Add your first {title.split(" ")[0].toLowerCase()}
             </button>

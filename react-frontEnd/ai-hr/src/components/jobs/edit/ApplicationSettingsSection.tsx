@@ -168,7 +168,7 @@ export function ApplicationSettingsSection({
                 )
               }
               min={today}
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#066046]"
             />
           </div>
           <p className="mt-1 text-xs text-gray-500">
@@ -205,7 +205,7 @@ export function ApplicationSettingsSection({
                     interviewTemplateId: e.target.value || undefined,
                   })
                 }
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#066046]"
               >
                 <option value="">Select an interview template</option>
                 {interviewTemplates.map((template) => (
@@ -217,17 +217,17 @@ export function ApplicationSettingsSection({
             )}
 
             {formData.interviewTemplateId && (
-              <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+              <div className="mt-2 p-3 rounded-md" style={{backgroundColor: '#06604620', borderColor: '#066046'}} className="border">
                 {(() => {
                   const selectedTemplate = interviewTemplates.find(
                     (t) => t.id === formData.interviewTemplateId
                   );
                   return selectedTemplate ? (
                     <div>
-                      <p className="text-sm font-medium text-blue-900">
+                      <p className="text-sm font-medium" style={{color: '#066046'}}>
                         {selectedTemplate.name}
                       </p>
-                      <p className="text-sm text-blue-700 mt-1">
+                      <p className="text-sm mt-1" style={{color: '#066046'}}>
                         {selectedTemplate.description}
                       </p>
                       {selectedTemplate.isDefault && (
@@ -257,7 +257,8 @@ export function ApplicationSettingsSection({
                 type="button"
                 onClick={handleCreateCustomTemplate}
                 disabled={isSavingDraft}
-                className="inline-flex items-center px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex items-center px-3 py-2 text-white text-sm font-medium rounded-md hover:opacity-90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{backgroundColor: '#066046'}}
               >
                 <Save className="w-4 h-4 mr-2" />
                 {isSavingDraft
@@ -317,9 +318,13 @@ export function ApplicationSettingsSection({
                   key={requirement.id}
                   className={`relative p-4 border rounded-lg cursor-pointer transition-all ${
                     requirement.checked
-                      ? "border-blue-500 bg-blue-50"
+                      ? "border-gray-300 hover:border-gray-400"
                       : "border-gray-300 hover:border-gray-400"
                   }`}
+                  style={requirement.checked ? {
+                    borderColor: '#066046',
+                    backgroundColor: '#06604620'
+                  } : {}}
                   onClick={() =>
                     updateNestedFormData(
                       "applicationSettings",
@@ -331,15 +336,17 @@ export function ApplicationSettingsSection({
                   <div className="flex items-start space-x-3">
                     <div
                       className={`flex-shrink-0 p-2 rounded-md ${
-                        requirement.checked ? "bg-blue-100" : "bg-gray-100"
+                        requirement.checked ? "bg-gray-100" : "bg-gray-100"
                       }`}
+                      style={requirement.checked ? {backgroundColor: '#06604620'} : {}}
                     >
                       <Icon
                         className={`h-4 w-4 ${
                           requirement.checked
-                            ? "text-blue-600"
+                            ? "text-gray-600"
                             : "text-gray-600"
                         }`}
+                        style={requirement.checked ? {color: '#066046'} : {}}
                       />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -347,9 +354,10 @@ export function ApplicationSettingsSection({
                         <h4
                           className={`text-sm font-medium ${
                             requirement.checked
-                              ? "text-blue-900"
+                              ? "text-gray-900"
                               : "text-gray-900"
                           }`}
+                          style={requirement.checked ? {color: '#066046'} : {}}
                         >
                           {requirement.label}
                         </h4>
@@ -363,16 +371,18 @@ export function ApplicationSettingsSection({
                               e.target.checked
                             )
                           }
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          className="h-4 w-4 border-gray-300 rounded focus:ring-[#066046]"
+                          style={{accentColor: '#066046'}}
                           onClick={(e) => e.stopPropagation()}
                         />
                       </div>
                       <p
                         className={`text-xs mt-1 ${
                           requirement.checked
-                            ? "text-blue-700"
+                            ? "text-gray-600"
                             : "text-gray-600"
                         }`}
+                        style={requirement.checked ? {color: '#066046'} : {}}
                       >
                         {requirement.description}
                       </p>

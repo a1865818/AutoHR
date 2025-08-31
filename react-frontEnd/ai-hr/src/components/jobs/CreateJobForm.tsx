@@ -223,10 +223,18 @@ We offer a dynamic work environment where creativity and innovation are valued, 
 
         // Only redirect if not prevented
         if (!preventRedirect) {
-          // Redirect to jobs page after showing success message
-          setTimeout(() => {
-            router.push("/jobs?view=drafts");
-          }, 200);
+          // Get the job ID from the response and redirect to edit page
+          const jobId = response?.data?.id;
+          if (jobId) {
+            setTimeout(() => {
+              router.push(`/jobs/${jobId}/edit`);
+            }, 200);
+          } else {
+            // Fallback to jobs page if we can't get the ID
+            setTimeout(() => {
+              router.push("/jobs?view=drafts");
+            }, 200);
+          }
         }
       } else {
         toast.error(
@@ -286,38 +294,18 @@ We offer a dynamic work environment where creativity and innovation are valued, 
         setSuccessMessage("Job published successfully!");
         setShowSuccessMessage(true);
 
-        // Get the most recently created job and redirect to share page
-        setTimeout(async () => {
-          try {
-            // Fetch company jobs and find the most recent one created by the user
-            const response = await jobService.getAllJobs(
-              undefined,
-              user?.companyId,
-              1,
-              1000
-            );
-            const userJobs = response.jobs.filter(
-              (job: any) => job.createdBy === user?.id
-            );
-
-            if (userJobs.length > 0) {
-              // Sort by creation date and get the most recent
-              const mostRecentJob = userJobs.sort(
-                (a: any, b: any) =>
-                  new Date(b.createdAt).getTime() -
-                  new Date(a.createdAt).getTime()
-              )[0];
-
-              router.push(`/share-job/${mostRecentJob.id}`);
-            } else {
-              // Fallback to jobs page if we can't find the job
-              router.push("/jobs");
-            }
-          } catch (error) {
-            console.error("Failed to fetch recent job:", error);
+        // Get the job ID from the response and redirect to job detail page
+        const jobId = response?.data?.id;
+        if (jobId) {
+          setTimeout(() => {
+            router.push(`/jobs/${jobId}`);
+          }, 200);
+        } else {
+          // Fallback to jobs page if we can't get the ID
+          setTimeout(() => {
             router.push("/jobs");
-          }
-        }, 500); // Slightly longer delay to ensure backend has processed the creation
+          }, 200);
+        }
       } else {
         toast.error(
           response?.error || "Failed to publish job. Please try again."
@@ -417,11 +405,21 @@ We offer a dynamic work environment where creativity and innovation are valued, 
                 <div
                   className={`flex items-center justify-center w-8 h-8 rounded-full border-2 cursor-pointer transition-colors ${
                     completedSteps.includes(step.id)
-                      ? "bg-green-500 border-green-500 text-white"
+                      ? "text-white"
                       : currentStep === step.id
-                      ? "border-indigo-500 text-indigo-500 bg-indigo-50"
+                      ? "border-gray-300 text-gray-400"
                       : "border-gray-300 text-gray-400"
                   }`}
+                  style={
+                    completedSteps.includes(step.id) ? {
+                      backgroundColor: '#066046',
+                      borderColor: '#066046'
+                    } : currentStep === step.id ? {
+                      borderColor: '#066046',
+                      color: '#066046',
+                      backgroundColor: '#06604620'
+                    } : {}
+                  }
                   onClick={() => goToStep(step.id)}
                 >
                   {completedSteps.includes(step.id) ? (

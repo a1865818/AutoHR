@@ -411,7 +411,7 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" style={{color: '#066046'}} />
           <p className="text-gray-600">Loading job details...</p>
         </div>
       </div>
@@ -498,7 +498,8 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
               {user?.userCategory === "HiringUserProfile" && (
                 <Link
                   href={`/jobs/${job.id}/edit`}
-                  className="flex items-center px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  className="flex items-center px-3 py-2 text-sm text-white rounded-md hover:opacity-90 transition-colors"
+                  style={{backgroundColor: '#066046'}}
                 >
                   <Edit className="h-4 w-4 mr-2" />
                   Edit Job
@@ -539,9 +540,13 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
             <button
               className={`pb-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === "overview"
-                  ? "border-blue-500 text-blue-600"
+                  ? "border-transparent text-gray-500 hover:text-gray-700" 
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
+              style={activeTab === "overview" ? {
+                borderColor: '#066046',
+                color: '#066046'
+              } : {}}
               onClick={() => setActiveTab("overview")}
             >
               Job Overview
@@ -552,9 +557,13 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
               <button
                 className={`pb-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === "applicants"
-                    ? "border-blue-500 text-blue-600"
+                    ? "border-transparent text-gray-500 hover:text-gray-700"
                     : "border-transparent text-gray-500 hover:text-gray-700"
                 }`}
+                style={activeTab === "applicants" ? {
+                  borderColor: '#066046',
+                  color: '#066046'
+                } : {}}
                 onClick={() => setActiveTab("applicants")}
               >
                 Applicants ({applicantCount})
@@ -643,7 +652,7 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                     <ul className="space-y-2">
                       {jobResponsibilities.map((responsibility, index) => (
                         <li key={index} className="flex items-start">
-                          <div className="flex-shrink-0 w-1.5 h-1.5 bg-blue-600 rounded-full mt-2 mr-3"></div>
+                          <div className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-2 mr-3" style={{backgroundColor: '#066046'}}></div>
                           <span className="text-gray-700">
                             {responsibility}
                           </span>
@@ -729,7 +738,8 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                   {user?.userCategory === "HiringUserProfile" && (
                     <button
                       onClick={() => setActiveTab("applicants")}
-                      className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                      className="w-full flex items-center justify-center px-4 py-2 text-white rounded-md hover:opacity-90 transition-colors"
+                      style={{backgroundColor: '#066046'}}
                     >
                       <Eye className="h-4 w-4 mr-2" />
                       View Applicants ({applicantCount})
@@ -868,7 +878,8 @@ export function JobDetailsPage({ jobId }: JobDetailsPageProps) {
                           href={safeRender(company.website)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:text-blue-800 font-medium"
+                          className="font-medium hover:opacity-80"
+                          style={{color: '#066046'}}
                         >
                           Company Website
                         </a>

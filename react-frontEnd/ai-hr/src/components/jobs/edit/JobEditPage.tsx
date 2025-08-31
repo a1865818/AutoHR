@@ -349,7 +349,7 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" style={{color: '#066046'}} />
           <p className="text-gray-600">Loading job data...</p>
         </div>
       </div>
@@ -369,7 +369,8 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
             <div className="flex space-x-3 justify-center">
               <button
                 onClick={loadJobData}
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                className="px-4 py-2 text-white rounded-md hover:opacity-90 transition-colors"
+                style={{backgroundColor: '#066046'}}
               >
                 Try Again
               </button>
@@ -407,8 +408,11 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
                   <div className="flex items-center space-x-2">
                     <div className="w-16 bg-gray-200 rounded-full h-1.5">
                       <div
-                        className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
-                        style={{ width: `${completionStatus.percentage}%` }}
+                        className="h-1.5 rounded-full transition-all duration-300"
+                        style={{ 
+                          width: `${completionStatus.percentage}%`,
+                          backgroundColor: '#066046'
+                        }}
                       ></div>
                     </div>
                     <span className="text-xs text-gray-500">
@@ -447,7 +451,8 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
               <button
                 onClick={handlePublish}
                 disabled={!isPublishable()}
-                className="flex items-center px-4 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="flex items-center px-4 py-2 text-sm text-white rounded-md hover:opacity-90 transition-colors disabled:opacity-50"
+                style={{backgroundColor: '#066046'}}
                 title={
                   !isPublishable()
                     ? "Fill all required fields to publish"
@@ -492,16 +497,22 @@ export function JobEditPage({ jobId }: JobEditPageProps) {
                       onClick={() => setActiveSection(section.id)}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                         activeSection === section.id
-                          ? "bg-blue-50 text-blue-600"
+                          ? "text-gray-700 hover:bg-gray-100"
                           : "text-gray-700 hover:bg-gray-100"
                       }`}
+                      style={
+                        activeSection === section.id ? {
+                          backgroundColor: '#06604620',
+                          color: '#066046'
+                        } : {}
+                      }
                     >
                       <div className="flex items-center">
                         <Icon className="h-4 w-4 mr-3" />
                         {section.label}
                       </div>
                       {isCompleted && (
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <div className="w-2 h-2 rounded-full" style={{backgroundColor: '#066046'}}></div>
                       )}
                     </button>
                   );

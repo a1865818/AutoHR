@@ -1027,7 +1027,14 @@ public static class JobEndpoints
             Console.WriteLine($"Job.InterviewTemplateId being inserted: {job.InterviewTemplateId}");
 
             var response = await client.From<Job>().Insert(job);
-            return Results.Ok();
+            
+            // Return the created job with its ID
+            var createdJob = await CreateJobDto(job, client);
+            return Results.Ok(new { 
+                success = true, 
+                message = "Job created successfully", 
+                data = createdJob 
+            });
         }
         catch (Exception ex)
         {

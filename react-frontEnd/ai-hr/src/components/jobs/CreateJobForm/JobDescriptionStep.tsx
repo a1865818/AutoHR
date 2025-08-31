@@ -67,7 +67,7 @@ export function JobDescriptionStep({
           <button
             onClick={onGenerateDescription}
             disabled={isGenerating || !formData.title}
-            className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-indigo-600 bg-indigo-50 border border-indigo-200 rounded-md hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style={{backgroundColor: '#066046'}}
           >
             <Sparkles className="mr-1.5 h-4 w-4" />
             {isGenerating ? "Generating..." : "Generate with AI"}
@@ -86,7 +86,7 @@ export function JobDescriptionStep({
           onChange={(e) => handleDescriptionChange(e.target.value)}
           placeholder="Describe the role, company culture, and what makes this position exciting..."
           rows={8}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
         />
         <p className="mt-2 text-sm text-gray-500">
           Provide a compelling overview of the role and your company. This will
@@ -109,12 +109,12 @@ export function JobDescriptionStep({
               onChange={(e) => setNewResponsibility(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Add a key responsibility..."
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
             />
             <button
               onClick={addResponsibility}
               disabled={!newResponsibility.trim()}
-              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2 text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style={{backgroundColor: '#066046'}}
             >
               <Plus className="h-4 w-4" />
             </button>
@@ -186,7 +186,7 @@ export function JobDescriptionStep({
                     : formData.benefits.filter((b) => b !== benefit);
                   updateFormData({ benefits: updated });
                 }}
-                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                className="h-4 w-4 text-accent focus:ring-accent border-gray-300 rounded"
               />
               <span className="ml-2 text-sm text-gray-700">{benefit}</span>
             </label>
@@ -206,7 +206,7 @@ export function JobDescriptionStep({
         <button
           onClick={onNext}
           disabled={!isFormValid()}
-          className="inline-flex items-center px-6 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center px-6 py-2 text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style={{backgroundColor: '#066046'}}
         >
           Continue
           <ChevronRight className="ml-2 h-4 w-4" />

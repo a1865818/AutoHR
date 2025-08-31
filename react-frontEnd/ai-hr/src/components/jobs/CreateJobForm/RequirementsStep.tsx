@@ -126,12 +126,12 @@ export function RequirementsStep({
               onChange={(e) => setNewRequirement(e.target.value)}
               onKeyPress={(e) => handleKeyPress(e, "requirement")}
               placeholder="e.g., Bachelor's degree in Computer Science"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
             />
             <button
               onClick={addRequirement}
               disabled={!newRequirement.trim()}
-              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2 text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style={{backgroundColor: '#066046'}}
             >
               <Plus className="h-4 w-4" />
             </button>
@@ -143,7 +143,7 @@ export function RequirementsStep({
             {formData.requirements.map((requirement, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between bg-blue-50 px-3 py-2 rounded-md border border-blue-200"
+                className="flex items-center justify-between bg-accent/10 px-3 py-2 rounded-md border border-accent/20"
               >
                 <span className="text-sm text-gray-900">• {requirement}</span>
                 <button
@@ -181,12 +181,12 @@ export function RequirementsStep({
               onChange={(e) => setNewQualification(e.target.value)}
               onKeyPress={(e) => handleKeyPress(e, "qualification")}
               placeholder="e.g., Experience with cloud platforms"
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
             />
             <button
               onClick={addQualification}
               disabled={!newQualification.trim()}
-              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2 text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style={{backgroundColor: '#066046'}}
             >
               <Plus className="h-4 w-4" />
             </button>
@@ -198,7 +198,7 @@ export function RequirementsStep({
             {formData.qualifications.map((qualification, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between bg-blue-50 px-3 py-2 rounded-md border border-blue-200"
+                className="flex items-center justify-between bg-accent/10 px-3 py-2 rounded-md border border-accent/20"
               >
                 <span className="text-sm text-gray-900">• {qualification}</span>
                 <button
@@ -260,12 +260,12 @@ export function RequirementsStep({
               onChange={(e) => setNewSkill(e.target.value)}
               onKeyPress={(e) => handleKeyPress(e, "skill")}
               placeholder="Add a custom skill..."
-              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
             />
             <button
               onClick={addSkill}
               disabled={!newSkill.trim()}
-              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex items-center px-4 py-2 text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style={{backgroundColor: '#066046'}}
             >
               <Plus className="h-4 w-4" />
             </button>
@@ -277,12 +277,12 @@ export function RequirementsStep({
             {(formData.skills ?? []).map((skill, index) => (
               <div
                 key={index}
-                className="inline-flex items-center bg-green-50 text-green-800 px-3 py-1 rounded-full text-sm border border-green-200"
+                className="inline-flex items-center bg-secondary/10 text-secondary px-3 py-1 rounded-full text-sm border border-secondary/20"
               >
                 {skill}
                 <button
                   onClick={() => removeSkill(index)}
-                  className="ml-2 text-green-600 hover:text-red-500 transition-colors"
+                  className="ml-2 text-secondary hover:text-red-500 transition-colors"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -304,7 +304,7 @@ export function RequirementsStep({
         <button
           onClick={onNext}
           disabled={!isFormValid()}
-          className="inline-flex items-center px-6 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center px-6 py-2 text-white text-sm font-medium rounded-md hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed" style={{backgroundColor: '#066046'}}
         >
           Continue
           <ChevronRight className="ml-2 h-4 w-4" />

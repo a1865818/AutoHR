@@ -53,9 +53,9 @@ export function PreviewStep({
 
   const getWorkTypeBadge = () => {
     const colors = {
-      "On-site": "bg-blue-100 text-blue-800",
-      Remote: "bg-green-100 text-green-800",
-      Hybrid: "bg-purple-100 text-purple-800",
+      "On-site": "bg-primary/10 text-primary",
+      Remote: "bg-secondary/10 text-secondary",
+      Hybrid: "bg-accent/10 text-accent",
     };
 
     return (
@@ -71,10 +71,10 @@ export function PreviewStep({
 
   const getJobTypeBadge = () => {
     const colors: Record<string, string> = {
-      "Full-Time": "bg-blue-100 text-blue-800",
-      "Part-Time": "bg-purple-100 text-purple-800",
-      Contract: "bg-orange-100 text-orange-800",
-      Internship: "bg-pink-100 text-pink-800",
+      "Full-Time": "bg-primary/10 text-primary",
+      "Part-Time": "bg-accent/10 text-accent",
+      Contract: "bg-secondary/10 text-secondary",
+      Internship: "bg-accent/20 text-accent",
     };
 
     return (
@@ -184,7 +184,7 @@ export function PreviewStep({
             <ul className="space-y-2">
               {formData.requirements.map((requirement, index) => (
                 <li key={index} className="flex items-start">
-                  <AlertCircle className="h-5 w-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                  <AlertCircle className="h-5 w-5 text-accent mr-2 mt-0.5 flex-shrink-0" />
                   <span className="text-gray-700">{requirement}</span>
                 </li>
               ))}
@@ -201,7 +201,7 @@ export function PreviewStep({
             <ul className="space-y-2">
               {formData.qualifications.map((qualification, index) => (
                 <li key={index} className="flex items-start">
-                  <CheckCircle className="h-5 w-5 text-blue-500 mr-2 mt-0.5 flex-shrink-0" />
+                  <CheckCircle className="h-5 w-5 text-accent mr-2 mt-0.5 flex-shrink-0" />
                   <span className="text-gray-700">{qualification}</span>
                 </li>
               ))}
@@ -219,7 +219,7 @@ export function PreviewStep({
               {formData.skills.map((skill, index) => (
                 <span
                   key={index}
-                  className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-gray-100 text-gray-800"
+                  className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-secondary/10 text-secondary"
                 >
                   {skill}
                 </span>
@@ -254,11 +254,12 @@ export function PreviewStep({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="flex items-center">
                 <CheckCircle
-                  className={`h-5 w-5 mr-2 ${
-                    formData.applicationSettings.resumeRequired
-                      ? "text-green-500"
-                      : "text-gray-300"
-                  }`}
+                  className="h-5 w-5 mr-2"
+                  style={{
+                    color: formData.applicationSettings.resumeRequired
+                      ? '#066046'
+                      : '#d1d5db'
+                  }}
                 />
                 <span
                   className={`text-sm ${
@@ -275,11 +276,12 @@ export function PreviewStep({
               </div>
               <div className="flex items-center">
                 <CheckCircle
-                  className={`h-5 w-5 mr-2 ${
-                    formData.applicationSettings.coverLetterRequired
-                      ? "text-green-500"
-                      : "text-gray-300"
-                  }`}
+                  className="h-5 w-5 mr-2"
+                  style={{
+                    color: formData.applicationSettings.coverLetterRequired
+                      ? '#066046'
+                      : '#d1d5db'
+                  }}
                 />
                 <span
                   className={`text-sm ${
@@ -296,11 +298,12 @@ export function PreviewStep({
               </div>
               <div className="flex items-center">
                 <CheckCircle
-                  className={`h-5 w-5 mr-2 ${
-                    formData.applicationSettings.portfolioRequired
-                      ? "text-green-500"
-                      : "text-gray-300"
-                  }`}
+                  className="h-5 w-5 mr-2"
+                  style={{
+                    color: formData.applicationSettings.portfolioRequired
+                      ? '#066046'
+                      : '#d1d5db'
+                  }}
                 />
                 <span
                   className={`text-sm ${
@@ -317,11 +320,12 @@ export function PreviewStep({
               </div>
               <div className="flex items-center">
                 <CheckCircle
-                  className={`h-5 w-5 mr-2 ${
-                    formData.applicationSettings.questionsRequired
-                      ? "text-green-500"
-                      : "text-gray-300"
-                  }`}
+                  className="h-5 w-5 mr-2"
+                  style={{
+                    color: formData.applicationSettings.questionsRequired
+                      ? '#066046'
+                      : '#d1d5db'
+                  }}
                 />
                 <span
                   className={`text-sm ${
@@ -356,15 +360,15 @@ export function PreviewStep({
           </div>
         </div>
       ) : (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-green-900 mb-4">
+        <div className="rounded-lg p-6 border" style={{backgroundColor: '#06604620', borderColor: '#066046'}}>
+          <h3 className="text-lg font-semibold mb-4" style={{color: '#066046'}}>
             Ready to Publish?
           </h3>
-          <p className="text-sm text-green-800 mb-4">
+          <p className="text-sm mb-4" style={{color: '#066046'}}>
             Your job posting is complete and ready to go live. Once published,
-            candidates will be able to view and apply for this position.
+            candidates will are able to view and apply for this position.
           </p>
-          <div className="flex items-center gap-2 text-sm text-green-700">
+          <div className="flex items-center gap-2 text-sm" style={{color: '#066046'}}>
             <Users className="h-4 w-4" />
             <span>This job will be visible to all registered candidates</span>
           </div>
@@ -384,7 +388,7 @@ export function PreviewStep({
         <button
           onClick={onPublish}
           disabled={isPublishing}
-          className="inline-flex items-center px-8 py-3 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center px-8 py-3 text-white text-sm font-medium rounded-md hover:opacity-90 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed" style={{backgroundColor: '#066046'}}
         >
           <Send className="mr-2 h-4 w-4" />
           {isPublishing ? "Publishing..." : "Publish Job"}

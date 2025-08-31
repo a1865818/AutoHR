@@ -60,8 +60,8 @@ const UserDropdown: React.FC = () => {
           className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-secondary focus:ring-offset-2"
         >
           {/* User Avatar */}
-          <div className="w-8 h-8 bg-[#066046] rounded-full flex items-center justify-center">
-            <span className="text-white text-sm font-medium">
+          <div className="w-8 h-8 bg-[#066046]/10 rounded-full flex items-center justify-center border border-[#066046]/20">
+            <span className="text-[#066046] text-sm font-medium">
               {user.name
                 .split(" ")
                 .map((n) => n[0])
