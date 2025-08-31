@@ -71,7 +71,7 @@ class AssessmentService {
     return null;
   }
 
-  private async fetchApi(endpoint: string, options?: RequestInit) {
+  private async fetchApi(endpoint: string, options?: RequestInit, suppressErrors?: { [status: number]: boolean }) {
     const url = `${API_BASE_URL}${endpoint}`;
     const token = this.getAuthToken();
 
@@ -113,6 +113,12 @@ class AssessmentService {
             sessionStorage.removeItem("authToken");
           }
           toast.error("Your session has expired. Please log in again.");
+          return null;
+        }
+
+        // Check if error should be suppressed (for expected 404s, etc.)
+        if (suppressErrors && suppressErrors[response.status]) {
+          console.log(`Suppressed ${response.status} error for ${endpoint}:`, errorData);
           return null;
         }
 
@@ -227,13 +233,12 @@ class AssessmentService {
 
     try {
       const submission = await this.fetchApi(
-        `/assessments/submissions/${candidateId}/${roundId}`
+        `/assessments/submissions/${candidateId}/${roundId}`,
+        {},
+        { 404: true } // Suppress 404 errors since missing submissions are expected
       );
       return submission;
     } catch (error) {
-      if (error instanceof Error && error.message.includes("404")) {
-        return null; // No submission found
-      }
       console.error("❌ Failed to load assessment submission:", error);
       toast.error("Unable to load assessment submission. Please try again.");
       return null;
@@ -250,12 +255,13 @@ class AssessmentService {
     }
 
     try {
-      const grade = await this.fetchApi(`/assessments/grades/${submissionId}`);
+      const grade = await this.fetchApi(
+        `/assessments/grades/${submissionId}`,
+        {},
+        { 404: true } // Suppress 404 errors since grades might not exist for new submissions
+      );
       return grade;
     } catch (error) {
-      if (error instanceof Error && error.message.includes("404")) {
-        return null; // No grade found
-      }
       console.error("❌ Failed to load assessment grade:", error);
       toast.error("Unable to load assessment grade. Please try again.");
       return null;
@@ -548,14 +554,23 @@ class AssessmentService {
 
       // Fetch submission data
       const submission = await this.fetchApi(
-        `/assessments/submissions/${candidateId}/${roundId}`
+        `/assessments/submissions/${candidateId}/${roundId}`,
+        {},
+        { 404: true } // Suppress 404 errors since missing submissions are expected
       );
+
+      // If no submission found, return null
+      if (!submission) {
+        return null;
+      }
 
       // Try to fetch grade data if submission exists
       let grade = null;
       try {
         grade = await this.fetchApi(
-          `/assessments/grades/${submission.id}`
+          `/assessments/grades/${submission.id}`,
+          {},
+          { 404: true } // Suppress 404 errors since grades might not exist
         );
       } catch (gradeError) {
         console.log("No grade found for this submission:", gradeError);

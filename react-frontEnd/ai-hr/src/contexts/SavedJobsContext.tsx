@@ -67,9 +67,9 @@ export function SavedJobsProvider({ children }: SavedJobsProviderProps) {
     try {
       setIsLoading(true);
       setError(null);
-      console.log("📤 SavedJobsContext: Calling savedJobsService.getSavedJobIds()");
+      // console.log("📤 SavedJobsContext: Calling savedJobsService.getSavedJobIds()");
       const jobIds = await savedJobsService.getSavedJobIds();
-      console.log("✅ SavedJobsContext: Loaded saved jobs:", jobIds);
+      // console.log("✅ SavedJobsContext: Loaded saved jobs:", jobIds);
       setSavedJobIds(jobIds);
     } catch (err) {
       console.error("❌ SavedJobsContext: Failed to load saved jobs:", err);

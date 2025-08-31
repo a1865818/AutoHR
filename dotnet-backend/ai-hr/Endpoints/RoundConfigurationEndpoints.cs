@@ -146,7 +146,7 @@ public static class RoundConfigurationEndpoints
     {
         try
         {
-            var userId = GetUserId(user);
+            var userId = GetMigratedUserId(user);
             if (userId == null) return Results.Unauthorized();
 
             logger.LogInformation("GetRoundConfiguration: UserId={UserId}, JobId={JobId}, RoundId={RoundId}", 
@@ -306,7 +306,7 @@ public static class RoundConfigurationEndpoints
                 logger.LogWarning("ConfigurationData is null");
             }
 
-            var userId = GetUserId(user);
+            var userId = GetMigratedUserId(user);
             if (userId == null) return Results.Unauthorized();
 
             var companyId = GetUserCompanyId(user);
@@ -551,7 +551,7 @@ public static class RoundConfigurationEndpoints
     {
         try
         {
-            var userId = GetUserId(user);
+            var userId = GetMigratedUserId(user);
             if (userId == null) return Results.Unauthorized();
 
             // Get default configuration for round type
@@ -584,7 +584,7 @@ public static class RoundConfigurationEndpoints
     {
         try
         {
-            var userId = GetUserId(user);
+            var userId = GetMigratedUserId(user);
             if (userId == null) return Results.Unauthorized();
 
             var companyId = GetUserCompanyId(user);
@@ -922,7 +922,7 @@ public static class RoundConfigurationEndpoints
     {
         try
         {
-            var userId = GetUserId(user);
+            var userId = GetMigratedUserId(user);
             if (userId == null) return Results.Unauthorized();
 
             var companyId = GetUserCompanyId(user);
@@ -996,7 +996,7 @@ public static class RoundConfigurationEndpoints
     {
         try
         {
-            var userId = GetUserId(user);
+            var userId = GetMigratedUserId(user);
             if (userId == null) return Results.Unauthorized();
 
             var companyId = GetUserCompanyId(user);
@@ -1055,7 +1055,7 @@ public static class RoundConfigurationEndpoints
     {
         try
         {
-            var userId = GetUserId(user);
+            var userId = GetMigratedUserId(user);
             if (userId == null) return Results.Unauthorized();
 
             var companyId = GetUserCompanyId(user);
@@ -1122,7 +1122,7 @@ public static class RoundConfigurationEndpoints
     {
         try
         {
-            var userId = GetUserId(user);
+            var userId = GetMigratedUserId(user);
             if (userId == null) return Results.Unauthorized();
 
             var companyId = GetUserCompanyId(user);
@@ -1487,7 +1487,7 @@ public static class RoundConfigurationEndpoints
     {
         try
         {
-            var userId = GetUserId(user);
+            var userId = GetMigratedUserId(user);
             if (userId == null) return Results.Unauthorized();
 
             var companyId = GetUserCompanyId(user);
@@ -1689,7 +1689,7 @@ public static class RoundConfigurationEndpoints
     {
         try
         {
-            var userId = GetUserId(user);
+            var userId = GetMigratedUserId(user);
             if (userId == null) return Results.Unauthorized();
 
             var companyId = GetUserCompanyId(user);
@@ -1830,7 +1830,7 @@ public static class RoundConfigurationEndpoints
     {
         try
         {
-            var userId = GetUserId(user);
+            var userId = GetMigratedUserId(user);
             if (userId == null) return Results.Unauthorized();
 
             var companyId = GetUserCompanyId(user);
@@ -1896,7 +1896,7 @@ public static class RoundConfigurationEndpoints
     {
         try
         {
-            var userId = GetUserId(user);
+            var userId = GetMigratedUserId(user);
             if (userId == null) return Results.Unauthorized();
 
             var companyId = GetUserCompanyId(user);

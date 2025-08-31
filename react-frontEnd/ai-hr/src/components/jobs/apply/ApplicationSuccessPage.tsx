@@ -19,11 +19,12 @@ import {
   Download,
 } from "lucide-react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { TechnicalAssessmentUpload } from "./TechnicalAssessmentUpload";
 import { CodingChallengeSubmission } from "./CodingChallengeSubmission";
+
 import { InterviewPipelineTimeline } from "./InterviewPipelineTimeline";
 import { InterviewRound as ApiInterviewRound } from "@/interfaces/api";
 import { InterviewRound } from "@/interfaces/interview";
@@ -39,6 +40,7 @@ export function ApplicationSuccessPage({
   applicationId: propApplicationId,
 }: ApplicationSuccessPageProps) {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const applicationId = propApplicationId || searchParams.get("applicationId");
   const { user } = useAuth();
 
@@ -54,8 +56,18 @@ export function ApplicationSuccessPage({
     fileName: string;
     uploadedAt: string;
   } | null>(null);
+
   const [currentRoundId, setCurrentRoundId] = useState<string | null>(null);
   const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
+  const [cultureFitSubmissionStatus, setCultureFitSubmissionStatus] = useState<{
+    hasSubmitted: boolean;
+    isLoading: boolean;
+    error: string | null;
+  }>({
+    hasSubmitted: false,
+    isLoading: false,
+    error: null,
+  });
 
   // Helper function to convert API InterviewRound to component InterviewRound
   const mapApiRoundToComponentRound = (
@@ -75,6 +87,60 @@ export function ApplicationSuccessPage({
     };
   };
 
+  // Function to check culture fit assessment submission status
+  const checkCultureFitSubmissionStatus = useCallback(async () => {
+    if (!currentRoundId || !user?.id) return;
+
+    const currentRound = interviewRounds.find(
+      (round) => round.id === currentRoundId
+    );
+
+    if (currentRound?.type !== "culture_fit") return;
+
+    try {
+      setCultureFitSubmissionStatus(prev => ({ ...prev, isLoading: true, error: null }));
+      
+      console.log("🔍 Checking culture fit assessment submission status for user:", user.id, "round:", currentRoundId);
+      
+      // Check if user has submitted the culture fit assessment
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5189"}/assessments/submissions/${user.id}/${currentRoundId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (response.ok) {
+        const submission = await response.json();
+        console.log("✅ Culture fit assessment submission found:", submission);
+        setCultureFitSubmissionStatus({
+          hasSubmitted: true,
+          isLoading: false,
+          error: null,
+        });
+      } else if (response.status === 404) {
+        console.log("📝 No culture fit assessment submission found - user needs to take the assessment");
+        setCultureFitSubmissionStatus({
+          hasSubmitted: false,
+          isLoading: false,
+          error: null,
+        });
+      } else {
+        throw new Error(`Failed to check submission status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error("❌ Error checking culture fit submission status:", error);
+      setCultureFitSubmissionStatus({
+        hasSubmitted: false,
+        isLoading: false,
+        error: error instanceof Error ? error.message : "Failed to check submission status",
+      });
+    }
+  }, [currentRoundId, user?.id, interviewRounds]);
+
   // Function to refresh application data
   const refreshApplicationData = useCallback(async () => {
     console.log("🔄 Refreshing application data...");
@@ -85,6 +151,9 @@ export function ApplicationSuccessPage({
     const previousStage = applicationStatus?.stage;
 
     await loadApplicationData();
+
+    // Check culture fit submission status if applicable
+    await checkCultureFitSubmissionStatus();
 
     // Check if status changed and show notification
     if (
@@ -99,7 +168,7 @@ export function ApplicationSuccessPage({
         newStage: applicationStatus.stage,
       });
     }
-  }, [applicationStatus]);
+  }, [applicationStatus, checkCultureFitSubmissionStatus]);
 
   useEffect(() => {
     loadApplicationData();
@@ -181,21 +250,30 @@ export function ApplicationSuccessPage({
                 currentRound = sortedRounds.find(
                   (round) => round.type === "coding_challenge"
                 );
+              } else if (
+                stageLower.includes("culture") ||
+                stageLower.includes("fit")
+              ) {
+                currentRound = sortedRounds.find(
+                  (round) => round.type === "culture_fit"
+                );
               }
             }
 
-            // If no specific round found, find the first technical or coding round
+            // If no specific round found, find the first technical, coding, or culture fit round
             if (!currentRound) {
               currentRound = sortedRounds.find(
                 (round) =>
                   round.type === "technical_assessment" ||
-                  round.type === "coding_challenge"
+                  round.type === "coding_challenge" ||
+                  round.type === "culture_fit"
               );
             }
 
             if (currentRound) {
               technicalRoundId = currentRound.id;
               setCurrentRoundId(currentRound.id);
+              console.log(`🔍 Set currentRoundId to: ${currentRound.id} (${currentRound.type})`);
             }
           }
         } catch (error) {
@@ -206,6 +284,7 @@ export function ApplicationSuccessPage({
       // Load technical assessment if application exists and we have round info
       if (applicationId && technicalRoundId && user?.id) {
         try {
+          console.log(`🔍 Loading technical assessment for user: ${user.id}, round: ${technicalRoundId}`);
           const assessment = await applicationService.getTechnicalAssessment(
             user.id,
             technicalRoundId
@@ -220,6 +299,8 @@ export function ApplicationSuccessPage({
           setTechnicalAssessment(null);
         }
       }
+
+
     } catch (error) {
       console.error("Error loading application data:", error);
       setError(
@@ -253,6 +334,13 @@ export function ApplicationSuccessPage({
         resolvedCurrentRound = interviewRounds.find(
           (r) => r.type === "technical_assessment"
         );
+      } else if (
+        stageLower.includes("culture") ||
+        stageLower.includes("fit")
+      ) {
+        resolvedCurrentRound = interviewRounds.find(
+          (r) => r.type === "culture_fit"
+        );
       }
     }
 
@@ -264,6 +352,11 @@ export function ApplicationSuccessPage({
       setCurrentRoundId(null);
     }
   }, [applicationStatus?.stage, applicationStatus?.status, interviewRounds]);
+
+  // Check culture fit submission status when current round changes
+  useEffect(() => {
+    checkCultureFitSubmissionStatus();
+  }, [checkCultureFitSubmissionStatus]);
 
   const getStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -656,6 +749,78 @@ export function ApplicationSuccessPage({
                         // You can add additional error handling here
                       }}
                     />
+                  );
+                }
+                return null;
+              })()}
+
+            {/* Culture Fit Assessment */}
+            {currentRoundId &&
+              user?.id &&
+              applicationStatus?.status === "In Progress" &&
+              (() => {
+                const currentRound = interviewRounds.find(
+                  (round) => round.id === currentRoundId
+                );
+                if (currentRound?.type === "culture_fit") {
+                  return (
+                    <div className="bg-white rounded-lg border p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-semibold text-gray-900">
+                          Culture Fit Assessment
+                        </h2>
+                        <span className="px-2 py-1 bg-purple-100 text-purple-800 text-sm rounded-full">
+                          Required
+                        </span>
+                      </div>
+                      
+                      {cultureFitSubmissionStatus.isLoading ? (
+                        <div className="text-center py-4">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-2"></div>
+                          <p className="text-gray-600">Checking assessment status...</p>
+                        </div>
+                      ) : cultureFitSubmissionStatus.hasSubmitted ? (
+                        <div>
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center">
+                              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mr-3">
+                                <CheckCircle className="h-5 w-5 text-green-600" />
+                              </div>
+                              <div>
+                                <p className="text-green-800 font-medium">Assessment Submitted</p>
+                                <p className="text-sm text-gray-600">Your culture fit assessment has been submitted and is awaiting review.</p>
+                              </div>
+                            </div>
+                         
+                          </div>
+                          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                            <p className="text-sm text-green-800">
+                              Thank you for completing the culture fit assessment. Our hiring team will review your responses and you'll be notified of the next steps.
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-gray-600 mb-4">
+                            Complete this assessment to evaluate your alignment with our company culture and values.
+                          </p>
+                          <button
+                            onClick={() => {
+                              // Generate a unique assessment ID for this session
+                              const assessmentId = `${currentRoundId}-${user.id}-${Date.now()}`;
+                              console.log(`🔍 Generated assessment ID: ${assessmentId}`);
+                              console.log(`🔍 Using currentRoundId: ${currentRoundId}`);
+                              console.log(`🔍 Using userId: ${user.id}`);
+                              router.push(`/applicant/jobs/${jobId}/application-success/assessment/${assessmentId}`);
+                            }}
+                            className="w-full px-6 py-3 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors text-sm font-medium flex items-center justify-center"
+                          >
+                            <ArrowRight className="h-4 w-4 mr-2" />
+                            Start Assessment
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   );
                 }
                 return null;

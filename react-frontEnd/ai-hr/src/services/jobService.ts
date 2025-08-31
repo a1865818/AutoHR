@@ -16,6 +16,13 @@ import { toast } from "@/utils/toast";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5189";
 
+// Log API configuration for debugging
+console.log("🔧 JobService API Configuration:", {
+  API_BASE_URL,
+  NODE_ENV: process.env.NODE_ENV,
+  NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL
+});
+
 class JobService {
   private getAuthToken(): string | null {
     // Check cookies first, then localStorage and sessionStorage for token
@@ -60,6 +67,9 @@ class JobService {
     }
 
     try {
+      console.log(`🌐 Making API request to: ${url}`);
+      console.log(`🌐 Headers:`, headers);
+      
       const response = await fetch(url, {
         headers: {
           ...headers,

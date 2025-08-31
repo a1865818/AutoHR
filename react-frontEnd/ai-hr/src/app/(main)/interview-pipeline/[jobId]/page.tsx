@@ -410,7 +410,8 @@ export default function JobPipelinePage() {
             if (
               currentRound &&
               (currentRound.type === "technical_assessment" ||
-                currentRound.type === "coding_challenge")
+                currentRound.type === "coding_challenge" ||
+                currentRound.type === "culture_fit")
             ) {
               try {
                 console.log(`🔍 About to check submission for:`, {
@@ -734,7 +735,8 @@ export default function JobPipelinePage() {
       const isAssessmentRound =
         round &&
         (round.type === "technical_assessment" ||
-          round.type === "coding_challenge");
+          round.type === "coding_challenge" ||
+          round.type === "culture_fit");
 
       // Prepare computed fields
       let hasSubmittedAssessment = false;
@@ -1946,6 +1948,8 @@ export default function JobPipelinePage() {
     let targetUrl = `/interview-pipeline/${jobId}/rounds/${roundId}/technical-assessment/assessment/${candidateUserId}`;
     if (round?.type === "coding_challenge") {
       targetUrl = `/interview-pipeline/${jobId}/rounds/${roundId}/coding-challenge/assessment/${candidateUserId}`;
+    } else if (round?.type === "culture_fit") {
+      targetUrl = `/interview-pipeline/${jobId}/rounds/${roundId}/culture-fit/assessment/${candidateUserId}`;
     } else if (round?.type === "video_interview") {
       targetUrl = `/interview-pipeline/${jobId}/rounds/${roundId}/video-interview/assessment/${candidateUserId}`;
     }
