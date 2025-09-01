@@ -36,7 +36,7 @@ public static class UserEndpoints
             var user = new ApplicationUser
             {
                 Email = request.Email,
-                Password = request.Password,
+                // Password removed - authentication handled by Supabase
                 FirstName = request.FirstName,
                 LastName = request.LastName,
                 CreatedAt = DateTime.UtcNow.AddHours(7),

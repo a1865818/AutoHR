@@ -1346,7 +1346,7 @@ public static class ApplicationDetailEndpoints
         {
             Id = guestUserId,
             Email = email,
-            Password = "guest_user_no_password", // Guest users don't have passwords
+            // Password removed - authentication handled by Supabase
             FirstName = firstName,
             LastName = lastName,
             CreatedAt = DateTime.UtcNow,

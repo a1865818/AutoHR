@@ -34,8 +34,7 @@ builder.Services.AddSingleton<ILoggerFactory, LoggerFactory>();
 builder.Services.AddScoped<ILogger>(provider =>
     provider.GetRequiredService<ILoggerFactory>().CreateLogger("Default"));
 
-// Configure JWT settings
-builder.Services.Configure<JwtSettings>(builder.Configuration.GetSection("Jwt"));
+// JWT settings no longer needed - using Supabase Auth only
 
 // Configure FluentValidation
 builder.Services.AddFluentValidationAutoValidation();
@@ -94,7 +93,7 @@ builder.Services.AddHttpsRedirection(options =>
     }
 });
 
-// Add authentication and authorization
+// Add authentication and authorization - Supabase Auth only
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -102,12 +101,11 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    var jwtSettings = builder.Configuration.GetSection("Jwt").Get<JwtSettings>();
-    var secretKey = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET") ?? jwtSettings?.SecretKey;
+    var secretKey = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
 
     if (string.IsNullOrEmpty(secretKey))
     {
-        throw new InvalidOperationException("JWT SecretKey not configured");
+        throw new InvalidOperationException("SUPABASE_JWT_SECRET environment variable not configured");
     }
 
     options.TokenValidationParameters = new TokenValidationParameters
@@ -115,19 +113,9 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
         ValidateIssuer = true,
-        // Accept both custom tokens and Supabase tokens
-        ValidIssuers = new[] 
-        { 
-            jwtSettings?.Issuer ?? "AutoHR",
-            "https://uwejqhuvjkkycgecoauy.supabase.co/auth/v1" // Supabase issuer
-        },
+        ValidIssuer = "https://uwejqhuvjkkycgecoauy.supabase.co/auth/v1", // Supabase issuer only
         ValidateAudience = true,
-        // Accept both custom audience and Supabase audience
-        ValidAudiences = new[] 
-        { 
-            jwtSettings?.Audience ?? "AutoHR-Users", 
-            "authenticated" // Supabase audience
-        },
+        ValidAudience = "authenticated", // Supabase audience only
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
     };
@@ -143,20 +131,11 @@ builder.Services.AddScoped<IJobViewTrackingService, JobViewTrackingService>();
 
 // Register Advanced Security Services (Phase 3)
 builder.Services.AddSingleton<ISecurityLoggingService, SecurityLoggingService>();
-builder.Services.AddScoped<ITokenRevocationService, TokenRevocationService>();
+// TokenRevocationService removed - Supabase handles token lifecycle
 builder.Services.AddScoped<IAdvancedAuthenticationService, AdvancedAuthenticationService>();
 builder.Services.AddScoped<ISecureExternalApiService, SecureExternalApiService>();
 
-// Register Refresh Token Cleanup Service
-// Register the service interface with a separate implementation for manual operations
-builder.Services.AddScoped<IRefreshTokenCleanupService>(provider =>
-    new RefreshTokenCleanupService(
-        provider.GetRequiredService<IServiceScopeFactory>(),
-        provider.GetRequiredService<ILogger<RefreshTokenCleanupService>>(),
-        provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<JwtSettings>>()));
-
-// Register as background service for automatic cleanup
-builder.Services.AddHostedService<RefreshTokenCleanupService>();
+// Refresh token cleanup no longer needed - Supabase handles token lifecycle
 
 // Register Gmail service
 builder.Services.AddScoped<IGmailService, ai_hr.Services.GmailApiService>();

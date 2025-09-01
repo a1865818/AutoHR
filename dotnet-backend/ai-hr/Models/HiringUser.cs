@@ -26,8 +26,7 @@ namespace ai_hr.Models
         public string Email { get; set; }
 
         // Legacy authentication field (kept for backward compatibility)
-        [Column("Password")]
-        public string? Password { get; set; }
+        // Password field removed - authentication handled by Supabase
 
         [Column("user_type")]
         public string UserType { get; set; }
@@ -50,12 +49,7 @@ namespace ai_hr.Models
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        // Legacy authentication fields (kept for backward compatibility)
-        [Column("RefreshToken")]
-        public string? RefreshToken { get; set; }
-
-        [Column("RefreshTokenExpiry")]
-        public DateTime? RefreshTokenExpiry { get; set; }
+        // Legacy authentication fields removed - Supabase handles authentication
 
         [Column("IsActive")]
         public bool IsActive { get; set; } = true;
