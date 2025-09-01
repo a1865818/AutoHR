@@ -95,9 +95,9 @@ const LoginPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
+      <div className="min-h-screen flex items-center justify-center bg-[#066046]/20">
         <div className="flex items-center space-x-2">
-          <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+          <Loader2 className="h-6 w-6 animate-spin text-[#066046]" />
           <span className="text-lg text-gray-600">Logging in...</span>
         </div>
       </div>
@@ -105,11 +105,11 @@ const LoginPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-[#066046]/20 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-blue-600 rounded-full flex items-center justify-center">
+          <div className="mx-auto h-12 w-12 bg-[#066046] rounded-full flex items-center justify-center">
             <User className="h-6 w-6 text-white" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">
@@ -142,11 +142,16 @@ const LoginPage: React.FC = () => {
                   autoComplete="email"
                   value={formData.email}
                   onChange={handleInputChange}
-                  className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+                  className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-transparent transition-colors ${
                     errors.email
                       ? "border-red-300 bg-red-50"
-                      : "border-gray-300 bg-white hover:border-gray-400"
+                      : "border-gray-300 hover:border-gray-400"
                   }`}
+                  style={{
+                    backgroundColor: errors.email ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                    WebkitBoxShadow: 'none',
+                    boxShadow: 'none'
+                  }}
                   placeholder="Enter your email"
                 />
               </div>
@@ -177,11 +182,16 @@ const LoginPage: React.FC = () => {
                   autoComplete="current-password"
                   value={formData.password}
                   onChange={handleInputChange}
-                  className={`block w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+                  className={`block w-full pl-10 pr-12 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-transparent transition-colors ${
                     errors.password
                       ? "border-red-300 bg-red-50"
-                      : "border-gray-300 bg-white hover:border-gray-400"
+                      : "border-gray-300 hover:border-gray-400"
                   }`}
+                  style={{
+                    backgroundColor: errors.password ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                    WebkitBoxShadow: 'none',
+                    boxShadow: 'none'
+                  }}
                   placeholder="Enter your password"
                 />
                 <button
@@ -214,7 +224,7 @@ const LoginPage: React.FC = () => {
                   type="checkbox"
                   checked={formData.rememberMe}
                   onChange={handleInputChange}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-[#066046] focus:ring-[#066046] border-gray-300 rounded"
                 />
                 <label
                   htmlFor="rememberMe"
@@ -226,7 +236,7 @@ const LoginPage: React.FC = () => {
               <div className="text-sm">
                 <Link
                   href="/forgot-password"
-                  className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+                  className="font-medium text-[#066046] hover:text-[#267a54] transition-colors"
                 >
                   Forgot password?
                 </Link>
@@ -247,7 +257,7 @@ const LoginPage: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#066046] hover:bg-[#267a54] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#066046] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isSubmitting ? (
                 <div className="flex items-center">
@@ -266,7 +276,7 @@ const LoginPage: React.FC = () => {
               Don&apos;t have an account?{" "}
               <Link
                 href="/signup/select-type"
-                className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+                className="font-medium text-[#066046] hover:text-[#267a54] transition-colors"
               >
                 Sign up here
               </Link>

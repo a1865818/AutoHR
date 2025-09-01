@@ -276,10 +276,10 @@ export default function NewCompanyPage() {
   // Success state
   if (signupSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
+      <div className="min-h-screen flex items-center justify-center bg-[#066046]/20">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-          <div className="mx-auto h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-            <Building2 className="h-6 w-6 text-blue-600" />
+          <div className="mx-auto h-12 w-12 bg-[#066046]/10 rounded-full flex items-center justify-center mb-4">
+            <Building2 className="h-6 w-6 text-[#066046]" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Welcome to AI HR Platform!
@@ -300,18 +300,18 @@ export default function NewCompanyPage() {
   // Company registration step
   if (currentStep === "company") {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-[#066046]/20 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl mx-auto">
           {/* Header */}
           <div className="text-center mb-8">
             <Link
               href="/signup/hiring"
-              className="inline-flex items-center text-blue-600 hover:text-blue-500 mb-4"
+              className="inline-flex items-center text-[#066046] hover:text-[#267a54] mb-4"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to hiring options
             </Link>
-            <div className="mx-auto h-12 w-12 bg-blue-600 rounded-full flex items-center justify-center">
+            <div className="mx-auto h-12 w-12 bg-[#066046] rounded-full flex items-center justify-center">
               <Building2 className="h-6 w-6 text-white" />
             </div>
             <h2 className="mt-6 text-3xl font-bold text-gray-900">
@@ -360,7 +360,12 @@ export default function NewCompanyPage() {
                     onChange={handleCompanyChange}
                     className={`appearance-none relative block w-full pl-10 pr-3 py-3 border ${
                       errors.companyName ? "border-red-300" : "border-gray-300"
-                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] sm:text-sm`}
+                    style={{
+                      backgroundColor: errors.companyName ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                      WebkitBoxShadow: 'none',
+                      boxShadow: 'none'
+                    }}
                     placeholder="Enter your company name"
                   />
                 </div>
@@ -387,7 +392,12 @@ export default function NewCompanyPage() {
                     onChange={handleCompanyChange}
                     className={`appearance-none relative block w-full px-3 py-3 border ${
                       errors.industry ? "border-red-300" : "border-gray-300"
-                    } text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                    } text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] sm:text-sm`}
+                    style={{
+                      backgroundColor: errors.industry ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                      WebkitBoxShadow: 'none',
+                      boxShadow: 'none'
+                    }}
                   >
                     <option value="">Select industry</option>
                     {INDUSTRY_OPTIONS.map((industry) => (
@@ -423,7 +433,12 @@ export default function NewCompanyPage() {
                         errors.companySize
                           ? "border-red-300"
                           : "border-gray-300"
-                      } text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                      } text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] sm:text-sm`}
+                      style={{
+                        backgroundColor: errors.companySize ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                        WebkitBoxShadow: 'none',
+                        boxShadow: 'none'
+                      }}
                     >
                       <option value="">Select size</option>
                       {COMPANY_SIZE_OPTIONS.map((size) => (
@@ -462,7 +477,12 @@ export default function NewCompanyPage() {
                       onChange={handleCompanyChange}
                       className={`appearance-none relative block w-full pl-10 pr-3 py-3 border ${
                         errors.website ? "border-red-300" : "border-gray-300"
-                      } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                      } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] sm:text-sm`}
+                      style={{
+                        backgroundColor: errors.website ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                        WebkitBoxShadow: 'none',
+                        boxShadow: 'none'
+                      }}
                       placeholder="https://yourcompany.com"
                     />
                   </div>
@@ -492,7 +512,12 @@ export default function NewCompanyPage() {
                       onChange={handleCompanyChange}
                       className={`appearance-none relative block w-full pl-10 pr-3 py-3 border ${
                         errors.email ? "border-red-300" : "border-gray-300"
-                      } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                      } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] sm:text-sm`}
+                      style={{
+                        backgroundColor: errors.email ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                        WebkitBoxShadow: 'none',
+                        boxShadow: 'none'
+                      }}
                       placeholder="info@yourcompany.com"
                     />
                   </div>
@@ -522,7 +547,12 @@ export default function NewCompanyPage() {
                           errors.headquartersCity
                             ? "border-red-300"
                             : "border-gray-300"
-                        } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                        } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] sm:text-sm`}
+                        style={{
+                          backgroundColor: errors.headquartersCity ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                          WebkitBoxShadow: 'none',
+                          boxShadow: 'none'
+                        }}
                         placeholder="City"
                       />
                     </div>
@@ -543,7 +573,12 @@ export default function NewCompanyPage() {
                         errors.headquartersState
                           ? "border-red-300"
                           : "border-gray-300"
-                      } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                      } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] sm:text-sm`}
+                      style={{
+                        backgroundColor: errors.headquartersState ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                        WebkitBoxShadow: 'none',
+                        boxShadow: 'none'
+                      }}
                       placeholder="State/Province"
                     />
                     {errors.headquartersState && (
@@ -563,7 +598,12 @@ export default function NewCompanyPage() {
                         errors.headquartersCountry
                           ? "border-red-300"
                           : "border-gray-300"
-                      } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                      } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] sm:text-sm`}
+                      style={{
+                        backgroundColor: errors.headquartersCountry ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                        WebkitBoxShadow: 'none',
+                        boxShadow: 'none'
+                      }}
                       placeholder="Country"
                     />
                     {errors.headquartersCountry && (
@@ -595,7 +635,12 @@ export default function NewCompanyPage() {
                     onChange={handleCompanyChange}
                     className={`appearance-none relative block w-full pl-10 pr-3 py-3 border ${
                       errors.description ? "border-red-300" : "border-gray-300"
-                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm resize-none`}
+                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] sm:text-sm resize-none`}
+                    style={{
+                      backgroundColor: errors.description ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                      WebkitBoxShadow: 'none',
+                      boxShadow: 'none'
+                    }}
                     placeholder="Tell us about your company..."
                   />
                 </div>
@@ -626,7 +671,12 @@ export default function NewCompanyPage() {
                     onChange={handleCompanyChange}
                     className={`appearance-none relative block w-full pl-10 pr-3 py-3 border ${
                       errors.logoUrl ? "border-red-300" : "border-gray-300"
-                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] sm:text-sm`}
+                    style={{
+                      backgroundColor: errors.logoUrl ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                      WebkitBoxShadow: 'none',
+                      boxShadow: 'none'
+                    }}
                     placeholder="https://yourcompany.com/logo.png"
                   />
                 </div>
@@ -646,18 +696,18 @@ export default function NewCompanyPage() {
                     onChange={(e) =>
                       handleCompanyAgreeToTermsChange(e.target.checked)
                     }
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1"
+                    className="h-4 w-4 text-[#066046] focus:ring-[#066046] border-gray-300 rounded mt-1"
                   />
                   <label
                     htmlFor="agreeToTerms"
                     className="ml-2 block text-sm text-gray-700"
                   >
                     I agree to the{" "}
-                    <a href="#" className="text-blue-600 hover:text-blue-500">
+                    <a href="#" className="text-[#066046] hover:text-[#267a54]">
                       Terms of Service
                     </a>{" "}
                     and{" "}
-                    <a href="#" className="text-blue-600 hover:text-blue-500">
+                    <a href="#" className="text-[#066046] hover:text-[#267a54]">
                       Privacy Policy
                     </a>
                   </label>
@@ -673,7 +723,7 @@ export default function NewCompanyPage() {
               <div>
                 <button
                   type="submit"
-                  className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                  className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#066046] hover:bg-[#267a54] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#066046] transition-colors"
                 >
                   Continue to User Registration
                 </button>
@@ -687,7 +737,7 @@ export default function NewCompanyPage() {
 
   // User registration step
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-[#066046]/20 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -748,7 +798,7 @@ export default function NewCompanyPage() {
                     onChange={handleUserChange}
                     className={`appearance-none relative block w-full px-3 py-2 border ${
                       errors.firstName ? "border-red-300" : "border-gray-300"
-                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
                     placeholder="First name"
                   />
                   {errors.firstName && (
@@ -774,7 +824,7 @@ export default function NewCompanyPage() {
                     onChange={handleUserChange}
                     className={`appearance-none relative block w-full px-3 py-2 border ${
                       errors.lastName ? "border-red-300" : "border-gray-300"
-                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
                     placeholder="Last name"
                   />
                   {errors.lastName && (
@@ -802,7 +852,7 @@ export default function NewCompanyPage() {
                   onChange={handleUserChange}
                   className={`appearance-none relative block w-full px-3 py-2 border ${
                     errors.email ? "border-red-300" : "border-gray-300"
-                  } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                  } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
                   placeholder="Email address"
                 />
                 {errors.email && (
@@ -825,7 +875,7 @@ export default function NewCompanyPage() {
                   onChange={handleUserChange}
                   className={`appearance-none relative block w-full px-3 py-2 border ${
                     errors.role ? "border-red-300" : "border-gray-300"
-                  } text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                  } text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
                 >
                   <option value="HR Manager">HR Manager</option>
                   <option value="Recruiter">Recruiter</option>
@@ -857,7 +907,7 @@ export default function NewCompanyPage() {
                     onChange={handleUserChange}
                     className={`appearance-none relative block w-full px-3 py-2 pr-10 border ${
                       errors.password ? "border-red-300" : "border-gray-300"
-                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
                     placeholder="Password"
                   />
                   <button
@@ -897,7 +947,7 @@ export default function NewCompanyPage() {
                       errors.confirmPassword
                         ? "border-red-300"
                         : "border-gray-300"
-                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
                     placeholder="Confirm password"
                   />
                   <button
@@ -928,18 +978,18 @@ export default function NewCompanyPage() {
                     type="checkbox"
                     checked={userData.agreeToTerms}
                     onChange={handleUserChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1"
+                    className="h-4 w-4 text-[#066046] focus:ring-[#066046] border-gray-300 rounded mt-1"
                   />
                   <label
                     htmlFor="userAgreeToTerms"
                     className="ml-2 block text-sm text-gray-700"
                   >
                     I agree to the{" "}
-                    <a href="#" className="text-blue-600 hover:text-blue-500">
+                    <a href="#" className="text-[#066046] hover:text-[#267a54]">
                       Terms of Service
                     </a>{" "}
                     and{" "}
-                    <a href="#" className="text-blue-600 hover:text-blue-500">
+                    <a href="#" className="text-[#066046] hover:text-[#267a54]">
                       Privacy Policy
                     </a>
                   </label>
@@ -957,7 +1007,7 @@ export default function NewCompanyPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#066046] hover:bg-[#267a54] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#066046] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isSubmitting ? (
                   <div className="flex items-center">
@@ -976,7 +1026,7 @@ export default function NewCompanyPage() {
                 Already have an account?{" "}
                 <Link
                   href="/login"
-                  className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+                  className="font-medium text-[#066046] hover:text-[#267a54] transition-colors"
                 >
                   Sign in here
                 </Link>

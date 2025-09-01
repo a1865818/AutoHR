@@ -185,9 +185,9 @@ export default function ExistingCompanySignupPage() {
   // Loading company state
   if (isLoadingCompany) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
+      <div className="min-h-screen flex items-center justify-center bg-[#066046]/20">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600 mb-4" />
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#066046] mb-4" />
           <p className="text-gray-600">Loading company information...</p>
         </div>
       </div>
@@ -197,7 +197,7 @@ export default function ExistingCompanySignupPage() {
   // Company error state
   if (companyError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen flex items-center justify-center bg-[#066046]/20 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
           <div className="mx-auto h-12 w-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
             <AlertCircle className="h-6 w-6 text-red-600" />
@@ -209,7 +209,7 @@ export default function ExistingCompanySignupPage() {
           <div className="space-y-3">
             <Link
               href="/signup/hiring/existing-company"
-              className="block w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="block w-full px-4 py-2 bg-[#066046] text-white rounded-lg hover:bg-[#267a54] transition-colors"
             >
               Search Companies Again
             </Link>
@@ -228,10 +228,10 @@ export default function ExistingCompanySignupPage() {
   // Success state
   if (signupSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
+      <div className="min-h-screen flex items-center justify-center bg-[#066046]/20">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
-          <div className="mx-auto h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-            <Briefcase className="h-6 w-6 text-blue-600" />
+          <div className="mx-auto h-12 w-12 bg-[#066046]/10 rounded-full flex items-center justify-center mb-4">
+            <Briefcase className="h-6 w-6 text-[#066046]" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
             Welcome to {company?.name}!
@@ -250,11 +250,11 @@ export default function ExistingCompanySignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-[#066046]/20 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-blue-600 rounded-full flex items-center justify-center">
+          <div className="mx-auto h-12 w-12 bg-[#066046] rounded-full flex items-center justify-center">
             <Briefcase className="h-6 w-6 text-white" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">
@@ -286,8 +286,8 @@ export default function ExistingCompanySignupPage() {
                     className="h-10 w-10 rounded-lg object-cover"
                   />
                 ) : (
-                  <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <Building2 className="h-5 w-5 text-blue-600" />
+                  <div className="h-10 w-10 bg-[#066046]/10 rounded-lg flex items-center justify-center">
+                    <Building2 className="h-5 w-5 text-[#066046]" />
                   </div>
                 )}
               </div>
@@ -341,7 +341,12 @@ export default function ExistingCompanySignupPage() {
                     onChange={handleInputChange}
                     className={`appearance-none relative block w-full px-3 py-2 border ${
                       errors.firstName ? "border-red-300" : "border-gray-300"
-                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
+                    style={{
+                      backgroundColor: errors.firstName ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                      WebkitBoxShadow: 'none',
+                      boxShadow: 'none'
+                    }}
                     placeholder="First name"
                   />
                   {errors.firstName && (
@@ -368,7 +373,12 @@ export default function ExistingCompanySignupPage() {
                     onChange={handleInputChange}
                     className={`appearance-none relative block w-full px-3 py-2 border ${
                       errors.lastName ? "border-red-300" : "border-gray-300"
-                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
+                    style={{
+                      backgroundColor: errors.lastName ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                      WebkitBoxShadow: 'none',
+                      boxShadow: 'none'
+                    }}
                     placeholder="Last name"
                   />
                   {errors.lastName && (
@@ -396,7 +406,12 @@ export default function ExistingCompanySignupPage() {
                   onChange={handleInputChange}
                   className={`appearance-none relative block w-full px-3 py-2 border ${
                     errors.email ? "border-red-300" : "border-gray-300"
-                  } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                  } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
+                  style={{
+                    backgroundColor: errors.email ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                    WebkitBoxShadow: 'none',
+                    boxShadow: 'none'
+                  }}
                   placeholder="Email address"
                 />
                 {errors.email && (
@@ -419,7 +434,12 @@ export default function ExistingCompanySignupPage() {
                   onChange={handleInputChange}
                   className={`appearance-none relative block w-full px-3 py-2 border ${
                     errors.role ? "border-red-300" : "border-gray-300"
-                  } text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                  } text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
+                  style={{
+                    backgroundColor: errors.role ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                    WebkitBoxShadow: 'none',
+                    boxShadow: 'none'
+                  }}
                 >
                   <option value="HR Manager">HR Manager</option>
                   <option value="Recruiter">Recruiter</option>
@@ -451,7 +471,12 @@ export default function ExistingCompanySignupPage() {
                     onChange={handleInputChange}
                     className={`appearance-none relative block w-full px-3 py-2 pr-10 border ${
                       errors.password ? "border-red-300" : "border-gray-300"
-                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
+                    style={{
+                      backgroundColor: errors.password ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                      WebkitBoxShadow: 'none',
+                      boxShadow: 'none'
+                    }}
                     placeholder="Password"
                   />
                   <button
@@ -491,7 +516,12 @@ export default function ExistingCompanySignupPage() {
                       errors.confirmPassword
                         ? "border-red-300"
                         : "border-gray-300"
-                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
+                    style={{
+                      backgroundColor: errors.confirmPassword ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                      WebkitBoxShadow: 'none',
+                      boxShadow: 'none'
+                    }}
                     placeholder="Confirm password"
                   />
                   <button
@@ -522,18 +552,18 @@ export default function ExistingCompanySignupPage() {
                     type="checkbox"
                     checked={formData.agreeToTerms}
                     onChange={handleInputChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1"
+                    className="h-4 w-4 text-[#066046] focus:ring-[#066046] border-gray-300 rounded mt-1"
                   />
                   <label
                     htmlFor="agreeToTerms"
                     className="ml-2 block text-sm text-gray-700"
                   >
                     I agree to the{" "}
-                    <a href="#" className="text-blue-600 hover:text-blue-500">
+                    <a href="#" className="text-[#066046] hover:text-[#267a54]">
                       Terms of Service
                     </a>{" "}
                     and{" "}
-                    <a href="#" className="text-blue-600 hover:text-blue-500">
+                    <a href="#" className="text-[#066046] hover:text-[#267a54]">
                       Privacy Policy
                     </a>
                   </label>
@@ -551,7 +581,7 @@ export default function ExistingCompanySignupPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#066046] hover:bg-[#267a54] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#066046] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isSubmitting ? (
                   <div className="flex items-center">
@@ -570,7 +600,7 @@ export default function ExistingCompanySignupPage() {
                 Already have an account?{" "}
                 <Link
                   href="/login"
-                  className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+                  className="font-medium text-[#066046] hover:text-[#267a54] transition-colors"
                 >
                   Sign in here
                 </Link>

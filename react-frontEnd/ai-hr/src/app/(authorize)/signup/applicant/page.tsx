@@ -108,7 +108,7 @@ export default function ApplicantSignupPage() {
 
   if (signupSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
+      <div className="min-h-screen flex items-center justify-center bg-[#066046]/20">
         <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8 text-center">
           <div className="mx-auto h-12 w-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
             <Search className="h-6 w-6 text-green-600" />
@@ -130,11 +130,11 @@ export default function ApplicantSignupPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-[#066046]/20 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-blue-600 rounded-full flex items-center justify-center">
+          <div className="mx-auto h-12 w-12 bg-[#066046] rounded-full flex items-center justify-center">
             <Search className="h-6 w-6 text-white" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">
@@ -192,7 +192,12 @@ export default function ApplicantSignupPage() {
                     onChange={handleInputChange}
                     className={`appearance-none relative block w-full px-3 py-2 border ${
                       errors.firstName ? "border-red-300" : "border-gray-300"
-                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
+                    style={{
+                      backgroundColor: errors.firstName ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                      WebkitBoxShadow: 'none',
+                      boxShadow: 'none'
+                    }}
                     placeholder="First name"
                   />
                   {errors.firstName && (
@@ -219,7 +224,12 @@ export default function ApplicantSignupPage() {
                     onChange={handleInputChange}
                     className={`appearance-none relative block w-full px-3 py-2 border ${
                       errors.lastName ? "border-red-300" : "border-gray-300"
-                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
+                    style={{
+                      backgroundColor: errors.lastName ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                      WebkitBoxShadow: 'none',
+                      boxShadow: 'none'
+                    }}
                     placeholder="Last name"
                   />
                   {errors.lastName && (
@@ -247,7 +257,12 @@ export default function ApplicantSignupPage() {
                   onChange={handleInputChange}
                   className={`appearance-none relative block w-full px-3 py-2 border ${
                     errors.email ? "border-red-300" : "border-gray-300"
-                  } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                  } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
+                  style={{
+                    backgroundColor: errors.email ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                    WebkitBoxShadow: 'none',
+                    boxShadow: 'none'
+                  }}
                   placeholder="Email address"
                 />
                 {errors.email && (
@@ -273,7 +288,12 @@ export default function ApplicantSignupPage() {
                     onChange={handleInputChange}
                     className={`appearance-none relative block w-full px-3 py-2 pr-10 border ${
                       errors.password ? "border-red-300" : "border-gray-300"
-                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
+                    style={{
+                      backgroundColor: errors.password ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                      WebkitBoxShadow: 'none',
+                      boxShadow: 'none'
+                    }}
                     placeholder="Password"
                   />
                   <button
@@ -313,7 +333,12 @@ export default function ApplicantSignupPage() {
                       errors.confirmPassword
                         ? "border-red-300"
                         : "border-gray-300"
-                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm`}
+                    } placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-[#066046] focus:z-10 sm:text-sm`}
+                    style={{
+                      backgroundColor: errors.confirmPassword ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                      WebkitBoxShadow: 'none',
+                      boxShadow: 'none'
+                    }}
                     placeholder="Confirm password"
                   />
                   <button
@@ -344,18 +369,18 @@ export default function ApplicantSignupPage() {
                     type="checkbox"
                     checked={formData.agreeToTerms}
                     onChange={handleInputChange}
-                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mt-1"
+                    className="h-4 w-4 text-[#066046] focus:ring-[#066046] border-gray-300 rounded mt-1"
                   />
                   <label
                     htmlFor="agreeToTerms"
                     className="ml-2 block text-sm text-gray-700"
                   >
                     I agree to the{" "}
-                    <a href="#" className="text-blue-600 hover:text-blue-500">
+                    <a href="#" className="text-[#066046] hover:text-[#267a54]">
                       Terms of Service
                     </a>{" "}
                     and{" "}
-                    <a href="#" className="text-blue-600 hover:text-blue-500">
+                    <a href="#" className="text-[#066046] hover:text-[#267a54]">
                       Privacy Policy
                     </a>
                   </label>
@@ -373,7 +398,7 @@ export default function ApplicantSignupPage() {
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#066046] hover:bg-[#267a54] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#066046] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isSubmitting ? (
                   <div className="flex items-center">
@@ -392,7 +417,7 @@ export default function ApplicantSignupPage() {
                 Already have an account?{" "}
                 <Link
                   href="/login"
-                  className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+                  className="font-medium text-[#066046] hover:text-[#267a54] transition-colors"
                 >
                   Sign in here
                 </Link>

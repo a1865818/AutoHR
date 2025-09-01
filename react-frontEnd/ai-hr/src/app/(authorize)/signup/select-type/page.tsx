@@ -12,11 +12,11 @@ import {
 
 export default function SelectTypePage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-[#066046]/20 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-blue-600 rounded-full flex items-center justify-center">
+          <div className="mx-auto h-12 w-12 bg-[#066046] rounded-full flex items-center justify-center">
             <UserPlus className="h-6 w-6 text-white" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">
@@ -32,11 +32,11 @@ export default function SelectTypePage() {
           {/* Job Applicant Card */}
           <Link
             href="/signup/applicant"
-            className="bg-white rounded-lg shadow-lg p-8 cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-blue-200 flex flex-col h-full"
+            className="bg-white rounded-lg shadow-lg p-8 cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-[#066046]/20 flex flex-col h-full"
           >
             <div className="text-center flex-1 flex flex-col">
-              <div className="mx-auto h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                <Search className="h-8 w-8 text-blue-600" />
+              <div className="mx-auto h-16 w-16 bg-[#066046]/10 rounded-full flex items-center justify-center mb-4">
+                <Search className="h-8 w-8 text-[#066046]" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">
                 Job Applicant
@@ -49,21 +49,21 @@ export default function SelectTypePage() {
               {/* Features */}
               <div className="space-y-2 mb-6">
                 <div className="flex items-center text-sm text-gray-600">
-                  <CheckCircle className="h-4 w-4 text-blue-500 mr-2" />
+                  <CheckCircle className="h-4 w-4 text-[#066046] mr-2" />
                   Apply to jobs instantly
                 </div>
                 <div className="flex items-center text-sm text-gray-600">
-                  <CheckCircle className="h-4 w-4 text-blue-500 mr-2" />
+                  <CheckCircle className="h-4 w-4 text-[#066046] mr-2" />
                   Track your applications
                 </div>
                 <div className="flex items-center text-sm text-gray-600">
-                  <CheckCircle className="h-4 w-4 text-blue-500 mr-2" />
+                  <CheckCircle className="h-4 w-4 text-[#066046] mr-2" />
                   AI-powered job matching
                 </div>
               </div>
 
               {/* Action */}
-              <div className="flex items-center justify-center text-blue-600 font-medium">
+              <div className="flex items-center justify-center text-[#066046] font-medium">
                 Get Started
                 <ArrowRight className="h-4 w-4 ml-2" />
               </div>
@@ -73,11 +73,11 @@ export default function SelectTypePage() {
           {/* Hiring User Card */}
           <Link
             href="/signup/hiring"
-            className="bg-white rounded-lg shadow-lg p-8 cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-blue-200 flex flex-col h-full"
+            className="bg-white rounded-lg shadow-lg p-8 cursor-pointer transform transition-all duration-200 hover:scale-105 hover:shadow-xl border-2 border-transparent hover:border-[#066046]/20 flex flex-col h-full"
           >
             <div className="text-center flex-1 flex flex-col">
-              <div className="mx-auto h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-                <Briefcase className="h-8 w-8 text-blue-600" />
+              <div className="mx-auto h-16 w-16 bg-[#066046]/10 rounded-full flex items-center justify-center mb-4">
+                <Briefcase className="h-8 w-8 text-[#066046]" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">
                 HR Professional
@@ -89,21 +89,21 @@ export default function SelectTypePage() {
               {/* Features */}
               <div className="space-y-2 mb-6">
                 <div className="flex items-center text-sm text-gray-600">
-                  <CheckCircle className="h-4 w-4 text-blue-500 mr-2" />
+                  <CheckCircle className="h-4 w-4 text-[#066046] mr-2" />
                   Post job openings
                 </div>
                 <div className="flex items-center text-sm text-gray-600">
-                  <CheckCircle className="h-4 w-4 text-blue-500 mr-2" />
+                  <CheckCircle className="h-4 w-4 text-[#066046] mr-2" />
                   AI candidate ranking
                 </div>
                 <div className="flex items-center text-sm text-gray-600">
-                  <CheckCircle className="h-4 w-4 text-blue-500 mr-2" />
+                  <CheckCircle className="h-4 w-4 text-[#066046] mr-2" />
                   Interview management
                 </div>
               </div>
 
               {/* Action */}
-              <div className="flex items-center justify-center text-blue-600 font-medium">
+              <div className="flex items-center justify-center text-[#066046] font-medium">
                 Get Started
                 <ArrowRight className="h-4 w-4 ml-2" />
               </div>
@@ -117,7 +117,7 @@ export default function SelectTypePage() {
             Already have an account?{" "}
             <Link
               href="/login"
-              className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+              className="font-medium text-[#066046] hover:text-[#267a54] transition-colors"
             >
               Sign in here
             </Link>

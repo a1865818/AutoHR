@@ -70,18 +70,18 @@ export default function ExistingCompanyPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-[#066046]/20 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
           <Link
             href="/signup/hiring"
-            className="inline-flex items-center text-blue-600 hover:text-blue-500 mb-4"
+            className="inline-flex items-center text-[#066046] hover:text-[#267a54] mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to hiring options
           </Link>
-          <div className="mx-auto h-12 w-12 bg-blue-600 rounded-full flex items-center justify-center">
+          <div className="mx-auto h-12 w-12 bg-[#066046] rounded-full flex items-center justify-center">
             <Building2 className="h-6 w-6 text-white" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">
@@ -103,7 +103,12 @@ export default function ExistingCompanyPage() {
               placeholder="Search companies by name or industry..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+              className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-transparent"
+              style={{
+                backgroundColor: 'rgba(6, 96, 70, 0.2)',
+                WebkitBoxShadow: 'none',
+                boxShadow: 'none'
+              }}
             />
           </div>
         </div>
@@ -111,7 +116,7 @@ export default function ExistingCompanyPage() {
         {/* Loading State */}
         {isLoading && (
           <div className="text-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-[#066046]" />
             <p className="mt-2 text-gray-600">Loading companies...</p>
           </div>
         )}
@@ -145,7 +150,7 @@ export default function ExistingCompanyPage() {
                 </p>
                 <Link
                   href="/signup/hiring/new-company"
-                  className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="inline-flex items-center px-4 py-2 bg-[#066046] text-white rounded-lg hover:bg-[#267a54] transition-colors"
                 >
                   Register a new company instead
                 </Link>
@@ -156,7 +161,7 @@ export default function ExistingCompanyPage() {
                   <div
                     key={company.id}
                     onClick={() => handleCompanySelect(company)}
-                    className="bg-white rounded-lg shadow-md p-6 cursor-pointer transform transition-all duration-200 hover:scale-[1.02] hover:shadow-lg border-2 border-transparent hover:border-blue-200"
+                    className="bg-white rounded-lg shadow-md p-6 cursor-pointer transform transition-all duration-200 hover:scale-[1.02] hover:shadow-lg border-2 border-transparent hover:border-[#066046]/20"
                   >
                     <div className="flex items-start space-x-4">
                       <div className="flex-shrink-0">
@@ -167,8 +172,8 @@ export default function ExistingCompanyPage() {
                             className="h-12 w-12 rounded-lg object-cover"
                           />
                         ) : (
-                          <div className="h-12 w-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <Building2 className="h-6 w-6 text-blue-600" />
+                          <div className="h-12 w-12 bg-[#066046]/10 rounded-lg flex items-center justify-center">
+                            <Building2 className="h-6 w-6 text-[#066046]" />
                           </div>
                         )}
                       </div>
@@ -187,7 +192,7 @@ export default function ExistingCompanyPage() {
                           </p>
                         )}
                         {company.website && (
-                          <p className="text-sm text-blue-600 mt-1">
+                          <p className="text-sm text-[#066046] mt-1">
                             🌐 {company.website}
                           </p>
                         )}
@@ -208,7 +213,7 @@ export default function ExistingCompanyPage() {
             </p>
             <Link
               href="/signup/hiring/new-company"
-              className="text-blue-600 hover:text-blue-500 underline"
+              className="text-[#066046] hover:text-[#267a54] underline"
             >
               Register a new company instead
             </Link>
@@ -221,7 +226,7 @@ export default function ExistingCompanyPage() {
             Already have an account?{" "}
             <Link
               href="/login"
-              className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+              className="font-medium text-[#066046] hover:text-[#267a54] transition-colors"
             >
               Sign in here
             </Link>

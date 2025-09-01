@@ -70,9 +70,9 @@ const ForgotPasswordPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
+      <div className="min-h-screen flex items-center justify-center bg-[#066046]/20">
         <div className="flex items-center space-x-2">
-          <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+          <Loader2 className="h-6 w-6 animate-spin text-[#066046]" />
           <span className="text-gray-600">Loading...</span>
         </div>
       </div>
@@ -81,11 +81,11 @@ const ForgotPasswordPage: React.FC = () => {
 
   if (resetSuccess) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
+      <div className="min-h-screen flex items-center justify-center bg-[#066046]/20">
         <div className="max-w-md w-full space-y-8">
           <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-            <div className="mx-auto h-16 w-16 bg-green-100 rounded-full flex items-center justify-center mb-6">
-              <CheckCircle className="h-8 w-8 text-green-600" />
+            <div className="mx-auto h-16 w-16 bg-[#066046]/10 rounded-full flex items-center justify-center mb-6">
+              <CheckCircle className="h-8 w-8 text-[#066046]" />
             </div>
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
               Check your email
@@ -98,7 +98,7 @@ const ForgotPasswordPage: React.FC = () => {
             <div className="space-y-4">
               <Link
                 href="/login"
-                className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 block text-center"
+                className="w-full py-3 px-4 bg-[#066046] hover:bg-[#267a54] text-white font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#066046] block text-center"
               >
                 Back to Login
               </Link>
@@ -109,7 +109,7 @@ const ForgotPasswordPage: React.FC = () => {
                     setResetSuccess(false);
                     setEmail("");
                   }}
-                  className="text-blue-600 hover:text-blue-500 font-medium"
+                  className="text-[#066046] hover:text-[#267a54] font-medium"
                 >
                   try again
                 </button>
@@ -122,11 +122,11 @@ const ForgotPasswordPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-[#066046]/20 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto h-12 w-12 bg-blue-600 rounded-full flex items-center justify-center">
+          <div className="mx-auto h-12 w-12 bg-[#066046] rounded-full flex items-center justify-center">
             <Mail className="h-6 w-6 text-white" />
           </div>
           <h2 className="mt-6 text-3xl font-bold text-gray-900">
@@ -160,11 +160,16 @@ const ForgotPasswordPage: React.FC = () => {
                   autoComplete="email"
                   value={email}
                   onChange={handleInputChange}
-                  className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+                  className={`block w-full pl-10 pr-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#066046] focus:border-transparent transition-colors ${
                     errors.email
                       ? "border-red-300 bg-red-50"
-                      : "border-gray-300 bg-white hover:border-gray-400"
+                      : "border-gray-300 hover:border-gray-400"
                   }`}
+                  style={{
+                    backgroundColor: errors.email ? '#fef2f2' : 'rgba(6, 96, 70, 0.2)',
+                    WebkitBoxShadow: 'none',
+                    boxShadow: 'none'
+                  }}
                   placeholder="Enter your email address"
                 />
               </div>
@@ -190,7 +195,7 @@ const ForgotPasswordPage: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-[#066046] hover:bg-[#267a54] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#066046] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isSubmitting ? (
                 <div className="flex items-center">
@@ -219,7 +224,7 @@ const ForgotPasswordPage: React.FC = () => {
             <div className="text-center">
               <p className="text-xs text-gray-500 mb-3">Need more help?</p>
               <div className="space-y-2 text-xs text-gray-600">
-                <div className="bg-gray-50 rounded p-2">
+                <div className="bg-[#066046]/5 rounded p-2">
                   <strong>Contact Support:</strong> support@autohr.com
                 </div>
                 <p className="text-gray-500">
