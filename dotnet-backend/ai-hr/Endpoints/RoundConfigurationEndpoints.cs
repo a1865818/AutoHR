@@ -1,5 +1,6 @@
 using ai_hr.Models;
 using ai_hr.Contracts.Interview;
+using ai_hr.Utils;
 using Microsoft.AspNetCore.Mvc;
 using Supabase;
 using System.Security.Claims;
@@ -692,42 +693,8 @@ public static class RoundConfigurationEndpoints
 
     private static Guid? GetMigratedUserId(ClaimsPrincipal user)
     {
-        // Check JWT claims for database user ID in user_metadata
-        var userMetadataClaim = user.FindFirst("user_metadata")?.Value;
-        if (!string.IsNullOrEmpty(userMetadataClaim))
-        {
-            try
-            {
-                var userMetadata = JsonDocument.Parse(userMetadataClaim);
-                
-                // First try database_user_id (for new users)
-                if (userMetadata.RootElement.TryGetProperty("database_user_id", out var databaseUserIdElement))
-                {
-                    var databaseUserIdStr = databaseUserIdElement.GetString();
-                    if (databaseUserIdStr != null && Guid.TryParse(databaseUserIdStr, out var databaseUserId))
-                    {
-                        return databaseUserId;
-                    }
-                }
-                
-                // Fallback to migrated_user_id (for migrated users)
-                if (userMetadata.RootElement.TryGetProperty("migrated_user_id", out var migratedUserIdElement))
-                {
-                    var migratedUserIdStr = migratedUserIdElement.GetString();
-                    if (migratedUserIdStr != null && Guid.TryParse(migratedUserIdStr, out var migratedUserId))
-                    {
-                        return migratedUserId;
-                    }
-                }
-            }
-            catch
-            {
-                // If parsing fails, continue to fallback
-            }
-        }
-
-        // Final fallback: Use the current user ID from NameIdentifier claim
-        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        // Use UserIdExtractor to get database user ID from JWT metadata
+        var userId = UserIdExtractor.ExtractUserId(user);
         if (userId != null && Guid.TryParse(userId, out var userGuid))
         {
             return userGuid;

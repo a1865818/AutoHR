@@ -1,4 +1,5 @@
 using ai_hr.Models;
+using ai_hr.Utils;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -40,7 +41,7 @@ namespace ai_hr.Endpoints
         {
             try
             {
-                var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userId = UserIdExtractor.ExtractUserId(user);
                 if (!Guid.TryParse(userId, out var userGuid))
                     return Results.Unauthorized();
 
@@ -112,7 +113,7 @@ namespace ai_hr.Endpoints
         {
             try
             {
-                var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userId = UserIdExtractor.ExtractUserId(user);
                 if (!Guid.TryParse(userId, out var userGuid))
                     return Results.Unauthorized();
 
@@ -172,7 +173,7 @@ namespace ai_hr.Endpoints
         {
             try
             {
-                var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userId = UserIdExtractor.ExtractUserId(user);
                 if (!Guid.TryParse(userId, out var userGuid))
                     return Results.Unauthorized();
 
@@ -239,7 +240,7 @@ namespace ai_hr.Endpoints
         {
             try
             {
-                var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userId = UserIdExtractor.ExtractUserId(user);
                 if (!Guid.TryParse(userId, out var userGuid))
                     return Results.Unauthorized();
 

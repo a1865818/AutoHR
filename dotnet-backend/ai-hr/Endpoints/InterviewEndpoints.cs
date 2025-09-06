@@ -1,5 +1,6 @@
 using ai_hr.Models;
 using ai_hr.Contracts.Interview;
+using ai_hr.Utils;
 using Supabase;
 using System.Security.Claims;
 using System.Text.Json;
@@ -89,7 +90,7 @@ public static class InterviewEndpoints
         try
         {
             // Extract user ID from both possible claim types (Supabase uses "sub", custom uses NameIdentifier)
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? 
+            var userId = UserIdExtractor.ExtractUserId(user) ?? 
                          user.FindFirst("sub")?.Value;
             
             logger?.LogInformation("🔍 GetInterviewTemplates: UserId={UserId}, AllClaims={Claims}", 
@@ -139,7 +140,7 @@ public static class InterviewEndpoints
         try
         {
             // Extract user ID from both possible claim types (Supabase uses "sub", custom uses NameIdentifier)
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? 
+            var userId = UserIdExtractor.ExtractUserId(user) ?? 
                          user.FindFirst("sub")?.Value;
             if (string.IsNullOrEmpty(userId))
                 return Results.Unauthorized();
@@ -251,7 +252,7 @@ public static class InterviewEndpoints
     {
         try
         {
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(user);
             if (string.IsNullOrEmpty(userId))
                 return Results.Unauthorized();
 
@@ -301,7 +302,7 @@ public static class InterviewEndpoints
     {
         try
         {
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(user);
             if (string.IsNullOrEmpty(userId))
                 return Results.Unauthorized();
 
@@ -463,7 +464,7 @@ public static class InterviewEndpoints
         {
             Console.WriteLine($"🔍 Setting template as default: {id}");
 
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(user);
             if (string.IsNullOrEmpty(userId))
             {
                 Console.WriteLine("❌ No user ID found");
@@ -607,7 +608,7 @@ public static class InterviewEndpoints
         try
         {
             // Extract user ID from both possible claim types (Supabase uses "sub", custom uses NameIdentifier)
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? 
+            var userId = UserIdExtractor.ExtractUserId(user) ?? 
                          user.FindFirst("sub")?.Value;
             if (string.IsNullOrEmpty(userId))
                 return Results.Unauthorized();
@@ -662,7 +663,7 @@ public static class InterviewEndpoints
     {
         try
         {
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(user);
             if (string.IsNullOrEmpty(userId))
                 return Results.Unauthorized();
 
@@ -701,7 +702,7 @@ public static class InterviewEndpoints
     {
         try
         {
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(user);
             if (string.IsNullOrEmpty(userId))
                 return Results.Unauthorized();
 
@@ -756,7 +757,7 @@ public static class InterviewEndpoints
         {
             Console.WriteLine($"🔍 Starting update for round: {id}");
 
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(user);
             if (string.IsNullOrEmpty(userId))
             {
                 Console.WriteLine("❌ No user ID found");
@@ -917,7 +918,7 @@ public static class InterviewEndpoints
     {
         try
         {
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(user);
             if (string.IsNullOrEmpty(userId))
                 return Results.Unauthorized();
 
@@ -1028,42 +1029,8 @@ public static class InterviewEndpoints
 
     private static Guid? GetMigratedUserId(ClaimsPrincipal user)
     {
-        // Check JWT claims for database user ID in user_metadata
-        var userMetadataClaim = user.FindFirst("user_metadata")?.Value;
-        if (!string.IsNullOrEmpty(userMetadataClaim))
-        {
-            try
-            {
-                var userMetadata = JsonDocument.Parse(userMetadataClaim);
-                
-                // First try database_user_id (for new users)
-                if (userMetadata.RootElement.TryGetProperty("database_user_id", out var databaseUserIdElement))
-                {
-                    var databaseUserIdStr = databaseUserIdElement.GetString();
-                    if (databaseUserIdStr != null && Guid.TryParse(databaseUserIdStr, out var databaseUserId))
-                    {
-                        return databaseUserId;
-                    }
-                }
-                
-                // Fallback to migrated_user_id (for migrated users)
-                if (userMetadata.RootElement.TryGetProperty("migrated_user_id", out var migratedUserIdElement))
-                {
-                    var migratedUserIdStr = migratedUserIdElement.GetString();
-                    if (migratedUserIdStr != null && Guid.TryParse(migratedUserIdStr, out var migratedUserId))
-                    {
-                        return migratedUserId;
-                    }
-                }
-            }
-            catch
-            {
-                // If parsing fails, continue to fallback
-            }
-        }
-
-        // Final fallback: Use the current user ID from NameIdentifier claim
-        var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        // Use UserIdExtractor to get database user ID from JWT metadata
+        var userId = UserIdExtractor.ExtractUserId(user);
         if (userId != null && Guid.TryParse(userId, out var userGuid))
         {
             return userGuid;

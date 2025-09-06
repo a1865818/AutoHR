@@ -235,7 +235,7 @@ export function QuestionBuilder({
         <button
           onClick={() => setIsAddingQuestion(true)}
           disabled={maxQuestions ? questions.length >= maxQuestions : false}
-          className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-secondary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus className="w-4 h-4 mr-2" />
           Add Question
@@ -398,7 +398,7 @@ export function QuestionBuilder({
                       </button>
                       <button
                         onClick={() => setEditingQuestion(question.id)}
-                        className="p-1 text-gray-400 hover:text-indigo-600"
+                        className="p-1 text-gray-400 hover:text-secondary"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
@@ -673,7 +673,7 @@ function QuestionEditor({
             </label>
             <button
               onClick={addOption}
-              className="text-sm text-indigo-600 hover:text-indigo-800"
+              className="text-sm text-secondary hover:text-accent"
             >
               + Add Option
             </button>
@@ -730,7 +730,7 @@ function QuestionEditor({
           </label>
           <button
             onClick={addFollowUp}
-            className="text-sm text-indigo-600 hover:text-indigo-800"
+            className="text-sm text-secondary hover:text-accent"
           >
             + Add Follow-up
           </button>
@@ -768,7 +768,7 @@ function QuestionEditor({
               required: e.target.checked,
             }))
           }
-          className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+          className="h-4 w-4 text-secondary focus:ring-secondary border-gray-300 rounded"
         />
         <label htmlFor="required" className="ml-2 text-sm text-gray-700">
           Required question
@@ -786,7 +786,7 @@ function QuestionEditor({
         <button
           onClick={handleSave}
           disabled={!editedQuestion.text?.trim()}
-          className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-4 py-2 border border-transparent rounded-md text-sm font-medium text-white bg-secondary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isNew ? "Add Question" : "Save Changes"}
         </button>

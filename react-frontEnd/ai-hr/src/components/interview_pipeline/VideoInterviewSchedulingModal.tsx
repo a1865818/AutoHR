@@ -303,7 +303,7 @@ export function VideoInterviewSchedulingModal({
         ) : (
           <div className="space-y-4">
             {/* Google Calendar Authorization Status */}
-            <div className="p-3 bg-blue-50 rounded-md border border-blue-200">
+            <div className="p-3 bg-secondary/10 rounded-md border border-secondary/20">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <span className="text-sm font-medium text-blue-800 mr-2">

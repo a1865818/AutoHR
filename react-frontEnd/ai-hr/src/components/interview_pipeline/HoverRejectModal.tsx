@@ -476,7 +476,7 @@ export function HoverRejectModal({
                           ? `Using template: ${selectedTemplate.name}`
                           : "Using custom email template"}
                       </p>
-                      <p className="text-xs text-blue-600 mt-1">
+                      <p className="text-xs text-secondary mt-1">
                         Email will be sent via Gmail.{" "}
                         {customSubject.trim() && customBody.trim()
                           ? "Ready to send!"
@@ -527,7 +527,7 @@ export function HoverRejectModal({
                     <button
                       type="button"
                       onClick={() => setShowPreview(!showPreview)}
-                      className="flex items-center text-sm text-blue-600 hover:text-blue-800 transition-colors"
+                      className="flex items-center text-sm text-secondary hover:text-accent transition-colors"
                     >
                       {showPreview ? (
                         <>

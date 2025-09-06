@@ -49,6 +49,7 @@ import {
 import { VirtualizedCandidatesList } from "@/components/interview_pipeline/VirtualizedCandidatesList";
 
 import { BulkNotificationModal } from "@/components/interview_pipeline/BulkNotificationModal";
+import { LoadingState } from "@/components/ui/LoadingState";
 
 interface JobWithTemplate extends Omit<ApiJob, "interviewTemplate"> {
   interviewTemplate?: InterviewTemplate;
@@ -219,6 +220,9 @@ export default function JobPipelinePage() {
 
       // Load job details
       const jobData = await jobService.getJobById(jobId);
+      if (!jobData) {
+        throw new Error("Job not found");
+      }
       console.log("🔍 Raw job data from backend:", jobData);
       console.log(
         "🔍 Job has interviewTemplateId:",
@@ -249,10 +253,14 @@ export default function JobPipelinePage() {
           const rounds = await interviewService.getInterviewRounds(
             jobData.interviewTemplateId
           );
-          jobWithTemplate.interviewTemplate = {
-            ...template,
-            rounds: rounds,
-          };
+          if (template) {
+            jobWithTemplate.interviewTemplate = {
+              ...template,
+              id: template.id || jobData.interviewTemplateId,
+              name: template.name || "Interview Template",
+              rounds: rounds,
+            };
+          }
         } catch (error) {
           console.warn(`Failed to load template for job ${jobId}:`, error);
         }
@@ -273,7 +281,7 @@ export default function JobPipelinePage() {
                 );
                 return {
                   roundId: round.id,
-                  config: config.success ? config.data : null,
+                  config: config?.success ? config.data : null,
                 };
               } catch (error) {
                 console.warn(
@@ -484,7 +492,7 @@ export default function JobPipelinePage() {
                     candidate.applicationId
                   );
 
-                if (meetingStatus.success && meetingStatus.data.hasMeeting) {
+                if (meetingStatus?.success && meetingStatus.data?.hasMeeting) {
                   meetingScheduled = true;
                   meetLink = meetingStatus.data.meetLink;
 
@@ -496,7 +504,7 @@ export default function JobPipelinePage() {
                         currentRoundId,
                         candidate.applicationId
                       );
-                    if (meetingDetails.success) {
+                    if (meetingDetails?.success) {
                       meetingData = meetingDetails.data;
                     }
                   } catch (error) {
@@ -911,7 +919,7 @@ export default function JobPipelinePage() {
       title: "Applied",
       type: "new",
       candidates: appliedCandidates,
-      color: "border-blue-500 bg-blue-50",
+      color: "border-primary bg-primary/10",
     });
 
     // Interview round columns based on template
@@ -998,7 +1006,7 @@ export default function JobPipelinePage() {
   const getColumnColor = (type: InterviewType): string => {
     switch (type) {
       case "phone_screening":
-        return "border-blue-400 bg-blue-50";
+        return "border-primary bg-primary/10";
       case "video_interview":
         return "border-green-400 bg-green-50";
       case "technical_assessment":
@@ -2315,12 +2323,10 @@ export default function JobPipelinePage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-indigo-600" />
-          <p className="text-gray-600">Loading pipeline...</p>
-        </div>
-      </div>
+      <LoadingState
+        message="Loading pipeline..."
+        minHeightClass="min-h-screen"
+      />
     );
   }
 
@@ -2335,7 +2341,7 @@ export default function JobPipelinePage() {
           </p>
           <Link
             href="/interview-pipeline"
-            className="mt-4 inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+            className="mt-4 inline-flex items-center px-4 py-2 bg-secondary text-white rounded-md hover:bg-accent transition-colors"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Pipeline
@@ -2361,7 +2367,7 @@ export default function JobPipelinePage() {
               </Link>
               <div className="flex items-center space-x-6">
                 <h1 className="text-2xl font-bold text-gray-900 flex items-center">
-                  <GitBranch className="h-6 w-6 mr-2 text-indigo-600" />
+                  <GitBranch className="h-6 w-6 mr-2 text-secondary" />
                   {job.title}
                 </h1>
                 {/* Job info beside title */}
@@ -2389,7 +2395,9 @@ export default function JobPipelinePage() {
           <div className="flex items-center space-x-6">
             {/* Density Control */}
             <div className="flex items-center space-x-2">
-              <label className="text-sm text-gray-600 whitespace-nowrap">Density</label>
+              <label className="text-sm text-gray-600 whitespace-nowrap">
+                Density
+              </label>
               <select
                 value={cardDensity}
                 onChange={(e) => setCardDensity(e.target.value as any)}
@@ -2402,7 +2410,9 @@ export default function JobPipelinePage() {
 
             {/* Search Control */}
             <div className="flex items-center space-x-2">
-              <label className="text-sm text-gray-600 whitespace-nowrap">Search</label>
+              <label className="text-sm text-gray-600 whitespace-nowrap">
+                Search
+              </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
                   <Search className="h-4 w-4 text-gray-400" />
@@ -2413,7 +2423,7 @@ export default function JobPipelinePage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search candidates..."
                   aria-label="Search candidates by name or email"
-                  className="text-sm border border-gray-300 rounded-md pl-7 pr-2 py-1 w-48 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="text-sm border border-gray-300 rounded-md pl-7 pr-2 py-1 w-48 focus:outline-none focus:ring-1 focus:ring-secondary focus:border-secondary"
                 />
               </div>
             </div>
@@ -2447,7 +2457,7 @@ export default function JobPipelinePage() {
                 <div className="flex items-center space-x-3">
                   <button
                     onClick={handleOpenTemplateSelector}
-                    className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition-colors"
+                    className="inline-flex items-center px-4 py-2 bg-secondary text-white text-sm font-medium rounded-md hover:bg-accent transition-colors"
                   >
                     <Calendar className="w-4 h-4 mr-2" />
                     Assign Template
@@ -2532,30 +2542,30 @@ export default function JobPipelinePage() {
               return (
                 <div
                   key={roundId}
-                  className="bg-blue-50 border border-blue-200 rounded-lg p-4"
+                  className="bg-[#267a54]/20 border border-[#267a54]/30 rounded-lg p-4"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
                       <div className="flex-shrink-0">
-                        <Mail className="h-5 w-5 text-blue-600" />
+                        <Mail className="h-5 w-5 text-[#267a54]" />
                       </div>
                       <div>
-                        <h3 className="text-sm font-medium text-blue-800">
+                        <h3 className="text-sm font-medium text-[#267a54]">
                           {roundInfo.displayName} - Pending Notifications
                         </h3>
-                        <p className="text-sm text-blue-600">
+                        <p className="text-sm text-[#267a54]">
                           {notifications.length} candidate
                           {notifications.length !== 1 ? "s" : ""} moved to this
                           round, not yet notified
                         </p>
-                        <p className="text-xs text-blue-500 mt-1">
+                        <p className="text-xs text-[#267a54] mt-1">
                           {roundInfo.description}
                         </p>
                       </div>
                     </div>
                     <button
                       onClick={() => setActiveBulkNotificationRound(roundId)}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-[#267a54] bg-[#267a54]/20 hover:bg-[#267a54]/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#267a54]"
                     >
                       <Send className="h-4 w-4 mr-2" />
                       Send {notifications.length} Email
@@ -2601,7 +2611,7 @@ export default function JobPipelinePage() {
                     {column.round ? (
                       <Link
                         href={`/interview-pipeline/${jobId}/rounds/${column.round.id}`}
-                        className="font-semibold text-gray-900 hover:text-indigo-600 transition-colors cursor-pointer block truncate"
+                        className="font-semibold text-gray-900 hover:text-secondary transition-colors cursor-pointer block truncate"
                       >
                         {column.title}
                       </Link>
@@ -2915,7 +2925,7 @@ export default function JobPipelinePage() {
             <div className="flex justify-end space-x-3 mt-6">
               <Link
                 href="/interview-templates/create"
-                className="px-4 py-2 text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors font-medium"
+                className="px-4 py-2 text-secondary hover:bg-primary/10 rounded-md transition-colors font-medium"
               >
                 Create New Template
               </Link>
@@ -2931,7 +2941,7 @@ export default function JobPipelinePage() {
             {isAssigningTemplate && (
               <div className="absolute inset-0 bg-white bg-opacity-75 rounded-lg flex items-center justify-center">
                 <div className="text-center">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-indigo-600" />
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-secondary" />
                   <p className="text-sm text-gray-600">Assigning template...</p>
                 </div>
               </div>

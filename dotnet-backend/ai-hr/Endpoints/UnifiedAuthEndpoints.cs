@@ -1,6 +1,7 @@
 using ai_hr.Contracts;
 using ai_hr.Services;
 using ai_hr.Models;
+using ai_hr.Utils;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using System.Text.Json;
@@ -255,32 +256,8 @@ namespace ai_hr.Endpoints
                 try
                 {
                     // Extract real database user ID from JWT metadata
-                    string? realUserId = null;
-                    var userMetadataClaim = user.FindFirst("user_metadata")?.Value;
-                    if (!string.IsNullOrEmpty(userMetadataClaim))
-                    {
-                        try
-                        {
-                            var userMetadata = JsonDocument.Parse(userMetadataClaim);
-                            
-                            // Try database_user_id first (for new users)
-                            if (userMetadata.RootElement.TryGetProperty("database_user_id", out var databaseUserIdElement))
-                            {
-                                realUserId = databaseUserIdElement.GetString();
-                                logger.LogInformation("Found database_user_id in metadata: {UserId}", realUserId);
-                            }
-                            // Fallback to migrated_user_id (for migrated users)
-                            else if (userMetadata.RootElement.TryGetProperty("migrated_user_id", out var migratedUserIdElement))
-                            {
-                                realUserId = migratedUserIdElement.GetString();
-                                logger.LogInformation("Found migrated_user_id in metadata: {UserId}", realUserId);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            logger.LogError(ex, "Failed to parse user_metadata");
-                        }
-                    }
+                    var realUserId = UserIdExtractor.ExtractUserId(user);
+                    logger.LogInformation("Extracted user ID: {UserId}", realUserId);
 
                     if (string.IsNullOrEmpty(realUserId))
                     {

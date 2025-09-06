@@ -970,7 +970,7 @@ export default function CultureFitAssessmentMarkingPage() {
           <p className="text-gray-600 mb-4">{error}</p>
           <button
             onClick={() => router.push(`/interview-pipeline/${jobId}`)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+            className="px-4 py-2 bg-secondary text-white rounded-md hover:bg-accent"
           >
             Back to Pipeline
           </button>
@@ -1035,7 +1035,7 @@ export default function CultureFitAssessmentMarkingPage() {
               <button
                 onClick={handleSaveGrade}
                 disabled={saving}
-                className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                className="flex items-center space-x-2 px-4 py-2 bg-secondary text-white rounded-md hover:bg-accent disabled:opacity-50"
               >
                 <Save className="h-4 w-4" />
                 <span>{saving ? "Saving..." : "Save Grade"}</span>
@@ -1057,7 +1057,7 @@ export default function CultureFitAssessmentMarkingPage() {
               Grade the culture fit assessment for {candidateName || "Candidate"}
             </p>
             {submission && (
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <div className="mt-4 p-4 bg-secondary/10 rounded-lg">
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
                     <span className="text-blue-700 font-medium">Completed:</span>
@@ -1166,7 +1166,7 @@ export default function CultureFitAssessmentMarkingPage() {
                         max={question.points}
                         value={questionScore?.score || 0}
                         onChange={(e) => handleScoreChange(question.id, parseInt(e.target.value) || 0)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-secondary focus:border-transparent"
                       />
                     </div>
                     <div>
@@ -1178,7 +1178,7 @@ export default function CultureFitAssessmentMarkingPage() {
                         value={questionScore?.notes || ""}
                         onChange={(e) => handleNotesChange(question.id, e.target.value)}
                         placeholder="Add notes..."
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-secondary focus:border-transparent"
                       />
                     </div>
                   </div>
@@ -1195,7 +1195,7 @@ export default function CultureFitAssessmentMarkingPage() {
               onChange={(e) => setOverallNotes(e.target.value)}
               placeholder="Add overall feedback and notes for this candidate..."
               rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-secondary focus:border-transparent"
             />
           </div>
 

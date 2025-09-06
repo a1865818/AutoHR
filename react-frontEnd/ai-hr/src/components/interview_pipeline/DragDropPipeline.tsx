@@ -135,7 +135,7 @@ export const DragDropCandidateCard = React.memo(function DragDropCandidateCard({
       case "rejected":
         return "text-red-600 bg-red-50";
       case "in progress":
-        return "text-blue-600 bg-blue-50";
+        return "text-secondary bg-secondary/10";
       default:
         return "text-gray-600 bg-gray-50";
     }
@@ -290,7 +290,7 @@ export const DragDropCandidateCard = React.memo(function DragDropCandidateCard({
             <div
               className={`shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${
                 isAssessmentGraded
-                  ? "text-blue-600 bg-blue-50"
+                  ? "text-secondary bg-secondary/10"
                   : hasSubmittedAssessment
                   ? "text-green-600 bg-green-50"
                   : "text-orange-600 bg-orange-50"
@@ -350,14 +350,14 @@ export const DragDropCandidateCard = React.memo(function DragDropCandidateCard({
                     : (candidate.status || "In Progress").toLowerCase() ===
                       "rejected"
                     ? "text-red-600 bg-red-50"
-                    : "text-blue-600 bg-blue-50"
+                    : "text-secondary bg-secondary/10"
                 }`}
               >
                 {candidate.status || "In Progress"}
               </div>
               <button
                 onClick={() => onViewProfile?.(candidate.id)}
-                className="text-xs px-2 py-1 bg-indigo-50 text-indigo-700 rounded hover:bg-indigo-100"
+                className="text-xs px-2 py-1 bg-primary/10 text-primary rounded hover:bg-primary/20"
               >
                 View Profile
               </button>
@@ -401,7 +401,7 @@ export const DragDropCandidateCard = React.memo(function DragDropCandidateCard({
                     onClick={() =>
                       window.open(candidate.meetLink as string, "_blank")
                     }
-                    className="text-xs px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    className="text-xs px-2 py-1 bg-secondary text-white rounded hover:bg-accent"
                   >
                     Join Interview
                   </button>
@@ -428,7 +428,7 @@ export const DragDropCandidateCard = React.memo(function DragDropCandidateCard({
                       roundId || ""
                     )
                   }
-                  className="text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded hover:bg-blue-100"
+                  className="text-xs px-2 py-1 bg-secondary/10 text-secondary rounded hover:bg-secondary/20"
                 >
                   Assessment
                 </button>
@@ -510,7 +510,7 @@ export const DragDropCandidateCard = React.memo(function DragDropCandidateCard({
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 placeholder="Enter your note..."
-                className="w-full h-32 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+                className="w-full h-32 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-secondary focus:border-transparent resize-none"
               />
               <div className="flex justify-end space-x-3 mt-4">
                 <button
@@ -521,7 +521,7 @@ export const DragDropCandidateCard = React.memo(function DragDropCandidateCard({
                 </button>
                 <button
                   onClick={handleAddNote}
-                  className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-md transition-colors"
+                  className="px-4 py-2 bg-secondary text-white hover:bg-accent rounded-md transition-colors"
                 >
                   Add Note
                 </button>
@@ -540,8 +540,8 @@ export const DragDropCandidateCard = React.memo(function DragDropCandidateCard({
         />
 
         {isDragging && (
-          <div className="absolute inset-0 bg-indigo-100 bg-opacity-50 rounded-lg flex items-center justify-center">
-            <div className="text-indigo-600 font-medium text-sm">Moving...</div>
+          <div className="absolute inset-0 bg-primary/10 bg-opacity-50 rounded-lg flex items-center justify-center">
+            <div className="text-primary font-medium text-sm">Moving...</div>
           </div>
         )}
       </div>
@@ -644,7 +644,7 @@ export const DragDropCandidateCard = React.memo(function DragDropCandidateCard({
             <div
               className={`flex items-center space-x-1 px-2 py-1 rounded ${
                 isAssessmentGraded
-                  ? "text-blue-600 bg-blue-50"
+                  ? "text-secondary bg-secondary/10"
                   : hasSubmittedAssessment
                   ? "text-green-600 bg-green-50"
                   : "text-orange-600 bg-orange-50"
@@ -909,7 +909,7 @@ export const DragDropCandidateCard = React.memo(function DragDropCandidateCard({
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="Enter your note..."
-              className="w-full h-32 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+              className="w-full h-32 p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-secondary focus:border-transparent resize-none"
             />
             <div className="flex justify-end space-x-3 mt-4">
               <button
@@ -920,7 +920,7 @@ export const DragDropCandidateCard = React.memo(function DragDropCandidateCard({
               </button>
               <button
                 onClick={handleAddNote}
-                className="px-4 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-md transition-colors"
+                className="px-4 py-2 bg-secondary text-white hover:bg-accent rounded-md transition-colors"
               >
                 Add Note
               </button>
@@ -941,8 +941,8 @@ export const DragDropCandidateCard = React.memo(function DragDropCandidateCard({
 
       {/* Drag Indicator */}
       {isDragging && (
-        <div className="absolute inset-0 bg-indigo-100 bg-opacity-50 rounded-lg flex items-center justify-center">
-          <div className="text-indigo-600 font-medium text-sm">Moving...</div>
+        <div className="absolute inset-0 bg-primary/10 bg-opacity-50 rounded-lg flex items-center justify-center">
+          <div className="text-primary font-medium text-sm">Moving...</div>
         </div>
       )}
     </div>
@@ -1002,7 +1002,7 @@ export function DroppableColumn({
       {children}
       {isDragOver && (
         <div className="absolute inset-0 bg-indigo-100 bg-opacity-30 rounded-lg border-2 border-dashed border-indigo-400 flex items-center justify-center">
-          <div className="text-indigo-600 font-medium">Drop candidate here</div>
+          <div className="text-primary font-medium">Drop candidate here</div>
         </div>
       )}
     </div>

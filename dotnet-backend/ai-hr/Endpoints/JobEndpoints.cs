@@ -1,5 +1,6 @@
 using ai_hr.Models;
 using ai_hr.Contracts;
+using ai_hr.Utils;
 using Supabase;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -256,7 +257,7 @@ public static class JobEndpoints
         {
 
             // Verify user has access to this job
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(user);
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             {
                 return Results.Unauthorized();
@@ -363,7 +364,7 @@ public static class JobEndpoints
         {
             Console.WriteLine($"🔄 Bulk status change: {request.JobIds.Count} jobs to status '{request.Status}'");
 
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(user);
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             {
                 return Results.Unauthorized();
@@ -514,7 +515,7 @@ public static class JobEndpoints
     {
         try
         {
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(user);
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             {
                 return Results.Unauthorized();
@@ -604,7 +605,7 @@ public static class JobEndpoints
             if (itemsPerPage < 1) itemsPerPage = 10;
             if (itemsPerPage > 100) itemsPerPage = 100; // Limit max page size
 
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(user);
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             {
                 return Results.Unauthorized();
@@ -723,7 +724,7 @@ public static class JobEndpoints
     {
         try
         {
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(user);
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             {
                 return Results.Unauthorized();
@@ -793,7 +794,7 @@ public static class JobEndpoints
             }
 
             // Get user ID from claims
-            var userId = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(context.User);
             Console.WriteLine($"👤 Authenticated applicant user ID: {userId}");
 
             if (string.IsNullOrEmpty(userId))
@@ -889,28 +890,8 @@ public static class JobEndpoints
             }
 
             // ✅ Check if the authenticated user has applied to this job
-            // Extract the real database user ID from JWT metadata if available
-            string? realUserId = null;
-            var userMetadataClaim = context.User.FindFirst("user_metadata")?.Value;
-            if (!string.IsNullOrEmpty(userMetadataClaim))
-            {
-                try
-                {
-                    var userMetadata = System.Text.Json.JsonDocument.Parse(userMetadataClaim);
-                    if (userMetadata.RootElement.TryGetProperty("database_user_id", out var databaseUserIdElement))
-                    {
-                        realUserId = databaseUserIdElement.GetString();
-                    }
-                    else if (userMetadata.RootElement.TryGetProperty("migrated_user_id", out var migratedUserIdElement))
-                    {
-                        realUserId = migratedUserIdElement.GetString();
-                    }
-                }
-                catch
-                {
-                    // Ignore parsing errors and fall back to NameIdentifier
-                }
-            }
+            // Extract the real database user ID from JWT metadata
+            var realUserId = UserIdExtractor.ExtractUserId(context.User);
 
             var userIdToCompare = !string.IsNullOrEmpty(realUserId) ? realUserId : userId;
             if (!Guid.TryParse(userIdToCompare, out var userGuidForCompare))
@@ -1947,7 +1928,7 @@ public static class JobEndpoints
             Console.WriteLine($"📊 Getting analytics for job: {id}");
 
             // Verify user has access to this job
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(user);
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             {
                 return Results.Unauthorized();

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Supabase;
 using ai_hr.Models;
 using ai_hr.Contracts;
+using ai_hr.Utils;
 using System.Security.Claims;
 using System.Text.Json;
 using System.Collections;
@@ -917,7 +918,7 @@ namespace ai_hr.Endpoints
         // Helper methods
         private static Guid? GetUserId(ClaimsPrincipal user)
         {
-            var userIdClaim = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userIdClaim = UserIdExtractor.ExtractUserId(user);
             if (Guid.TryParse(userIdClaim, out var userId))
             {
                 return userId;

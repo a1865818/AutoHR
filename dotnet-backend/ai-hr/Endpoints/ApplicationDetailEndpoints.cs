@@ -1,6 +1,7 @@
 ﻿using ai_hr.Models;
 using ai_hr.Contracts;
 using ai_hr.Services;
+using ai_hr.Utils;
 using Supabase;
 using System.Reflection;
 using System.Text.Json;
@@ -243,40 +244,8 @@ public static class ApplicationDetailEndpoints
             if (userCategory == "ApplicationUser")
             {
                 // ✅ Extract the real database user ID from JWT metadata
-                string? realUserId = null;
-                var userMetadataClaim = context.User.FindFirst("user_metadata")?.Value;
-                if (!string.IsNullOrEmpty(userMetadataClaim))
-                {
-                    try
-                    {
-                        var userMetadata = JsonDocument.Parse(userMetadataClaim);
-                        
-                        // First try database_user_id (for new users)
-                        if (userMetadata.RootElement.TryGetProperty("database_user_id", out var databaseUserIdElement))
-                        {
-                            realUserId = databaseUserIdElement.GetString();
-                            Console.WriteLine($"   Found database_user_id in metadata: {realUserId}");
-                        }
-                        // Fallback to migrated_user_id (for migrated users)
-                        else if (userMetadata.RootElement.TryGetProperty("migrated_user_id", out var migratedUserIdElement))
-                        {
-                            realUserId = migratedUserIdElement.GetString();
-                            Console.WriteLine($"   Found migrated_user_id in metadata: {realUserId}");
-                        }
-                        else
-                        {
-                            Console.WriteLine("   No database_user_id or migrated_user_id found in metadata");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"   Failed to parse user_metadata: {ex.Message}");
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("   No user_metadata claim found");
-                }
+                var realUserId = UserIdExtractor.ExtractUserId(context.User);
+                Console.WriteLine($"   Extracted user ID: {realUserId}");
 
                 // Use real user ID if available, otherwise fall back to userId from JWT
                 var userIdToCompare = !string.IsNullOrEmpty(realUserId) ? realUserId : userId;
@@ -453,40 +422,8 @@ public static class ApplicationDetailEndpoints
             if (userCategory == "ApplicationUser")
             {
                 // Extract the real database user ID from JWT metadata
-                string? realUserId = null;
-                var userMetadataClaim = context.User.FindFirst("user_metadata")?.Value;
-                if (!string.IsNullOrEmpty(userMetadataClaim))
-                {
-                    try
-                    {
-                        var userMetadata = JsonDocument.Parse(userMetadataClaim);
-                        
-                        // First try database_user_id (for new users)
-                        if (userMetadata.RootElement.TryGetProperty("database_user_id", out var databaseUserIdElement))
-                        {
-                            realUserId = databaseUserIdElement.GetString();
-                            Console.WriteLine($"   Found database_user_id in metadata: {realUserId}");
-                        }
-                        // Fallback to migrated_user_id (for migrated users)
-                        else if (userMetadata.RootElement.TryGetProperty("migrated_user_id", out var migratedUserIdElement))
-                        {
-                            realUserId = migratedUserIdElement.GetString();
-                            Console.WriteLine($"   Found migrated_user_id in metadata: {realUserId}");
-                        }
-                        else
-                        {
-                            Console.WriteLine("   No database_user_id or migrated_user_id found in metadata");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"   Failed to parse user_metadata: {ex.Message}");
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("   No user_metadata claim found");
-                }
+                var realUserId = UserIdExtractor.ExtractUserId(context.User);
+                Console.WriteLine($"   Extracted user ID: {realUserId}");
 
                 // Use real user ID if available, otherwise fall back to userId from JWT
                 var userIdToCompare = !string.IsNullOrEmpty(realUserId) ? realUserId : userId;
@@ -702,40 +639,8 @@ public static class ApplicationDetailEndpoints
             if (userCategory == "ApplicationUser")
             {
                 // Extract the real database user ID from JWT metadata
-                string? realUserId = null;
-                var userMetadataClaim = context.User.FindFirst("user_metadata")?.Value;
-                if (!string.IsNullOrEmpty(userMetadataClaim))
-                {
-                    try
-                    {
-                        var userMetadata = JsonDocument.Parse(userMetadataClaim);
-                        
-                        // First try database_user_id (for new users)
-                        if (userMetadata.RootElement.TryGetProperty("database_user_id", out var databaseUserIdElement))
-                        {
-                            realUserId = databaseUserIdElement.GetString();
-                            Console.WriteLine($"   Found database_user_id in metadata: {realUserId}");
-                        }
-                        // Fallback to migrated_user_id (for migrated users)
-                        else if (userMetadata.RootElement.TryGetProperty("migrated_user_id", out var migratedUserIdElement))
-                        {
-                            realUserId = migratedUserIdElement.GetString();
-                            Console.WriteLine($"   Found migrated_user_id in metadata: {realUserId}");
-                        }
-                        else
-                        {
-                            Console.WriteLine("   No database_user_id or migrated_user_id found in metadata");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine($"   Failed to parse user_metadata: {ex.Message}");
-                    }
-                }
-                else
-                {
-                    Console.WriteLine("   No user_metadata claim found");
-                }
+                var realUserId = UserIdExtractor.ExtractUserId(context.User);
+                Console.WriteLine($"   Extracted user ID: {realUserId}");
 
                 // Use real user ID if available, otherwise fall back to userId from JWT
                 var userIdToCompare = !string.IsNullOrEmpty(realUserId) ? realUserId : userId;

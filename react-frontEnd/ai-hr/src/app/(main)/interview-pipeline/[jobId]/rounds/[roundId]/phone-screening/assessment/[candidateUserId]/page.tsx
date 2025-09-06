@@ -303,7 +303,7 @@ export default function PhoneScreeningAssessmentPage() {
             <button
               onClick={() => router.push(`/interview-pipeline/${jobId}`)}
               aria-label="Back to Pipeline"
-              className="inline-flex items-center px-3 py-2 text-sm bg-white border border-gray-300 text-gray-700 rounded-md shadow-sm hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              className="inline-flex items-center px-3 py-2 text-sm bg-white border border-gray-300 text-gray-700 rounded-md shadow-sm hover:bg-gray-50 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-secondary"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Pipeline
@@ -320,7 +320,7 @@ export default function PhoneScreeningAssessmentPage() {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+            className="px-4 py-2 bg-secondary text-white rounded-md hover:bg-accent disabled:opacity-50"
           >
             <Save className="h-4 w-4 inline mr-2" />
             {saving ? "Saving…" : "Save Assessment"}

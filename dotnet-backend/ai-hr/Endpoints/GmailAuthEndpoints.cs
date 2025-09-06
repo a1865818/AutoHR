@@ -1,4 +1,5 @@
 using ai_hr.Services;
+using ai_hr.Utils;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -40,7 +41,7 @@ namespace ai_hr.Endpoints
         {
             try
             {
-                var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userId = UserIdExtractor.ExtractUserId(user);
                 if (string.IsNullOrEmpty(userId))
                     return Results.Unauthorized();
 
@@ -64,7 +65,7 @@ namespace ai_hr.Endpoints
         {
             try
             {
-                var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userId = UserIdExtractor.ExtractUserId(user);
                 if (string.IsNullOrEmpty(userId))
                     return Results.Unauthorized();
 
@@ -94,7 +95,7 @@ namespace ai_hr.Endpoints
             {
                 Console.WriteLine($"🔍 GetAuthStatus called - User authenticated: {user.Identity?.IsAuthenticated}");
 
-                var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userId = UserIdExtractor.ExtractUserId(user);
                 var userCategory = user.FindFirst("userCategory")?.Value;
 
                 Console.WriteLine($"🔍 UserId: {userId}, UserCategory: {userCategory}");
@@ -124,7 +125,7 @@ namespace ai_hr.Endpoints
         {
             try
             {
-                var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var userId = UserIdExtractor.ExtractUserId(user);
                 if (string.IsNullOrEmpty(userId))
                     return Results.Unauthorized();
 

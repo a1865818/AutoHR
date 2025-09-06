@@ -190,7 +190,7 @@ export function PipelineJobCard({
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
               <Link
                 href={`/interview-pipeline/${job.id}`}
-                className="hover:text-indigo-600 hover:underline"
+                className="hover:text-secondary hover:underline"
               >
                 {job.title}
               </Link>
@@ -241,7 +241,7 @@ export function PipelineJobCard({
                         candidateCount,
                       })
                     }
-                    className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline whitespace-nowrap"
+                    className="text-xs text-secondary hover:text-accent hover:underline whitespace-nowrap"
                   >
                     Change Template
                   </button>
@@ -301,7 +301,7 @@ export function PipelineJobCard({
                           candidateCount,
                         })
                       }
-                      className="text-xs text-indigo-600 hover:text-indigo-800 hover:underline font-medium whitespace-nowrap flex-shrink-0"
+                      className="text-xs text-secondary hover:text-accent hover:underline font-medium whitespace-nowrap flex-shrink-0"
                     >
                       Assign Template
                     </button>
@@ -319,7 +319,7 @@ export function PipelineJobCard({
           </div>
           <Link
             href={`/interview-pipeline/${job.id}`}
-            className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors text-sm font-medium"
+            className="inline-flex items-center px-4 py-2 bg-secondary text-white rounded-md hover:bg-accent transition-colors text-sm font-medium"
           >
             Manage Pipeline
             <ArrowRight className="ml-2 h-4 w-4" />

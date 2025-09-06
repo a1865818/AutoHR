@@ -163,7 +163,7 @@ export default function InterviewPipelinePage() {
         jobsPerPage
       );
 
-      if (!response.jobs || response.jobs.length === 0) {
+      if (!response || !response.jobs || response.jobs.length === 0) {
         setJobs([]);
         setTotalJobs(0);
         setTotalPages(1);
@@ -259,7 +259,7 @@ export default function InterviewPipelinePage() {
           <p className="text-gray-600 text-sm mt-1">{error}</p>
           <button
             onClick={loadJobsWithTemplates}
-            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+            className="mt-4 px-4 py-2 bg-secondary text-white rounded-md hover:bg-accent transition-colors"
           >
             Try Again
           </button>
@@ -271,24 +271,26 @@ export default function InterviewPipelinePage() {
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="mb-8">
+      <div className="bg-gradient-to-r from-[#066046]/5 to-[#267a54]/5 border border-[#066046]/10 rounded-xl p-8 mb-8">
         <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center">
-              <GitBranch className="h-8 w-8 mr-3 text-indigo-600" />
-              Interview Pipeline
-            </h1>
-            <p className="text-gray-600 mt-2">
-              Manage your interview process for active job postings
-            </p>
-          </div>
           <div className="flex items-center space-x-4">
-            <div className="bg-white px-4 py-2 rounded-lg border border-gray-200">
-              <span className="text-sm font-medium text-gray-600">
-                {totalJobs} Active Job
-                {totalJobs !== 1 ? "s" : ""}
-              </span>
+            <div className="p-3 bg-[#066046]/10 rounded-lg">
+              <GitBranch className="w-8 h-8 text-[#066046]" />
             </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                Interview Pipeline
+              </h1>
+              <p className="text-gray-600 text-lg">
+                Manage your interview process for active job postings
+              </p>
+            </div>
+          </div>
+          <div className="bg-white px-6 py-3 rounded-lg border border-gray-200 shadow-lg">
+            <span className="text-sm font-medium text-gray-600">
+              {totalJobs} Active Job
+              {totalJobs !== 1 ? "s" : ""}
+            </span>
           </div>
         </div>
       </div>
@@ -302,7 +304,7 @@ export default function InterviewPipelinePage() {
             placeholder="Search by job title, department, or interview template..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-secondary focus:border-transparent"
           />
         </div>
       </div>
@@ -322,7 +324,7 @@ export default function InterviewPipelinePage() {
           {!searchQuery && (
             <Link
               href="/create-job"
-              className="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-secondary text-white rounded-md hover:bg-accent transition-colors"
             >
               Create Job
             </Link>
@@ -402,7 +404,7 @@ export default function InterviewPipelinePage() {
                   key={template.id}
                   className={`border rounded-lg p-4 cursor-pointer transition-colors ${
                     template.id === selectedJobForTemplate.interviewTemplateId
-                      ? "border-indigo-500 bg-indigo-50"
+                      ? "border-primary bg-primary/10"
                       : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                   }`}
                   onClick={() => handleChangeTemplate(template.id)}
@@ -421,7 +423,7 @@ export default function InterviewPipelinePage() {
                     </div>
                     {template.id ===
                       selectedJobForTemplate.interviewTemplateId && (
-                      <CheckCircle className="h-5 w-5 text-indigo-600 ml-3" />
+                      <CheckCircle className="h-5 w-5 text-secondary ml-3" />
                     )}
                   </div>
                 </div>
@@ -451,7 +453,7 @@ export default function InterviewPipelinePage() {
             {isChangingTemplate && (
               <div className="absolute inset-0 bg-white bg-opacity-75 rounded-lg flex items-center justify-center">
                 <div className="text-center">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-indigo-600" />
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-secondary" />
                   <p className="text-sm text-gray-600">
                     {selectedJobForTemplate.interviewTemplate
                       ? "Changing"

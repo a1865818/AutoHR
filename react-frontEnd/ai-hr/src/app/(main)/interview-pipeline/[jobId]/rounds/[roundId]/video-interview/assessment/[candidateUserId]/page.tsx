@@ -183,6 +183,9 @@ export default function VideoInterviewAssessmentPage() {
           null,
           { source: "video_interview_assessment_only" }
         );
+        if (!submission) {
+          throw new Error("Failed to create submission");
+        }
         subId = submission.id;
         setSubmissionId(subId);
       }
@@ -312,7 +315,7 @@ export default function VideoInterviewAssessmentPage() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="inline-flex items-center space-x-2 px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 whitespace-nowrap"
+                className="inline-flex items-center space-x-2 px-3 py-2 bg-secondary text-white rounded-md hover:bg-accent disabled:opacity-50 whitespace-nowrap"
               >
                 {saving ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

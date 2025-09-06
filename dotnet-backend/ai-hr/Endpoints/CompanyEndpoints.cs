@@ -1,5 +1,6 @@
 using ai_hr.Models;
 using ai_hr.Contracts;
+using ai_hr.Utils;
 using Supabase;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -907,31 +908,8 @@ public static class CompanyEndpoints
                     var companyJobIds = jobsResponse.Models.Select(j => j.Id).ToList();
 
                     // Get candidate's applications to jobs at this company
-                    // Extract real database user ID from JWT metadata if available
-                    string? realUserId = null;
-                    var userMetadataClaim = context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value == userId
-                        ? context.User.FindFirst("user_metadata")?.Value
-                        : context.User.FindFirst("user_metadata")?.Value;
-
-                    if (!string.IsNullOrEmpty(userMetadataClaim))
-                    {
-                        try
-                        {
-                            var userMetadata = System.Text.Json.JsonDocument.Parse(userMetadataClaim);
-                            if (userMetadata.RootElement.TryGetProperty("database_user_id", out var databaseUserIdElement))
-                            {
-                                realUserId = databaseUserIdElement.GetString();
-                            }
-                            else if (userMetadata.RootElement.TryGetProperty("migrated_user_id", out var migratedUserIdElement))
-                            {
-                                realUserId = migratedUserIdElement.GetString();
-                            }
-                        }
-                        catch
-                        {
-                            // Ignore parsing errors and fall back to NameIdentifier
-                        }
-                    }
+                    // Extract real database user ID from JWT metadata
+                    var realUserId = UserIdExtractor.ExtractUserId(context.User);
 
                     var userIdToCompare = !string.IsNullOrEmpty(realUserId) ? realUserId : userId;
                     if (!Guid.TryParse(userIdToCompare, out var userGuidForCompare))

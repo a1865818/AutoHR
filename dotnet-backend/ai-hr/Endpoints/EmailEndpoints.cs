@@ -1,5 +1,6 @@
 using ai_hr.Models;
 using ai_hr.Services;
+using ai_hr.Utils;
 using Supabase;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -42,7 +43,7 @@ public static class EmailEndpoints
         {
             Console.WriteLine($"📧 Processing team invitation email request for {request.Email}");
 
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(user);
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             {
                 return Results.Unauthorized();
@@ -122,7 +123,7 @@ public static class EmailEndpoints
         {
             Console.WriteLine($"📧 Processing bulk email request for {request.CandidateIds.Count} candidates");
 
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(user);
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             {
                 return Results.Unauthorized();
@@ -316,7 +317,7 @@ public static class EmailEndpoints
         {
             Console.WriteLine($"📧 Processing bulk success email request for {request.CandidateIds.Count} candidates");
 
-            var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var userId = UserIdExtractor.ExtractUserId(user);
             if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userGuid))
             {
                 return Results.Unauthorized();
