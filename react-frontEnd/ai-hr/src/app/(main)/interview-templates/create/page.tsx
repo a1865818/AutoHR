@@ -569,7 +569,7 @@ export default function CreateInterviewPage() {
       );
 
       // Then create each round
-      if (template.rounds && template.rounds.length > 0) {
+      if (createdTemplate && template.rounds && template.rounds.length > 0) {
         for (const round of template.rounds) {
           const roundData = {
             name: round.name,

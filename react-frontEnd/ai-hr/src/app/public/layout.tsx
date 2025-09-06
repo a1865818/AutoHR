@@ -33,6 +33,12 @@ export default function PublicLayout({
                 href="/public"
                 className="text-foreground/80 hover:text-primary font-medium transition-colors"
               >
+                Home
+              </Link>
+              <Link
+                href="/public/browse-jobs"
+                className="text-foreground/80 hover:text-primary font-medium transition-colors"
+              >
                 Browse Jobs
               </Link>
               <Link
@@ -45,7 +51,7 @@ export default function PublicLayout({
                 href="/public/profile"
                 className="text-foreground/80 hover:text-primary font-medium transition-colors"
               >
-                Profile
+                Why Create Profile
               </Link>
             </nav>
 

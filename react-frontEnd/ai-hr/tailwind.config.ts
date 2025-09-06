@@ -23,11 +23,21 @@ const config: Config = {
         "muted-foreground": "hsl(var(--muted-foreground))",
         accent: "hsl(var(--accent))",
         "accent-foreground": "hsl(var(--accent-foreground))",
+        success: "hsl(var(--success))",
+        "success-foreground": "hsl(var(--success-foreground))",
+        warning: "hsl(var(--warning))",
+        "warning-foreground": "hsl(var(--warning-foreground))",
         destructive: "hsl(var(--destructive))",
         "destructive-foreground": "hsl(var(--destructive-foreground))",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
+        gradient: {
+          "primary-start": "var(--gradient-primary-start)",
+          "primary-end": "var(--gradient-primary-end)",
+          "secondary-start": "var(--gradient-secondary-start)",
+          "secondary-end": "var(--gradient-secondary-end)",
+        }
       },
       borderRadius: {
         lg: `var(--radius)`,
@@ -60,12 +70,37 @@ const config: Config = {
           "0%": { transform: "translateX(100%)" },
           "100%": { transform: "translateX(0)" },
         },
+        fadeInUp: {
+          "0%": { opacity: "0", transform: "translateY(30px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        slideInLeft: {
+          "0%": { opacity: "0", transform: "translateX(-30px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        "gradient-shift": {
+          "0%, 100%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+        },
+        float: {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+        pulse: {
+          "0%, 100%": { opacity: "1" },
+          "50%": { opacity: "0.8" },
+        }
       },
       animation: {
         fadeIn: "fadeIn 0.2s ease-in-out",
         scaleIn: "scaleIn 0.2s ease-in-out",
         slideIn: "slideIn 0.2s ease-in-out",
         "slide-in-right": "slide-in-right 0.3s ease-out",
+        "fade-in-up": "fadeInUp 0.6s ease-out forwards",
+        "slide-in-left": "slideInLeft 0.6s ease-out forwards",
+        "gradient-shift": "gradient-shift 8s ease infinite",
+        float: "float 3s ease-in-out infinite",
+        "pulse-slow": "pulse 4s ease-in-out infinite",
       },
     },
   },

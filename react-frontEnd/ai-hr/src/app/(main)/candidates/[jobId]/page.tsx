@@ -1,9 +1,9 @@
 import { CandidatesByJobPage } from "@/components/candidates/CandidatesByJobPage";
 
 interface CandidatesByJobPageProps {
-  params: {
+  params: Promise<{
     jobId: string;
-  };
+  }>;
 }
 
 export default async function CandidatesByJob({

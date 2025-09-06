@@ -1,6 +1,9 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
+
+// This page uses dynamic features and should not be statically generated
+export const dynamic = "force-dynamic";
 import { useEffect, useState } from "react";
 import { CheckCircle, Loader2, XCircle } from "lucide-react";
 
