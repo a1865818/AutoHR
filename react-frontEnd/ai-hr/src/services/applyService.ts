@@ -260,24 +260,31 @@ class ApplicationService {
 
   // Get application status by ID
   async getApplicationStatus(
-    applicationId: string
+    applicationId: string,
+    silent: boolean = false
   ): Promise<ApplicationDetailResponse | null> {
     try {
       const { token } = this.getAuthData();
 
       if (!token) {
-        toast.error("Please log in to view your application status");
+        if (!silent) {
+          toast.error("Please log in to view your application status");
+        }
         return null;
       }
 
       // Validate that the applicationId is in the correct format (GUID format)
       if (!this.isValidGuid(applicationId)) {
-        console.error("❌ Invalid application ID format:", applicationId);
-        toast.error("Invalid application ID format. Please contact support.");
+        if (!silent) {
+          console.error("❌ Invalid application ID format:", applicationId);
+          toast.error("Invalid application ID format. Please contact support.");
+        }
         return null;
       }
 
-      console.log("🔍 Getting application status for ID:", applicationId);
+      if (!silent) {
+        console.log("🔍 Getting application status for ID:", applicationId);
+      }
 
     const response = await fetch(
       `${this.baseUrl}/applicationdetails/${applicationId}`,
@@ -289,21 +296,27 @@ class ApplicationService {
 
     if (!response.ok) {
       const error = await response.text();
-      console.error("❌ Failed to get application status:", {
-        status: response.status,
-        statusText: response.statusText,
-        error,
-      });
-      toast.error("Unable to retrieve application status. Please try again later.");
+      if (!silent) {
+        console.error("❌ Failed to get application status:", {
+          status: response.status,
+          statusText: response.statusText,
+          error,
+        });
+        toast.error("Unable to retrieve application status. Please try again later.");
+      }
       return null;
     }
 
       const result = await response.json();
-      console.log("✅ Got application status:", result);
+      if (!silent) {
+        console.log("✅ Got application status:", result);
+      }
       return result;
     } catch (error) {
-      console.error("Error getting application status:", error);
-      toast.error("An unexpected error occurred while retrieving your application status. Please try again.");
+      if (!silent) {
+        console.error("Error getting application status:", error);
+        toast.error("An unexpected error occurred while retrieving your application status. Please try again.");
+      }
       return null;
     }
   }
@@ -311,54 +324,102 @@ class ApplicationService {
   // Get application ID for a specific candidate and job
   async getApplicationIdByCandidateAndJob(
     candidateUserId: string,
-    jobId: string
+    jobId: string,
+    silent: boolean = false
   ): Promise<ApplicationDetailResponse> {
+    if (!silent) {
+      console.log('🔍 ApplyService - getApplicationIdByCandidateAndJob called with:', { candidateUserId, jobId });
+    }
+    
     const { token } = this.getAuthData();
+    if (!silent) {
+      console.log('🔍 ApplyService - Authentication token available:', !!token);
+      console.log('🔍 ApplyService - Token length:', token?.length || 0);
+    }
 
     if (!token) {
       throw new Error("User not authenticated");
     }
 
     // Validate that the candidateUserId and jobId are in the correct format (GUID format)
+    if (!silent) {
+      console.log('🔍 ApplyService - Validating candidateUserId:', candidateUserId);
+      console.log('🔍 ApplyService - isValidGuid result for candidateUserId:', this.isValidGuid(candidateUserId));
+    }
+    
     if (!this.isValidGuid(candidateUserId)) {
-      console.error("❌ Invalid candidate user ID format:", candidateUserId);
+      if (!silent) {
+        console.error("Invalid candidate user ID format:", candidateUserId);
+      }
       throw new Error("Invalid candidate user ID format. Expected a GUID.");
     }
 
+    if (!silent) {
+      console.log('🔍 ApplyService - Validating jobId:', jobId);
+      console.log('🔍 ApplyService - isValidGuid result for jobId:', this.isValidGuid(jobId));
+    }
+    
     if (!this.isValidGuid(jobId)) {
-      console.error("❌ Invalid job ID format:", jobId);
+      if (!silent) {
+        console.error("Invalid job ID format:", jobId);
+      }
       throw new Error("Invalid job ID format. Expected a GUID.");
     }
 
-    console.log("🔍 Getting application ID for candidate:", candidateUserId, "and job:", jobId);
+    const url = `${this.baseUrl}/applicationdetails/candidate/${candidateUserId}/job/${jobId}`;
+    if (!silent) {
+      console.log('🔍 ApplyService - Base URL:', this.baseUrl);
+      console.log('🔍 ApplyService - Making request to:', url);
+      console.log('🔍 ApplyService - Request headers:', this.getHeaders());
+    }
 
-    const response = await fetch(
-      `${this.baseUrl}/applicationdetails/candidate/${candidateUserId}/job/${jobId}`,
-      {
-        method: "GET",
-        headers: this.getHeaders(),
-      }
-    );
+    const response = await fetch(url, {
+      method: "GET",
+      headers: this.getHeaders(),
+    });
+
+    if (!silent) {
+      console.log('🔍 ApplyService - Response status:', response.status);
+      console.log('🔍 ApplyService - Response ok:', response.ok);
+    }
 
     if (!response.ok) {
       const error = await response.text();
-      console.error("❌ Failed to get application ID:", {
-        status: response.status,
-        statusText: response.statusText,
-        error,
-      });
-      throw new Error(`Failed to get application ID: ${error}`);
+      if (!silent) {
+        console.error("Failed to get application ID:", {
+          status: response.status,
+          statusText: response.statusText,
+          error,
+          url,
+          candidateUserId,
+          jobId,
+        });
+      }
+      
+      // Try to parse error as JSON for more details
+      try {
+        const errorJson = JSON.parse(error);
+        if (!silent) {
+          console.error("Parsed error response:", errorJson);
+        }
+        throw new Error(`Failed to get application ID: ${errorJson.message || errorJson.error || error}`);
+      } catch {
+        throw new Error(`Failed to get application ID: ${response.status} ${response.statusText} - ${error}`);
+      }
     }
 
     const result = await response.json();
-    console.log("✅ Got application ID:", result);
+    if (!silent) {
+      console.log('🔍 ApplyService - Response result:', result);
+    }
     return result;
   }
 
   // Helper method to check if a string is a valid GUID
   private isValidGuid(str: string): boolean {
-    const guidRegex =
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    // More permissive GUID regex - just check the basic format
+    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    console.log('🔍 ApplyService - GUID validation for:', str, 'result:', guidRegex.test(str));
     return guidRegex.test(str);
   }
 

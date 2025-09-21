@@ -48,29 +48,13 @@ export function ScenarioQuestionsSection({
   const currentScenario = shuffledScenarios[currentScenarioIndex];
 
   const handleScenarioComplete = (answer: ScenarioAnswer) => {
-    console.log("🔍 ScenarioQuestionsSection - Scenario completed:", {
-      scenarioId: answer.scenarioId,
-      responseLength: answer.response.length,
-      wordCount: answer.wordCount,
-      timeSpent: answer.timeSpent,
-      currentIndex: currentScenarioIndex,
-      totalScenarios: shuffledScenarios.length
-    });
-
     const newAnswers = [...answers, answer];
     setAnswers(newAnswers);
-
-    console.log("🔍 ScenarioQuestionsSection - Updated answers:", {
-      answersCount: newAnswers.length,
-      allAnswers: newAnswers.map(a => ({ scenarioId: a.scenarioId, wordCount: a.wordCount }))
-    });
 
     // Move to next scenario or complete
     if (currentScenarioIndex < shuffledScenarios.length - 1) {
       setCurrentScenarioIndex(currentScenarioIndex + 1);
-      console.log("🔍 ScenarioQuestionsSection - Moving to next scenario:", currentScenarioIndex + 1);
     } else {
-      console.log("🔍 ScenarioQuestionsSection - All scenarios completed, calling onComplete");
       onComplete(newAnswers);
     }
   };
@@ -126,6 +110,7 @@ export function ScenarioQuestionsSection({
           scenario={currentScenario}
           onComplete={handleScenarioComplete}
           onTimeUp={handleScenarioTimeUp}
+          isLastScenario={currentScenarioIndex === shuffledScenarios.length - 1}
           key={currentScenario.id} // Force re-render for each scenario to reset state
         />
       </div>

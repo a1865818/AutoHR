@@ -51,6 +51,11 @@ interface AssessmentInstructionsProps {
 
 export function AssessmentInstructions({ config, onStart }: AssessmentInstructionsProps) {
   const formatTime = (minutes: number) => {
+    // Handle invalid duration values
+    if (!minutes || isNaN(minutes) || minutes < 0) {
+      return "45m"; // Default fallback
+    }
+    
     const hrs = Math.floor(minutes / 60);
     const mins = minutes % 60;
     if (hrs > 0) {
@@ -58,7 +63,7 @@ export function AssessmentInstructions({ config, onStart }: AssessmentInstructio
     }
     return `${mins}m`;
   };
-
+ 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       {/* Header */}
@@ -70,7 +75,6 @@ export function AssessmentInstructions({ config, onStart }: AssessmentInstructio
           {config.description}
         </p>
       </div>
-
       {/* Assessment Overview */}
       <div className="bg-white rounded-lg shadow-sm p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Assessment Overview</h2>
@@ -214,9 +218,7 @@ export function AssessmentInstructions({ config, onStart }: AssessmentInstructio
         >
           Start Assessment
         </button>
-        <p className="text-sm text-gray-500 mt-2">
-          Click to begin your {formatTime(config.duration)} assessment
-        </p>
+       
       </div>
     </div>
   );

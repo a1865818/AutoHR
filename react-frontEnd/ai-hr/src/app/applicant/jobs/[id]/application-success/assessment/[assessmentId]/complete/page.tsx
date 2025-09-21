@@ -4,49 +4,110 @@ import React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { CheckCircle, Clock, FileText, ArrowLeft } from "lucide-react";
 import { applicationService } from "@/services/applyService";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AssessmentCompletePage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const assessmentId = params.assessmentId as string;
   const jobId = params.id as string;
+
+ 
 
   // Validate assessment ID format
   const isValidAssessmentId = () => {
     const parts = assessmentId.split('-');
-    return parts.length >= 7;
+    // Should have at least 11 parts: 5 for first GUID + 5 for second GUID + 1 for timestamp
+    return parts.length >= 11;
   };
 
   const handleBackToApplication = async () => {
-    // Parse assessment ID to get user ID using the new format
+    // Parse assessment ID to get user ID
     // Format: {roundId}-{userId}-{timestamp}
+    // Example: 983756cb-7232-4a56-a702-af4d8b1ef515-8a2e8a34-caca-4781-8e25-16ad14484f95-1758438967326
     const parts = assessmentId.split('-');
     
-    if (parts.length < 7) {
+    console.log('🔍 Complete page - Assessment ID:', assessmentId);
+    console.log('🔍 Complete page - Parts:', parts);
+    console.log('🔍 Complete page - Parts length:', parts.length);
+    console.log('🔍 Complete page - Job ID:', jobId);
+    console.log('🔍 Complete page - Current authenticated user:', user);
+    console.log('🔍 Complete page - Authenticated user ID:', user?.id);
+    
+    if (parts.length < 11) {
       console.error('Invalid assessment ID format in complete page');
       // Fallback to application success page without applicationId
       router.push(`/applicant/jobs/${jobId}/application-success`);
       return;
     }
     
-    // userId is the next 5 parts (another GUID)
-    const userId = parts.slice(5, 10).join('-');
+    // Extract the second GUID (userId) - parts 5-9 (indices 5-9)
+    // First GUID: parts 0-4, Second GUID: parts 5-9, timestamp: parts 10+
+    const extractedUserId = parts.slice(5, 10).join('-');
+    const roundId = parts.slice(0, 5).join('-');
+    const timestamp = parts.slice(10).join('-');
+    
+    // Use the authenticated user ID if available, otherwise use the extracted one
+    const userId = user?.id || extractedUserId;
+    
+    console.log('🔍 Complete page - Extracted userId from assessment ID:', extractedUserId);
+    console.log('🔍 Complete page - Authenticated user ID:', user?.id);
+    console.log('🔍 Complete page - Final userId to use:', userId);
+    console.log('🔍 Complete page - Extracted roundId:', roundId);
+    console.log('🔍 Complete page - Extracted timestamp:', timestamp);
+    console.log('🔍 Complete page - userId length:', userId.length);
+    console.log('🔍 Complete page - userId format check:', /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId));
+    console.log('🔍 Complete page - userId matches authenticated user ID:', userId === user?.id);
     
     try {
-      console.log('🔍 Fetching application ID for candidate:', userId, 'and job:', jobId);
+      // Try the direct method first
+      console.log('🔍 Complete page - Trying getApplicationIdByCandidateAndJob with:', { userId, jobId });
+      console.log('🔍 Complete page - Authenticated user for comparison:', { 
+        authenticatedUserId: user?.id, 
+        extractedUserId: userId, 
+        userMatch: userId === user?.id,
+        userCategory: user?.userCategory 
+      });
       
-      // Get the correct application ID for this candidate and job
-      const applicationDetail = await applicationService.getApplicationIdByCandidateAndJob(userId, jobId);
-      
-      console.log('✅ Got application detail:', applicationDetail);
-      
-      // Redirect to application success page with the correct application ID
-      router.push(`/applicant/jobs/${jobId}/application-success?applicationId=${applicationDetail.id}`);
+      try {
+        const applicationDetail = await applicationService.getApplicationIdByCandidateAndJob(userId, jobId, true);
+        console.log('🔍 Complete page - Application detail received:', applicationDetail);
+        
+        // Redirect to application success page with the correct application ID
+        const redirectUrl = `/applicant/jobs/${jobId}/application-success?applicationId=${applicationDetail.id}`;
+        console.log('🔍 Complete page - Redirecting to:', redirectUrl);
+        router.push(redirectUrl);
+        return;
+      } catch (directError) {
+        console.warn('🔍 Complete page - Direct method failed, trying alternative:', directError);
+        
+        // Alternative method: Get all user applications and find the one for this job
+        console.log('🔍 Complete page - Trying getUserApplications as fallback');
+        const userApplications = await applicationService.getUserApplications();
+        console.log('🔍 Complete page - User applications received:', userApplications);
+        
+        const applicationForJob = userApplications.find(app => app.jobId === jobId);
+        if (applicationForJob) {
+          console.log('🔍 Complete page - Found application for job:', applicationForJob);
+          const redirectUrl = `/applicant/jobs/${jobId}/application-success?applicationId=${applicationForJob.id}`;
+          console.log('🔍 Complete page - Redirecting to:', redirectUrl);
+          router.push(redirectUrl);
+          return;
+        } else {
+          console.warn('🔍 Complete page - No application found for job in user applications');
+        }
+      }
     } catch (error) {
-      console.error('❌ Failed to get application ID:', error);
-      // Fallback to application success page without applicationId
-      router.push(`/applicant/jobs/${jobId}/application-success`);
+      console.error('Failed to get application ID:', error);
+      console.log('🔍 Complete page - Error details:', error);
     }
+    
+    // Final fallback to application success page without applicationId
+    // The application success page will try to load the application data using other methods
+    const fallbackUrl = `/applicant/jobs/${jobId}/application-success`;
+    console.log('🔍 Complete page - Falling back to:', fallbackUrl);
+    router.push(fallbackUrl);
   };
 
   // If assessment ID is invalid, show error

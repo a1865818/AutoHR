@@ -344,36 +344,23 @@ export function CultureFitConfig({
   // Load configuration from the backend when available
   useEffect(() => {
     if (savedConfig) {
-      console.log("Received saved config:", savedConfig);
-
-      // First set the top-level properties
-      const baseConfig = {
-        ...config,
-        name: savedConfig.name || config.name,
-        description: savedConfig.description || config.description,
-        duration: savedConfig.duration || config.duration,
-      };
-
-      // Then merge in configuration data if available
+      // Create a clean merged config directly from saved data
       if (
         savedConfig.configurationData &&
         typeof savedConfig.configurationData === "object"
       ) {
-        console.log("Found configuration data:", savedConfig.configurationData);
+        // Use raw data directly to avoid cleaning issues
+        const rawConfigData = savedConfig.configurationData;
 
-        // Clean the configuration data using our utility function
-        const cleanConfigData = cleanJsonObject(savedConfig.configurationData);
-        console.log("Cleaned configuration data:", cleanConfigData);
-
-        // Create a clean merged config
+        // Create a clean merged config with saved data taking precedence
         const mergedConfig = {
-          ...baseConfig,
-          ...cleanConfigData,
-          assessmentSettings: (cleanConfigData as any).assessmentSettings || baseConfig.assessmentSettings,
+          ...config, // Start with default config
+          ...rawConfigData, // Override with raw saved data
+          name: savedConfig.name || config.name,
+          description: savedConfig.description || config.description,
+          duration: savedConfig.duration || config.duration,
+          assessmentSettings: rawConfigData.assessmentSettings || config.assessmentSettings,
         };
-
-        console.log("Setting merged config:", mergedConfig);
-        setConfig(mergedConfig);
         
         // Always recalculate duration based on current questions and scenarios
         const gameQuestionsTime = mergedConfig.cultureQuestions.length * (mergedConfig.assessmentSettings.timePerQuestionSeconds / 60);
@@ -382,20 +369,20 @@ export function CultureFitConfig({
         }, 0);
         const totalMinutes = Math.ceil(gameQuestionsTime + scenariosTime);
         
-        console.log("Recalculating duration for saved config:", {
-          currentDuration: mergedConfig.duration,
-          calculatedDuration: totalMinutes,
-          gameQuestions: mergedConfig.cultureQuestions.length,
-          scenarios: mergedConfig.culturalScenarios.length
-        });
-        
+        // Update duration directly in the merged config
         if (totalMinutes > 0) {
-          handleConfigChange({ duration: totalMinutes });
+          mergedConfig.duration = totalMinutes;
         }
+        
+        setConfig(mergedConfig);
       } else {
-        console.warn(
-          "No configuration data found in saved config, using defaults"
-        );
+        // Set config with just the top-level properties from savedConfig
+        const baseConfig = {
+          ...config,
+          name: savedConfig.name || config.name,
+          description: savedConfig.description || config.description,
+          duration: savedConfig.duration || config.duration,
+        };
         setConfig(baseConfig);
         
         // Always recalculate duration for default config
@@ -405,20 +392,15 @@ export function CultureFitConfig({
         }, 0);
         const totalMinutes = Math.ceil(gameQuestionsTime + scenariosTime);
         
-        console.log("Recalculating duration for default config:", {
-          currentDuration: baseConfig.duration,
-          calculatedDuration: totalMinutes,
-          gameQuestions: baseConfig.cultureQuestions.length,
-          scenarios: baseConfig.culturalScenarios.length
-        });
-        
+        // Update duration directly in the base config
         if (totalMinutes > 0) {
-          handleConfigChange({ duration: totalMinutes });
+          baseConfig.duration = totalMinutes;
         }
+        
+        setConfig(baseConfig);
       }
     }
   }, [savedConfig]);
-
 
 
   const [expandedSections, setExpandedSections] = useState({
@@ -535,13 +517,9 @@ export function CultureFitConfig({
       configurationData: cleanConfigData,
     };
 
-    console.log("Final configuration to save:", configToSave);
-
     try {
       const result = await saveConfiguration(configToSave);
-      if (result) {
-        console.log("Configuration saved successfully");
-      } else {
+      if (!result) {
         console.error("Failed to save configuration");
       }
     } catch (error) {

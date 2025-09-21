@@ -28,9 +28,10 @@ interface ScenarioQuestionProps {
   scenario: Scenario;
   onComplete: (answer: ScenarioAnswer) => void;
   onTimeUp: () => void;
+  isLastScenario?: boolean;
 }
 
-export function ScenarioQuestion({ scenario, onComplete, onTimeUp }: ScenarioQuestionProps) {
+export function ScenarioQuestion({ scenario, onComplete, onTimeUp, isLastScenario = false }: ScenarioQuestionProps) {
   const [response, setResponse] = useState("");
   const [startTime] = useState(new Date());
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -63,15 +64,18 @@ export function ScenarioQuestion({ scenario, onComplete, onTimeUp }: ScenarioQue
     setResponse(newResponse);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!isSubmitted && response.trim()) {
       setIsSubmitted(true);
+      
       const answer: ScenarioAnswer = {
         scenarioId: scenario.id,
         response: response.trim(),
         timeSpent: Math.floor((new Date().getTime() - startTime.getTime()) / 1000),
         wordCount: response.trim().split(/\s+/).filter(word => word.length > 0).length,
       };
+      
+      // No delay needed - the main page will handle the loading state
       onComplete(answer);
     }
   };
@@ -89,7 +93,7 @@ export function ScenarioQuestion({ scenario, onComplete, onTimeUp }: ScenarioQue
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
       {/* Scenario Header */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-center justify-between mb-2">
@@ -165,10 +169,10 @@ export function ScenarioQuestion({ scenario, onComplete, onTimeUp }: ScenarioQue
         <div className="flex justify-end pt-6 border-t">
           <button
             onClick={handleNext}
-            disabled={wordCount < scenario.wordLimit.min}
+            disabled={wordCount < scenario.wordLimit.min || isSubmitted}
             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Next Scenario
+            <span>{isLastScenario ? 'Submit Assessment' : 'Next Scenario'}</span>
           </button>
         </div>
       )}
@@ -177,10 +181,11 @@ export function ScenarioQuestion({ scenario, onComplete, onTimeUp }: ScenarioQue
       {isSubmitted && (
         <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
           <p className="text-sm text-green-800">
-            ✓ Response submitted. Moving to next scenario...
+            ✓ Response submitted. {isLastScenario ? 'Submitting assessment...' : 'Moving to next scenario...'}
           </p>
         </div>
       )}
+
     </div>
   );
 }

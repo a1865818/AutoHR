@@ -233,26 +233,6 @@ public static class RoundConfigurationEndpoints
             logger.LogInformation("Retrieved configuration ID: {Id} for job: {JobId}, round: {RoundId}",
                 config.Id, jobId, roundId);
 
-            if (config.ConfigurationData != null)
-            {
-                logger.LogInformation("Raw ConfigurationData has {Count} keys: {Keys}",
-                    config.ConfigurationData.Count,
-                    string.Join(", ", config.ConfigurationData.Keys));
-
-                // Log details about questions and interviewers before processing
-                if (config.ConfigurationData.TryGetValue("questions", out var rawQuestionsObj))
-                {
-                    logger.LogInformation("Raw Questions type: {Type}, Value preview: {Value}",
-                        rawQuestionsObj?.GetType().Name,
-                        rawQuestionsObj?.ToString()?.Substring(0, Math.Min(100, rawQuestionsObj.ToString()?.Length ?? 0)));
-                }
-                if (config.ConfigurationData.TryGetValue("interviewers", out var rawInterviewersObj))
-                {
-                    logger.LogInformation("Raw Interviewers type: {Type}, Value preview: {Value}",
-                        rawInterviewersObj?.GetType().Name,
-                        rawInterviewersObj?.ToString()?.Substring(0, Math.Min(100, rawInterviewersObj.ToString()?.Length ?? 0)));
-                }
-            }
 
             var response = MapToResponseDto(config, questionsResponse.Models, criteriaResponse.Models, calendarEvent);
 
@@ -282,6 +262,7 @@ public static class RoundConfigurationEndpoints
             logger.LogInformation("SaveRoundConfiguration request received for jobId: {JobId}, roundId: {RoundId}", jobId, roundId);
             logger.LogInformation("Request data: Name: {Name}, Description: {Description}, Duration: {Duration}",
                 request.Name, request.Description, request.Duration);
+
 
             // Process the configuration data if available
             Dictionary<string, object>? processedConfigData = null;

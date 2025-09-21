@@ -94,7 +94,7 @@ export function CultureFitAssessment({ assessment, onComplete }: CultureFitAsses
 
 
   const config = assessment.configuration;
-  const totalDuration = config.duration * 60; // Convert to seconds
+  const totalDuration = (Number(config.duration) || 45) * 60; // Convert to seconds, ensure duration is a number
 
   // Fallback scenarios if none are provided in configuration
   const effectiveScenarios = config.culturalScenarios && config.culturalScenarios.length > 0 
@@ -138,28 +138,6 @@ export function CultureFitAssessment({ assessment, onComplete }: CultureFitAsses
     culturalScenarios: effectiveScenarios
   };
 
-  // Debug logging for configuration
-  useEffect(() => {
-    console.log("🔍 CultureFitAssessment - Configuration loaded:", {
-      name: config.name,
-      duration: config.duration,
-      cultureQuestionsCount: config.cultureQuestions?.length || 0,
-      culturalScenariosCount: config.culturalScenarios?.length || 0,
-      effectiveScenariosCount: effectiveScenarios.length,
-      culturalScenarios: config.culturalScenarios,
-      effectiveScenarios: effectiveScenarios,
-      assessmentSettings: config.assessmentSettings
-    });
-  }, [config, effectiveScenarios]);
-
-  // Phase change logging
-  useEffect(() => {
-    console.log("🔍 CultureFitAssessment - Phase changed:", {
-      currentPhase,
-      gameAnswersCount: gameAnswers.length,
-      scenarioAnswersCount: scenarioAnswers.length
-    });
-  }, [currentPhase, gameAnswers.length, scenarioAnswers.length]);
 
   const handleStartAssessment = () => {
     setStartTime(new Date());
@@ -177,16 +155,7 @@ export function CultureFitAssessment({ assessment, onComplete }: CultureFitAsses
   };
 
   const handleScenariosComplete = (answers: AssessmentResults["scenarioAnswers"]) => {
-    console.log("🔍 CultureFitAssessment - Scenarios completed:", {
-      answersCount: answers.length,
-      answers: answers.map(a => ({ scenarioId: a.scenarioId, wordCount: a.wordCount, responseLength: a.response.length }))
-    });
-    
     setScenarioAnswers(answers);
-    console.log("🔍 CultureFitAssessment - Scenario answers state updated:", {
-      scenarioAnswersCount: answers.length,
-      scenarioAnswers: answers
-    });
     handleComplete(answers);
   };
 
@@ -195,15 +164,12 @@ export function CultureFitAssessment({ assessment, onComplete }: CultureFitAsses
     // If we're in scenarios phase and have some scenario answers, preserve them
     if (currentPhase === "scenarios" && scenarioAnswers.length > 0) {
       // We already have some scenario answers, complete with what we have
-      console.log("🔍 Time up during scenarios phase with answers:", scenarioAnswers.length);
       handleComplete();
     } else if (currentPhase === "scenarios" && scenarioAnswers.length === 0) {
       // We're in scenarios phase but have no answers - this might indicate an issue
-      console.warn("⚠️ Time up during scenarios phase with no scenario answers collected");
       handleComplete();
     } else {
       // We're in game phase or haven't reached scenarios yet
-      console.log("🔍 Time up during game phase or before scenarios");
       handleComplete();
     }
   };
@@ -211,29 +177,12 @@ export function CultureFitAssessment({ assessment, onComplete }: CultureFitAsses
   const handleComplete = (scenarioAnswersOverride?: AssessmentResults["scenarioAnswers"]) => {
     const finalScenarioAnswers = scenarioAnswersOverride || scenarioAnswers;
     
-    console.log("🔍 CultureFitAssessment - handleComplete called:", {
-      gameAnswersCount: gameAnswers.length,
-      scenarioAnswersCount: finalScenarioAnswers.length,
-      currentPhase,
-      culturalScenariosCount: effectiveConfig.culturalScenarios?.length || 0
-    });
-
     const results: AssessmentResults = {
       gameAnswers,
       scenarioAnswers: finalScenarioAnswers,
       totalTimeSpent: startTime ? Math.floor((new Date().getTime() - startTime.getTime()) / 1000) : 0,
       completedAt: new Date().toISOString(),
     };
-
-    console.log("🔍 Assessment completed with results:", {
-      gameAnswersCount: results.gameAnswers.length,
-      scenarioAnswersCount: results.scenarioAnswers.length,
-      totalTimeSpent: results.totalTimeSpent,
-      currentPhase,
-      culturalScenariosCount: effectiveConfig.culturalScenarios?.length || 0,
-      gameAnswers: results.gameAnswers.map(a => ({ questionId: a.questionId, timeSpent: a.timeSpent })),
-      scenarioAnswers: results.scenarioAnswers.map(a => ({ scenarioId: a.scenarioId, wordCount: a.wordCount, responseLength: a.response.length }))
-    });
 
     onComplete(results);
   };
