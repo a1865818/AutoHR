@@ -48,6 +48,7 @@ export default function AssessmentPage() {
       };
       console.log("🔍 Transformed result cultureQuestions:", result.cultureQuestions);
       console.log("🔍 Transformed result culturalScenarios:", result.culturalScenarios);
+      console.log("🔍 Transformed result assessmentMethods:", result.assessmentMethods);
       return result;
     }
 

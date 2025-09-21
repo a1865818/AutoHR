@@ -50,6 +50,13 @@ interface CultureFitConfiguration {
     shuffleQuestions: boolean;
     showExplanations: boolean;
   };
+  assessmentMethods?: {
+    cultureScenarios?: boolean;
+    valuesAlignment?: boolean;
+    personalityAssessment?: boolean;
+    teamExercise?: boolean;
+    peerInterview?: boolean;
+  };
   instructions: string;
   evaluationCriteria: string;
 }
@@ -97,40 +104,26 @@ export function CultureFitAssessment({ assessment, onComplete }: CultureFitAsses
   const totalDuration = (Number(config.duration) || 45) * 60; // Convert to seconds, ensure duration is a number
 
   // Fallback scenarios if none are provided in configuration
-  const effectiveScenarios = config.culturalScenarios && config.culturalScenarios.length > 0 
+  // Check if scenarios are enabled in assessment methods - handle both boolean and string values
+  const cultureScenariosValue = config.assessmentMethods?.cultureScenarios;
+  let scenariosEnabled = false;
+  
+  if (typeof cultureScenariosValue === 'boolean') {
+    scenariosEnabled = cultureScenariosValue === true;
+  } else if (typeof cultureScenariosValue === 'string') {
+    scenariosEnabled = cultureScenariosValue === 'true' || cultureScenariosValue === '1';
+  } else if (typeof cultureScenariosValue === 'number') {
+    scenariosEnabled = cultureScenariosValue === 1;
+  }
+  console.log('🔍 Assessment - config.assessmentMethods:', config.assessmentMethods);
+  console.log('🔍 Assessment - cultureScenariosValue:', cultureScenariosValue, typeof cultureScenariosValue);
+  console.log('🔍 Assessment - scenariosEnabled:', scenariosEnabled);
+  console.log('🔍 Assessment - config.culturalScenarios.length:', config.culturalScenarios?.length || 0);
+  
+  const effectiveScenarios = scenariosEnabled && config.culturalScenarios && config.culturalScenarios.length > 0 
     ? config.culturalScenarios 
-    : [
-        {
-          id: "cs1",
-          title: "Deadline Pressure",
-          scenario: "Your team is facing a tight deadline and a colleague suggests cutting corners on quality to meet it. How would you respond?",
-          category: "Integrity",
-          expectedResponse: "Should discuss concerns openly, propose alternatives, escalate if necessary",
-          evaluationCriteria: [
-            "Maintains quality standards",
-            "Communicates concerns effectively",
-            "Seeks collaborative solutions",
-            "Shows integrity under pressure",
-          ],
-          timeLimitMinutes: 5,
-          wordLimit: { min: 200, max: 300 },
-        },
-        {
-          id: "cs2",
-          title: "Team Conflict",
-          scenario: "Two team members have a disagreement about the direction of a project and ask for your input. How do you handle this?",
-          category: "Collaboration",
-          expectedResponse: "Listen to both sides, facilitate discussion, focus on project goals",
-          evaluationCriteria: [
-            "Remains neutral and objective",
-            "Facilitates open communication",
-            "Focuses on solutions",
-            "Considers all perspectives",
-          ],
-          timeLimitMinutes: 5,
-          wordLimit: { min: 200, max: 300 },
-        }
-      ];
+    : [];
+  console.log('🔍 Assessment - effectiveScenarios.length:', effectiveScenarios.length);
 
   // Create effective config with fallback scenarios
   const effectiveConfig = {

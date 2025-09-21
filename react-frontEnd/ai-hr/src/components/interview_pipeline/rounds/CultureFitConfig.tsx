@@ -364,9 +364,11 @@ export function CultureFitConfig({
         
         // Always recalculate duration based on current questions and scenarios
         const gameQuestionsTime = mergedConfig.cultureQuestions.length * (mergedConfig.assessmentSettings.timePerQuestionSeconds / 60);
-        const scenariosTime = mergedConfig.culturalScenarios.reduce((total: number, scenario: CulturalScenario) => {
-          return total + scenario.timeLimitMinutes;
-        }, 0);
+        const scenariosTime = scenariosEnabled 
+          ? mergedConfig.culturalScenarios.reduce((total: number, scenario: CulturalScenario) => {
+              return total + scenario.timeLimitMinutes;
+            }, 0)
+          : 0;
         const totalMinutes = Math.ceil(gameQuestionsTime + scenariosTime);
         
         // Update duration directly in the merged config
@@ -375,6 +377,13 @@ export function CultureFitConfig({
         }
         
         setConfig(mergedConfig);
+        
+        // Set scenariosEnabled based on assessmentMethods.cultureScenarios from saved data
+        const scenariosEnabledFromMethods = rawConfigData.assessmentMethods?.cultureScenarios === true;
+        console.log('🔍 Loading saved config - rawConfigData.assessmentMethods:', rawConfigData.assessmentMethods);
+        console.log('🔍 Loading saved config - scenariosEnabledFromMethods:', scenariosEnabledFromMethods);
+        console.log('🔍 Loading saved config - setting scenariosEnabled to:', scenariosEnabledFromMethods);
+        setScenariosEnabled(scenariosEnabledFromMethods);
       } else {
         // Set config with just the top-level properties from savedConfig
         const baseConfig = {
@@ -385,11 +394,20 @@ export function CultureFitConfig({
         };
         setConfig(baseConfig);
         
+        // Set scenariosEnabled based on assessmentMethods.cultureScenarios from saved data
+        const scenariosEnabledFromMethods = baseConfig.assessmentMethods?.cultureScenarios === true;
+        console.log('🔍 Loading saved config (else) - baseConfig.assessmentMethods:', baseConfig.assessmentMethods);
+        console.log('🔍 Loading saved config (else) - scenariosEnabledFromMethods:', scenariosEnabledFromMethods);
+        console.log('🔍 Loading saved config (else) - setting scenariosEnabled to:', scenariosEnabledFromMethods);
+        setScenariosEnabled(scenariosEnabledFromMethods);
+        
         // Always recalculate duration for default config
         const gameQuestionsTime = baseConfig.cultureQuestions.length * (baseConfig.assessmentSettings.timePerQuestionSeconds / 60);
-        const scenariosTime = baseConfig.culturalScenarios.reduce((total: number, scenario: CulturalScenario) => {
-          return total + scenario.timeLimitMinutes;
-        }, 0);
+        const scenariosTime = scenariosEnabled 
+          ? baseConfig.culturalScenarios.reduce((total: number, scenario: CulturalScenario) => {
+              return total + scenario.timeLimitMinutes;
+            }, 0)
+          : 0;
         const totalMinutes = Math.ceil(gameQuestionsTime + scenariosTime);
         
         // Update duration directly in the base config
@@ -469,15 +487,17 @@ export function CultureFitConfig({
     // Calculate time for game questions
     const gameQuestionsTime = config.cultureQuestions.length * (config.assessmentSettings.timePerQuestionSeconds / 60);
     
-    // Calculate time for scenarios
-    const scenariosTime = config.culturalScenarios.reduce((total, scenario) => {
-      return total + scenario.timeLimitMinutes;
-    }, 0);
+    // Calculate time for scenarios only if scenarios are enabled
+    const scenariosTime = scenariosEnabled 
+      ? config.culturalScenarios.reduce((total, scenario) => {
+          return total + scenario.timeLimitMinutes;
+        }, 0)
+      : 0;
     
     // Round up to nearest minute
     const totalMinutes = Math.ceil(gameQuestionsTime + scenariosTime);
     
-    console.log(`Duration calculation: ${config.cultureQuestions.length} questions × ${config.assessmentSettings.timePerQuestionSeconds}s = ${gameQuestionsTime.toFixed(1)}min, ${config.culturalScenarios.length} scenarios = ${scenariosTime}min, total = ${totalMinutes}min`);
+    console.log(`Duration calculation: ${config.cultureQuestions.length} questions × ${config.assessmentSettings.timePerQuestionSeconds}s = ${gameQuestionsTime.toFixed(1)}min, ${scenariosEnabled ? config.culturalScenarios.length : 0} scenarios = ${scenariosTime}min, total = ${totalMinutes}min`);
     
     return totalMinutes;
   };
@@ -489,14 +509,25 @@ export function CultureFitConfig({
     const calculatedDuration = calculateTotalDuration();
 
     // Create a clean configuration data object with only the properties we need
+    const scenariosToSave = scenariosEnabled ? config.culturalScenarios : [];
+    console.log('🔍 Saving config - scenariosEnabled:', scenariosEnabled);
+    console.log('🔍 Saving config - config.culturalScenarios.length:', config.culturalScenarios.length);
+    console.log('🔍 Saving config - scenariosToSave.length:', scenariosToSave.length);
+    
+    const assessmentMethodsToSave = {
+      ...config.assessmentMethods,
+      cultureScenarios: scenariosEnabled
+    };
+    console.log('🔍 Saving config - assessmentMethodsToSave:', assessmentMethodsToSave);
+    
     const configDataToSave = {
       name: config.name,
       description: config.description,
       companyValues: config.companyValues,
       cultureQuestions: config.cultureQuestions,
-      culturalScenarios: config.culturalScenarios,
+      culturalScenarios: scenariosToSave,
       teamDynamics: config.teamDynamics,
-      assessmentMethods: config.assessmentMethods,
+      assessmentMethods: assessmentMethodsToSave,
       scoringMethod: config.scoringMethod,
       passingThreshold: config.passingThreshold,
       assessmentSettings: config.assessmentSettings,
@@ -2527,7 +2558,72 @@ export function CultureFitConfig({
                 type="checkbox"
                 checked={scenariosEnabled}
                 onChange={(e) => {
-                  setScenariosEnabled(e.target.checked);
+                  const enabled = e.target.checked;
+                  console.log('🔍 Cultural Scenarios checkbox toggled - enabled:', enabled);
+                  console.log('🔍 Current config.culturalScenarios.length:', config.culturalScenarios.length);
+                  setScenariosEnabled(enabled);
+                  
+                  if (!enabled) {
+                    // Clear scenarios from config when disabled
+                    console.log('🔍 Clearing scenarios from config');
+                    handleConfigChange({ 
+                      culturalScenarios: [],
+                      assessmentMethods: {
+                        ...config.assessmentMethods,
+                        cultureScenarios: false
+                      }
+                    });
+                  } else if (enabled && config.culturalScenarios.length === 0) {
+                    // Restore default scenarios when enabled and no scenarios exist
+                    console.log('🔍 Restoring default scenarios');
+                    const defaultScenarios = [
+                      {
+                        id: "cs1",
+                        title: "Deadline Pressure",
+                        category: "Integrity",
+                        scenario: "Your team is facing a tight deadline and a colleague suggests cutting corners on quality to meet it. How would you respond?",
+                        wordLimit: { max: 300, min: 200 },
+                        expectedResponse: "Should discuss concerns openly, propose alternatives, escalate if necessary",
+                        timeLimitMinutes: 5,
+                        evaluationCriteria: [
+                          "Maintains quality standards",
+                          "Communicates concerns effectively",
+                          "Seeks collaborative solutions",
+                          "Shows integrity under pressure"
+                        ]
+                      },
+                      {
+                        id: "cs2",
+                        title: "Team Conflict",
+                        category: "Collaboration",
+                        scenario: "Two team members have a disagreement about the direction of a project and ask for your input. How do you handle this?",
+                        wordLimit: { max: 300, min: 200 },
+                        expectedResponse: "Listen to both sides, facilitate discussion, focus on project goals",
+                        timeLimitMinutes: 5,
+                        evaluationCriteria: [
+                          "Remains neutral and objective",
+                          "Facilitates open communication",
+                          "Focuses on solutions",
+                          "Considers all perspectives"
+                        ]
+                      }
+                    ];
+                    handleConfigChange({ 
+                      culturalScenarios: defaultScenarios,
+                      assessmentMethods: {
+                        ...config.assessmentMethods,
+                        cultureScenarios: true
+                      }
+                    });
+                  } else if (enabled) {
+                    // Just update the assessmentMethods when scenarios already exist
+                    handleConfigChange({
+                      assessmentMethods: {
+                        ...config.assessmentMethods,
+                        cultureScenarios: true
+                      }
+                    });
+                  }
                 }}
                 className="rounded border-gray-300 text-green-600 focus:ring-green-500"
               />
@@ -3065,24 +3161,6 @@ export function CultureFitConfig({
                   </span>
                 </label>
 
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={config.assessmentMethods.cultureScenarios}
-                    onChange={(e) =>
-                      handleConfigChange({
-                        assessmentMethods: {
-                          ...config.assessmentMethods,
-                          cultureScenarios: e.target.checked,
-                        },
-                      })
-                    }
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">
-                    Cultural scenario discussions
-                  </span>
-                </label>
 
                 <label className="flex items-center">
                   <input
@@ -3119,6 +3197,62 @@ export function CultureFitConfig({
                   />
                   <span className="ml-2 text-sm text-gray-700">
                     Peer interview session
+                  </span>
+                </label>
+
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={scenariosEnabled}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      console.log('🔍 Assessment Methods scenarios checkbox toggled - enabled:', enabled);
+                      setScenariosEnabled(enabled);
+                      
+                      // Update both the scenariosEnabled state and the assessmentMethods
+                      handleConfigChange({
+                        assessmentMethods: {
+                          ...config.assessmentMethods,
+                          cultureScenarios: enabled,
+                        },
+                        culturalScenarios: enabled ? (config.culturalScenarios.length > 0 ? config.culturalScenarios : [
+                          {
+                            id: "cs1",
+                            title: "Deadline Pressure",
+                            category: "Integrity",
+                            scenario: "Your team is facing a tight deadline and a colleague suggests cutting corners on quality to meet it. How would you respond?",
+                            wordLimit: { max: 300, min: 200 },
+                            expectedResponse: "Should discuss concerns openly, propose alternatives, escalate if necessary",
+                            timeLimitMinutes: 5,
+                            evaluationCriteria: [
+                              "Maintains quality standards",
+                              "Communicates concerns effectively",
+                              "Seeks collaborative solutions",
+                              "Shows integrity under pressure"
+                            ]
+                          },
+                          {
+                            id: "cs2",
+                            title: "Team Conflict",
+                            category: "Collaboration",
+                            scenario: "Two team members have a disagreement about the direction of a project and ask for your input. How do you handle this?",
+                            wordLimit: { max: 300, min: 200 },
+                            expectedResponse: "Listen to both sides, facilitate discussion, focus on project goals",
+                            timeLimitMinutes: 5,
+                            evaluationCriteria: [
+                              "Remains neutral and objective",
+                              "Facilitates open communication",
+                              "Focuses on solutions",
+                              "Considers all perspectives"
+                            ]
+                          }
+                        ]) : []
+                      });
+                    }}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">
+                    Cultural scenario discussions
                   </span>
                 </label>
               </div>

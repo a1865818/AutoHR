@@ -1666,9 +1666,20 @@ namespace ai_hr.Endpoints
                 double gameQuestionsTimeMinutes = gameQuestionsCount * (timePerQuestionSeconds / 60.0);
                 Console.WriteLine($"🔍 Game questions time: {gameQuestionsCount} × {timePerQuestionSeconds}s = {gameQuestionsTimeMinutes} minutes");
                 
-                // Calculate time for scenarios (in minutes)
+                // Check if scenarios are enabled in assessment methods
+                bool scenariosEnabled = false;
+                if (configData.TryGetValue("assessmentMethods", out var assessmentMethods) && assessmentMethods is Dictionary<string, object> methodsDict)
+                {
+                    if (methodsDict.TryGetValue("cultureScenarios", out var cultureScenariosEnabled) && cultureScenariosEnabled != null)
+                    {
+                        scenariosEnabled = bool.TryParse(cultureScenariosEnabled.ToString(), out var parsed) && parsed;
+                    }
+                }
+                Console.WriteLine($"🔍 Scenarios enabled in assessment methods: {scenariosEnabled}");
+                
+                // Calculate time for scenarios (in minutes) - only if scenarios are enabled
                 double scenariosTimeMinutes = 0;
-                if (scenariosCount > 0 && culturalScenarios is IList scenariosListForTime)
+                if (scenariosEnabled && scenariosCount > 0 && culturalScenarios is IList scenariosListForTime)
                 {
                     foreach (var scenario in scenariosListForTime)
                     {
@@ -1692,6 +1703,10 @@ namespace ai_hr.Endpoints
                         }
                     }
                     Console.WriteLine($"🔍 Scenarios time: {scenariosTimeMinutes} minutes");
+                }
+                else if (!scenariosEnabled)
+                {
+                    Console.WriteLine($"🔍 Scenarios disabled - not including scenarios time in duration calculation");
                 }
                 
                 // Calculate total duration (no buffer for exact calculation)
