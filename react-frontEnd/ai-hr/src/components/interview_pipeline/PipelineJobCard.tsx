@@ -14,10 +14,13 @@ import {
   MessageSquare,
   Crown,
   Heart,
+  ChevronDown,
+  CheckCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { interviewService } from "@/services/interviewService";
 import { candidateService } from "@/services/candidateService";
+import { jobService } from "@/services/jobService";
 import { Loader2 } from "lucide-react";
 import { ApiJob } from "@/interfaces/api";
 import { InterviewTemplate } from "@/interfaces/interview";
@@ -29,12 +32,10 @@ interface JobWithTemplate extends Omit<ApiJob, "interviewTemplate"> {
 
 interface PipelineJobCardProps {
   job: JobWithTemplate;
-  onChangeTemplate?: (job: JobWithTemplate) => void;
 }
 
 export function PipelineJobCard({
   job,
-  onChangeTemplate,
 }: PipelineJobCardProps) {
   const [isInView, setIsInView] = useState(false);
   const [template, setTemplate] = useState<InterviewTemplate | undefined>(
@@ -44,7 +45,12 @@ export function PipelineJobCard({
     job.candidateCount
   );
   const [isLoadingLazy, setIsLoadingLazy] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [availableTemplates, setAvailableTemplates] = useState<InterviewTemplate[]>([]);
+  const [isLoadingTemplates, setIsLoadingTemplates] = useState(false);
+  const [isChangingTemplate, setIsChangingTemplate] = useState(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Observe when card enters viewport to trigger lazy data fetch
   useEffect(() => {
@@ -116,6 +122,66 @@ export function PipelineJobCard({
       aborted = true;
     };
   }, [isInView]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+
+    if (showDropdown) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showDropdown]);
+
+  // Load available templates when dropdown opens
+  const handleOpenDropdown = async () => {
+    setShowDropdown(true);
+    if (availableTemplates.length === 0) {
+      setIsLoadingTemplates(true);
+      try {
+        const templates = await interviewService.getInterviewTemplates();
+        setAvailableTemplates(templates);
+      } catch (error) {
+        console.error("Error loading templates:", error);
+      } finally {
+        setIsLoadingTemplates(false);
+      }
+    }
+  };
+
+  // Handle template change
+  const handleChangeTemplate = async (templateId: string) => {
+    try {
+      setIsChangingTemplate(true);
+      await jobService.updateJob(job.id, {
+        interviewTemplateId: templateId,
+      });
+
+      // Reload template data
+      const [tmpl, rounds] = await Promise.all([
+        interviewService.getInterviewTemplate(templateId),
+        interviewService.getInterviewRounds(templateId),
+      ]);
+      setTemplate({ ...tmpl, rounds });
+      setShowDropdown(false);
+
+      const { showToast } = await import("@/utils/toast");
+      showToast.success("Interview template updated successfully");
+    } catch (error) {
+      console.error("Error changing template:", error);
+      const { showToast } = await import("@/utils/toast");
+      showToast.error("Failed to update interview template");
+    } finally {
+      setIsChangingTemplate(false);
+    }
+  };
   const formatDate = (dateValue: any): string => {
     if (!dateValue) return "Recently";
 
@@ -162,17 +228,17 @@ export function PipelineJobCard({
   const getInterviewTypeColor = (type: string) => {
     switch (type) {
       case "phone_screening":
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-50 text-blue-700 border border-blue-200";
       case "video_interview":
-        return "bg-green-100 text-green-800";
+        return "bg-purple-50 text-purple-700 border border-purple-200";
       case "technical_assessment":
-        return "bg-purple-100 text-purple-800";
+        return "bg-orange-50 text-orange-700 border border-orange-200";
       case "coding_challenge":
-        return "bg-orange-100 text-orange-800";
+        return "bg-cyan-50 text-cyan-700 border border-cyan-200";
       case "final_interview":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-amber-50 text-amber-700 border border-amber-200";
       case "culture_fit":
-        return "bg-red-100 text-red-800";
+        return "bg-rose-50 text-rose-700 border border-rose-200";
       default:
         return "bg-gray-100 text-gray-800";
     }
@@ -232,20 +298,74 @@ export function PipelineJobCard({
                 <span className="text-xs text-gray-500 whitespace-nowrap">
                   {template.rounds?.length || 0} rounds
                 </span>
-                {onChangeTemplate && (
+                <div className="relative" ref={dropdownRef}>
                   <button
-                    onClick={() =>
-                      onChangeTemplate({
-                        ...job,
-                        interviewTemplate: template,
-                        candidateCount,
-                      })
-                    }
-                    className="text-xs text-secondary hover:text-accent hover:underline whitespace-nowrap"
+                    onClick={handleOpenDropdown}
+                    disabled={isChangingTemplate}
+                    className="flex items-center gap-1 text-xs text-gray-900 hover:text-black hover:underline whitespace-nowrap font-medium disabled:opacity-50"
                   >
                     Change Template
+                    <ChevronDown className="w-3 h-3" />
                   </button>
-                )}
+
+                  {/* Dropdown Menu */}
+                  {showDropdown && (
+                    <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-80 overflow-y-auto">
+                      <div className="p-3 border-b border-gray-200 bg-gray-50">
+                        <p className="text-xs font-semibold text-gray-700">
+                          Select Interview Template
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Current: {template.name}
+                        </p>
+                      </div>
+
+                      {isLoadingTemplates ? (
+                        <div className="p-4 flex items-center justify-center">
+                          <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                        </div>
+                      ) : availableTemplates.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-gray-500">
+                          No templates available
+                        </div>
+                      ) : (
+                        <div className="py-1">
+                          {availableTemplates.map((tmpl) => (
+                            <button
+                              key={tmpl.id}
+                              onClick={() => handleChangeTemplate(tmpl.id)}
+                              disabled={isChangingTemplate || tmpl.id === (job as any).interviewTemplateId}
+                              className={`w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors disabled:opacity-50 ${
+                                tmpl.id === (job as any).interviewTemplateId
+                                  ? "bg-[#066046]/5"
+                                  : ""
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-gray-900 truncate">
+                                    {tmpl.name}
+                                  </p>
+                                  {tmpl.description && (
+                                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                                      {tmpl.description}
+                                    </p>
+                                  )}
+                                  <p className="text-xs text-gray-400 mt-1">
+                                    {tmpl.rounds?.length || 0} rounds
+                                  </p>
+                                </div>
+                                {tmpl.id === (job as any).interviewTemplateId && (
+                                  <CheckCircle className="w-4 h-4 text-[#066046] flex-shrink-0" />
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -292,20 +412,62 @@ export function PipelineJobCard({
                       No interview template assigned
                     </span>
                   </div>
-                  {onChangeTemplate && (
+                  <div className="relative" ref={dropdownRef}>
                     <button
-                      onClick={() =>
-                        onChangeTemplate({
-                          ...job,
-                          interviewTemplate: template,
-                          candidateCount,
-                        })
-                      }
-                      className="text-xs text-secondary hover:text-accent hover:underline font-medium whitespace-nowrap flex-shrink-0"
+                      onClick={handleOpenDropdown}
+                      disabled={isChangingTemplate}
+                      className="flex items-center gap-1 text-xs text-gray-900 hover:text-black hover:underline font-medium whitespace-nowrap flex-shrink-0 disabled:opacity-50"
                     >
                       Assign Template
+                      <ChevronDown className="w-3 h-3" />
                     </button>
-                  )}
+
+                    {/* Dropdown Menu */}
+                    {showDropdown && (
+                      <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-xl border border-gray-200 z-50 max-h-80 overflow-y-auto">
+                        <div className="p-3 border-b border-gray-200 bg-gray-50">
+                          <p className="text-xs font-semibold text-gray-700">
+                            Select Interview Template
+                          </p>
+                        </div>
+
+                        {isLoadingTemplates ? (
+                          <div className="p-4 flex items-center justify-center">
+                            <Loader2 className="w-5 h-5 animate-spin text-gray-400" />
+                          </div>
+                        ) : availableTemplates.length === 0 ? (
+                          <div className="p-4 text-center text-sm text-gray-500">
+                            No templates available
+                          </div>
+                        ) : (
+                          <div className="py-1">
+                            {availableTemplates.map((tmpl) => (
+                              <button
+                                key={tmpl.id}
+                                onClick={() => handleChangeTemplate(tmpl.id)}
+                                disabled={isChangingTemplate}
+                                className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50 transition-colors disabled:opacity-50"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-gray-900 truncate">
+                                    {tmpl.name}
+                                  </p>
+                                  {tmpl.description && (
+                                    <p className="text-xs text-gray-500 mt-1 line-clamp-2">
+                                      {tmpl.description}
+                                    </p>
+                                  )}
+                                  <p className="text-xs text-gray-400 mt-1">
+                                    {tmpl.rounds?.length || 0} rounds
+                                  </p>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -319,7 +481,7 @@ export function PipelineJobCard({
           </div>
           <Link
             href={`/interview-pipeline/${job.id}`}
-            className="inline-flex items-center px-4 py-2 bg-secondary text-white rounded-md hover:bg-accent transition-colors text-sm font-medium"
+            className="inline-flex items-center px-4 py-2 bg-[#066046]/10 text-[#066046] rounded-lg hover:bg-[#066046] hover:text-white transition-colors text-sm font-medium"
           >
             Manage Pipeline
             <ArrowRight className="ml-2 h-4 w-4" />

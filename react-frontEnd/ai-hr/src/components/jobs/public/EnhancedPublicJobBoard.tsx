@@ -18,13 +18,13 @@ import {
   DollarSign,
   Building2
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/app/public/components/ui/button";
+import { Input } from "@/app/public/components/ui/input";
+import { Card, CardContent } from "@/app/public/components/ui/card";
+import { Badge } from "@/app/public/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/app/public/components/ui/select";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/app/public/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/app/public/components/ui/tabs";
 import { ApiJob, ApiCompany } from "@/interfaces";
 import { publicJobService } from "@/services/publicJobService";
 import { PublicJobFilters } from "@/components/jobs/public/PublicJobFilters";

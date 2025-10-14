@@ -3,8 +3,8 @@
 import { motion, useInView } from "framer-motion";
 import { useRef } from "react";
 import { ArrowRight, CheckCircle, Sparkles } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/app/public/components/ui/button";
+import { Card, CardContent } from "@/app/public/components/ui/card";
 import Link from "next/link";
 
 const benefits = [

@@ -7184,31 +7184,24 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\minhb\\.nuget\\packages\\": {},
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+    "/Users/nguyendangquang/.nuget/packages/": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\D1ablo\\Code\\AutoHR\\AutoHR\\dotnet-backend\\ai-hr\\ai-hr.csproj",
+      "projectUniqueName": "/Users/nguyendangquang/master/DeepLearning/AutoHR/dotnet-backend/ai-hr/ai-hr.csproj",
       "projectName": "ai-hr",
-      "projectPath": "C:\\D1ablo\\Code\\AutoHR\\AutoHR\\dotnet-backend\\ai-hr\\ai-hr.csproj",
-      "packagesPath": "C:\\Users\\minhb\\.nuget\\packages\\",
-      "outputPath": "C:\\D1ablo\\Code\\AutoHR\\AutoHR\\dotnet-backend\\ai-hr\\obj\\",
+      "projectPath": "/Users/nguyendangquang/master/DeepLearning/AutoHR/dotnet-backend/ai-hr/ai-hr.csproj",
+      "packagesPath": "/Users/nguyendangquang/.nuget/packages/",
+      "outputPath": "/Users/nguyendangquang/master/DeepLearning/AutoHR/dotnet-backend/ai-hr/obj/",
       "projectStyle": "PackageReference",
-      "fallbackFolders": [
-        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-      ],
       "configFilePaths": [
-        "C:\\Users\\minhb\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        "/Users/nguyendangquang/.nuget/NuGet/NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net9.0"
       ],
       "sources": {
-        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
         "https://api.nuget.org/v3/index.json": {}
       },
       "frameworks": {
@@ -7321,7 +7314,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.304/PortableRuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/9.0.300/PortableRuntimeIdentifierGraph.json"
       }
     }
   }

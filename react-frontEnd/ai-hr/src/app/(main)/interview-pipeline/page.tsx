@@ -3,16 +3,11 @@
 import React, { useState, useEffect } from "react";
 import {
   Search,
-  Calendar,
   GitBranch,
-  Loader2,
   Briefcase,
-  XCircle,
-  CheckCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { jobService } from "@/services/jobService";
-import { interviewService } from "@/services/interviewService";
 import { useAuth } from "@/contexts/AuthContext";
 import { ApiJob } from "@/interfaces/api";
 import { InterviewTemplate } from "@/interfaces/interview";
@@ -50,15 +45,6 @@ export default function InterviewPipelinePage() {
   const [jobsPerPage] = useState(8); // Show 8 jobs per page (4 per row on large screens)
   const [totalJobs, setTotalJobs] = useState(0); // Total jobs from backend
   const [totalPages, setTotalPages] = useState(1); // Total pages from backend
-
-  // Template management state
-  const [availableTemplates, setAvailableTemplates] = useState<
-    InterviewTemplate[]
-  >([]);
-  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
-  const [selectedJobForTemplate, setSelectedJobForTemplate] =
-    useState<JobWithTemplate | null>(null);
-  const [isChangingTemplate, setIsChangingTemplate] = useState(false);
 
   // Load jobs and their templates
   useEffect(() => {
@@ -193,48 +179,6 @@ export default function InterviewPipelinePage() {
     }
   };
 
-  const loadAvailableTemplates = async () => {
-    try {
-      const templates = await interviewService.getInterviewTemplates();
-      setAvailableTemplates(templates);
-    } catch (error) {
-      console.error("Error loading interview templates:", error);
-    }
-  };
-
-  const handleOpenTemplateSelector = (job: JobWithTemplate) => {
-    setSelectedJobForTemplate(job);
-    if (availableTemplates.length === 0) {
-      loadAvailableTemplates();
-    }
-    setShowTemplateSelector(true);
-  };
-
-  const handleChangeTemplate = async (templateId: string) => {
-    if (!selectedJobForTemplate) return;
-
-    try {
-      setIsChangingTemplate(true);
-
-      // Update the job with new template
-      await jobService.updateJob(selectedJobForTemplate.id, {
-        interviewTemplateId: templateId,
-      });
-
-      // Reload jobs to reflect the change
-      await loadJobsWithTemplates();
-
-      setShowTemplateSelector(false);
-      setSelectedJobForTemplate(null);
-    } catch (error) {
-      console.error("Error changing interview template:", error);
-      const { toast } = await import("@/utils/toast");
-      toast.error("Failed to change interview template. Please try again.");
-    } finally {
-      setIsChangingTemplate(false);
-    }
-  };
-
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     // Scroll to top of the jobs section
@@ -337,7 +281,6 @@ export default function InterviewPipelinePage() {
               <PipelineJobCard
                 key={job.id}
                 job={job}
-                onChangeTemplate={handleOpenTemplateSelector}
               />
             ))}
           </div>
@@ -354,117 +297,6 @@ export default function InterviewPipelinePage() {
             />
           </div>
         </>
-      )}
-
-      {/* Template Selector Modal */}
-      {showTemplateSelector && selectedJobForTemplate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 max-w-full mx-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {selectedJobForTemplate.interviewTemplate ? "Change" : "Assign"}{" "}
-                Interview Template
-              </h3>
-              <button
-                onClick={() => {
-                  setShowTemplateSelector(false);
-                  setSelectedJobForTemplate(null);
-                }}
-                className="text-gray-400 hover:text-gray-600"
-                disabled={isChangingTemplate}
-              >
-                <XCircle className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="mb-4">
-              <p className="text-sm text-gray-600">
-                Job:{" "}
-                <span className="font-medium">
-                  {selectedJobForTemplate.title}
-                </span>
-              </p>
-              {selectedJobForTemplate.interviewTemplate && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Current template:{" "}
-                  <span className="font-medium">
-                    {selectedJobForTemplate.interviewTemplate.name}
-                  </span>
-                </p>
-              )}
-              <p className="text-xs text-orange-600 mt-2">
-                ⚠️ Changing the template will affect all candidates in this
-                job's pipeline
-              </p>
-            </div>
-
-            <div className="space-y-3">
-              {availableTemplates.map((template) => (
-                <div
-                  key={template.id}
-                  className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                    template.id === selectedJobForTemplate.interviewTemplateId
-                      ? "border-primary bg-primary/10"
-                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                  }`}
-                  onClick={() => handleChangeTemplate(template.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">
-                        {template.name}
-                      </h4>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {template.description}
-                      </p>
-                      <div className="flex items-center mt-2 text-xs text-gray-500">
-                        <span>{template.rounds?.length || 0} rounds</span>
-                      </div>
-                    </div>
-                    {template.id ===
-                      selectedJobForTemplate.interviewTemplateId && (
-                      <CheckCircle className="h-5 w-5 text-secondary ml-3" />
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {availableTemplates.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
-                <Calendar className="h-8 w-8 mx-auto mb-2 text-gray-400" />
-                <p className="text-sm">No interview templates available</p>
-              </div>
-            )}
-
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowTemplateSelector(false);
-                  setSelectedJobForTemplate(null);
-                }}
-                className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                disabled={isChangingTemplate}
-              >
-                Cancel
-              </button>
-            </div>
-
-            {isChangingTemplate && (
-              <div className="absolute inset-0 bg-white bg-opacity-75 rounded-lg flex items-center justify-center">
-                <div className="text-center">
-                  <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2 text-secondary" />
-                  <p className="text-sm text-gray-600">
-                    {selectedJobForTemplate.interviewTemplate
-                      ? "Changing"
-                      : "Assigning"}{" "}
-                    template...
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
       )}
     </div>
   );

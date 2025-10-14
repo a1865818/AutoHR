@@ -278,9 +278,9 @@ export function BulkNotificationModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden">
+    <div className="fixed inset-0 z-[9999] overflow-hidden">
       <div
-        className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-all duration-200"
         onClick={onClose}
       />
 
@@ -554,7 +554,7 @@ export function BulkNotificationModal({
                     !customSubject.trim() ||
                     !customBody.trim()
                   }
-                  className="px-4 py-2 text-sm font-medium text-white bg-secondary hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed rounded-md flex items-center space-x-2"
+                  className="px-4 py-2 text-sm font-medium text-white bg-[#066046] hover:bg-[#267a54] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg flex items-center space-x-2 transition-colors shadow-sm hover:shadow-md"
                 >
                   {isSubmitting ? (
                     <>

@@ -2565,7 +2565,7 @@ export default function JobPipelinePage() {
                     </div>
                     <button
                       onClick={() => setActiveBulkNotificationRound(roundId)}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-[#267a54] bg-[#267a54]/20 hover:bg-[#267a54]/30 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#267a54]"
+                      className="inline-flex items-center px-4 py-2 bg-[#066046] text-white text-sm font-medium rounded-lg hover:bg-[#267a54] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#066046] transition-colors shadow-sm hover:shadow-md"
                     >
                       <Send className="h-4 w-4 mr-2" />
                       Send {notifications.length} Email

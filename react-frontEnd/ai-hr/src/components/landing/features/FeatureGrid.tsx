@@ -14,8 +14,8 @@ import {
   Users,
   Clock
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/app/public/components/ui/card";
+import { Badge } from "@/app/public/components/ui/badge";
 
 const features = [
   {

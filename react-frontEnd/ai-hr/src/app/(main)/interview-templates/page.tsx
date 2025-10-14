@@ -224,16 +224,16 @@ export default function InterviewsPage() {
   const getInterviewTypeColor = (type: InterviewType) => {
     const colorMap = {
       phone_screening:
-        "text-[#066046] bg-[#066046]/8 border border-[#066046]/15",
+        "text-blue-700 bg-blue-50 border border-blue-200",
       video_interview:
-        "text-[#267a54] bg-[#267a54]/12 border border-[#267a54]/20",
+        "text-purple-700 bg-purple-50 border border-purple-200",
       technical_assessment:
-        "text-[#066046] bg-[#066046]/18 border border-[#066046]/25",
+        "text-orange-700 bg-orange-50 border border-orange-200",
       coding_challenge:
-        "text-[#267a54] bg-[#267a54]/25 border border-[#267a54]/35",
+        "text-cyan-700 bg-cyan-50 border border-cyan-200",
       final_interview:
-        "text-[#066046] bg-[#066046]/35 border border-[#066046]/45",
-      culture_fit: "text-[#267a54] bg-[#267a54]/30 border border-[#267a54]/40",
+        "text-amber-700 bg-amber-50 border border-amber-200",
+      culture_fit: "text-rose-700 bg-rose-50 border border-rose-200",
     };
     return colorMap[type] || "text-gray-600 bg-gray-100";
   };
@@ -609,16 +609,16 @@ export default function InterviewsPage() {
 
       {/* Clone Template Modal */}
       {showCloneModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            {/* Background overlay */}
+        <div className="fixed inset-0 z-[9999] overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center">
+            {/* Blurred Background overlay */}
             <div
-              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-all duration-200"
               onClick={() => setShowCloneModal(false)}
             ></div>
 
-            {/* Modal - Added z-10 relative positioning */}
-            <div className="relative z-10 inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            {/* Modal - Centered with animation */}
+            <div className="relative z-10 inline-block bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:max-w-lg sm:w-full animate-in fade-in zoom-in duration-200">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-[#066046]/10 sm:mx-0 sm:h-10 sm:w-10">
@@ -673,16 +673,16 @@ export default function InterviewsPage() {
 
       {/* Delete Template Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-            {/* Background overlay */}
+        <div className="fixed inset-0 z-[9999] overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center">
+            {/* Blurred Background overlay */}
             <div
-              className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+              className="fixed inset-0 bg-black/30 backdrop-blur-sm transition-all duration-200"
               onClick={() => setShowDeleteModal(false)}
             ></div>
 
-            {/* Modal - Added z-10 relative positioning */}
-            <div className="relative z-10 inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            {/* Modal - Centered with animation */}
+            <div className="relative z-10 inline-block bg-white rounded-xl text-left overflow-hidden shadow-2xl transform transition-all sm:max-w-lg sm:w-full animate-in fade-in zoom-in duration-200">
               <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                 <div className="sm:flex sm:items-start">
                   <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">

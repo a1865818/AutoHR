@@ -69,7 +69,7 @@ export default function EditInterviewPage() {
       label: "Video Interview",
       description: "Face-to-face conversation over video call",
       icon: Video,
-      color: "green",
+      color: "purple",
       duration: 45,
     },
     {
@@ -77,7 +77,7 @@ export default function EditInterviewPage() {
       label: "Technical Assessment",
       description: "Evaluate technical skills and knowledge",
       icon: Code,
-      color: "purple",
+      color: "orange",
       duration: 60,
     },
     {
@@ -85,7 +85,7 @@ export default function EditInterviewPage() {
       label: "Coding Challenge",
       description: "Live coding session or take-home challenge",
       icon: Code,
-      color: "orange",
+      color: "cyan",
       duration: 90,
     },
 
@@ -94,7 +94,7 @@ export default function EditInterviewPage() {
       label: "Final Interview",
       description: "Final decision-making interview with leadership",
       icon: Crown,
-      color: "yellow",
+      color: "amber",
       duration: 45,
     },
     {
@@ -102,7 +102,7 @@ export default function EditInterviewPage() {
       label: "Culture Fit",
       description: "Assess alignment with company values",
       icon: Heart,
-      color: "red",
+      color: "rose",
       duration: 30,
     },
   ];
@@ -254,14 +254,12 @@ export default function EditInterviewPage() {
 
   const getColorClasses = (color: string) => {
     const colorMap: Record<string, string> = {
-      blue: "bg-[#066046]/8 text-[#066046] border-[#066046]/15",
-      green: "bg-[#267a54]/12 text-[#267a54] border-[#267a54]/20",
-      purple: "bg-[#066046]/18 text-[#066046] border-[#066046]/25",
-      orange: "bg-[#267a54]/25 text-[#267a54] border-[#267a54]/35",
-      pink: "bg-[#066046]/35 text-[#066046] border-[#066046]/45",
-      indigo: "bg-[#267a54]/30 text-[#267a54] border-[#267a54]/40",
-      yellow: "bg-[#066046]/60 text-[#066046] border-[#066046]/70",
-      red: "bg-[#267a54]/75 text-[#267a54] border-[#267a54]/85",
+      blue: "bg-blue-50 text-blue-700 border-blue-200",
+      purple: "bg-purple-50 text-purple-700 border-purple-200",
+      orange: "bg-orange-50 text-orange-700 border-orange-200",
+      cyan: "bg-cyan-50 text-cyan-700 border-cyan-200",
+      amber: "bg-amber-50 text-amber-700 border-amber-200",
+      rose: "bg-rose-50 text-rose-700 border-rose-200",
     };
     return colorMap[color] || "bg-gray-100 text-gray-800 border-gray-200";
   };

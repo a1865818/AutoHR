@@ -2,8 +2,8 @@
 
 import { motion } from "framer-motion";
 import { Search, MapPin, ArrowRight, Play } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Button } from "@/app/public/components/ui/button";
+import { Input } from "@/app/public/components/ui/input";
 import { GradientText } from "@/components/landing/shared/GradientText";
 import { AnimatedCounter } from "@/components/landing/shared/AnimatedCounter";
 import Link from "next/link";

@@ -4,10 +4,10 @@ import React from "react";
 import { motion, useInView } from "framer-motion";
 import { useRef, useCallback } from "react";
 import { Star, Quote, ArrowLeft, ArrowRight } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/app/public/components/ui/card";
+import { Avatar, AvatarImage, AvatarFallback } from "@/app/public/components/ui/avatar";
+import { Badge } from "@/app/public/components/ui/badge";
+import { Button } from "@/app/public/components/ui/button";
 import useEmblaCarousel from "embla-carousel-react";
 import Autoplay from "embla-carousel-autoplay";
 

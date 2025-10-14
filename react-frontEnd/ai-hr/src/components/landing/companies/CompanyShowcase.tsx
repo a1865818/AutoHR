@@ -3,8 +3,8 @@
 import React from "react";
 import { motion, useInView } from "framer-motion";
 import { useRef } from "react";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/app/public/components/ui/badge";
+import { Card, CardContent } from "@/app/public/components/ui/card";
 import { Building2, MapPin, Users, TrendingUp } from "lucide-react";
 
 const companies = [
