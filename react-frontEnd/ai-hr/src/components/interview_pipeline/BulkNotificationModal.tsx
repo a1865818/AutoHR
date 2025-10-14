@@ -246,8 +246,8 @@ export function BulkNotificationModal({
 
   if (emailsSent) {
     return (
-      <div className="fixed inset-0 z-50 overflow-hidden">
-        <div className="absolute inset-0 bg-gray-900/50 backdrop-blur-sm" />
+      <div className="fixed inset-0 z-[9999] overflow-hidden">
+        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm transition-all duration-200" />
         <div className="absolute inset-0 flex items-center justify-center p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
             <div className="text-center">
