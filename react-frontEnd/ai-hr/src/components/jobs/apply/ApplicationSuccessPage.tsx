@@ -193,7 +193,8 @@ export function ApplicationSuccessPage({
       if (applicationId) {
         try {
           const appStatus = await applicationService.getApplicationStatus(
-            applicationId
+            applicationId,
+            true // Use silent mode to avoid console errors
           );
           setApplicationStatus(appStatus);
           latestStatus = appStatus;

@@ -441,7 +441,7 @@ export default function CultureFitAssessmentMarkingPage() {
         
         allQuestions.push({
           id: q.id || `game_${index}`,
-          text: q.text || q.question || `Game Question ${index + 1}`,
+          text: q.text || q.question || `image.png ${index + 1}`,
           type: q.type || "multiple_choice",
           category: "Culture Game",
           difficulty: "medium",

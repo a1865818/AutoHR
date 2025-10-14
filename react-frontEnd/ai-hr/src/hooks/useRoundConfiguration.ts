@@ -20,7 +20,6 @@ export function useRoundConfiguration(jobId: string, roundId: string) {
       const response = await configApi.getConfiguration(jobId, roundId);
       
       if (response.success) {
-        console.log("Configuration fetched successfully:", response.data);
         // Ensure we have all the expected properties
         if (!response.data) {
           console.warn("Received empty configuration data");
@@ -31,16 +30,10 @@ export function useRoundConfiguration(jobId: string, roundId: string) {
           
           // Ensure configuration data has required properties
           if (cleanedConfig.configurationData) {
-            // Log before making any changes
-            console.log("Configuration data before ensuring properties:", cleanedConfig.configurationData);
-            
             // Make sure questions property exists
             if (!cleanedConfig.configurationData.questions) {
-              console.warn("No questions found in configuration data, adding empty array");
               cleanedConfig.configurationData.questions = [];
             }
-            
-            console.log("Final configuration data:", cleanedConfig.configurationData);
           }
           
           setConfig(cleanedConfig);
@@ -61,7 +54,6 @@ export function useRoundConfiguration(jobId: string, roundId: string) {
   const saveConfiguration = useCallback(async (configData: Partial<RoundConfiguration> & { configurationData?: any }) => {
     try {
       setSaveStatus('saving');
-      console.log("Original configuration data to save:", configData);
       
       // Ensure the configuration data is properly structured
       const dataToSave = { ...configData };
@@ -69,55 +61,40 @@ export function useRoundConfiguration(jobId: string, roundId: string) {
       // Store original questions separately before cleaning to ensure they're not lost
       const originalQuestions = dataToSave.configurationData?.questions || [];
       
-      console.log("Original questions before cleaning:", originalQuestions);
-      
       // Deep clean the configuration data to ensure we're not sending any ValueKind properties
       if (dataToSave.configurationData) {
         // Use our utility function to clean the object
         dataToSave.configurationData = cleanJsonObject(dataToSave.configurationData);
-        console.log("Cleaned configuration data:", dataToSave.configurationData);
         
         // Make sure questions are present in the configurationData
         if (!dataToSave.configurationData.questions || !dataToSave.configurationData.questions.length) {
-          console.warn("Questions missing or empty after cleaning, restoring from original");
           dataToSave.configurationData.questions = [...originalQuestions];
         }
-        
-        // Log the questions after ensuring they exist
-        console.log("Questions after ensuring they exist:", dataToSave.configurationData.questions);
       }
       
       // Make sure we have the required fields
       if (!dataToSave.name) {
-        console.warn("Missing name in configuration, using default");
         dataToSave.name = "Round Configuration";
       }
       
       if (!dataToSave.duration) {
-        console.warn("Missing duration in configuration, using default");
         dataToSave.duration = 30;
       }
       
       // Ensure configurationData is properly structured if it exists
       if (dataToSave.configurationData) {
-        console.log("Final configuration data to save:", dataToSave.configurationData);
         // Make sure configurationData is not empty
         if (Object.keys(dataToSave.configurationData).length === 0) {
-          console.warn("Empty configurationData object detected, adding default properties");
-          // Add some default properties to ensure it's not empty
           dataToSave.configurationData = { initialized: true, questions: originalQuestions };
         }
       } else {
-        console.warn("No configurationData found in the payload, creating default");
         // Create a default configurationData to avoid null/undefined
         dataToSave.configurationData = { initialized: true, questions: originalQuestions };
       }
       
-      console.log("Final data to save:", dataToSave);
       const response = await configApi.saveConfiguration(jobId, roundId, dataToSave);
       
       if (response.success) {
-        console.log("Configuration saved successfully:", response.data);
         // Clean the response data
         const cleanedResponse = cleanJsonObject(response.data);
         setConfig(cleanedResponse);

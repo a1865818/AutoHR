@@ -1274,6 +1274,11 @@ namespace ai_hr.Endpoints
                     });
                 }
                 
+                // Calculate duration based on actual questions and scenarios
+                int calculatedDuration = CalculateAssessmentDuration(finalConfigData, config.Duration);
+                finalConfigData["duration"] = calculatedDuration;
+                Console.WriteLine($"✅ Calculated assessment duration: {calculatedDuration} minutes");
+                
                 // Return the configuration data
                 return Results.Ok(new
                 {
@@ -1617,6 +1622,120 @@ namespace ai_hr.Endpoints
             {
                 Console.WriteLine($"❌ Error checking assessment submission status: {ex.Message}");
                 return Results.Problem($"Failed to check assessment submission status: {ex.Message}");
+            }
+        }
+
+        // Helper method to calculate assessment duration based on questions and scenarios
+        private static int CalculateAssessmentDuration(Dictionary<string, object> configData, int fallbackDuration)
+        {
+            try
+            {
+                Console.WriteLine($"🔍 Calculating assessment duration...");
+                
+                // Get game questions count
+                int gameQuestionsCount = 0;
+                if (configData.TryGetValue("cultureQuestions", out var cultureQuestions) && cultureQuestions is IList cultureQuestionsList)
+                {
+                    gameQuestionsCount = cultureQuestionsList.Count;
+                    Console.WriteLine($"🔍 Found {gameQuestionsCount} culture questions");
+                }
+                
+                // Get scenarios count
+                int scenariosCount = 0;
+                if (configData.TryGetValue("culturalScenarios", out var culturalScenarios) && culturalScenarios is IList scenariosList)
+                {
+                    scenariosCount = scenariosList.Count;
+                    Console.WriteLine($"🔍 Found {scenariosCount} cultural scenarios");
+                }
+                
+                // Get time per question from assessment settings
+                int timePerQuestionSeconds = 60; // Default
+                if (configData.TryGetValue("assessmentSettings", out var assessmentSettings) && assessmentSettings is Dictionary<string, object> settingsDict)
+                {
+                    if (settingsDict.TryGetValue("timePerQuestionSeconds", out var timePerQuestion) && timePerQuestion != null)
+                    {
+                        if (int.TryParse(timePerQuestion.ToString(), out var parsedTime))
+                        {
+                            timePerQuestionSeconds = parsedTime;
+                            Console.WriteLine($"🔍 Using {timePerQuestionSeconds} seconds per question");
+                        }
+                    }
+                }
+                
+                // Calculate time for game questions (in minutes)
+                double gameQuestionsTimeMinutes = gameQuestionsCount * (timePerQuestionSeconds / 60.0);
+                Console.WriteLine($"🔍 Game questions time: {gameQuestionsCount} × {timePerQuestionSeconds}s = {gameQuestionsTimeMinutes} minutes");
+                
+                // Check if scenarios are enabled in assessment methods
+                bool scenariosEnabled = false;
+                if (configData.TryGetValue("assessmentMethods", out var assessmentMethods) && assessmentMethods is Dictionary<string, object> methodsDict)
+                {
+                    if (methodsDict.TryGetValue("cultureScenarios", out var cultureScenariosEnabled) && cultureScenariosEnabled != null)
+                    {
+                        scenariosEnabled = bool.TryParse(cultureScenariosEnabled.ToString(), out var parsed) && parsed;
+                    }
+                }
+                Console.WriteLine($"🔍 Scenarios enabled in assessment methods: {scenariosEnabled}");
+                
+                // Calculate time for scenarios (in minutes) - only if scenarios are enabled
+                double scenariosTimeMinutes = 0;
+                if (scenariosEnabled && scenariosCount > 0 && culturalScenarios is IList scenariosListForTime)
+                {
+                    foreach (var scenario in scenariosListForTime)
+                    {
+                        if (scenario is Dictionary<string, object> scenarioDict)
+                        {
+                            if (scenarioDict.TryGetValue("timeLimitMinutes", out var timeLimit) && timeLimit != null)
+                            {
+                                if (int.TryParse(timeLimit.ToString(), out var parsedTimeLimit))
+                                {
+                                    scenariosTimeMinutes += parsedTimeLimit;
+                                }
+                                else
+                                {
+                                    scenariosTimeMinutes += 5; // Default scenario time
+                                }
+                            }
+                            else
+                            {
+                                scenariosTimeMinutes += 5; // Default scenario time
+                            }
+                        }
+                    }
+                    Console.WriteLine($"🔍 Scenarios time: {scenariosTimeMinutes} minutes");
+                }
+                else if (!scenariosEnabled)
+                {
+                    Console.WriteLine($"🔍 Scenarios disabled - not including scenarios time in duration calculation");
+                }
+                
+                // Calculate total duration (no buffer for exact calculation)
+                double totalMinutes = gameQuestionsTimeMinutes + scenariosTimeMinutes;
+                int calculatedDuration = (int)Math.Ceiling(totalMinutes);
+                
+                // Ensure minimum duration
+                if (calculatedDuration < 15)
+                {
+                    calculatedDuration = 15;
+                }
+                
+                // Use fallback if calculation seems unreasonable
+                if (calculatedDuration > 480) // More than 8 hours
+                {
+                    Console.WriteLine($"⚠️ Calculated duration ({calculatedDuration} minutes) seems unreasonable, using fallback");
+                    calculatedDuration = fallbackDuration > 0 ? fallbackDuration : 45;
+                }
+                
+                Console.WriteLine($"🔍 Final calculated duration: {calculatedDuration} minutes");
+                Console.WriteLine($"🔍 Calculation breakdown: {gameQuestionsTimeMinutes}m (questions) + {scenariosTimeMinutes}m (scenarios) = {totalMinutes}m (rounded up to {calculatedDuration}m)");
+                
+                return calculatedDuration;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error calculating assessment duration: {ex.Message}");
+                Console.WriteLine($"🔍 Using fallback duration: {fallbackDuration} minutes");
+                return fallbackDuration > 0 ? fallbackDuration : 45;
             }
         }
 

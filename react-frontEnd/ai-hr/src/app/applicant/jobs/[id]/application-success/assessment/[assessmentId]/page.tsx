@@ -48,6 +48,7 @@ export default function AssessmentPage() {
       };
       console.log("🔍 Transformed result cultureQuestions:", result.cultureQuestions);
       console.log("🔍 Transformed result culturalScenarios:", result.culturalScenarios);
+      console.log("🔍 Transformed result assessmentMethods:", result.assessmentMethods);
       return result;
     }
 
@@ -66,7 +67,7 @@ export default function AssessmentPage() {
         })),
         cultureQuestions: configData.cultureQuestions || configData.questions || [],
         culturalScenarios: configData.culturalScenarios || configData.scenarios || [],
-        duration: configData.duration || 45,
+        duration: Number(configData.duration) || 45, // Ensure duration is a number, fallback to 45 if invalid
         assessmentSettings: configData.assessmentSettings || {
           timePerQuestionSeconds: 60,
           shuffleQuestions: false,
@@ -117,13 +118,51 @@ export default function AssessmentPage() {
     const scenarios = configData.culturalScenarios || configData.scenarios || defaultScenarios;
     console.log("🔍 Using scenarios:", scenarios);
     
+    // Use the duration from backend if provided, otherwise calculate it
+    let calculatedDuration = 45; // Default fallback
+    
+    if (configData.duration && !isNaN(Number(configData.duration))) {
+      calculatedDuration = Number(configData.duration);
+      console.log("✅ Using duration from backend:", calculatedDuration);
+    } else {
+      // Calculate duration based on questions and scenarios (fallback calculation)
+      const cultureQuestions = configData.cultureQuestions || configData.questions || [];
+      const culturalScenarios = scenarios;
+      const timePerQuestion = configData.assessmentSettings?.timePerQuestionSeconds || 60;
+      
+      // Calculate time for game questions (in minutes)
+      const gameQuestionsTime = cultureQuestions.length * (timePerQuestion / 60);
+      
+      // Calculate time for scenarios (in minutes)
+      const scenariosTime = culturalScenarios.reduce((total: number, scenario: any) => {
+        return total + (scenario.timeLimitMinutes || 5);
+      }, 0);
+      
+      // Round up to get exact calculation
+      calculatedDuration = Math.ceil(gameQuestionsTime + scenariosTime);
+      
+      // Ensure minimum duration
+      if (calculatedDuration < 15) {
+        calculatedDuration = 15;
+      }
+      
+      console.log("🔍 Frontend fallback duration calculation:", {
+        gameQuestionsCount: cultureQuestions.length,
+        scenariosCount: culturalScenarios.length,
+        timePerQuestionSeconds: timePerQuestion,
+        gameQuestionsTimeMinutes: gameQuestionsTime,
+        scenariosTimeMinutes: scenariosTime,
+        calculatedDuration
+      });
+    }
+    
     return {
       name: configData.name || "Culture Fit Assessment",
       description: configData.description || "Assessment to evaluate cultural alignment and values fit",
       companyValues: configData.companyValues || [],
       cultureQuestions: configData.cultureQuestions || configData.questions || [],
       culturalScenarios: scenarios,
-      duration: configData.duration || 45,
+      duration: calculatedDuration,
       assessmentSettings: configData.assessmentSettings || {
         timePerQuestionSeconds: 60,
         shuffleQuestions: false,
@@ -163,17 +202,8 @@ export default function AssessmentPage() {
       // timestamp is the last part
       const timestamp = parts[10];
       
-      console.log(`🔍 Parsed assessmentId: ${assessmentId}`);
-      console.log(`🔍 Parsed roundId: ${roundId} (length: ${roundId.length})`);
-      console.log(`🔍 Parsed userId: ${userId} (length: ${userId.length})`);
-      console.log(`🔍 Parsed timestamp: ${timestamp}`);
-      console.log(`🔍 Total parts: ${parts.length}`);
-      
       // Fetch assessment data from backend
       const url = `http://localhost:5189/assessments/${roundId}/configuration`;
-      console.log(`🔍 Making request to: ${url}`);
-      console.log(`🔍 Round ID being used: ${roundId}`);
-      console.log(`🔍 Full assessment ID: ${assessmentId}`);
       
       const response = await fetch(url, {
         headers: {
@@ -185,32 +215,17 @@ export default function AssessmentPage() {
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`❌ API Error: ${response.status} - ${errorText}`);
+        console.error(`API Error: ${response.status} - ${errorText}`);
         throw new Error(`Failed to load assessment: ${response.status} ${errorText}`);
       }
       
       const responseData = await response.json();
-      console.log(`✅ Assessment config loaded:`, responseData);
-      console.log(`✅ Response data keys:`, Object.keys(responseData));
-      console.log(`✅ Response data.data keys:`, responseData.data ? Object.keys(responseData.data) : 'No data property');
       
       // Extract the configuration data from the response
       const configData = responseData.data || responseData;
-      console.log(`✅ Extracted config data:`, configData);
-      console.log(`✅ Config data keys:`, Object.keys(configData));
-      console.log(`✅ Config data type:`, typeof configData);
-      console.log(`✅ Focus areas:`, configData.focusAreas);
-      console.log(`✅ Culture questions:`, configData.cultureQuestions);
-      console.log(`✅ Company values:`, configData.companyValues);
       
       // Transform the configuration data to match expected format
       const transformedConfig = transformConfigData(configData);
-      console.log(`✅ Transformed config:`, transformedConfig);
-      console.log(`✅ Culture questions count:`, transformedConfig.cultureQuestions?.length);
-      console.log(`✅ Cultural scenarios count:`, transformedConfig.culturalScenarios?.length);
-      console.log(`✅ Questions field:`, transformedConfig.questions);
-      console.log(`✅ Culture questions field:`, transformedConfig.cultureQuestions);
-      console.log(`✅ Cultural scenarios field:`, transformedConfig.culturalScenarios);
       
       // Create assessment data structure
       const assessmentData = {
@@ -226,7 +241,7 @@ export default function AssessmentPage() {
       
       setAssessment(assessmentData);
     } catch (err) {
-      console.error(`❌ Error loading assessment:`, err);
+      console.error(`Error loading assessment:`, err);
       setError(err instanceof Error ? err.message : "Failed to load assessment");
     } finally {
       setLoading(false);
@@ -235,24 +250,12 @@ export default function AssessmentPage() {
 
   const handleAssessmentComplete = async (results: any) => {
     if (submitting) {
-      console.log('⚠️ Already submitting, ignoring duplicate submission');
       return;
     }
     
     try {
       setSubmitting(true);
       setError(null);
-      
-      console.log('🚀 Starting assessment submission...');
-      console.log('📊 Results to submit:', results);
-      console.log('📊 Results type:', typeof results);
-      console.log('📊 Results keys:', Object.keys(results));
-      console.log('📊 Game answers count:', results.gameAnswers?.length || 0);
-      console.log('📊 Scenario answers count:', results.scenarioAnswers?.length || 0);
-      console.log('📊 Game answers:', results.gameAnswers);
-      console.log('📊 Scenario answers:', results.scenarioAnswers);
-      console.log('📊 Total time spent:', results.totalTimeSpent);
-      console.log('📊 Completed at:', results.completedAt);
       
       // Parse assessment ID to get round and user info
       const parts = assessmentId.split('-');
@@ -295,13 +298,13 @@ export default function AssessmentPage() {
       const responseData = await response.json();
       console.log('✅ Submission successful:', responseData);
 
-      // Redirect to completion page
+      // Redirect to completion page immediately without changing loading state
       router.push(`/applicant/jobs/${jobId}/application-success/assessment/${assessmentId}/complete`);
+      // Don't set submitting to false here - let the redirect handle it
     } catch (err) {
       console.error('❌ Assessment submission error:', err);
       setError(err instanceof Error ? err.message : "Failed to submit assessment");
-    } finally {
-      setSubmitting(false);
+      setSubmitting(false); // Only set to false on error
     }
   };
 
@@ -344,12 +347,12 @@ export default function AssessmentPage() {
         onComplete={handleAssessmentComplete}
       />
       
-      {/* Submission Loading Overlay */}
+      {/* Submission Loading State */}
       {submitting && (
-        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 flex flex-col items-center">
+        <div className="absolute inset-0 bg-white bg-opacity-95 flex items-center justify-center z-50">
+          <div className="text-center">
             <LoadingSpinner size="lg" />
-            <p className="mt-4 text-gray-700">Submitting your assessment...</p>
+            <p className="mt-4 text-gray-600">Submitting your assessment...</p>
           </div>
         </div>
       )}

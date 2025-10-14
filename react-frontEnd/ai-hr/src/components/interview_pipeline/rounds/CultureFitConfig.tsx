@@ -344,81 +344,81 @@ export function CultureFitConfig({
   // Load configuration from the backend when available
   useEffect(() => {
     if (savedConfig) {
-      console.log("Received saved config:", savedConfig);
-
-      // First set the top-level properties
-      const baseConfig = {
-        ...config,
-        name: savedConfig.name || config.name,
-        description: savedConfig.description || config.description,
-        duration: savedConfig.duration || config.duration,
-      };
-
-      // Then merge in configuration data if available
+      // Create a clean merged config directly from saved data
       if (
         savedConfig.configurationData &&
         typeof savedConfig.configurationData === "object"
       ) {
-        console.log("Found configuration data:", savedConfig.configurationData);
+        // Use raw data directly to avoid cleaning issues
+        const rawConfigData = savedConfig.configurationData;
 
-        // Clean the configuration data using our utility function
-        const cleanConfigData = cleanJsonObject(savedConfig.configurationData);
-        console.log("Cleaned configuration data:", cleanConfigData);
-
-        // Create a clean merged config
+        // Create a clean merged config with saved data taking precedence
         const mergedConfig = {
-          ...baseConfig,
-          ...cleanConfigData,
-          assessmentSettings: (cleanConfigData as any).assessmentSettings || baseConfig.assessmentSettings,
+          ...config, // Start with default config
+          ...rawConfigData, // Override with raw saved data
+          name: savedConfig.name || config.name,
+          description: savedConfig.description || config.description,
+          duration: savedConfig.duration || config.duration,
+          assessmentSettings: rawConfigData.assessmentSettings || config.assessmentSettings,
         };
-
-        console.log("Setting merged config:", mergedConfig);
-        setConfig(mergedConfig);
         
         // Always recalculate duration based on current questions and scenarios
         const gameQuestionsTime = mergedConfig.cultureQuestions.length * (mergedConfig.assessmentSettings.timePerQuestionSeconds / 60);
-        const scenariosTime = mergedConfig.culturalScenarios.reduce((total: number, scenario: CulturalScenario) => {
+        const scenariosTime = scenariosEnabled 
+          ? mergedConfig.culturalScenarios.reduce((total: number, scenario: CulturalScenario) => {
           return total + scenario.timeLimitMinutes;
-        }, 0);
+            }, 0)
+          : 0;
         const totalMinutes = Math.ceil(gameQuestionsTime + scenariosTime);
         
-        console.log("Recalculating duration for saved config:", {
-          currentDuration: mergedConfig.duration,
-          calculatedDuration: totalMinutes,
-          gameQuestions: mergedConfig.cultureQuestions.length,
-          scenarios: mergedConfig.culturalScenarios.length
-        });
-        
+        // Update duration directly in the merged config
         if (totalMinutes > 0) {
-          handleConfigChange({ duration: totalMinutes });
+          mergedConfig.duration = totalMinutes;
         }
+        
+        setConfig(mergedConfig);
+        
+        // Set scenariosEnabled based on assessmentMethods.cultureScenarios from saved data
+        const scenariosEnabledFromMethods = rawConfigData.assessmentMethods?.cultureScenarios === true;
+        console.log('🔍 Loading saved config - rawConfigData.assessmentMethods:', rawConfigData.assessmentMethods);
+        console.log('🔍 Loading saved config - scenariosEnabledFromMethods:', scenariosEnabledFromMethods);
+        console.log('🔍 Loading saved config - setting scenariosEnabled to:', scenariosEnabledFromMethods);
+        setScenariosEnabled(scenariosEnabledFromMethods);
       } else {
-        console.warn(
-          "No configuration data found in saved config, using defaults"
-        );
+        // Set config with just the top-level properties from savedConfig
+        const baseConfig = {
+          ...config,
+          name: savedConfig.name || config.name,
+          description: savedConfig.description || config.description,
+          duration: savedConfig.duration || config.duration,
+        };
         setConfig(baseConfig);
+        
+        // Set scenariosEnabled based on assessmentMethods.cultureScenarios from saved data
+        const scenariosEnabledFromMethods = baseConfig.assessmentMethods?.cultureScenarios === true;
+        console.log('🔍 Loading saved config (else) - baseConfig.assessmentMethods:', baseConfig.assessmentMethods);
+        console.log('🔍 Loading saved config (else) - scenariosEnabledFromMethods:', scenariosEnabledFromMethods);
+        console.log('🔍 Loading saved config (else) - setting scenariosEnabled to:', scenariosEnabledFromMethods);
+        setScenariosEnabled(scenariosEnabledFromMethods);
         
         // Always recalculate duration for default config
         const gameQuestionsTime = baseConfig.cultureQuestions.length * (baseConfig.assessmentSettings.timePerQuestionSeconds / 60);
-        const scenariosTime = baseConfig.culturalScenarios.reduce((total: number, scenario: CulturalScenario) => {
+        const scenariosTime = scenariosEnabled 
+          ? baseConfig.culturalScenarios.reduce((total: number, scenario: CulturalScenario) => {
           return total + scenario.timeLimitMinutes;
-        }, 0);
+            }, 0)
+          : 0;
         const totalMinutes = Math.ceil(gameQuestionsTime + scenariosTime);
         
-        console.log("Recalculating duration for default config:", {
-          currentDuration: baseConfig.duration,
-          calculatedDuration: totalMinutes,
-          gameQuestions: baseConfig.cultureQuestions.length,
-          scenarios: baseConfig.culturalScenarios.length
-        });
-        
+        // Update duration directly in the base config
         if (totalMinutes > 0) {
-          handleConfigChange({ duration: totalMinutes });
+          baseConfig.duration = totalMinutes;
         }
+        
+        setConfig(baseConfig);
       }
     }
   }, [savedConfig]);
-
 
 
   const [expandedSections, setExpandedSections] = useState({
@@ -487,15 +487,17 @@ export function CultureFitConfig({
     // Calculate time for game questions
     const gameQuestionsTime = config.cultureQuestions.length * (config.assessmentSettings.timePerQuestionSeconds / 60);
     
-    // Calculate time for scenarios
-    const scenariosTime = config.culturalScenarios.reduce((total, scenario) => {
+    // Calculate time for scenarios only if scenarios are enabled
+    const scenariosTime = scenariosEnabled 
+      ? config.culturalScenarios.reduce((total, scenario) => {
       return total + scenario.timeLimitMinutes;
-    }, 0);
+        }, 0)
+      : 0;
     
     // Round up to nearest minute
     const totalMinutes = Math.ceil(gameQuestionsTime + scenariosTime);
     
-    console.log(`Duration calculation: ${config.cultureQuestions.length} questions × ${config.assessmentSettings.timePerQuestionSeconds}s = ${gameQuestionsTime.toFixed(1)}min, ${config.culturalScenarios.length} scenarios = ${scenariosTime}min, total = ${totalMinutes}min`);
+    console.log(`Duration calculation: ${config.cultureQuestions.length} questions × ${config.assessmentSettings.timePerQuestionSeconds}s = ${gameQuestionsTime.toFixed(1)}min, ${scenariosEnabled ? config.culturalScenarios.length : 0} scenarios = ${scenariosTime}min, total = ${totalMinutes}min`);
     
     return totalMinutes;
   };
@@ -507,14 +509,25 @@ export function CultureFitConfig({
     const calculatedDuration = calculateTotalDuration();
 
     // Create a clean configuration data object with only the properties we need
+    const scenariosToSave = scenariosEnabled ? config.culturalScenarios : [];
+    console.log('🔍 Saving config - scenariosEnabled:', scenariosEnabled);
+    console.log('🔍 Saving config - config.culturalScenarios.length:', config.culturalScenarios.length);
+    console.log('🔍 Saving config - scenariosToSave.length:', scenariosToSave.length);
+    
+    const assessmentMethodsToSave = {
+      ...config.assessmentMethods,
+      cultureScenarios: scenariosEnabled
+    };
+    console.log('🔍 Saving config - assessmentMethodsToSave:', assessmentMethodsToSave);
+    
     const configDataToSave = {
       name: config.name,
       description: config.description,
       companyValues: config.companyValues,
       cultureQuestions: config.cultureQuestions,
-      culturalScenarios: config.culturalScenarios,
+      culturalScenarios: scenariosToSave,
       teamDynamics: config.teamDynamics,
-      assessmentMethods: config.assessmentMethods,
+      assessmentMethods: assessmentMethodsToSave,
       scoringMethod: config.scoringMethod,
       passingThreshold: config.passingThreshold,
       assessmentSettings: config.assessmentSettings,
@@ -535,13 +548,9 @@ export function CultureFitConfig({
       configurationData: cleanConfigData,
     };
 
-    console.log("Final configuration to save:", configToSave);
-
     try {
       const result = await saveConfiguration(configToSave);
-      if (result) {
-        console.log("Configuration saved successfully");
-      } else {
+      if (!result) {
         console.error("Failed to save configuration");
       }
     } catch (error) {
@@ -1132,6 +1141,7 @@ export function CultureFitConfig({
 
     resetNewQuestionForm();
     setHasAttemptedQuestionSubmit(false);
+    setShowAddQuestion(false); // Close the modal after adding
   };
 
   const addCulturalScenario = () => {
@@ -1644,152 +1654,64 @@ export function CultureFitConfig({
         </div>
 
         {expandedSections.questions && (
-          <div className="p-3 border-t border-gray-200 space-y-4">
+          <div className="p-6 border-t border-gray-200 space-y-6">
             {/* Question Management Overview */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  <FileText className="h-4 w-4 text-blue-600" />
-                  <h4 className="text-base font-semibold text-blue-900">Question Management</h4>
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-medium text-gray-900 mb-1">Question Management</h4>
+                  <p className="text-sm text-gray-600">
+                    Create questions to assess candidates on your company values
+                  </p>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-blue-700 bg-blue-100 px-2 py-1 rounded-full">
-                    {config.cultureQuestions.length} Questions
+                <div className="flex items-center space-x-3">
+                  <span className="text-sm text-gray-500">
+                    {config.cultureQuestions.length} questions
                   </span>
                   <button 
                     onClick={clearAllQuestions} 
-                    className="px-2 py-1 text-xs bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={config.cultureQuestions.length === 0}
                   >
                     Clear All
                   </button>
                 </div>
               </div>
-              <p className="text-xs text-blue-700">
-                Create questions to assess candidates on your company values. Use the generator for quick setup or add questions manually.
-              </p>
-            </div>
-
-            {/* Question Generator Section */}
-            <div className="border border-gray-200 rounded-lg p-3 bg-gradient-to-r from-indigo-50 to-purple-50">
-              <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 bg-indigo-600 rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">⚡</span>
-                  </div>
-                  <h4 className="text-base font-semibold text-gray-900">Quick Question Generator</h4>
-                </div>
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => alert("AI question generation coming soon ✨")} 
-                    className="px-3 py-1.5 text-xs bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 border border-gray-300"
-                  >
-                    🤖 AI Generate
-                  </button>
-                  <button 
-                    onClick={generateSampleQuestions} 
-                    className="px-3 py-1.5 text-xs bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                  >
-                    🚀 Generate
-                  </button>
-                  </div>
-              </div>
-              
-              <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
-                <div className="xl:col-span-2">
-                  <h5 className="text-xs font-medium text-gray-700 mb-2">Select Company Values:</h5>
-                  <div className="flex flex-wrap gap-1.5">
-                    {config.companyValues.map((v) => (
-                  <button
-                        key={v.id}
-                        onClick={() => toggleGeneratorTrait(v.name)}
-                        className={`px-2 py-1 text-xs rounded-md border transition-all ${
-                          generatorSelectedTraits.includes(v.name) 
-                            ? "border-indigo-400 bg-indigo-100 text-indigo-700 shadow-sm" 
-                            : "border-gray-300 text-gray-700 hover:border-indigo-300 hover:bg-indigo-50"
-                        }`}
-                      >
-                        {v.name}
-                  </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="xl:col-span-2">
-                  <h5 className="text-xs font-medium text-gray-700 mb-2">Question Types & Counts:</h5>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">MCQ</label>
-                      <input 
-                        type="number" 
-                        value={generatorCounts.mcq} 
-                        min={0} 
-                        max={5} 
-                        onChange={(e) => setGeneratorCounts((c) => ({ ...c, mcq: Math.max(0, Math.min(5, parseInt(e.target.value || "0"))) }))} 
-                        className="w-full p-1.5 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">Rank</label>
-                      <input 
-                        type="number" 
-                        value={generatorCounts.rank} 
-                        min={0} 
-                        max={5} 
-                        onChange={(e) => setGeneratorCounts((c) => ({ ...c, rank: Math.max(0, Math.min(5, parseInt(e.target.value || "0"))) }))} 
-                        className="w-full p-1.5 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" 
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">Slider</label>
-                      <input 
-                        type="number" 
-                        value={generatorCounts.slider} 
-                        min={0} 
-                        max={5} 
-                        onChange={(e) => setGeneratorCounts((c) => ({ ...c, slider: Math.max(0, Math.min(5, parseInt(e.target.value || "0"))) }))} 
-                        className="w-full p-1.5 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500" 
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
                 </div>
 
             {/* Template Management Section - Show when there are questions to save or existing templates */}
             {(config.cultureQuestions.length > 0 || savedTemplates.length > 0 || showSaveTemplate) && (
-              <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-r from-green-50 to-emerald-50">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-8 h-8 bg-green-600 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm font-bold">📁</span>
-                    </div>
-                    <h4 className="text-lg font-semibold text-gray-900">Question Templates</h4>
-                  </div>
+              <div className="border border-gray-200 rounded-lg bg-white">
+                <div className="px-4 py-3 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-gray-900">Question Templates</h4>
                   <button 
                     onClick={() => setShowSaveTemplate(true)} 
-                    className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     disabled={config.cultureQuestions.length === 0}
                   >
-                    💾 Save Current as Template
+                      Save as Template
                   </button>
+                  </div>
                 </div>
 
                 {/* Save Template Modal */}
                 {showSaveTemplate && (
-                  <div className="bg-white border border-gray-300 rounded-lg p-4 mb-4 shadow-lg">
-                    <h5 className="text-sm font-medium text-gray-700 mb-3">Save Question Template</h5>
-                    <div className="flex items-center gap-3">
+                  <div className="p-4 bg-gray-50 border-b border-gray-200">
+                    <div className="max-w-md">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Template Name</label>
+                      <div className="flex gap-2">
                       <input
                         type="text"
                         value={templateName}
                         onChange={(e) => setTemplateName(e.target.value)}
-                        placeholder="Enter a descriptive template name..."
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                          placeholder="Enter template name..."
+                          className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
                         onKeyPress={(e) => e.key === 'Enter' && saveAsTemplate()}
                       />
                       <button 
                         onClick={saveAsTemplate}
-                        className="px-4 py-2 text-sm bg-green-600 text-white rounded-md hover:bg-green-700"
+                          className="px-3 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
                       >
                         Save
                       </button>
@@ -1798,47 +1720,40 @@ export function CultureFitConfig({
                           setShowSaveTemplate(false);
                           setTemplateName("");
                         }}
-                        className="px-4 py-2 text-sm bg-gray-500 text-white rounded-md hover:bg-gray-600"
+                          className="px-3 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                       >
                         Cancel
                       </button>
+                      </div>
                     </div>
                   </div>
                 )}
                 
                 {/* Saved Templates List */}
                 {savedTemplates.length > 0 && (
-                  <div>
-                    <h5 className="text-sm font-medium text-gray-700 mb-3 flex items-center gap-2">
-                      <span className="w-1 h-4 bg-green-500 rounded-full"></span>
-                      Saved Templates
-                    </h5>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                  <div className="p-4 rounded-b-lg bg-gray-50">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                       {savedTemplates.map((template, index) => (
-                        <div key={index} className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-lg hover:border-blue-300 transition-all duration-200 max-w-xs group">
-                          <div className="flex flex-col space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-700 transition-colors">{template.name}</span>
-                              <span className="text-xs bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-700 px-2 py-0.5 rounded-full font-medium border border-blue-100">
-                                {template.questions.length}
+                        <div key={index} className="bg-white border border-gray-200 rounded-lg p-3 hover:border-gray-300 transition-colors">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-900 truncate">{template.name}</span>
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                              {template.questions.length} questions
                               </span>
                             </div>
-                            <div className="flex gap-1">
+                          <div className="flex gap-2">
                               <button 
                                 onClick={() => loadTemplate(template)}
-                                className="flex-1 px-2 py-1.5 text-xs bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-md hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center justify-center gap-1 shadow-sm"
+                              className="flex-1 px-3 py-1.5 text-xs bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
                               >
-                                <span className="text-xs">📂</span>
-                                <span>Load</span>
+                              Load
                               </button>
                               <button 
                                 onClick={() => deleteTemplate(template.name)}
-                                className="px-2 py-1.5 text-xs bg-gradient-to-r from-red-600 to-red-700 text-white rounded-md hover:from-red-700 hover:to-red-800 transition-all duration-200 flex items-center justify-center gap-1 shadow-sm"
+                              className="px-3 py-1.5 text-xs text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
                               >
-                                <span className="text-xs">🗑️</span>
-                                <span>Delete</span>
+                              Delete
                               </button>
-                            </div>
                           </div>
               </div>
             ))}
@@ -1848,295 +1763,125 @@ export function CultureFitConfig({
               </div>
             )}
 
-            {/* Manual Question Addition Section */}
-            <div className={`border border-gray-200 rounded-lg bg-gradient-to-r from-orange-50 to-amber-50 ${
-              showAddQuestion ? 'p-4' : 'p-3'
-            }`}>
-              <div className={`flex items-center justify-between ${
-                showAddQuestion ? 'mb-4' : 'mb-0'
-              }`}>
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-orange-600 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm font-bold">✏️</span>
-                  </div>
-                  <h4 className={`font-semibold text-gray-900 ${
-                    showAddQuestion ? 'text-lg' : 'text-base'
-                  }`}>Manual Question Builder</h4>
-                </div>
-                {!showAddQuestion && (
+            {/* Question Generator Section */}
+            <div className="border border-gray-200 rounded-lg bg-white">
+              <div className="px-4 py-3 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium text-gray-900">Quick Question Generator</h4>
+                  <div className="flex gap-2">
                   <button
-                    onClick={() => setShowAddQuestion(true)}
-                    className="px-3 py-1.5 text-sm bg-orange-600 text-white rounded-md hover:bg-orange-700"
+                      onClick={() => alert("AI question generation coming soon")} 
+                      className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                   >
-                    ➕ Add Question Manually
+                      AI Generate
                   </button>
-                )}
-              </div>
-
-            {showAddQuestion ? (
-                <div className="bg-white border border-gray-300 rounded-lg p-6 shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                    <h5 className="text-lg font-medium text-gray-900">Create New Question</h5>
                     <button
-                      onClick={() => setShowAddQuestion(false)}
-                      className="text-gray-500 hover:text-gray-700 p-1 rounded-full hover:bg-gray-100"
+                      onClick={generateSampleQuestions} 
+                      className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
                     >
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
+                      Generate
                     </button>
                   </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Type</label>
-                    <select
-                      value={newQuestion.type}
-                      onChange={(e) => setNewQuestion({ ...newQuestion, type: e.target.value as CultureQuestion["type"] })}
-                      className="w-full p-1.5 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 bg-white relative z-10"
-                    >
-                      <option value="multiple_choice">Multiple Choice</option>
-                      <option value="rank_scenario">Rank Scenario</option>
-                      <option value="slider">Slider (1-10)</option>
-                      <option value="open_ended">Open Ended</option>
-                    </select>
                   </div>
+              </div>
+              
+              <div className="p-4 bg-gray-50 rounded-b-lg">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Trait
-                      {hasAttemptedQuestionSubmit && !newQuestion.trait?.trim() && <span className="text-red-500 ml-1">*</span>}
-                    </label>
-                    <select
-                      value={newQuestion.trait}
-                      onChange={(e) => setNewQuestion({ ...newQuestion, trait: e.target.value })}
-                                              className={`w-full p-1.5 text-sm border rounded-md focus:ring-indigo-500 focus:border-indigo-500 relative z-10 ${
-                          hasAttemptedQuestionSubmit && !newQuestion.trait?.trim() ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-white'
-                        }`}
-                    >
-                      <option value="">Select value</option>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">Company Values</label>
+                    <div className="flex flex-wrap gap-2">
                       {config.companyValues.map((v) => (
-                        <option key={v.id} value={v.name}>{v.name}</option>
+                        <button
+                          key={v.id}
+                          onClick={() => toggleGeneratorTrait(v.name)}
+                          className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
+                            generatorSelectedTraits.includes(v.name) 
+                              ? "border-gray-900 bg-gray-900 text-white" 
+                              : "border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50"
+                          }`}
+                        >
+                          {v.name}
+                        </button>
                       ))}
-                    </select>
+                  </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Weight</label>
-                    <select
-                      value={newQuestion.weight}
-                      onChange={(e) => setNewQuestion({ ...newQuestion, weight: parseInt(e.target.value) })}
-                      className="w-full p-1.5 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500 bg-white relative z-10"
-                    >
-                      <option value={1}>1</option>
-                      <option value={2}>2</option>
-                      <option value={3}>3</option>
-                      <option value={4}>4</option>
-                      <option value={5}>5</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Max Score</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">Question Types</label>
+                    <div className="grid grid-cols-3 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-600 mb-1">Multiple Choice</label>
                     <input
                       type="number"
-                      value={newQuestion.maxScore}
-                      onChange={(e) => setNewQuestion({ ...newQuestion, maxScore: parseInt(e.target.value) })}
-                      className="w-full p-1.5 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                      min={1}
-                      max={10}
-                    />
-                  </div>
-                  <div className="md:col-span-4">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Question Text
-                      {hasAttemptedQuestionSubmit && !newQuestion.text?.trim() && <span className="text-red-500 ml-1">*</span>}
-                    </label>
-                    <textarea
-                      value={newQuestion.text}
-                      onChange={(e) => setNewQuestion({ ...newQuestion, text: e.target.value })}
-                                              className={`w-full p-1.5 text-sm border rounded-md focus:ring-indigo-500 focus:border-indigo-500 ${
-                          hasAttemptedQuestionSubmit && !newQuestion.text?.trim() ? 'border-red-300 bg-red-50' : 'border-gray-300'
-                        }`}
-                      rows={2}
-                      placeholder="Write the question..."
-                    />
-                  </div>
-
-                </div>
-
-                {/* Question Type Specific Options */}
-                {newQuestion.type === "multiple_choice" && (
-                  <div className="mt-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h5 className="text-xs font-medium text-gray-700">Options</h5>
-                      <button onClick={addMcqOption} className="text-xs px-2 py-1 border rounded-md">+ Add option</button>
-                    </div>
-                    <div className="space-y-2">
-                      {mcqOptions.map((opt, idx) => (
-                        <div key={opt.id} className="grid grid-cols-1 md:grid-cols-8 gap-2 items-center">
-                          <input
-                            value={opt.text}
-                            onChange={(e) => setMcqOptions((prev) => prev.map((o) => (o.id === opt.id ? { ...o, text: e.target.value } : o)))}
-                            placeholder={`Option ${idx + 1}`}
-                            className="md:col-span-5 p-1.5 text-sm border border-gray-300 rounded-md"
-                          />
-                          <label className="md:col-span-1 flex items-center text-xs">
-                            <input
-                              type="checkbox"
-                              checked={!!opt.isCorrect}
-                              onChange={(e) => setMcqOptions((prev) => prev.map((o) => (o.id === opt.id ? { ...o, isCorrect: e.target.checked } : o)))}
-                              className="mr-1"
-                            />
-                            Correct
-                          </label>
-                          <input
-                            type="number"
-                            value={opt.score ?? 0}
-                            onChange={(e) => setMcqOptions((prev) => prev.map((o) => (o.id === opt.id ? { ...o, score: parseInt(e.target.value || "0") } : o)))}
-                            className="md:col-span-1 p-1.5 text-sm border border-gray-300 rounded-md"
+                          value={generatorCounts.mcq} 
                             min={0}
-                            max={newQuestion.maxScore}
-                          />
-                          <button onClick={() => removeMcqOption(opt.id)} className="md:col-span-1 text-red-600 text-xs">Remove</button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {newQuestion.type === "rank_scenario" && (
-                  <div className="mt-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h5 className="text-xs font-medium text-gray-700">Options (top = most desirable)</h5>
-                      <button onClick={addRankOption} className="text-xs px-2 py-1 border rounded-md">+ Add option</button>
-                    </div>
-                    <div className="space-y-2">
-                      {rankOptions.map((opt, idx) => (
-                        <div key={opt.id} className="grid grid-cols-1 md:grid-cols-8 gap-2 items-center">
-                          <input
-                            value={opt.text}
-                            onChange={(e) => setRankOptions((prev) => prev.map((o) => (o.id === opt.id ? { ...o, text: e.target.value } : o)))}
-                            placeholder={`Option ${idx + 1}`}
-                            className="md:col-span-6 p-1.5 text-sm border border-gray-300 rounded-md"
-                          />
-                          <input
-                            type="number"
-                            value={opt.desiredOrder ?? idx + 1}
-                            onChange={(e) => setRankOptions((prev) => prev.map((o) => (o.id === opt.id ? { ...o, desiredOrder: parseInt(e.target.value || "1") } : o)))}
-                            className="md:col-span-1 p-1.5 text-sm border border-gray-300 rounded-md"
-                            min={1}
-                            max={rankOptions.length}
-                          />
-                          <button onClick={() => removeRankOption(opt.id)} className="md:col-span-1 text-red-600 text-xs">Remove</button>
-                        </div>
-                      ))}
+                          max={5} 
+                          onChange={(e) => setGeneratorCounts((c) => ({ ...c, mcq: Math.max(0, Math.min(5, parseInt(e.target.value || "0"))) }))} 
+                          className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500" 
+                        />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Scoring Method</label>
-                      <select
-                        value={rankScoring}
-                        onChange={(e) => setRankScoring(e.target.value as any)}
-                        className="w-48 p-1.5 text-sm border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
-                      >
-                        <option value="position_diff">By position difference</option>
-                        <option value="exact">Exact match only</option>
-                        <option value="weighted">Weighted by option position</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
-
-                {newQuestion.type === "slider" && (
-                  <div className="mt-3 grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Left Label</label>
-                      <input
-                        value={sliderLeftLabel}
-                        onChange={(e) => setSliderLeftLabel(e.target.value)}
-                        className="w-full p-1.5 text-sm border border-gray-300 rounded-md"
-                        placeholder="e.g., Disagree"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Right Label</label>
-                      <input
-                        value={sliderRightLabel}
-                        onChange={(e) => setSliderRightLabel(e.target.value)}
-                        className="w-full p-1.5 text-sm border border-gray-300 rounded-md"
-                        placeholder="e.g., Agree"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Target Min</label>
+                        <label className="block text-xs text-gray-600 mb-1">Ranking</label>
                       <input
                         type="number"
-                        value={sliderTargetMin}
-                        min={1}
-                        max={10}
-                        onChange={(e) => setSliderTargetMin(Math.max(1, Math.min(10, parseInt(e.target.value || "7"))))}
-                        className="w-full p-1.5 text-sm border border-gray-300 rounded-md"
+                          value={generatorCounts.rank} 
+                          min={0} 
+                          max={5} 
+                          onChange={(e) => setGeneratorCounts((c) => ({ ...c, rank: Math.max(0, Math.min(5, parseInt(e.target.value || "0"))) }))} 
+                          className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500" 
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-1">Target Max</label>
+                        <label className="block text-xs text-gray-600 mb-1">Slider</label>
                       <input
                         type="number"
-                        value={sliderTargetMax}
-                        min={1}
-                        max={10}
-                        onChange={(e) => setSliderTargetMax(Math.max(1, Math.min(10, parseInt(e.target.value || "10"))))}
-                        className="w-full p-1.5 text-sm border border-gray-300 rounded-md"
+                          value={generatorCounts.slider} 
+                          min={0} 
+                          max={5} 
+                          onChange={(e) => setGeneratorCounts((c) => ({ ...c, slider: Math.max(0, Math.min(5, parseInt(e.target.value || "0"))) }))} 
+                          className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500" 
                       />
                     </div>
                   </div>
-                )}
-
-                <div className="mt-4 flex gap-2">
-                  <button onClick={addCultureQuestion} className="px-3 py-1.5 bg-orange-600 text-white rounded-md hover:bg-orange-700 text-sm">➕ Add Question</button>
-                  <button onClick={resetNewQuestionForm} className="px-3 py-1.5 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm">🔄 Reset</button>
                 </div>
-                
-                              {hasAttemptedQuestionSubmit && validateCultureQuestion(newQuestion).length > 0 && (
-                <div className="mt-2 p-1.5 bg-red-50 border border-red-200 rounded text-xs text-red-700">
-                  <span className="font-medium">⚠️ </span>
-                  {validateCultureQuestion(newQuestion).join(" • ")}
                 </div>
-              )}
               </div>
-            ) : (
-              <div className="text-center py-4">
-                <div className="text-3xl mb-2">✏️</div>
-                <p className="text-gray-600 text-sm">Create custom questions tailored to your specific needs</p>
-              </div>
-            )}
             </div>
 
-            {/* Questions List Section - Improved UX */}
-            <div className="border border-gray-200 rounded-lg p-4 bg-gradient-to-r from-purple-50 to-pink-50">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-purple-600 rounded-full flex items-center justify-center">
-                    <span className="text-white text-sm font-bold">📋</span>
+
+            {/* Questions List Section */}
+            <div className="border border-gray-200 rounded-lg bg-white">
+              <div className="px-4 py-3 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-medium text-gray-900">Questions List</h4>
+                  <div className="flex items-center space-x-3">
+                    <span className="text-sm text-gray-500">
+                      {config.cultureQuestions.length} questions
+                    </span>
+                    <button
+                      onClick={() => setShowAddQuestion(true)}
+                      className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
+                    >
+                      Add Question
+                    </button>
                   </div>
-                  <h4 className="text-lg font-semibold text-gray-900">Questions List</h4>
                 </div>
-                <span className="text-sm text-purple-700 bg-purple-100 px-3 py-1 rounded-full">
-                  {config.cultureQuestions.length} Questions
-                </span>
               </div>
               
               {config.cultureQuestions.length > 0 ? (
-                <div className="space-y-4">
+                <div className="p-4 space-y-4 bg-gray-50 rounded-b-lg">
                   {/* Trait Filter */}
-                  <div className="bg-white border border-gray-200 rounded-lg p-4">
-                    <h5 className="text-sm font-medium text-gray-700 mb-3">Filter by Trait:</h5>
+                  <div className="bg-white rounded-lg p-3 border border-gray-200">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Trait</label>
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => handleTraitChange("all")}
-                        className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                        className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
                           selectedTrait === "all"
-                            ? "bg-purple-100 border-purple-300 text-purple-700"
-                            : "bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100"
+                            ? "border-gray-900 bg-gray-900 text-white"
+                            : "border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50"
                         }`}
                       >
-                        All Traits ({config.cultureQuestions.length})
+                        All ({config.cultureQuestions.length})
                       </button>
                       {getUniqueTraits().map((trait) => {
                         const traitCount = config.cultureQuestions.filter(q => q.trait === trait).length;
@@ -2144,10 +1889,10 @@ export function CultureFitConfig({
                           <button
                             key={trait}
                             onClick={() => handleTraitChange(trait)}
-                            className={`px-3 py-1.5 text-xs rounded-md border transition-colors ${
+                            className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
                               selectedTrait === trait
-                                ? "bg-purple-100 border-purple-300 text-purple-700"
-                                : "bg-gray-50 border-gray-300 text-gray-700 hover:bg-gray-100"
+                                ? "border-gray-900 bg-gray-900 text-white"
+                                : "border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50"
                             }`}
                           >
                             {trait} ({traitCount})
@@ -2160,22 +1905,22 @@ export function CultureFitConfig({
                   {/* Questions Display */}
                   <div className="space-y-3">
                     {getPaginatedQuestions().map((question, index) => (
-                      <div key={question.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div key={question.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors">
                         {editingQuestionId === question.id && editingQuestion ? (
                           // Editing mode
                           <div className="space-y-4">
                             <div className="flex items-center justify-between">
-                              <h4 className="text-lg font-medium text-gray-900">Editing Question</h4>
+                              <h4 className="text-sm font-medium text-gray-900">Editing Question</h4>
                               <div className="flex space-x-2">
                                 <button
                                   onClick={saveEditingQuestion}
-                                  className="px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-sm"
+                                  className="px-3 py-1.5 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
                                 >
                                   Save
                                 </button>
                                 <button
                                   onClick={cancelEditingQuestion}
-                                  className="px-3 py-1 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 text-sm"
+                                  className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
                                 >
                                   Cancel
                                 </button>
@@ -2436,32 +2181,32 @@ export function CultureFitConfig({
             ) : (
                           // View mode
                           <div>
-                            <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-start justify-between">
                               <div className="flex-1">
                                 <div className="flex items-center space-x-2 mb-2">
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                    question.type === 'multiple_choice' ? 'bg-blue-100 text-blue-800' :
-                                    question.type === 'rank_scenario' ? 'bg-green-100 text-green-800' :
-                                    question.type === 'slider' ? 'bg-purple-100 text-purple-800' :
-                                    'bg-gray-100 text-gray-800'
+                                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                                    question.type === 'multiple_choice' ? 'bg-gray-100 text-gray-700' :
+                                    question.type === 'rank_scenario' ? 'bg-gray-100 text-gray-700' :
+                                    question.type === 'slider' ? 'bg-gray-100 text-gray-700' :
+                                    'bg-gray-100 text-gray-700'
                                   }`}>
                                     {question.type.replace("_", " ").toUpperCase()}
                                   </span>
-                                  <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
+                                  <span className="text-xs text-gray-500">
                                     #{index + 1}
                                   </span>
                                 </div>
-                                <h5 className="text-sm font-medium text-gray-900 mb-1">{question.text}</h5>
+                                <h5 className="text-sm font-medium text-gray-900 mb-2">{question.text}</h5>
                                 <div className="flex items-center space-x-4 text-xs text-gray-500">
-                                  <span>🎯 {question.trait}</span>
-                                  <span>⚖️ Weight: {question.weight}</span>
-                                  <span>📊 Max: {question.maxScore}</span>
+                                  <span>{question.trait}</span>
+                                  <span>Weight: {question.weight}</span>
+                                  <span>Max: {question.maxScore}</span>
                                 </div>
                               </div>
-                              <div className="flex space-x-2 ml-4">
+                              <div className="flex space-x-1 ml-4">
               <button
                                   onClick={() => startEditingQuestion(question)}
-                                  className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
+                                  className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition-colors"
                                   title="Edit question"
               >
                                   <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2472,7 +2217,7 @@ export function CultureFitConfig({
                                   onClick={() => handleConfigChange({
                                     cultureQuestions: config.cultureQuestions.filter((q) => q.id !== question.id)
                                   })} 
-                                  className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
+                                  className="text-gray-400 hover:text-red-600 p-1 rounded-md hover:bg-red-50 transition-colors"
                                   title="Delete question"
                                 >
                                   <Trash2 className="h-4 w-4" />
@@ -2518,11 +2263,327 @@ export function CultureFitConfig({
                   )}
                 </div>
               ) : (
-                <div className="text-center py-8">
-                  <div className="text-4xl mb-3">📋</div>
-                  <p className="text-gray-600 mb-4">No questions created yet. Use the generator above or add questions manually.</p>
+                <div className="p-8 text-center bg-gray-50 rounded-b-lg">
+                  <div className="text-gray-400 mb-3">
+                    <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">No questions created yet. Use the generator above or add questions manually.</p>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Add Question Modal */}
+        {showAddQuestion && (
+          <div 
+            className="fixed inset-0 flex items-center justify-center z-[70] p-4"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+            onClick={() => {
+              setShowAddQuestion(false);
+              resetNewQuestionForm();
+              setHasAttemptedQuestionSubmit(false);
+            }}
+          >
+            <div 
+              className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium text-gray-900">Add New Question</h3>
+                  <button
+                    onClick={() => {
+                      setShowAddQuestion(false);
+                      resetNewQuestionForm();
+                      setHasAttemptedQuestionSubmit(false);
+                    }}
+                    className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition-colors"
+                  >
+                    <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Question Type</label>
+                    <select
+                      value={newQuestion.type}
+                      onChange={(e) => setNewQuestion({ ...newQuestion, type: e.target.value as CultureQuestion["type"] })}
+                      className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white"
+                    >
+                      <option value="multiple_choice">Multiple Choice</option>
+                      <option value="rank_scenario">Rank Scenario</option>
+                      <option value="slider">Slider (1-10)</option>
+                      <option value="open_ended">Open Ended</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Company Value
+                      {hasAttemptedQuestionSubmit && !newQuestion.trait?.trim() && <span className="text-red-500 ml-1">*</span>}
+                    </label>
+                    <select
+                      value={newQuestion.trait}
+                      onChange={(e) => setNewQuestion({ ...newQuestion, trait: e.target.value })}
+                      className={`w-full p-2 text-sm border rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${
+                        hasAttemptedQuestionSubmit && !newQuestion.trait?.trim() ? 'border-red-300 bg-red-50' : 'border-gray-300 bg-white'
+                      }`}
+                    >
+                      <option value="">Select value</option>
+                      {config.companyValues.map((v) => (
+                        <option key={v.id} value={v.name}>{v.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Weight</label>
+                    <select
+                      value={newQuestion.weight}
+                      onChange={(e) => setNewQuestion({ ...newQuestion, weight: parseInt(e.target.value) })}
+                      className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 bg-white"
+                    >
+                      <option value={1}>1</option>
+                      <option value={2}>2</option>
+                      <option value={3}>3</option>
+                      <option value={4}>4</option>
+                      <option value={5}>5</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Max Score</label>
+                    <input
+                      type="number"
+                      value={newQuestion.maxScore}
+                      onChange={(e) => setNewQuestion({ ...newQuestion, maxScore: parseInt(e.target.value) })}
+                      className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                      min={1}
+                      max={10}
+                    />
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Question Text
+                    {hasAttemptedQuestionSubmit && !newQuestion.text?.trim() && <span className="text-red-500 ml-1">*</span>}
+                  </label>
+                  <textarea
+                    value={newQuestion.text}
+                    onChange={(e) => setNewQuestion({ ...newQuestion, text: e.target.value })}
+                    className={`w-full p-3 text-sm border rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500 ${
+                      hasAttemptedQuestionSubmit && !newQuestion.text?.trim() ? 'border-red-300 bg-red-50' : 'border-gray-300'
+                    }`}
+                    rows={3}
+                    placeholder="Write the question..."
+                  />
+                </div>
+
+                {/* Question Type Specific Options */}
+                {newQuestion.type === "multiple_choice" && (
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium text-gray-700">Answer Options</h4>
+                      <button 
+                        onClick={addMcqOption} 
+                        className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                      >
+                        + Add Option
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {mcqOptions.map((opt, idx) => (
+                        <div key={opt.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                          <div className="md:col-span-6">
+                            <input
+                              value={opt.text}
+                              onChange={(e) => setMcqOptions((prev) => prev.map((o) => (o.id === opt.id ? { ...o, text: e.target.value } : o)))}
+                              placeholder={`Option ${idx + 1}`}
+                              className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <label className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                checked={!!opt.isCorrect}
+                                onChange={(e) => setMcqOptions((prev) => prev.map((o) => (o.id === opt.id ? { ...o, isCorrect: e.target.checked } : o)))}
+                                className="rounded border-gray-300"
+                              />
+                              <span className="text-sm text-gray-700">Correct</span>
+                            </label>
+                          </div>
+                          <div className="md:col-span-2">
+                            <input
+                              type="number"
+                              value={opt.score ?? 0}
+                              onChange={(e) => setMcqOptions((prev) => prev.map((o) => (o.id === opt.id ? { ...o, score: parseInt(e.target.value || "0") } : o)))}
+                              className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                              min={0}
+                              max={newQuestion.maxScore}
+                              placeholder="Score"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <button 
+                              onClick={() => removeMcqOption(opt.id)} 
+                              className="w-full px-3 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {newQuestion.type === "rank_scenario" && (
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium text-gray-700">Ranking Options</h4>
+                      <button 
+                        onClick={addRankOption} 
+                        className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                      >
+                        + Add Option
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {rankOptions.map((opt, idx) => (
+                        <div key={opt.id} className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+                          <div className="md:col-span-8">
+                            <input
+                              value={opt.text}
+                              onChange={(e) => setRankOptions((prev) => prev.map((o) => (o.id === opt.id ? { ...o, text: e.target.value } : o)))}
+                              placeholder={`Option ${idx + 1}`}
+                              className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <input
+                              type="number"
+                              value={opt.desiredOrder ?? idx + 1}
+                              onChange={(e) => setRankOptions((prev) => prev.map((o) => (o.id === opt.id ? { ...o, desiredOrder: parseInt(e.target.value || "1") } : o)))}
+                              className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                              min={1}
+                              max={rankOptions.length}
+                              placeholder="Order"
+                            />
+                          </div>
+                          <div className="md:col-span-2">
+                            <button 
+                              onClick={() => removeRankOption(opt.id)} 
+                              className="w-full px-3 py-2 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 transition-colors"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Scoring Method</label>
+                      <select
+                        value={rankScoring}
+                        onChange={(e) => setRankScoring(e.target.value as any)}
+                        className="w-64 p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                      >
+                        <option value="position_diff">By position difference</option>
+                        <option value="exact">Exact match only</option>
+                        <option value="weighted">Weighted by option position</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {newQuestion.type === "slider" && (
+                  <div className="mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Left Label</label>
+                        <input
+                          value={sliderLeftLabel}
+                          onChange={(e) => setSliderLeftLabel(e.target.value)}
+                          className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                          placeholder="e.g., Disagree"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Right Label</label>
+                        <input
+                          value={sliderRightLabel}
+                          onChange={(e) => setSliderRightLabel(e.target.value)}
+                          className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                          placeholder="e.g., Agree"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Target Min</label>
+                        <input
+                          type="number"
+                          value={sliderTargetMin}
+                          min={1}
+                          max={10}
+                          onChange={(e) => setSliderTargetMin(Math.max(1, Math.min(10, parseInt(e.target.value || "7"))))}
+                          className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Target Max</label>
+                        <input
+                          type="number"
+                          value={sliderTargetMax}
+                          min={1}
+                          max={10}
+                          onChange={(e) => setSliderTargetMax(Math.max(1, Math.min(10, parseInt(e.target.value || "10"))))}
+                          className="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-gray-500 focus:border-gray-500"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {hasAttemptedQuestionSubmit && validateCultureQuestion(newQuestion).length > 0 && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <div className="flex items-center">
+                      <svg className="h-4 w-4 text-red-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <span className="text-sm text-red-700">
+                        {validateCultureQuestion(newQuestion).join(" • ")}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowAddQuestion(false);
+                      resetNewQuestionForm();
+                      setHasAttemptedQuestionSubmit(false);
+                    }}
+                    className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={addCultureQuestion}
+                    className="px-4 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-gray-800 transition-colors"
+                  >
+                    Add Question
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -2549,7 +2610,72 @@ export function CultureFitConfig({
                 type="checkbox"
                 checked={scenariosEnabled}
                 onChange={(e) => {
-                  setScenariosEnabled(e.target.checked);
+                  const enabled = e.target.checked;
+                  console.log('🔍 Cultural Scenarios checkbox toggled - enabled:', enabled);
+                  console.log('🔍 Current config.culturalScenarios.length:', config.culturalScenarios.length);
+                  setScenariosEnabled(enabled);
+                  
+                  if (!enabled) {
+                    // Clear scenarios from config when disabled
+                    console.log('🔍 Clearing scenarios from config');
+                    handleConfigChange({ 
+                      culturalScenarios: [],
+                      assessmentMethods: {
+                        ...config.assessmentMethods,
+                        cultureScenarios: false
+                      }
+                    });
+                  } else if (enabled && config.culturalScenarios.length === 0) {
+                    // Restore default scenarios when enabled and no scenarios exist
+                    console.log('🔍 Restoring default scenarios');
+                    const defaultScenarios = [
+                      {
+                        id: "cs1",
+                        title: "Deadline Pressure",
+                        category: "Integrity",
+                        scenario: "Your team is facing a tight deadline and a colleague suggests cutting corners on quality to meet it. How would you respond?",
+                        wordLimit: { max: 300, min: 200 },
+                        expectedResponse: "Should discuss concerns openly, propose alternatives, escalate if necessary",
+                        timeLimitMinutes: 5,
+                        evaluationCriteria: [
+                          "Maintains quality standards",
+                          "Communicates concerns effectively",
+                          "Seeks collaborative solutions",
+                          "Shows integrity under pressure"
+                        ]
+                      },
+                      {
+                        id: "cs2",
+                        title: "Team Conflict",
+                        category: "Collaboration",
+                        scenario: "Two team members have a disagreement about the direction of a project and ask for your input. How do you handle this?",
+                        wordLimit: { max: 300, min: 200 },
+                        expectedResponse: "Listen to both sides, facilitate discussion, focus on project goals",
+                        timeLimitMinutes: 5,
+                        evaluationCriteria: [
+                          "Remains neutral and objective",
+                          "Facilitates open communication",
+                          "Focuses on solutions",
+                          "Considers all perspectives"
+                        ]
+                      }
+                    ];
+                    handleConfigChange({ 
+                      culturalScenarios: defaultScenarios,
+                      assessmentMethods: {
+                        ...config.assessmentMethods,
+                        cultureScenarios: true
+                      }
+                    });
+                  } else if (enabled) {
+                    // Just update the assessmentMethods when scenarios already exist
+                    handleConfigChange({
+                      assessmentMethods: {
+                        ...config.assessmentMethods,
+                        cultureScenarios: true
+                      }
+                    });
+                  }
                 }}
                 className="rounded border-gray-300 text-green-600 focus:ring-green-500"
               />
@@ -3087,24 +3213,6 @@ export function CultureFitConfig({
                   </span>
                 </label>
 
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={config.assessmentMethods.cultureScenarios}
-                    onChange={(e) =>
-                      handleConfigChange({
-                        assessmentMethods: {
-                          ...config.assessmentMethods,
-                          cultureScenarios: e.target.checked,
-                        },
-                      })
-                    }
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <span className="ml-2 text-sm text-gray-700">
-                    Cultural scenario discussions
-                  </span>
-                </label>
 
                 <label className="flex items-center">
                   <input
@@ -3141,6 +3249,62 @@ export function CultureFitConfig({
                   />
                   <span className="ml-2 text-sm text-gray-700">
                     Peer interview session
+                  </span>
+                </label>
+
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={scenariosEnabled}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      console.log('🔍 Assessment Methods scenarios checkbox toggled - enabled:', enabled);
+                      setScenariosEnabled(enabled);
+                      
+                      // Update both the scenariosEnabled state and the assessmentMethods
+                      handleConfigChange({
+                        assessmentMethods: {
+                          ...config.assessmentMethods,
+                          cultureScenarios: enabled,
+                        },
+                        culturalScenarios: enabled ? (config.culturalScenarios.length > 0 ? config.culturalScenarios : [
+                          {
+                            id: "cs1",
+                            title: "Deadline Pressure",
+                            category: "Integrity",
+                            scenario: "Your team is facing a tight deadline and a colleague suggests cutting corners on quality to meet it. How would you respond?",
+                            wordLimit: { max: 300, min: 200 },
+                            expectedResponse: "Should discuss concerns openly, propose alternatives, escalate if necessary",
+                            timeLimitMinutes: 5,
+                            evaluationCriteria: [
+                              "Maintains quality standards",
+                              "Communicates concerns effectively",
+                              "Seeks collaborative solutions",
+                              "Shows integrity under pressure"
+                            ]
+                          },
+                          {
+                            id: "cs2",
+                            title: "Team Conflict",
+                            category: "Collaboration",
+                            scenario: "Two team members have a disagreement about the direction of a project and ask for your input. How do you handle this?",
+                            wordLimit: { max: 300, min: 200 },
+                            expectedResponse: "Listen to both sides, facilitate discussion, focus on project goals",
+                            timeLimitMinutes: 5,
+                            evaluationCriteria: [
+                              "Remains neutral and objective",
+                              "Facilitates open communication",
+                              "Focuses on solutions",
+                              "Considers all perspectives"
+                            ]
+                          }
+                        ]) : []
+                      });
+                    }}
+                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">
+                    Cultural scenario discussions
                   </span>
                 </label>
               </div>
