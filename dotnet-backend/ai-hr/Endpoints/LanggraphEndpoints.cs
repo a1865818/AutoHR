@@ -1,10 +1,8 @@
-using System.Net.Http.Headers;
-using System.Text;
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Converters;
 using Newtonsoft.Json.Linq;
 using ai_hr.Contracts.Langgraph;
+using ai_hr.Services;
 
 namespace ai_hr.Endpoints;
 
@@ -12,6 +10,7 @@ public static class LanggraphEndpoints
 {
     public static void MapLanggraphEndpoints(this WebApplication app)
     {
+        // ---- Low-level LangGraph Platform proxies ----
         app.MapPost("/langgraph/search", SearchAssistants)
             .WithTags("Langgraph")
             .WithName("SearchAssistants")
@@ -34,355 +33,323 @@ public static class LanggraphEndpoints
             .WithTags("Langgraph")
             .WithName("CreateRunWaitForOutput")
             .WithSummary("Create Run, Wait for Output")
-            .WithDescription("Create a run in existing thread. Wait for the final output and then return it.");
+            .WithDescription("Create a run in an existing thread, wait for the final output and return it.");
 
+        // ---- Per-graph feature endpoints (all 6 graphs in langgraph.json) ----
         app.MapPost("/langgraph/jd-generator", RunJdGenerator)
             .WithTags("Langgraph")
             .WithName("RunJdGenerator")
             .WithSummary("Run JD Generator")
-            .WithDescription("Generate a new thread and run the JD Generator agent with a specific input string");
+            .WithDescription("Run the job_description_generator graph with an input string and return the formatted job description.");
+
+        app.MapPost("/langgraph/business-context", RunBusinessContext)
+            .WithTags("Langgraph")
+            .WithName("RunBusinessContext")
+            .WithSummary("Run Business Context Analyzer")
+            .WithDescription("Run the business_context_analyzer graph and return the final company research report (markdown).");
+
+        app.MapPost("/langgraph/resume-ranker", RunResumeRanker)
+            .WithTags("Langgraph")
+            .WithName("RunResumeRanker")
+            .WithSummary("Run Resume Ranker")
+            .WithDescription("Run the resume_ranker graph over a set of resumes in a Supabase bucket and return per-resume 0-100 scores.");
+
+        app.MapPost("/langgraph/criteria-discovery", RunCriteriaDiscovery)
+            .WithTags("Langgraph")
+            .WithName("RunCriteriaDiscovery")
+            .WithSummary("Run Criteria Discovery")
+            .WithDescription("Run the criteria_discovery_agent graph to derive weighted evaluation criteria from a job description.");
+
+        app.MapPost("/langgraph/resume-analysis", RunResumeAnalysis)
+            .WithTags("Langgraph")
+            .WithName("RunResumeAnalysis")
+            .WithSummary("Run Resume Analysis")
+            .WithDescription("Run the resume_analysis_agent graph to score a single resume across four dimensions.");
+
+        app.MapPost("/langgraph/cultural-fit", RunCulturalFit)
+            .WithTags("Langgraph")
+            .WithName("RunCulturalFit")
+            .WithSummary("Run Cultural Fit")
+            .WithDescription("Run the cultural_fit_agent graph to score a single resume's cultural fit.");
     }
 
-    private static async Task<IResult> SearchAssistants()
+    private static async Task<IResult> SearchAssistants([FromServices] ILangGraphService langGraph)
     {
         try
         {
-            var langGraphUrl = Environment.GetEnvironmentVariable("LANGGRAPH_URL");
-            Console.WriteLine(langGraphUrl);
-            if (string.IsNullOrEmpty(langGraphUrl))
-            {
-                return Results.BadRequest(new { error = "LANGGRAPH_URL environment variable not configured" });
-            }
-
-            using var client = new HttpClient();
-
-            // Create default search parameters
-            var requestBody = System.Text.Json.JsonSerializer.Serialize(new
-            {
-                limit = 25,
-                offset = 0,
-                sort_by = "assistant_id",
-                sort_order = "asc"
-            });
-
-            var httpRequest = new HttpRequestMessage
-            {
-                Method = HttpMethod.Post,
-                RequestUri = new Uri($"{langGraphUrl}/assistants/search"),
-                Content = new StringContent(requestBody)
-                {
-                    Headers =
-                    {
-                        ContentType = new MediaTypeHeaderValue("application/json")
-                    }
-                }
-            };
-
-            using var response = await client.SendAsync(httpRequest);
-            response.EnsureSuccessStatusCode();
-
-            var body = await response.Content.ReadAsStringAsync();
-
+            var body = await langGraph.SearchAssistantsAsync();
             return Results.Ok(new { data = body, success = true });
         }
-        catch (HttpRequestException ex)
+        catch (LangGraphException ex)
         {
             return Results.BadRequest(new { error = "Failed to connect to Langgraph API", details = ex.Message });
         }
         catch (Exception ex)
         {
-            return Results.Problem(
-                detail: ex.Message,
-                title: "Internal server error",
-                statusCode: 500
-            );
+            return Results.Problem(detail: ex.Message, title: "Internal server error", statusCode: 500);
         }
     }
 
-    private static async Task<IResult> GetAssistantById(string assistantId)
+    private static async Task<IResult> GetAssistantById(string assistantId, [FromServices] ILangGraphService langGraph)
     {
         try
         {
-            var langGraphUrl = Environment.GetEnvironmentVariable("LANGGRAPH_URL");
-            Console.WriteLine(langGraphUrl);
-
-            if (string.IsNullOrEmpty(langGraphUrl))
-            {
-                return Results.BadRequest(new { error = "LANGGRAPH_URL environment variable not configured" });
-            }
-
-            if (string.IsNullOrEmpty(assistantId))
-            {
+            if (string.IsNullOrWhiteSpace(assistantId))
                 return Results.BadRequest(new { error = "Assistant ID is required" });
-            }
 
-            using var client = new HttpClient();
-
-            var httpRequest = new HttpRequestMessage
-            {
-                Method = HttpMethod.Get,
-                RequestUri = new Uri($"{langGraphUrl}/assistants/{assistantId}"),
-            };
-
-            using var response = await client.SendAsync(httpRequest);
-            response.EnsureSuccessStatusCode();
-
-            var body = await response.Content.ReadAsStringAsync();
-
+            var body = await langGraph.GetAssistantByIdAsync(assistantId);
             return Results.Ok(new { data = body, success = true });
         }
-        catch (HttpRequestException ex)
+        catch (LangGraphException ex)
         {
             return Results.BadRequest(new { error = "Failed to connect to Langgraph API", details = ex.Message });
         }
         catch (Exception ex)
         {
-            return Results.Problem(
-                detail: ex.Message,
-                title: "Internal server error",
-                statusCode: 500
-            );
+            return Results.Problem(detail: ex.Message, title: "Internal server error", statusCode: 500);
         }
     }
 
-    private static async Task<IResult> CreateThread()
+    private static async Task<IResult> CreateThread([FromServices] ILangGraphService langGraph)
     {
         try
         {
-            var langGraphUrl = Environment.GetEnvironmentVariable("LANGGRAPH_URL");
-            Console.WriteLine($"Langgraph URL at CreateThread: {langGraphUrl}");
-
-            if (string.IsNullOrEmpty(langGraphUrl))
-            {
-                return Results.BadRequest(new { error = "LANGGRAPH_URL environment variable not configured" });
-            }
-
-            using var client = new HttpClient();
-
-            var _jsonSerializerSettings = new JsonSerializerSettings
-            {
-                NullValueHandling = NullValueHandling.Ignore,
-                Converters = { new StringEnumConverter() }
-            };
-
-            // Create default values for thread creation
-            var options = new
-            {
-                metadata = new { },
-                if_exists = "raise",
-                ttl = new { strategy = "delete", ttl = 1 }
-            };
-
-            var requestBody = JsonConvert.SerializeObject(options, _jsonSerializerSettings);
-
-            var httpRequest = new HttpRequestMessage
-            {
-                Method = HttpMethod.Post,
-                RequestUri = new Uri($"{langGraphUrl}/threads"),
-                Content = new StringContent(requestBody)
-                {
-                    Headers =
-                    {
-                        ContentType = new MediaTypeHeaderValue("application/json")
-                    }
-                }
-            };
-
-            using var response = await client.SendAsync(httpRequest);
-
-            var body = await response.Content.ReadAsStringAsync();
-
-            if (!response.IsSuccessStatusCode)
-            {
-                Console.WriteLine($"Error response body: {body}");
-                return Results.BadRequest(new
-                {
-                    error = "Failed to connect to Langgraph API",
-                    details = $"Response status code does not indicate success: {(int)response.StatusCode} ({response.StatusCode}). Response body: {body}"
-                });
-            }
-
-            // Parse the response and extract thread_id for easy access
-            var threadData = JsonConvert.DeserializeObject<dynamic>(body);
-            var threadId = threadData?.thread_id?.ToString();
-
+            var body = await langGraph.CreateThreadAsync();
+            var threadId = JObject.Parse(body)["thread_id"]?.ToString();
             return Results.Ok(new { thread_id = threadId, data = body, success = true });
         }
-        catch (HttpRequestException ex)
+        catch (LangGraphException ex)
         {
             return Results.BadRequest(new { error = "Failed to connect to Langgraph API", details = ex.Message });
         }
         catch (Exception ex)
         {
-            return Results.Problem(
-                detail: ex.Message,
-                title: "Internal server error",
-                statusCode: 500
-            );
+            return Results.Problem(detail: ex.Message, title: "Internal server error", statusCode: 500);
         }
     }
 
-    private static async Task<string> CreateThreadAndGetId()
-    {
-        var langGraphUrl = Environment.GetEnvironmentVariable("LANGGRAPH_URL");
-        using var client = new HttpClient();
-
-        var _jsonSerializerSettings = new JsonSerializerSettings
-        {
-            NullValueHandling = NullValueHandling.Ignore,
-            Converters = { new StringEnumConverter() }
-        };
-
-        var options = new
-        {
-            metadata = new { },
-            ttl = new { strategy = "delete", ttl = 1 }
-        };
-
-        var requestBody = JsonConvert.SerializeObject(options, _jsonSerializerSettings);
-
-        var httpRequest = new HttpRequestMessage
-        {
-            Method = HttpMethod.Post,
-            RequestUri = new Uri($"{langGraphUrl}/threads"),
-            Content = new StringContent(requestBody)
-            {
-                Headers =
-                {
-                    ContentType = new MediaTypeHeaderValue("application/json")
-                }
-            }
-        };
-
-        using var response = await client.SendAsync(httpRequest);
-        var body = await response.Content.ReadAsStringAsync();
-
-        var threadData = JsonConvert.DeserializeObject<dynamic>(body);
-        return threadData?.thread_id?.ToString() ?? "";
-    }
-
-    private static async Task<dynamic> CreateRunWaitForOutput(string threadId, string? assistantId = null, int? recursionLimit = null, object? input = null)
+    private static async Task<IResult> CreateRunWaitForOutput(
+        string threadId,
+        [FromBody] RunWaitRequest request,
+        [FromServices] ILangGraphService langGraph)
     {
         try
         {
-            var langGraphUrl = Environment.GetEnvironmentVariable("LANGGRAPH_URL");
-            Console.WriteLine($"Langgraph URL at CreateRunWaitForOutput: {langGraphUrl}");
+            if (string.IsNullOrWhiteSpace(request?.AssistantId))
+                return Results.BadRequest(new { error = "assistantId is required" });
 
-            if (string.IsNullOrEmpty(langGraphUrl))
-            {
-                return Results.BadRequest(new { error = "LANGGRAPH_URL environment variable not configured" });
-            }
+            // Note: a fresh thread is created internally by the service for each run so that long,
+            // synchronous graphs run cleanly; the threadId route param is accepted for API compatibility.
+            object? input = request.Input.HasValue
+                ? JToken.Parse(request.Input.Value.GetRawText())
+                : null;
 
-            if (string.IsNullOrEmpty(threadId))
-            {
-                return Results.BadRequest(new { error = "Thread ID is required" });
-            }
+            var result = await langGraph.CreateRunAndWaitAsync(
+                request.AssistantId!, input ?? new JObject(), request.RecursionLimit);
 
-            var _jsonSerializerSettings = new JsonSerializerSettings
-            {
-                NullValueHandling = NullValueHandling.Ignore,
-                Converters = { new StringEnumConverter() }
-            };
-
-            using var client = new HttpClient();
-
-            // Create run configuration with provided parameters and default values
-            var options = new
-            {
-                assistant_id = assistantId ?? "",
-                checkpoint = new
-                {
-                    thread_id = threadId,
-                    checkpoint_ns = "",
-                    checkpoint_id = "",
-                    checkpoint_map = new { }
-                },
-                input = input ?? new { },
-                metadata = new { },
-                config = new
-                {
-                    tags = new[] { "" },
-                    recursion_limit = recursionLimit ?? 200,
-                    configurable = new { }
-                }
-            };
-
-            var requestBody = JsonConvert.SerializeObject(options, _jsonSerializerSettings);
-
-            var httpRequest = new HttpRequestMessage
-            {
-                Method = HttpMethod.Post,
-                RequestUri = new Uri($"{langGraphUrl}/threads/{threadId}/runs/wait"),
-                Content = new StringContent(requestBody)
-                {
-                    Headers =
-                    {
-                        ContentType = new MediaTypeHeaderValue("application/json")
-                    }
-                }
-            };
-
-            using var response = await client.SendAsync(httpRequest);
-
-            var body = await response.Content.ReadAsStringAsync();
-            var jsonObject = JsonConvert.DeserializeObject<dynamic>(body);
-            return jsonObject;
-
+            return Results.Ok(result);
         }
-        catch (HttpRequestException ex)
+        catch (LangGraphException ex)
         {
             return Results.BadRequest(new { error = "Failed to connect to Langgraph API", details = ex.Message });
         }
         catch (Exception ex)
         {
-            return Results.Problem(
-                detail: ex.Message,
-                title: "Internal server error",
-                statusCode: 500
-            );
+            return Results.Problem(detail: ex.Message, title: "Internal server error", statusCode: 500);
         }
     }
 
-    private static async Task<IResult> RunJdGenerator(string inputString, int recursionLimit = 200)
+    private static async Task<IResult> RunJdGenerator(
+        [FromQuery] string inputString,
+        [FromServices] ILangGraphService langGraph,
+        [FromQuery] int recursionLimit = 200)
     {
         try
         {
-            const string selectedAgent = "33f5bbdc-e7a1-562f-b4e5-b620117e1da5";
+            if (string.IsNullOrWhiteSpace(inputString))
+                return Results.BadRequest(new { error = "inputString is required" });
 
-            // Create a new thread and get the thread ID directly
-            var threadId = await CreateThreadAndGetId();
-            Console.WriteLine($"Thread ID: {threadId}");
-
-            var input = new JObject
-            {
-                ["messages"] = new JArray()
-                {
-                    new JObject()
-                    {
-                        ["role"] = "user",
-                        ["content"] = inputString
-                    }
-                }
-            };
-
-            // Call the existing CreateRunWaitForOutput method with the new thread ID
-            var result = await CreateRunWaitForOutput(threadId, selectedAgent, recursionLimit, input);
-            Console.WriteLine($"Result from CreateRunWaitForOutput: {result}");
-            // Parse the JSON string result
-            var jd_content = result.formatted_job_description.content;
-
-            // Convert to string explicitly to ensure proper serialization
-            string jd_content_string = jd_content?.ToString() ?? "";
-
-            return Results.Ok(new { data = jd_content_string, success = true });
+            var jd = await langGraph.GenerateJobDescriptionAsync(inputString, recursionLimit);
+            return Results.Ok(new { data = jd, success = true });
+        }
+        catch (LangGraphException ex)
+        {
+            return Results.Problem(detail: ex.Message, title: "Error in JD Generator", statusCode: 502);
         }
         catch (Exception ex)
         {
-            return Results.Problem(
-                detail: ex.Message,
-                title: "Error in JD Generator",
-                statusCode: 500
-            );
+            return Results.Problem(detail: ex.Message, title: "Error in JD Generator", statusCode: 500);
         }
     }
+
+    private static async Task<IResult> RunBusinessContext(
+        [FromBody] BusinessContextRequest request,
+        [FromServices] ILangGraphService langGraph)
+    {
+        try
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.CompanyName))
+                return Results.BadRequest(new { error = "companyName is required" });
+
+            var report = await langGraph.AnalyzeBusinessContextAsync(request);
+            return Results.Ok(new { data = report, success = true });
+        }
+        catch (LangGraphException ex)
+        {
+            return Results.Problem(detail: ex.Message, title: "Error in Business Context Analyzer", statusCode: 502);
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem(detail: ex.Message, title: "Error in Business Context Analyzer", statusCode: 500);
+        }
+    }
+
+    private static async Task<IResult> RunResumeRanker(
+        [FromBody] ResumeRankerRequest request,
+        [FromServices] ILangGraphService langGraph)
+    {
+        try
+        {
+            if (request == null)
+                return Results.BadRequest(new { error = "Request body is required" });
+
+            var result = await langGraph.RankResumesAsync(request);
+            return Results.Ok(new { data = result, success = true });
+        }
+        catch (LangGraphException ex)
+        {
+            return Results.Problem(detail: ex.Message, title: "Error in Resume Ranker", statusCode: 502);
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem(detail: ex.Message, title: "Error in Resume Ranker", statusCode: 500);
+        }
+    }
+
+    private static async Task<IResult> RunCriteriaDiscovery(
+        [FromBody] CriteriaDiscoveryRequest request,
+        [FromServices] ILangGraphService langGraph)
+    {
+        try
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.JobDescription))
+                return Results.BadRequest(new { error = "jobDescription is required" });
+
+            var result = await langGraph.DiscoverCriteriaAsync(request);
+            return Results.Ok(new { data = result, success = true });
+        }
+        catch (LangGraphException ex)
+        {
+            return Results.Problem(detail: ex.Message, title: "Error in Criteria Discovery", statusCode: 502);
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem(detail: ex.Message, title: "Error in Criteria Discovery", statusCode: 500);
+        }
+    }
+
+    private static async Task<IResult> RunResumeAnalysis(
+        [FromBody] JsonElement body,
+        [FromServices] ILangGraphService langGraph)
+    {
+        try
+        {
+            // resume-analysis takes arbitrary nested JSON (the resume object + criteria), so bind the
+            // raw body and forward it directly to preserve structure exactly as the graph expects.
+            var input = BuildSubgraphInput(body, includeJobDescription: true);
+            var recursionLimit = GetRecursionLimit(body);
+
+            var result = await langGraph.CreateRunAndWaitAsync(
+                langGraph.ResolveAssistant(LangGraphService.ResumeAnalysisAgent), input, recursionLimit);
+
+            return Results.Ok(new { data = result, success = true });
+        }
+        catch (LangGraphException ex)
+        {
+            return Results.Problem(detail: ex.Message, title: "Error in Resume Analysis", statusCode: 502);
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem(detail: ex.Message, title: "Error in Resume Analysis", statusCode: 500);
+        }
+    }
+
+    private static async Task<IResult> RunCulturalFit(
+        [FromBody] JsonElement body,
+        [FromServices] ILangGraphService langGraph)
+    {
+        try
+        {
+            var input = BuildSubgraphInput(body, includeJobDescription: false);
+            var recursionLimit = GetRecursionLimit(body);
+
+            var result = await langGraph.CreateRunAndWaitAsync(
+                langGraph.ResolveAssistant(LangGraphService.CulturalFitAgent), input, recursionLimit);
+
+            return Results.Ok(new { data = result, success = true });
+        }
+        catch (LangGraphException ex)
+        {
+            return Results.Problem(detail: ex.Message, title: "Error in Cultural Fit", statusCode: 502);
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem(detail: ex.Message, title: "Error in Cultural Fit", statusCode: 500);
+        }
+    }
+
+    // ----- helpers for the arbitrary-JSON subgraph endpoints -----
+
+    private static JObject BuildSubgraphInput(JsonElement body, bool includeJobDescription)
+    {
+        var input = new JObject
+        {
+            ["current_resume"] = ExtractJson(body, "currentResume", "current_resume") ?? new JObject(),
+            ["company_info"] = ExtractString(body, "companyInfo", "company_info"),
+            ["evaluation_criteria"] = ExtractJson(body, "evaluationCriteria", "evaluation_criteria") ?? new JArray()
+        };
+        if (includeJobDescription)
+            input["job_description"] = ExtractString(body, "jobDescription", "job_description");
+        return input;
+    }
+
+    private static JToken? ExtractJson(JsonElement body, params string[] names)
+    {
+        if (body.ValueKind != JsonValueKind.Object) return null;
+        foreach (var name in names)
+        {
+            if (body.TryGetProperty(name, out var prop))
+                return JToken.Parse(prop.GetRawText());
+        }
+        return null;
+    }
+
+    private static string ExtractString(JsonElement body, params string[] names)
+    {
+        if (body.ValueKind != JsonValueKind.Object) return string.Empty;
+        foreach (var name in names)
+        {
+            if (body.TryGetProperty(name, out var prop) && prop.ValueKind == JsonValueKind.String)
+                return prop.GetString() ?? string.Empty;
+        }
+        return string.Empty;
+    }
+
+    private static int GetRecursionLimit(JsonElement body)
+    {
+        if (body.ValueKind == JsonValueKind.Object
+            && body.TryGetProperty("recursionLimit", out var prop)
+            && prop.ValueKind == JsonValueKind.Number
+            && prop.TryGetInt32(out var limit))
+            return limit;
+        return 200;
+    }
+}
+
+/// <summary>Body for the generic <c>/langgraph/threads/{threadId}/runs/wait</c> proxy.</summary>
+public class RunWaitRequest
+{
+    public string? AssistantId { get; set; }
+    public int RecursionLimit { get; set; } = 200;
+    public JsonElement? Input { get; set; }
 }
