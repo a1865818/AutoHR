@@ -3,8 +3,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-uv.lock
-
 .cursorignore
 
 # C extensions
