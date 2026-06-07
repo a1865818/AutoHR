@@ -138,7 +138,10 @@ def planner_node(
             }
         ]
 
-    llm = base_model.with_structured_output(Plan, method="json_mode")
+    # Use function_calling (tool-based) structured output: json_mode does not enforce the schema,
+    # so smaller models omit required fields like Step.step_type and the parse raises
+    # OutputParserException (which crashes the run, since this invoke is outside the try below).
+    llm = base_model.with_structured_output(Plan, method="function_calling")
 
     # if the plan iterations is greater than the max plan iterations, return the reporter node
     if plan_iterations >= configuration.max_plan_iterations:
@@ -251,6 +254,20 @@ def coordinator_node(
     ]
     for message in state.messages:
         messages.append({"role": message.type, "content": message.content})
+
+    # This graph is invoked with structured company input (company_name/company_url) rather than
+    # a chat message, and `messages` is not part of InputState, so state.messages is empty here.
+    # Seed a research request derived from the company so the coordinator classifies it as a
+    # research task and hands off to the planner (the background_investigator/planner downstream
+    # build the real query from company_name/company_url). Without this the coordinator sees only
+    # the system prompt, emits no tool call, and the workflow terminates with an empty report.
+    if not state.messages and (state.company_name or state.company_url):
+        seeded_request = (
+            f"Research the business context of the company '{state.company_name}'"
+            + (f" (website: {state.company_url})" if state.company_url else "")
+            + ". Provide a structured company background report."
+        )
+        messages.append({"role": "user", "content": seeded_request})
 
     coordinator_llm = base_model.bind_tools([handoff_to_planner])
     response = coordinator_llm.invoke(messages)

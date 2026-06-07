@@ -47,7 +47,8 @@ def parallelizing_node(state: ResumeAnalysisState) -> Command[Literal["analyst_n
             {
                 "analyst_type": analyst_type,
                 "current_resume": state.current_resume,
-                "criteria": relevant_criteria
+                "criteria": relevant_criteria,
+                "company_info": state.company_info
             }
         )
         tasks.append(task)
@@ -66,6 +67,7 @@ async def analyst_node(task_state: AnalystTask) -> Dict[str, Any]:
     analyst_type = task_state["analyst_type"]
     current_resume = task_state["current_resume"]
     criteria = task_state.get("criteria", [])
+    company_info = task_state.get("company_info", "")
     
     logger.info(f"🔬 Processing {analyst_type} analysis via subgraph")
     
@@ -85,6 +87,7 @@ async def analyst_node(task_state: AnalystTask) -> Dict[str, Any]:
     subgraph_input = {
         "current_resume": current_resume,
         "evaluation_criteria": criteria,
+        "company_info": company_info,
         "conversation_log": []
     }
     

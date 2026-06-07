@@ -41,11 +41,19 @@ async def plan_skills_assessment_analysis(state: SkillsAssessmentState) -> Dict[
     # Convert criteria to JSON for the prompt
     criteria_json = json.dumps(state.evaluation_criteria, indent=2)
 
+    # Inject the resume text and criteria into the template (previously the raw, unformatted
+    # template was sent, so the model saw the literal {resume_text}/{criteria_json} placeholders
+    # and reported the resume content as missing).
+    planning_prompt = skills_assessment.SKILLS_ASSESSMENT_PROMPT_TEMPLATE.format(
+        resume_text=resume_text,
+        criteria_json=criteria_json
+    )
+
     # Get the model's response
     response = await planning_model.ainvoke(
         [
             {"role": "system", "content": skills_assessment.SKILLS_ASSESSMENT_PLANNING_SYSTEM_PROMPT},
-            {"role": "user", "content": skills_assessment.SKILLS_ASSESSMENT_PROMPT_TEMPLATE}
+            {"role": "user", "content": planning_prompt}
         ]
     )
     
