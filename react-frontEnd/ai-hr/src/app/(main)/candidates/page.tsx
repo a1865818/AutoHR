@@ -8,7 +8,7 @@ import { useHiringAuth } from "@/hooks/useHiringAuth";
 import { Job } from "@/interfaces";
 import { jobService } from "@/services/jobService";
 import { Briefcase, FileText, Plus, Users, Search } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 // Empty State Component
@@ -122,6 +122,16 @@ function CandidatesPage() {
   const [totalJobs, setTotalJobs] = useState(0); // Total jobs from backend
   const [totalPages, setTotalPages] = useState(1); // Total pages from backend
 
+  // Dedupe guard: prevents the same paginated jobs fetch from firing repeatedly
+  // if auth-derived deps re-emit equal values during a render storm. Mirrors the
+  // requestInProgress/lastKey ref pattern used in hooks/useJobs.ts.
+  const jobsRequestInProgress = useRef(false);
+  const lastJobsRequestKey = useRef<string | null>(null);
+  // Same dedupe guard for the pageSize=100 "search across all active jobs" fetch,
+  // which otherwise re-fires on every auth-derived re-render while a search is active.
+  const allActiveRequestInProgress = useRef(false);
+  const lastAllActiveRequestKey = useRef<string | null>(null);
+
   // Load jobs on component mount and when pagination changes
   useEffect(() => {
     const loadJobs = async () => {
@@ -145,6 +155,21 @@ function CandidatesPage() {
         return;
       }
 
+      // Skip if an identical fetch is already in flight, or if we already have
+      // results for this exact set of params (company + page + page size). The
+      // effect only needs to refetch when one of these actually changes, so any
+      // extra re-runs that re-emit the same key (e.g. a render storm from an
+      // auth-derived dependency) are coalesced into a single network call.
+      const requestKey = `${companyId}|${currentPage}|${jobsPerPage}`;
+      if (
+        jobsRequestInProgress.current ||
+        lastJobsRequestKey.current === requestKey
+      ) {
+        return;
+      }
+      jobsRequestInProgress.current = true;
+      lastJobsRequestKey.current = requestKey;
+
       setLoading(true);
       try {
         // Use getAllJobs with pagination
@@ -155,7 +180,7 @@ function CandidatesPage() {
           jobsPerPage
         );
 
-        if (response.jobs && Array.isArray(response.jobs)) {
+        if (response && response.jobs && Array.isArray(response.jobs)) {
           const convertedJobs = response.jobs.map((apiJob: any) => {
             // Ensure the API job has the correct field names for conversion
             const normalizedApiJob = {
@@ -184,6 +209,7 @@ function CandidatesPage() {
         setError("Failed to load jobs. Please try again later.");
       } finally {
         setLoading(false);
+        jobsRequestInProgress.current = false;
       }
     };
 
@@ -194,6 +220,19 @@ function CandidatesPage() {
   useEffect(() => {
     const fetchAllActiveForSearch = async () => {
       if (!companyId || !isAuthorized || !searchQuery.trim()) return;
+
+      // Coalesce identical re-runs (same company + search term) into one request;
+      // a genuine search-term change produces a new key and is allowed through.
+      const requestKey = `${companyId}|${searchQuery.trim()}`;
+      if (
+        allActiveRequestInProgress.current ||
+        lastAllActiveRequestKey.current === requestKey
+      ) {
+        return;
+      }
+      allActiveRequestInProgress.current = true;
+      lastAllActiveRequestKey.current = requestKey;
+
       try {
         const response = await jobService.getAllJobs(
           "Active",
@@ -201,7 +240,7 @@ function CandidatesPage() {
           1,
           100
         );
-        const convertedJobs = (response.jobs || []).map((apiJob: any) => {
+        const convertedJobs = (response?.jobs || []).map((apiJob: any) => {
           const normalizedApiJob = {
             ...apiJob,
             applicantCount: apiJob.applicantCount || apiJob.ApplicantCount || 0,
@@ -213,6 +252,8 @@ function CandidatesPage() {
       } catch (e) {
         // Fail silently; fallback to current page jobs search
         console.warn("Failed to fetch all active jobs for search", e);
+      } finally {
+        allActiveRequestInProgress.current = false;
       }
     };
 
