@@ -101,23 +101,32 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
-    var secretKey = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
-
-    if (string.IsNullOrEmpty(secretKey))
+    // Derive everything from SUPABASE_URL so auth stays in sync with the configured
+    // project. Hardcoding the issuer caused every authenticated request to 401 when
+    // the project was switched. Supabase now signs access tokens with asymmetric
+    // keys (ES256), so validate against the project's published JWKS (discovered via
+    // the OIDC metadata) rather than a shared symmetric secret.
+    var supabaseUrl = Environment.GetEnvironmentVariable("SUPABASE_URL");
+    if (string.IsNullOrEmpty(supabaseUrl))
     {
-        throw new InvalidOperationException("SUPABASE_JWT_SECRET environment variable not configured");
+        throw new InvalidOperationException("SUPABASE_URL environment variable not configured");
     }
+    var supabaseIssuer = $"{supabaseUrl.TrimEnd('/')}/auth/v1";
+
+    options.Authority = supabaseIssuer;
+    options.MetadataAddress = $"{supabaseIssuer}/.well-known/openid-configuration";
+    options.RequireHttpsMetadata = true;
 
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
         ValidateIssuer = true,
-        ValidIssuer = "https://uwejqhuvjkkycgecoauy.supabase.co/auth/v1", // Supabase issuer only
+        ValidIssuer = supabaseIssuer, // Supabase issuer derived from SUPABASE_URL
         ValidateAudience = true,
         ValidAudience = "authenticated", // Supabase audience only
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
+        // Signing keys are fetched from the Supabase JWKS via Authority/MetadataAddress.
     };
 });
 
@@ -142,6 +151,13 @@ builder.Services.AddScoped<IGmailService, ai_hr.Services.GmailApiService>();
 
 // Register Google Calendar service
 builder.Services.AddScoped<IGoogleCalendarService, GoogleCalendarService>();
+
+// Register LangGraph AI service as a typed, pooled HttpClient (replaces per-call `new HttpClient()`).
+// Timeout is generous because resume_ranker runs many LLM calls in parallel and is synchronous (/runs/wait).
+builder.Services.AddHttpClient<ILangGraphService, LangGraphService>(client =>
+{
+    client.Timeout = TimeSpan.FromMinutes(30);
+});
 
 
 //Enable session support for user tracking
