@@ -19,7 +19,8 @@ public static class CandidateRankingEndpoints
             .WithTags("Candidate Rankings")
             .WithName("AddCandidatesToRanking")
             .WithSummary("Add candidates to ranking for a specific job")
-            .WithDescription("Adds multiple candidates to the ranking system for a specific job position");
+            .WithDescription("Adds multiple candidates to the ranking system for a specific job position")
+            .RequireAuthorization();
 
 
 
@@ -27,7 +28,8 @@ public static class CandidateRankingEndpoints
             .WithTags("Candidate Rankings")
             .WithName("RemoveCandidateFromRanking")
             .WithSummary("Remove candidate from ranking")
-            .WithDescription("Removes a specific candidate from the ranking for a job position");
+            .WithDescription("Removes a specific candidate from the ranking for a job position")
+            .RequireAuthorization();
 
 
 
@@ -35,7 +37,8 @@ public static class CandidateRankingEndpoints
             .WithTags("Candidate Rankings")
             .WithName("UpdateRankingPosition")
             .WithSummary("Update candidate ranking position")
-            .WithDescription("Updates the ranking position and score for a specific candidate");
+            .WithDescription("Updates the ranking position and score for a specific candidate")
+            .RequireAuthorization();
 
 
 
@@ -43,7 +46,8 @@ public static class CandidateRankingEndpoints
             .WithTags("Candidate Rankings")
             .WithName("GetRankingsByJob")
             .WithSummary("Get rankings for a specific job")
-            .WithDescription("Retrieves all candidate rankings for a specific job position");
+            .WithDescription("Retrieves all candidate rankings for a specific job position")
+            .RequireAuthorization();
 
 
 
@@ -51,15 +55,17 @@ public static class CandidateRankingEndpoints
             .WithTags("Candidate Rankings")
             .WithName("GetRankingsByCompany")
             .WithSummary("Get all rankings for a company")
-            .WithDescription("Retrieves all candidate rankings across all jobs for a company");
+            .WithDescription("Retrieves all candidate rankings across all jobs for a company")
+            .RequireAuthorization();
 
 
         app.MapGet("/candidates/rankings/check-ranked/{applicationId}", CheckCandidateRanked)
             .WithTags("Candidate Rankings")
             .WithName("CheckCandidateRanked")
             .WithSummary("Check if candidate is ranked")
-            .WithDescription("Checks if a specific candidate is already ranked for any job");
-           
+            .WithDescription("Checks if a specific candidate is already ranked for any job")
+            .RequireAuthorization();
+
     }
 
     private static async Task<IResult> AddCandidatesToRanking(
