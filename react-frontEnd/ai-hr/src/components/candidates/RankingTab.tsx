@@ -82,22 +82,19 @@ export function RankingTab({
             const globalRank = (currentPage - 1) * pageSize + index + 1;
             const isSelected = selectedCandidateId === candidate.id;
 
-            // Calculate quick stats (mock AI analysis for now)
-            const skillMatch = Math.min(
-              100,
-              candidate.assessment + Math.floor(Math.random() * 10) - 5
+            // Real per-dimension scores from the resume_ranker AI analysis.
+            // Falls back to the overall assessment score for candidates ranked
+            // via the heuristic (no aiAnalysisData persisted).
+            const a = (candidate.aiAnalysisData ?? {}) as Record<string, number>;
+            const skillMatch = Math.round(a.skillMatch ?? candidate.assessment);
+            const experienceMatch = Math.round(
+              a.experienceMatch ?? candidate.assessment
             );
-            const experienceMatch = Math.min(
-              100,
-              candidate.assessment + Math.floor(Math.random() * 8) - 4
+            const cultureMatch = Math.round(
+              a.cultureMatch ?? candidate.assessment
             );
-            const cultureMatch = Math.min(
-              100,
-              candidate.assessment + Math.floor(Math.random() * 6) - 3
-            );
-            const educationMatch = Math.min(
-              100,
-              candidate.assessment + Math.floor(Math.random() * 5) - 2
+            const educationMatch = Math.round(
+              a.educationMatch ?? candidate.assessment
             );
 
             return (

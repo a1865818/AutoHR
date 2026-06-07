@@ -4,14 +4,18 @@ import {
   Briefcase,
   Calendar,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Crown,
   Phone,
+  Sparkles,
   Target,
   TrendingUp,
   User,
   Users,
   X,
 } from "lucide-react";
+import { useState } from "react";
 import { AssessmentIcon } from "./AssessmentIcon";
 
 interface RankingModalProps {
@@ -27,29 +31,26 @@ export function RankingModal({
   onClose,
   rank,
 }: RankingModalProps) {
+  const [showFullFeedback, setShowFullFeedback] = useState(false);
+
   if (!isOpen || !candidate) return null;
 
-  // Generate mock AI analysis data based on the candidate's assessment score
-  const generateMockAnalysis = (baseScore: number) => {
-    const variance = (Math.random() - 0.5) * 10; // ±5 variance
-    return {
-      skillMatch: Math.max(0, Math.min(100, Math.round(baseScore + variance))),
-      experienceMatch: Math.max(
-        0,
-        Math.min(100, Math.round(baseScore + variance * 0.8))
-      ),
-      cultureMatch: Math.max(
-        0,
-        Math.min(100, Math.round(baseScore + variance * 0.6))
-      ),
-      communicationScore: Math.max(
-        0,
-        Math.min(100, Math.round(baseScore + variance * 0.4))
-      ),
-    };
+  // Real per-dimension scores from the resume_ranker AI analysis. Falls back to
+  // the overall assessment score for candidates ranked via the heuristic
+  // (no aiAnalysisData persisted).
+  const a = (candidate.aiAnalysisData ?? {}) as Record<string, number | string>;
+  const aiAnalysis = {
+    skillMatch: Math.round(Number(a.skillMatch ?? candidate.assessment)),
+    experienceMatch: Math.round(Number(a.experienceMatch ?? candidate.assessment)),
+    cultureMatch: Math.round(Number(a.cultureMatch ?? candidate.assessment)),
+    communicationScore: Math.round(
+      Number(a.communicationScore ?? a.cultureMatch ?? candidate.assessment)
+    ),
   };
 
-  const aiAnalysis = generateMockAnalysis(candidate.assessment);
+  // Rich written justification from the resume_ranker, when present.
+  const detailedFeedback =
+    typeof a.detailedFeedback === "string" ? a.detailedFeedback.trim() : "";
 
   const ScoreCard = ({
     title,
@@ -222,6 +223,38 @@ export function RankingModal({
               <h3 className="text-xl font-semibold text-gray-900 mb-4">
                 AI Analysis Summary
               </h3>
+
+              {/* Real, AI-written detailed feedback from resume_ranker (when present) */}
+              {detailedFeedback && (
+                <div className="mb-4 rounded-lg border border-indigo-100 bg-indigo-50/60 p-6">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center">
+                    <Sparkles className="h-4 w-4 mr-2 text-indigo-500" />
+                    AI-Generated Detailed Feedback
+                  </h4>
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                    {showFullFeedback || detailedFeedback.length <= 320
+                      ? detailedFeedback
+                      : `${detailedFeedback.slice(0, 320).trimEnd()}…`}
+                  </p>
+                  {detailedFeedback.length > 320 && (
+                    <button
+                      onClick={() => setShowFullFeedback((prev) => !prev)}
+                      className="mt-3 inline-flex items-center text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+                    >
+                      {showFullFeedback ? (
+                        <>
+                          Show less <ChevronUp className="ml-1 h-4 w-4" />
+                        </>
+                      ) : (
+                        <>
+                          Show more <ChevronDown className="ml-1 h-4 w-4" />
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
+
               <div className="bg-gray-50 rounded-lg p-6">
                 <div className="prose prose-sm max-w-none">
                   <div className="mb-4">
