@@ -126,8 +126,20 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = "authenticated", // Supabase audience only
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
-        // Signing keys are fetched from the Supabase JWKS via Authority/MetadataAddress.
+        // Asymmetric signing keys (ES256) are fetched from the Supabase JWKS via Authority/MetadataAddress.
     };
+
+    // Backward compatibility: projects still on Supabase's legacy shared-secret (HS256) signing
+    // publish an empty JWKS, so the asymmetric discovery above cannot validate their tokens and
+    // every authenticated request would 401. When SUPABASE_JWT_SECRET is configured, also accept
+    // HS256 tokens signed with that symmetric secret. The JWKS keys remain the primary path; the
+    // JWT handler matches keys by type/algorithm, so this symmetric key is only ever used for HS256.
+    var legacyJwtSecret = Environment.GetEnvironmentVariable("SUPABASE_JWT_SECRET");
+    if (!string.IsNullOrEmpty(legacyJwtSecret))
+    {
+        options.TokenValidationParameters.IssuerSigningKey =
+            new SymmetricSecurityKey(Encoding.UTF8.GetBytes(legacyJwtSecret));
+    }
 });
 
 builder.Services.AddAuthorization();
