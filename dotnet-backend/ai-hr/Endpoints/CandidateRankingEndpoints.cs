@@ -1,9 +1,12 @@
 using ai_hr.Models;
 using ai_hr.Contracts;
+using ai_hr.Contracts.Langgraph;
+using ai_hr.Services;
 using Supabase;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
+using System.Text;
 using Microsoft.AspNetCore.Mvc;
 
 namespace ai_hr.Endpoints;
@@ -16,7 +19,8 @@ public static class CandidateRankingEndpoints
             .WithTags("Candidate Rankings")
             .WithName("AddCandidatesToRanking")
             .WithSummary("Add candidates to ranking for a specific job")
-            .WithDescription("Adds multiple candidates to the ranking system for a specific job position");
+            .WithDescription("Adds multiple candidates to the ranking system for a specific job position")
+            .RequireAuthorization();
 
 
 
@@ -24,7 +28,8 @@ public static class CandidateRankingEndpoints
             .WithTags("Candidate Rankings")
             .WithName("RemoveCandidateFromRanking")
             .WithSummary("Remove candidate from ranking")
-            .WithDescription("Removes a specific candidate from the ranking for a job position");
+            .WithDescription("Removes a specific candidate from the ranking for a job position")
+            .RequireAuthorization();
 
 
 
@@ -32,7 +37,8 @@ public static class CandidateRankingEndpoints
             .WithTags("Candidate Rankings")
             .WithName("UpdateRankingPosition")
             .WithSummary("Update candidate ranking position")
-            .WithDescription("Updates the ranking position and score for a specific candidate");
+            .WithDescription("Updates the ranking position and score for a specific candidate")
+            .RequireAuthorization();
 
 
 
@@ -40,7 +46,8 @@ public static class CandidateRankingEndpoints
             .WithTags("Candidate Rankings")
             .WithName("GetRankingsByJob")
             .WithSummary("Get rankings for a specific job")
-            .WithDescription("Retrieves all candidate rankings for a specific job position");
+            .WithDescription("Retrieves all candidate rankings for a specific job position")
+            .RequireAuthorization();
 
 
 
@@ -48,20 +55,23 @@ public static class CandidateRankingEndpoints
             .WithTags("Candidate Rankings")
             .WithName("GetRankingsByCompany")
             .WithSummary("Get all rankings for a company")
-            .WithDescription("Retrieves all candidate rankings across all jobs for a company");
+            .WithDescription("Retrieves all candidate rankings across all jobs for a company")
+            .RequireAuthorization();
 
 
         app.MapGet("/candidates/rankings/check-ranked/{applicationId}", CheckCandidateRanked)
             .WithTags("Candidate Rankings")
             .WithName("CheckCandidateRanked")
             .WithSummary("Check if candidate is ranked")
-            .WithDescription("Checks if a specific candidate is already ranked for any job");
-           
+            .WithDescription("Checks if a specific candidate is already ranked for any job")
+            .RequireAuthorization();
+
     }
 
     private static async Task<IResult> AddCandidatesToRanking(
         [FromBody] AddCandidatesToRankingRequest request,
         [FromServices] Supabase.Client client,
+        [FromServices] ILangGraphService langGraph,
         ClaimsPrincipal user)
     {
         try
@@ -104,15 +114,48 @@ public static class CandidateRankingEndpoints
             var skippedCount = existingApplicationIds.Count;
             var errors = new List<string>();
 
+            // Run the resume_ranker LangGraph graph to produce real, per-dimension AI scores for the
+            // newly-added candidates. If LangGraph is unavailable/misconfigured, this returns an empty map
+            // and each candidate falls back to its existing score (or the heuristic) so the action still works.
+            var newApplications = applications.Where(a => newApplicationIds.Contains(a.Id)).ToList();
+            var jobDescription = BuildJobDescription(job);
+            var companyInfo = await BuildCompanyInfoAsync(job.CompanyId, client);
+            var aiScores = await TryRankWithLangGraphAsync(langGraph, jobDescription, companyInfo, newApplications);
+            Console.WriteLine($"Resume ranker returned AI scores for {aiScores.Count}/{newApplications.Count} candidates");
+
             // Add new rankings
             foreach (var applicationId in newApplicationIds)
             {
                 try
                 {
                     var application = applications.First(a => a.Id == applicationId);
-                    
-                    // Calculate initial ranking score based on assessment
-                    var rankingScore = application.OverallAiScore ?? CalculateInitialRankingScore(application);
+
+                    // Prefer real AI scores from resume_ranker; otherwise reuse an existing score / heuristic.
+                    decimal rankingScore;
+                    Dictionary<string, object>? aiAnalysisData = null;
+
+                    if (aiScores.TryGetValue(applicationId, out var dimensionScores))
+                    {
+                        rankingScore = decimal.Round(dimensionScores.OverallScore, 2);
+                        aiAnalysisData = BuildAiAnalysisData(dimensionScores);
+
+                        // Persist the AI result on the application so downstream reads (assessment score,
+                        // OverallAiScore) reflect the real value and aren't re-computed by the heuristic.
+                        try
+                        {
+                            application.OverallAiScore = rankingScore;
+                            application.AiAnalysis = aiAnalysisData;
+                            await client.From<ApplicationDetail>().Update(application);
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"Warning: failed to persist AI score on application {applicationId}: {ex.Message}");
+                        }
+                    }
+                    else
+                    {
+                        rankingScore = application.OverallAiScore ?? CalculateInitialRankingScore(application);
+                    }
 
                     var ranking = new CandidateRanking
                     {
@@ -121,6 +164,7 @@ public static class CandidateRankingEndpoints
                         ApplicationId = applicationId,
                         CandidateUserId = application.CandidateUserId,
                         RankingScore = rankingScore,
+                        AiAnalysisData = aiAnalysisData,
                         RankingPosition = 1, // Temporary valid value, will be recalculated
                         RankedBy = request.RankedBy,
                         IsRanked = true
@@ -457,6 +501,219 @@ public static class CandidateRankingEndpoints
             Console.WriteLine($"Error checking if candidate is ranked: {ex.Message}");
             return Results.BadRequest(new { error = ex.Message, details = ex.ToString() });
         }
+    }
+
+    /// <summary>
+    /// Calls the resume_ranker LangGraph graph for the given applications and returns the per-dimension
+    /// scores keyed by application id. Never throws — on any failure it logs and returns what it has
+    /// (possibly empty), so the caller degrades gracefully to existing/heuristic scores.
+    /// </summary>
+    private static async Task<Dictionary<Guid, ResumeDimensionScores>> TryRankWithLangGraphAsync(
+        ILangGraphService langGraph,
+        string jobDescription,
+        string companyInfo,
+        List<ApplicationDetail> applications)
+    {
+        var result = new Dictionary<Guid, ResumeDimensionScores>();
+
+        if (string.IsNullOrWhiteSpace(jobDescription) || applications.Count == 0)
+            return result;
+
+        var defaultBucket = Environment.GetEnvironmentVariable("BUCKET_NAME") ?? "resume-storage";
+
+        // resume_ranker takes one bucket + a list of file names per run, and keys its output by the
+        // resume id (file name without extension). Group applications by bucket and remember the
+        // mapping back to the application id.
+        var filesByBucket = new Dictionary<string, List<string>>();
+        var appByResumeKey = new Dictionary<string, Guid>(); // "<bucket>|<resumeId>" -> applicationId
+
+        foreach (var app in applications)
+        {
+            var location = ParseResumeLocation(app.ResumeUrl, defaultBucket);
+            if (location == null)
+            {
+                Console.WriteLine($"Skipping AI ranking for application {app.Id}: no usable resume file in '{app.ResumeUrl}'");
+                continue;
+            }
+
+            var (bucket, fileName) = location.Value;
+            var resumeId = FileNameWithoutExtension(fileName);
+
+            if (!filesByBucket.TryGetValue(bucket, out var files))
+            {
+                files = new List<string>();
+                filesByBucket[bucket] = files;
+            }
+            files.Add(fileName);
+            appByResumeKey[$"{bucket}|{resumeId}"] = app.Id;
+        }
+
+        foreach (var (bucket, files) in filesByBucket)
+        {
+            try
+            {
+                var rankerResult = await langGraph.RankResumesAsync(new ResumeRankerRequest
+                {
+                    JobDescription = jobDescription,
+                    CompanyInfo = companyInfo,
+                    ResumeBucketName = bucket,
+                    ResumeFileNames = files.Distinct().ToList()
+                });
+
+                foreach (var (resumeId, scores) in rankerResult.ResumeScores)
+                {
+                    if (appByResumeKey.TryGetValue($"{bucket}|{resumeId}", out var appId))
+                        result[appId] = scores;
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"⚠️ resume_ranker failed for bucket '{bucket}': {ex.Message}. Falling back to heuristic scores for those candidates.");
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>Build the structured aiAnalysisData persisted on the ranking + application (jsonb).</summary>
+    private static Dictionary<string, object> BuildAiAnalysisData(ResumeDimensionScores dim)
+    {
+        return new Dictionary<string, object>
+        {
+            // Front-end friendly dimension keys (consumed by the ranking UI)
+            ["skillMatch"] = decimal.Round(dim.SkillsAssessmentScore, 1),
+            ["experienceMatch"] = decimal.Round(dim.ProfessionalExperienceScore, 1),
+            ["cultureMatch"] = decimal.Round(dim.CulturalFitScore, 1),
+            ["educationMatch"] = decimal.Round(dim.EducationGrowthScore, 1),
+            ["communicationScore"] = decimal.Round(dim.CulturalFitScore, 1),
+            // Raw resume_ranker dimension scores (all 0-100)
+            ["overallScore"] = decimal.Round(dim.OverallScore, 2),
+            ["culturalFitScore"] = decimal.Round(dim.CulturalFitScore, 1),
+            ["skillsAssessmentScore"] = decimal.Round(dim.SkillsAssessmentScore, 1),
+            ["professionalExperienceScore"] = decimal.Round(dim.ProfessionalExperienceScore, 1),
+            ["educationGrowthScore"] = decimal.Round(dim.EducationGrowthScore, 1),
+            ["detailedFeedback"] = dim.DetailedFeedback ?? string.Empty,
+            ["source"] = "resume_ranker"
+        };
+    }
+
+    /// <summary>Compose a rich job-description string from the Job record for the ranker.</summary>
+    private static string BuildJobDescription(Job job)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"Job Title: {job.Title}");
+        if (!string.IsNullOrWhiteSpace(job.SeniorityLevel)) sb.AppendLine($"Seniority Level: {job.SeniorityLevel}");
+        if (job.ExperienceYearsMin.HasValue) sb.AppendLine($"Minimum Experience (years): {job.ExperienceYearsMin.Value}");
+        if (!string.IsNullOrWhiteSpace(job.EmploymentType)) sb.AppendLine($"Employment Type: {job.EmploymentType}");
+
+        if (!string.IsNullOrWhiteSpace(job.Description))
+        {
+            sb.AppendLine();
+            sb.AppendLine("Description:");
+            sb.AppendLine(job.Description);
+        }
+        AppendList(sb, "Responsibilities", job.Responsibilities);
+        AppendList(sb, "Requirements", job.Requirements);
+        AppendList(sb, "Qualifications", job.Qualifications);
+        return sb.ToString().Trim();
+    }
+
+    private static void AppendList(StringBuilder sb, string heading, List<string>? items)
+    {
+        if (items == null || items.Count == 0) return;
+        sb.AppendLine();
+        sb.AppendLine($"{heading}:");
+        foreach (var item in items)
+            sb.AppendLine($"- {item}");
+    }
+
+    /// <summary>Compose a company-context string for cultural-fit assessment.</summary>
+    private static async Task<string> BuildCompanyInfoAsync(Guid companyId, Supabase.Client client)
+    {
+        try
+        {
+            var companyResponse = await client.From<Company>().Get();
+            var company = companyResponse.Models?.FirstOrDefault(c => c.Id == companyId);
+            if (company == null) return string.Empty;
+
+            var sb = new StringBuilder();
+            sb.AppendLine($"Company: {company.Name}");
+            if (!string.IsNullOrWhiteSpace(company.Industry)) sb.AppendLine($"Industry: {company.Industry}");
+            if (!string.IsNullOrWhiteSpace(company.CompanySize)) sb.AppendLine($"Company Size: {company.CompanySize}");
+            if (!string.IsNullOrWhiteSpace(company.Description))
+            {
+                sb.AppendLine();
+                sb.AppendLine(company.Description);
+            }
+            return sb.ToString().Trim();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: failed to build company info for {companyId}: {ex.Message}");
+            return string.Empty;
+        }
+    }
+
+    /// <summary>
+    /// Resolve a stored resume reference into (bucketName, fileName). Handles both the
+    /// "&lt;bucket&gt;/&lt;file&gt;" form used at upload time and full signed/public Supabase storage URLs.
+    /// </summary>
+    private static (string bucket, string fileName)? ParseResumeLocation(string? resumeUrl, string defaultBucket)
+    {
+        if (string.IsNullOrWhiteSpace(resumeUrl)) return null;
+
+        try
+        {
+            if (resumeUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                resumeUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            {
+                var uri = new Uri(resumeUrl);
+                var path = uri.AbsolutePath; // e.g. /storage/v1/object/sign/<bucket>/<file>
+                const string marker = "/object/";
+                var idx = path.IndexOf(marker, StringComparison.OrdinalIgnoreCase);
+                if (idx >= 0)
+                {
+                    var after = path.Substring(idx + marker.Length);
+                    var segs = after.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                    if (segs.Length >= 3 && (segs[0] == "sign" || segs[0] == "public" || segs[0] == "authenticated"))
+                    {
+                        var bucket = Uri.UnescapeDataString(segs[1]);
+                        var file = Uri.UnescapeDataString(string.Join('/', segs.Skip(2)));
+                        return (bucket, file);
+                    }
+                    if (segs.Length >= 2)
+                    {
+                        var bucket = Uri.UnescapeDataString(segs[0]);
+                        var file = Uri.UnescapeDataString(string.Join('/', segs.Skip(1)));
+                        return (bucket, file);
+                    }
+                }
+
+                var last = Uri.UnescapeDataString(path.Split('/').Last());
+                return string.IsNullOrEmpty(last) ? null : (defaultBucket, last);
+            }
+
+            // Stored form: "<bucket>/<file...>"
+            var firstSlash = resumeUrl.IndexOf('/');
+            if (firstSlash > 0 && firstSlash < resumeUrl.Length - 1)
+                return (resumeUrl.Substring(0, firstSlash), resumeUrl.Substring(firstSlash + 1));
+
+            return (defaultBucket, resumeUrl);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>Mirror Python's <c>Path(file_name).stem</c> — basename minus its final extension.</summary>
+    private static string FileNameWithoutExtension(string fileName)
+    {
+        var baseName = fileName;
+        var slash = baseName.LastIndexOf('/');
+        if (slash >= 0) baseName = baseName.Substring(slash + 1);
+        var dot = baseName.LastIndexOf('.');
+        return dot > 0 ? baseName.Substring(0, dot) : baseName;
     }
 
     public static decimal CalculateInitialRankingScore(ApplicationDetail application)

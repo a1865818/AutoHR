@@ -1,8 +1,8 @@
 {
     "job_description_generator": {
         "configurable": {
-            "model": "gpt-4.1-nano",
-            "provider": "openai",
+            "model": "gpt-5.4-nano",
+            "provider": "azure_openai",
             "temperature": 0,
             "max_retries": 3,
             "max_revisions": 3
@@ -10,8 +10,8 @@
     },
     "business_context_analyzer": {
         "configurable": {
-            "model": "gpt-4.1-nano",
-            "provider": "openai",
+            "model": "gpt-5.4-nano",
+            "provider": "azure_openai",
             "temperature": 0,
             "max_retries": 3,
             "max_revisions": 3
@@ -19,8 +19,8 @@
     },
     "resume_ranker": {
         "configurable": {
-            "model": "gpt-4.1-nano",
-            "provider": "openai",
+            "model": "gpt-5.4-nano",
+            "provider": "azure_openai",
             "temperature": 0,
             "criteria_temperature": 0.2,
             "scoring_temperature": 0,

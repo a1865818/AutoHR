@@ -111,14 +111,14 @@ async def criteria_discovery_node(state: ResumeRankerState) -> Command[Literal["
     for resume in state.resumes:
         new_state = copy.deepcopy(state)
         new_state.current_resume = resume
-        new_state.evaluation_criteria = result.get("evaluation_criteria", [])
+        new_state.evaluation_criteria = result.get("validated_criteria", result.get("evaluation_criteria", []))
         new_state.conversation_log = result.get("conversation_log", state.conversation_log)
         send_list.append(Send("process_resume_node", new_state))
     
     return Command(
         goto=send_list,
         update={
-            "evaluation_criteria": result.get("evaluation_criteria", []),
+            "evaluation_criteria": result.get("validated_criteria", result.get("evaluation_criteria", [])),
             "conversation_log": result.get("conversation_log", state.conversation_log)
         }
     )

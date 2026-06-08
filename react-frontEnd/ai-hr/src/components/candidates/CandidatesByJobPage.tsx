@@ -1239,7 +1239,13 @@ function CandidatesByJobPageComponent({ jobId }: CandidatesByJobPageProps) {
       {isRankingModalOpen && selectedRankingCandidate && (
         <RankingModal
           candidate={
-            candidates.find((c) => c.id === selectedRankingCandidate) || null
+            // Look the candidate up in the ranking list (what RankingTab renders
+            // and what carries the real aiAnalysisData), not the Candidates-tab
+            // list — they can diverge, and `candidates` is empty when the
+            // /candidates/job endpoint is unavailable.
+            rankingsByPosition[jobId]?.find(
+              (c) => c.id === selectedRankingCandidate
+            ) || null
           }
           isOpen={isRankingModalOpen}
           onClose={() => setIsRankingModalOpen(false)}

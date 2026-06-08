@@ -8,29 +8,30 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.12,<4.0"
 dependencies = [
-    "langgraph>=0.2.6",
-    "langchain-openai>=0.1.22",
-    "langchain-anthropic>=0.1.23",
-    "langchain>=0.2.14",
+    # Cap the langchain/langgraph stack below 1.0: langchain 1.x / langgraph 1.x
+    # pull a mismatched langgraph-api that breaks `langgraph dev` (CONFIG_KEY_STORE import error).
+    "langgraph (>=0.4.3,<1.0)",
+    "langchain-openai (>=0.3.16,<1.0)",
+    "langchain-anthropic (>=0.3.13,<1.0)",
+    "langchain (>=0.3.25,<1.0)",
+    "langchain-community (>=0.3.31,<0.4.0)",
     "langchain-fireworks>=0.1.7",
     "python-dotenv>=1.0.1",
     "langchain-tavily>=0.1",
-    "langgraph-cli[inmem]>=0.1.71",
+    "langgraph-cli[inmem] (>=0.2.10,<0.3.0)",
     "pytest>=8.3.5",
     "json-repair (>=0.44.1,<0.45.0)",
     "langchain-mcp-adapters (>=0.1.0,<0.2.0)",
     "readabilipy (>=0.3.0,<0.4.0)",
     "pypdf (>=5.6.0,<6.0.0)",
     "supabase (>=2.15.3,<3.0.0)",
-    "asyncio (>=3.4.3,<4.0.0)",
     "numpy (>=2.3.0,<3.0.0)",
-    "pymupdf (>=1.26.1,<2.0.0)"
+    "pymupdf (>=1.26.1,<2.0.0)",
+    "markdownify (>=1.0,<2.0)",
+    "ddgs (>=9.0,<10.0)",
+    "arxiv (>=2.0,<5.0)"
 ]
 
-[tool.poetry]
-packages = [{include = "auto_hr", from = "src"}]
-
-
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+[tool.uv]
+# Run-in-place project (langgraph dev adds ./src to the path); not built/installed as a wheel.
+package = false

@@ -27,9 +27,11 @@ logger = logging.getLogger(__file__.split("langgraph_server")[1])
 tavily_search_tool = TavilySearchResults(
     name="web_search",
     max_results=SEARCH_MAX_RESULTS,
-    include_raw_content=True,
-    include_images=True,
-    include_image_descriptions=True
+    # include_raw_content=True returns each result's full scraped page; across several
+    # researcher iterations that blows past the model's input-token limit (observed ~576k
+    # tokens vs a 272k cap). Tavily's summarized `content` per result is enough here.
+    include_raw_content=False,
+    include_images=False,
 )
 
 duckduckgo_search_tool = DuckDuckGoSearchResults(

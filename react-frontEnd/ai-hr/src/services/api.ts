@@ -28,46 +28,46 @@ class ApiService {
     this.baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5189";
   }
 
+  // Resolve the auth token from the cookie first, then localStorage/sessionStorage.
+  private getAuthToken(): string | null {
+    if (typeof window === "undefined") return null;
+
+    const cookies = document.cookie.split(";");
+    for (let cookie of cookies) {
+      cookie = cookie.trim();
+      if (cookie.indexOf("authToken=") === 0) {
+        return decodeURIComponent(cookie.substring("authToken=".length));
+      }
+    }
+
+    return (
+      localStorage.getItem("authToken") ||
+      sessionStorage.getItem("authToken")
+    );
+  }
+
+  // Build the standard authenticated request headers (Content-Type + bearer + Supabase apikey).
+  private authHeaders(extra: HeadersInit = {}): HeadersInit {
+    const token = this.getAuthToken();
+    return {
+      "Content-Type": "application/json",
+      ...(token && {
+        Authorization: `Bearer ${token}`,
+        // apikey header for the Supabase auth system
+        apikey:
+          process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+          "",
+      }),
+      ...extra,
+    };
+  }
+
   public async makeRequest<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T | null> {
-    // Get token from cookies first, then fallback to localStorage/sessionStorage
-    let token = null;
-
-    // Try to get from cookies first
-    if (typeof window !== "undefined") {
-      const cookies = document.cookie.split(";");
-      for (let i = 0; i < cookies.length; i++) {
-        let cookie = cookies[i];
-        while (cookie.charAt(0) === " ") {
-          cookie = cookie.substring(1, cookie.length);
-        }
-        if (cookie.indexOf("authToken=") === 0) {
-          token = decodeURIComponent(
-            cookie.substring("authToken=".length, cookie.length)
-          );
-          break;
-        }
-      }
-    }
-
-    // Fallback to localStorage/sessionStorage
-    if (!token) {
-      token =
-        localStorage.getItem("authToken") ||
-        sessionStorage.getItem("authToken");
-    }
-
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-      ...(token && { 
-        Authorization: `Bearer ${token}`,
-        // Add apikey header for new Supabase auth system
-        apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-      }),
-      ...options.headers,
-    };
+    const headers = this.authHeaders(options.headers);
 
     try {
       const response = await fetch(`${this.baseURL}${endpoint}`, {
@@ -196,6 +196,37 @@ class ApiService {
   // Profile methods - Unified endpoint
   async getCurrentUser(): Promise<any | null> {
     return this.makeRequest<any>("/auth/me");
+  }
+
+  /**
+   * Validate the current session against `/auth/me`, distinguishing an authentication
+   * rejection (token invalid/expired/revoked) from a transient network/server failure.
+   * Unlike `makeRequest`, a 401/403 is reported explicitly so the caller can clear the
+   * session instead of silently restoring a cached (but unauthenticated) user.
+   */
+  async validateCurrentUser(): Promise<
+    | { status: "valid"; user: any }
+    | { status: "unauthorized" }
+    | { status: "error" }
+  > {
+    try {
+      const response = await fetch(`${this.baseURL}/auth/me`, {
+        headers: this.authHeaders(),
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        return { status: "unauthorized" };
+      }
+      if (!response.ok) {
+        return { status: "error" };
+      }
+
+      const text = await response.text();
+      return { status: "valid", user: text ? JSON.parse(text) : {} };
+    } catch (error) {
+      console.error("Session validation request failed:", error);
+      return { status: "error" };
+    }
   }
 
   // Legacy method for backward compatibility - redirect to unified endpoint

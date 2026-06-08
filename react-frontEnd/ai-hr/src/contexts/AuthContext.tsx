@@ -49,6 +49,49 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Rebuild a User from a stored JSON blob (the shape written at login/register).
+ * Used to keep a session alive when a transient `/auth/me` re-validation fails,
+ * instead of logging the user out. The bearer token is re-validated server-side
+ * on every real API call, so trusting the cached user here is safe. Returns null
+ * when the blob is missing or unusable.
+ */
+function parseStoredUser(raw: string | null | undefined): User | null {
+  if (!raw) return null;
+  try {
+    const p = JSON.parse(raw);
+    if (!p || !p.id) return null;
+    return {
+      id: p.id,
+      email: p.email,
+      firstName: p.firstName,
+      lastName: p.lastName,
+      name: p.name || `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim(),
+      role: p.role || p.userType || "HiringUser",
+      userType: p.userType,
+      userCategory: p.userCategory || p.userType,
+      companyId: p.companyId,
+      avatar: p.avatar,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Wipe every trace of the session (cookies + localStorage + sessionStorage). Used when the
+ * backend rejects the token (401/403) so the app does not keep reporting an authenticated
+ * user whose every protected request will fail.
+ */
+function clearStoredSession() {
+  sessionCookies.clearSessionData();
+  if (typeof window === "undefined") return;
+  for (const key of ["currentUser", "authToken", "refreshToken", "userCategory"]) {
+    localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
+  }
+}
+
 interface AuthProviderProps {
   children: ReactNode;
 }
@@ -154,12 +197,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         sessionData.userData
       ) {
         try {
-          // Verify token with backend using unified endpoint
-          const userData = await apiService.getCurrentUser();
+          // Verify token with backend, distinguishing a real auth rejection from a
+          // transient failure so an expired/revoked token doesn't keep a cached session alive.
+          const validation = await apiService.validateCurrentUser();
 
-          console.log("🔍 AuthContext - Backend user data response:", userData);
+          console.log("🔍 AuthContext - Backend validation response:", validation.status);
 
-          if (userData) {
+          if (validation.status === "valid") {
+            const userData = validation.user;
             const user: User = {
               id: userData.id,
               email: userData.email,
@@ -175,14 +220,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             console.log("🔍 AuthContext - Constructed user object:", user);
 
             setUser(user);
+          } else if (validation.status === "unauthorized") {
+            // Token rejected (expired/revoked) — clear the session and drop the user.
+            console.warn("🔍 AuthContext - token rejected (401/403); clearing session");
+            clearStoredSession();
+            setUser(null);
           } else {
-            console.log("🔍 AuthContext - No user data received, clearing session");
-            sessionCookies.clearSessionData();
+            // Transient network/server failure — keep the cached session rather than
+            // logging the user out on a flaky `/auth/me` response.
+            const cached = parseStoredUser(sessionData.userData);
+            if (cached) {
+              console.warn(
+                "🔍 AuthContext - /auth/me unavailable; keeping cached session"
+              );
+              setUser(cached);
+            } else {
+              console.log("🔍 AuthContext - No cached user; clearing session");
+              clearStoredSession();
+            }
           }
         } catch (error) {
           console.error("Error verifying token:", error);
-          // Token is invalid, clear cookies
-          sessionCookies.clearSessionData();
+          // Unexpected error — preserve the cached session rather than forcing a logout.
+          const cached = parseStoredUser(sessionData.userData);
+          if (cached) {
+            setUser(cached);
+          } else {
+            clearStoredSession();
+          }
         }
       } else {
         // Fallback to localStorage/sessionStorage for backward compatibility
@@ -203,58 +268,84 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         );
 
         if (token && userCategory) {
+          // Cached user written at login — used to survive a transient
+          // re-validation failure without dropping the (valid) token.
+          const cachedUser = parseStoredUser(
+            localStorage.getItem("currentUser") ||
+              sessionStorage.getItem("currentUser")
+          );
           try {
-            // Verify token with backend using unified endpoint
-            const userData = await apiService.getCurrentUser();
+            // Verify token with backend, distinguishing a real auth rejection from a
+            // transient failure so an expired/revoked token doesn't keep a cached session alive.
+            const validation = await apiService.validateCurrentUser();
 
             console.log(
-              "🔍 AuthContext (localStorage) - Backend user data response:",
-              userData
+              "🔍 AuthContext (localStorage) - Backend validation response:",
+              validation.status
             );
 
-            const user: User = {
-              id: userData.id,
-              email: userData.email,
-              firstName: userData.firstName,
-              lastName: userData.lastName,
-              name: `${userData.firstName} ${userData.lastName}`,
-              role: userData.roles || userData.userType || "HiringUser",
-              userType: userData.userType,
-              userCategory: userData.userCategory || userData.userType || userCategory,
-              companyId: userData.companyId,
-            };
+            if (validation.status === "valid") {
+              const userData = validation.user;
+              const user: User = {
+                id: userData.id,
+                email: userData.email,
+                firstName: userData.firstName,
+                lastName: userData.lastName,
+                name: `${userData.firstName} ${userData.lastName}`,
+                role: userData.roles || userData.userType || "HiringUser",
+                userType: userData.userType,
+                userCategory: userData.userCategory || userData.userType || userCategory,
+                companyId: userData.companyId,
+              };
 
-            console.log(
-              "🔍 AuthContext (localStorage) - Constructed user object:",
-              user
-            );
+              console.log(
+                "🔍 AuthContext (localStorage) - Constructed user object:",
+                user
+              );
 
-            setUser(user);
+              setUser(user);
 
-            // Migrate to cookies for future sessions
-            sessionCookies.setSessionData(
-              {
-                authToken: token,
-                refreshToken:
-                  localStorage.getItem("refreshToken") ||
-                  sessionStorage.getItem("refreshToken") ||
-                  "",
-                userCategory: user.userCategory,
-                userData: JSON.stringify(user),
-              },
-              true
-            );
+              // Migrate to cookies for future sessions
+              sessionCookies.setSessionData(
+                {
+                  authToken: token,
+                  refreshToken:
+                    localStorage.getItem("refreshToken") ||
+                    sessionStorage.getItem("refreshToken") ||
+                    "",
+                  userCategory: user.userCategory,
+                  userData: JSON.stringify(user),
+                },
+                true
+              );
+            } else if (validation.status === "unauthorized") {
+              // Token rejected (expired/revoked) — clear the stale session entirely.
+              console.warn(
+                "🔍 AuthContext (localStorage) - token rejected (401/403); clearing session"
+              );
+              clearStoredSession();
+              setUser(null);
+            } else if (cachedUser) {
+              // Transient network/server failure — keep the stored session rather
+              // than logging the user out mid-navigation.
+              console.warn(
+                "🔍 AuthContext (localStorage) - /auth/me unavailable; keeping cached session"
+              );
+              setUser(cachedUser);
+            } else {
+              // No usable cached session — clear the stale data.
+              clearStoredSession();
+            }
           } catch (error) {
             console.error("Error verifying localStorage token:", error);
-            // Clear invalid stored data
-            localStorage.removeItem("currentUser");
-            localStorage.removeItem("authToken");
-            localStorage.removeItem("refreshToken");
-            localStorage.removeItem("userCategory");
-            sessionStorage.removeItem("currentUser");
-            sessionStorage.removeItem("authToken");
-            sessionStorage.removeItem("refreshToken");
-            sessionStorage.removeItem("userCategory");
+            if (cachedUser) {
+              // Unexpected error — preserve the session from cache instead of
+              // wiping a token the backend will validate on the next call.
+              setUser(cachedUser);
+            } else {
+              // No usable cached session — clear the stale data.
+              clearStoredSession();
+            }
           }
         }
       }

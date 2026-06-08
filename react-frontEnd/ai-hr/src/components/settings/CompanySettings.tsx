@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Save, X, Edit3, Building2 } from "lucide-react";
+import { Save, X, Edit3, Building2, Sparkles, Loader2 } from "lucide-react";
+import { langGraphService } from "@/services/langGraphService";
+import { toast } from "@/utils/toast";
 
 interface CompanyData {
   name: string;
@@ -24,6 +26,8 @@ export function CompanySettings({
   const [isEditing, setIsEditing] = useState(false);
   const [tempData, setTempData] = useState<CompanyData>(companyData);
   const [hasChanges, setHasChanges] = useState(false);
+  const [isResearching, setIsResearching] = useState(false);
+  const [researchReport, setResearchReport] = useState<string | null>(null);
 
   useEffect(() => {
     setTempData(companyData);
@@ -62,6 +66,43 @@ export function CompanySettings({
     setIsEditing(false);
     setHasChanges(false);
   };
+
+  // Run the business_context_analyzer graph to research the company from its
+  // name + website. Slow (~1-3 min: web search + multi-step research).
+  const handleResearchCompany = async () => {
+    const name = (isEditing ? tempData.name : companyData.name)?.trim();
+    const website = (isEditing ? tempData.website : companyData.website)?.trim() || "";
+
+    if (!name) {
+      toast.error("Add a company name first to run AI research.");
+      return;
+    }
+
+    setIsResearching(true);
+    setResearchReport(null);
+    try {
+      const report = await langGraphService.analyzeBusinessContext(
+        name,
+        website,
+        "en-US"
+      );
+      if (report) {
+        setResearchReport(report);
+        toast.success("Company research report ready.");
+      }
+      // On failure the request layer already surfaced a toast.
+    } catch (error) {
+      console.error("Company research failed:", error);
+      toast.error(
+        "Couldn't research the company right now. Please try again."
+      );
+    } finally {
+      setIsResearching(false);
+    }
+  };
+
+  const researchDisabled =
+    isResearching || !(isEditing ? tempData.name : companyData.name)?.trim();
 
   return (
     <div className="space-y-6">
@@ -255,6 +296,55 @@ export function CompanySettings({
                     Save Changes
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* AI Company Research (business_context_analyzer graph) */}
+        <div className="bg-white p-6 rounded-lg border border-gray-200 shadow-sm mt-6">
+          <div className="flex items-start justify-between mb-4 gap-4">
+            <div>
+              <h4 className="font-semibold text-gray-900 flex items-center">
+                <Sparkles className="h-4 w-4 mr-2 text-[#066046]" />
+                AI Company Research
+              </h4>
+              <p className="text-sm text-gray-600 mt-1">
+                Generate an AI research report on your company from its name and
+                website. This can take 1–3 minutes.
+              </p>
+            </div>
+            <button
+              onClick={handleResearchCompany}
+              disabled={researchDisabled}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-[#066046] hover:bg-[#267a54] disabled:bg-gray-400 disabled:cursor-not-allowed rounded-lg transition-colors whitespace-nowrap"
+            >
+              {isResearching ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Researching…
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Research company
+                </>
+              )}
+            </button>
+          </div>
+
+          {isResearching && (
+            <div className="text-sm text-gray-500">
+              Researching {companyData.name || "your company"}… the AI is
+              gathering and analyzing public information. Please keep this page
+              open.
+            </div>
+          )}
+
+          {researchReport && !isResearching && (
+            <div className="mt-2 rounded-lg border border-[#066046]/20 bg-[#066046]/5 p-4">
+              <div className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed max-h-[480px] overflow-y-auto">
+                {researchReport}
               </div>
             </div>
           )}

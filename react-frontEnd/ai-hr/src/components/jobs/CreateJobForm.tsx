@@ -10,6 +10,7 @@ import { RequirementsStep } from "./CreateJobForm/RequirementsStep";
 import { ApplicationSettingsStep } from "./CreateJobForm/ApplicationSettingsStep";
 import { PreviewStep } from "./CreateJobForm/PreviewStep";
 import { jobApi } from "@/services/api";
+import { langGraphService } from "@/services/langGraphService";
 import { useAuth } from "@/contexts/AuthContext";
 import { jobService } from "@/services/jobService";
 import {
@@ -89,6 +90,7 @@ export function CreateJobForm() {
   const [formData, setFormData] = useState<JobFormData>(initialFormData);
   const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
+  const [aiGeneratedDescription, setAiGeneratedDescription] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [companyName, setCompanyName] = useState("");
@@ -153,25 +155,51 @@ export function CreateJobForm() {
   };
 
   const handleGenerateDescription = async () => {
+    if (!formData.title) {
+      toast.error("Please enter a job title before generating a description.");
+      return;
+    }
+
     setIsGeneratingDescription(true);
-    // Simulate AI generation - replace with actual API call
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+      // Summarise what the form knows about working conditions for the graph.
+      const workingConditions = [
+        formData.type,
+        formData.locationType,
+        [formData.city, formData.country].filter(Boolean).join(", "),
+      ]
+        .filter(Boolean)
+        .join(" • ");
 
-    const generatedDescription = `We are seeking a talented ${
-      formData.title
-    } to join our team. In this ${formData.type.toLowerCase()} position, you will play a crucial role in driving our company's success through innovative solutions and collaborative teamwork.
+      // Map the form into the JSON the job_description_generator graph expects.
+      // Fields the form doesn't collect yet fall back to ""/[] (the graph handles
+      // sparse input and enriches via search).
+      const jd = await langGraphService.generateJobDescription({
+        company_name: formData.company || companyName || "",
+        company_description: "",
+        job_title: formData.title,
+        required_experience: formData.experience || "",
+        required_technical_skills: formData.skills ?? [],
+        soft_skills: [],
+        working_conditions: workingConditions,
+        education_requirements: "",
+        key_responsibilities: formData.responsibilities ?? [],
+      });
 
-Key Responsibilities:
-• Lead and execute strategic initiatives aligned with business objectives
-• Collaborate with cross-functional teams to deliver high-quality results
-• Mentor junior team members and contribute to their professional development
-• Stay current with industry trends and best practices
-• Participate in project planning and execution phases
-
-We offer a dynamic work environment where creativity and innovation are valued, along with opportunities for professional growth and development.`;
-
-    updateFormData({ description: generatedDescription });
-    setIsGeneratingDescription(false);
+      if (jd) {
+        updateFormData({ description: jd });
+        setAiGeneratedDescription(true);
+        toast.success("AI-generated job description ready. Feel free to edit it.");
+      }
+      // On failure the request layer already surfaced a toast; leave the field editable.
+    } catch (error) {
+      console.error("JD generation failed:", error);
+      toast.error(
+        "Couldn't generate a description right now. Please try again or write one manually."
+      );
+    } finally {
+      setIsGeneratingDescription(false);
+    }
   };
 
   const handleSaveDraft = async () => {
@@ -204,7 +232,7 @@ We offer a dynamic work environment where creativity and innovation are valued, 
         user.companyId, // Use logged-in user's company ID
         user.id, // Use logged-in user's ID
         "Draft", // Set status as draft
-        false // Not AI generated (unless description was AI generated)
+        aiGeneratedDescription // True when the description came from the AI generator
       );
 
       const response = await jobApi.createJob(jobRequest);
@@ -277,7 +305,7 @@ We offer a dynamic work environment where creativity and innovation are valued, 
         user.companyId, // Use logged-in user's company ID
         user.id, // Use logged-in user's ID
         "Active", // Set status as open/published
-        false // Not AI generated (unless description was AI generated)
+        aiGeneratedDescription // True when the description came from the AI generator
       );
 
       const response = await jobApi.createJob(jobRequest);

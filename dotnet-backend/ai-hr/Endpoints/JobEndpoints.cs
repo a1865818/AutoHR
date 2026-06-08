@@ -143,7 +143,8 @@ public static class JobEndpoints
             .WithTags("Jobs")
             .WithName("GetJobs")
             .WithSummary("List all jobs")
-            .WithDescription("Gets a list of all jobs with optional filtering by status and company");
+            .WithDescription("Gets a list of all jobs with optional filtering by status and company")
+            .RequireAuthorization();
 
         app.MapPut("/jobs/{id}", UpdateJob)
             .WithTags("Jobs")
