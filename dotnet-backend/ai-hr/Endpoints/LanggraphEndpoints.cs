@@ -135,17 +135,19 @@ public static class LanggraphEndpoints
     {
         try
         {
+            if (string.IsNullOrWhiteSpace(threadId))
+                return Results.BadRequest(new { error = "threadId is required" });
             if (string.IsNullOrWhiteSpace(request?.AssistantId))
                 return Results.BadRequest(new { error = "assistantId is required" });
 
-            // Note: a fresh thread is created internally by the service for each run so that long,
-            // synchronous graphs run cleanly; the threadId route param is accepted for API compatibility.
+            // Run against the thread named in the route so its checkpoints / conversation
+            // state are preserved, honouring the stateful run/wait API contract.
             object? input = request.Input.HasValue
                 ? JToken.Parse(request.Input.Value.GetRawText())
                 : null;
 
-            var result = await langGraph.CreateRunAndWaitAsync(
-                request.AssistantId!, input ?? new JObject(), request.RecursionLimit);
+            var result = await langGraph.CreateRunAndWaitOnThreadAsync(
+                threadId, request.AssistantId!, input ?? new JObject(), request.RecursionLimit);
 
             return Results.Ok(result);
         }

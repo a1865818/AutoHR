@@ -30,6 +30,11 @@ public interface ILangGraphService
     /// block until it finishes and return the final state as JSON.</summary>
     Task<JObject> CreateRunAndWaitAsync(string assistantId, object input, int recursionLimit = 200, CancellationToken ct = default);
 
+    /// <summary>Start a run for <paramref name="assistantId"/> on the supplied <paramref name="threadId"/>,
+    /// preserving that thread's checkpoints/conversation state, block until it finishes and return the
+    /// final state as JSON.</summary>
+    Task<JObject> CreateRunAndWaitOnThreadAsync(string threadId, string assistantId, object input, int recursionLimit = 200, CancellationToken ct = default);
+
     // ---- Per-graph feature methods ----
     Task<string> GenerateJobDescriptionAsync(string inputString, int recursionLimit = 200, CancellationToken ct = default);
     Task<string> AnalyzeBusinessContextAsync(BusinessContextRequest request, CancellationToken ct = default);
@@ -128,7 +133,8 @@ public class LangGraphService : ILangGraphService
     public async Task<string> CreateThreadAsync(CancellationToken ct = default)
     {
         var baseUrl = GetBaseUrl();
-        return await CreateThreadInternalAsync(baseUrl, ct);
+        // Return the full thread JSON (including thread_id) so the endpoint can parse it.
+        return await PostThreadAsync(baseUrl, ct);
     }
 
     public async Task<JObject> CreateRunAndWaitAsync(string assistantId, object input, int recursionLimit = 200, CancellationToken ct = default)
@@ -137,8 +143,25 @@ public class LangGraphService : ILangGraphService
             throw new LangGraphException("Assistant ID is required");
 
         var baseUrl = GetBaseUrl();
-        var threadId = await CreateThreadInternalRawAsync(baseUrl, ct);
+        var threadId = await CreateThreadIdAsync(baseUrl, ct);
+        return await RunOnThreadAsync(baseUrl, threadId, assistantId, input, recursionLimit, ct);
+    }
 
+    public async Task<JObject> CreateRunAndWaitOnThreadAsync(string threadId, string assistantId, object input, int recursionLimit = 200, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(threadId))
+            throw new LangGraphException("Thread ID is required");
+        if (string.IsNullOrWhiteSpace(assistantId))
+            throw new LangGraphException("Assistant ID is required");
+
+        var baseUrl = GetBaseUrl();
+        return await RunOnThreadAsync(baseUrl, threadId, assistantId, input, recursionLimit, ct);
+    }
+
+    /// <summary>Start a run for <paramref name="assistantId"/> on an existing thread, block until it
+    /// finishes and return the final state, surfacing graph-level errors as <see cref="LangGraphException"/>.</summary>
+    private async Task<JObject> RunOnThreadAsync(string baseUrl, string threadId, string assistantId, object input, int recursionLimit, CancellationToken ct)
+    {
         var options = new
         {
             assistant_id = assistantId,
@@ -170,13 +193,8 @@ public class LangGraphService : ILangGraphService
         return json;
     }
 
-    private async Task<string> CreateThreadInternalAsync(string baseUrl, CancellationToken ct)
-    {
-        var threadId = await CreateThreadInternalRawAsync(baseUrl, ct);
-        return threadId;
-    }
-
-    private async Task<string> CreateThreadInternalRawAsync(string baseUrl, CancellationToken ct)
+    /// <summary>POST /threads and return the raw thread JSON response body.</summary>
+    private async Task<string> PostThreadAsync(string baseUrl, CancellationToken ct)
     {
         // Generous TTL so long-running graphs (resume_ranker) are never swept mid-run.
         var options = new
@@ -185,8 +203,13 @@ public class LangGraphService : ILangGraphService
             ttl = new { strategy = "delete", ttl = 120 }
         };
         var body = JsonConvert.SerializeObject(options, SerializerSettings);
+        return await SendAsync(HttpMethod.Post, $"{baseUrl}/threads", body, ct);
+    }
 
-        var responseBody = await SendAsync(HttpMethod.Post, $"{baseUrl}/threads", body, ct);
+    /// <summary>Create a thread and return its parsed thread_id.</summary>
+    private async Task<string> CreateThreadIdAsync(string baseUrl, CancellationToken ct)
+    {
+        var responseBody = await PostThreadAsync(baseUrl, ct);
         var threadId = JObject.Parse(responseBody)["thread_id"]?.ToString();
         if (string.IsNullOrWhiteSpace(threadId))
             throw new LangGraphException("LangGraph did not return a thread_id");
