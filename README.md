@@ -1,4 +1,34 @@
-# AutoHR - AI-Powered HR Management System
+# AutoHR: AI-Powered Recruitment Platform
+
+> An end-to-end hiring platform. Applicants apply to a job, LLM agents analyse and rank them, and the hiring team runs them through configurable interview rounds (technical, culture-fit, and others) on a kanban pipeline with automated email.
+
+**Built by two people:** [Harry (Quang) Nguyen](https://github.com/QuangNguyen2609) and [Andrew (Tuan Minh) Nguyen](https://github.com/a1865818), May 2025 to June 2026.
+This repository is a portfolio copy of the original private repo. It is shared with Harry's permission and keeps the **full, unaltered commit history** of both authors.
+
+| | Stack |
+|---|---|
+| Frontend | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 4 |
+| API | .NET 9 minimal APIs, JWT + refresh tokens, Swagger |
+| Data | Supabase (PostgreSQL) |
+| AI | LangGraph agents (business-context analysis, JD generation, resume ranking) on OpenAI GPT models |
+| Integrations | Gmail API, Google Calendar |
+
+## Who built what
+
+| Area | Lead |
+|---|---|
+| LangGraph AI agents (`langgraph_server/`), platform architecture, auth/JWT foundation | Harry |
+| Hiring-team product: jobs, candidates, ranking, interview pipeline, assessments & grading, culture-fit rounds (`react-frontEnd/`, matching `dotnet-backend/` endpoints) | Andrew |
+
+- Andrew's detailed contributions, with commit links: [docs/CONTRIBUTIONS.md](docs/CONTRIBUTIONS.md)
+- Engineering case study: [docs/CASE_STUDY.md](docs/CASE_STUDY.md)
+- History check: `git shortlog -sn` (identities are consolidated through `.mailmap`)
+
+> Note: one OAuth token file (`dotnet-backend/ai-hr/GmailAuth/`) was removed from history before publishing. No other content or authorship was changed.
+
+---
+
+# Running locally
 
 ## 🚀 Quick Start (One Command)
 
