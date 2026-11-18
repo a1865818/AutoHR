@@ -24,7 +24,7 @@ This repository is a portfolio copy of the original private repo. It is shared w
 - Engineering case study: [docs/CASE_STUDY.md](docs/CASE_STUDY.md)
 - History check: `git shortlog -sn` (identities are consolidated through `.mailmap`)
 
-> Note: one OAuth token file (`dotnet-backend/ai-hr/GmailAuth/`) was removed from history before publishing. No other content or authorship was changed.
+> Note: before publishing, one OAuth token file (`dotnet-backend/ai-hr/GmailAuth/`) was removed from history and commit-message trailers were cleaned up. The authors of all commits are unchanged.
 
 ---
 
